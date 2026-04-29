@@ -1,174 +1,114 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, Activity, Target, Zap, Beaker, Dumbbell, HeartPulse } from 'lucide-react';
+import { ArrowUpRight, Activity, Target, Zap, Beaker, Dumbbell, HeartPulse, ShieldCheck } from 'lucide-react';
 
-/
- * ACADEMY_CONTENT: Arquitectura de datos para escalabilidad total.
- * Edita este array para añadir/eliminar categorías y subcategorías.
- */
 const ACADEMY_CONTENT = [
-  { 
-    id: 'deporte', 
-    title: 'ALTO RENDIMIENTO', 
-    subcategories: ['Fisiología del Esfuerzo', 'Bioenergética', 'Periodización'], 
-    icon: <Activity className="w-6 h-6" />, 
-    stats: '12 Cursos' 
-  },
-  { 
-    id: 'lesiones', 
-    title: 'LESIONES Y PATOLOGÍAS', 
-    subcategories: ['Readaptación', 'Prevención Activa', 'Biomecánica Clínica'], 
-    icon: <HeartPulse className="w-6 h-6" />, 
-    stats: '8 Cursos' 
-  },
-  { 
-    id: 'tecnificacion', 
-    title: 'TECNIFICACIÓN', 
-    subcategories: ['Análisis de Datos VBT', 'HRV Profiling', 'GPS Metrics'], 
-    icon: <Target className="w-6 h-6" />, 
-    stats: '15 Cursos' 
-  },
-  { 
-    id: 'entrenamiento', 
-    title: 'ENTRENAMIENTO PERSONAL', 
-    subcategories: ['Hipertrofia Ciencia', 'Fuerza Máxima', 'Programación'], 
-    icon: <Dumbbell className="w-6 h-6" />, 
-    stats: '22 Cursos' 
-  },
-  { 
-    id: 'nutricion', 
-    title: 'NUTRICIÓN Y SUPLEMENTACIÓN', 
-    subcategories: ['Nutrición Celular', 'Ergogenia Especializada', 'Microbiota'], 
-    icon: <Beaker className="w-6 h-6" />, 
-    stats: '10 Cursos' 
-  }
+  { id: '01', category: 'DEPORTE', title: 'ALTO RENDIMIENTO', subs: ['Fisiología', 'Bioenergética'], icon: <Activity />, color: 'shadow-orange-600/20' },
+  { id: '02', category: 'LESIONES', title: 'TRAUMATOLOGÍA', subs: ['Readaptación', 'Prevención'], icon: <HeartPulse />, color: 'shadow-red-600/10' },
+  { id: '03', category: 'DATA', title: 'TECNIFICACIÓN', subs: ['VBT', 'GPS Metrics'], icon: <Target />, color: 'shadow-blue-600/10' },
+  { id: '04', category: 'FUERZA', title: 'ENTRENAMIENTO', subs: ['Hipertrofia', 'Programación'], icon: <Dumbbell />, color: 'shadow-emerald-600/10' },
+  { id: '05', category: 'BIO', title: 'NUTRICIÓN', subs: ['Suplementación', 'Celular'], icon: <Beaker />, color: 'shadow-purple-600/10' }
 ];
 
 export const LandingSection = ({ onJoin }: { onJoin: () => void }) => {
   return (
-    <div className="min-h-screen bg-[#121415] text-white font-['Space_Grotesk'] selection:bg-[#FF5F00] selection:text-black">
+    <div className="min-h-screen bg-[#0a0b0c] text-white font-['Space_Grotesk'] overflow-hidden">
       
-      {/* HERO SECTION - INDUSTRIAL POWER */}
-      <section className="relative pt-32 pb-20 px-6 overflow-hidden border-b border-zinc-800/50">
-        <div className="absolute top-0 left-0 w-full h-full opacity-[0.03] pointer-events-none">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-        </div>
+      {/* BACKGROUND TECH GRID */}
+      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none" 
+           style={{ backgroundImage: 'radial-gradient(#FF5F00 0.5px, transparent 0.5px)', backgroundSize: '30px 30px' }} />
 
-        <div className="max-w-7xl mx-auto relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }} 
-            animate={{ opacity: 1, x: 0 }}
-            className="inline-flex items-center gap-2 px-3 py-1 border border-orange-600/30 bg-orange-600/5 mb-8"
+      {/* HERO SECTION */}
+      <section className="relative pt-40 pb-20 px-6 max-w-7xl mx-auto z-10">
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 mb-10">
+          <div className="h-[2px] w-12 bg-orange-600" />
+          <span className="text-orange-600 font-black tracking-[0.5em] text-[10px] uppercase">GHC ACADEMY V.2.04</span>
+        </motion.div>
+
+        <motion.h1 
+          initial={{ opacity: 0, y: 30 }} 
+          animate={{ opacity: 1, y: 0 }}
+          className="text-[12vw] lg:text-[9rem] font-black italic leading-[0.8] uppercase tracking-tighter mb-16"
+        >
+          SPORT <br />
+          <span className="text-transparent stroke-text opacity-40">THROUGH</span> <br />
+          <span className="text-orange-600">SCIENCE</span>
+        </motion.h1>
+
+        <div className="flex flex-col md:flex-row gap-12 items-start md:items-center">
+          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm max-w-md border-l-2 border-orange-600 pl-6">
+            Optimización biomecánica y fisiológica de élite impulsada por datos. Ingenieria humana para el siglo XXI.
+          </p>
+          <button 
+            onClick={onJoin}
+            className="bg-orange-600 text-black px-12 py-6 font-black uppercase text-xs tracking-[0.3em] hover:bg-white hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,95,0,0.3)] flex items-center gap-4"
           >
-            <Zap className="w-3 h-3 text-[#FF5F00]" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#FF5F00]">SISTEMA V.2.04 ACTIVADO</span>
-          </motion.div>
-
-          <motion.h1 
-            initial={{ opacity: 0, y: 30 }} 
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="text-6xl md:text-9xl font-black italic tracking-tighter uppercase leading-[0.85] mb-12"
-          >
-            LLEVA TU <br />
-            <span className="text-transparent stroke-text">RENDIMIENTO</span> <br />
-            AL <span className="text-[#FF5F00]">LÍMITE</span>
-          </motion.h1>
-
-          <div className="grid md:grid-cols-2 gap-12 items-end">
-            <motion.p 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-zinc-400 text-lg md:text-xl max-w-xl leading-relaxed font-medium"
-            >
-              No es entrenamiento, es ingeniería humana. Implementamos protocolos científicos de élite para transformar datos en poder real. Bienvenido a la nueva era del deporte.
-            </motion.p>
-
-            <div className="flex flex-wrap gap-4">
-              <button 
-                onClick={onJoin}
-                className="group relative px-10 py-5 bg-[#FF5F00] text-black font-black uppercase text-sm tracking-widest overflow-hidden transition-all hover:shadow-[0_0_40px_rgba(255,95,0,0.4)] active:scale-95"
-              >
-                <span className="relative z-10 flex items-center gap-2">
-                  INICIAR PROTOCOLO <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                </span>
-              </button>
-              <button className="px-10 py-5 border border-zinc-800 hover:border-zinc-600 font-black uppercase text-sm tracking-widest transition-all">
-                VER CATÁLOGO
-              </button>
-            </div>
-          </div>
+            INICIAR PROTOCOLO <ArrowUpRight size={18} />
+          </button>
         </div>
       </section>
 
       {/* CATEGORIES GRID */}
-      <section className="py-24 px-6 max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
-          <div>
-            <span className="text-[#FF5F00] font-bold text-[10px] tracking-[0.5em] uppercase mb-4 block">ESPECIALIZACIONES</span>
-            <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter">EXPLORA EL <span className="text-zinc-500">LABORATORIO</span></h2>
-          </div>
-          <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest border-l-2 border-[#FF5F00] pl-6 max-w-xs">
-            Segmentación avanzada para profesionales del sector.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ACADEMY_CONTENT.map((category, idx) => (
+      <section className="py-20 px-6 max-w-7xl mx-auto z-10 relative">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 mb-1 bg-zinc-900/30 border border-zinc-800">
+          {ACADEMY_CONTENT.map((item, i) => (
             <motion.div 
-              key={category.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              viewport={{ once: true }}
-              className="group relative bg-[#1a1c1d] border border-zinc-800 p-8 hover:border-[#FF5F00]/50 transition-all duration-500 cursor-pointer overflow-hidden"
+              key={i}
+              whileHover={{ backgroundColor: 'rgba(255, 95, 0, 0.03)' }}
+              className={`group relative p-10 border border-zinc-800/50 cursor-pointer overflow-hidden transition-all ${item.color} hover:shadow-2xl`}
             >
-              <div className="absolute top-0 right-0 p-2 text-[8px] font-black text-zinc-800 opacity-0 group-hover:opacity-100 transition-opacity">
-                REF_{category.id.toUpperCase()}_04
-              </div>
-              
-              <div className="mb-8 p-4 bg-zinc-900 border border-zinc-800 text-[#FF5F00] w-fit group-hover:bg-[#FF5F00] group-hover:text-black transition-all duration-300">
-                {category.icon}
+              {/* TECHNICAL UI DECORATION */}
+              <div className="absolute top-0 right-0 p-4 font-black text-[8px] text-zinc-800 group-hover:text-orange-600/40">
+                //SYS_REF_{item.id}
               </div>
 
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-2xl font-black italic uppercase tracking-tighter leading-none group-hover:text-[#FF5F00] transition-colors">
-                  {category.title}
-                </h3>
-                <span className="text-[10px] font-black text-zinc-600 bg-zinc-950 px-2 py-1 rounded">
-                  {category.stats}
-                </span>
+              <div className="text-orange-600 mb-10 w-12 h-12 flex items-center justify-center border border-zinc-800 bg-zinc-950 group-hover:bg-orange-600 group-hover:text-black transition-all duration-500">
+                {React.cloneElement(item.icon as React.ReactElement, { size: 24 })}
               </div>
 
-              <div className="space-y-2 mb-8">
-                {category.subcategories.map((sub, sidx) => (
-                  <div key={sidx} className="flex items-center gap-2 text-[11px] font-bold text-zinc-500 uppercase tracking-tight">
-                    <div className="w-1 h-1 bg-zinc-700 group-hover:bg-[#FF5F00] transition-colors" />
-                    {sub}
+              <span className="text-orange-600/60 font-black text-[9px] tracking-[0.3em] mb-2 block tracking-widest uppercase">
+                {item.category}_SEC
+              </span>
+
+              <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-6 leading-none">
+                {item.title}
+              </h3>
+
+              <div className="space-y-2 mb-10">
+                {item.subs.map((sub, j) => (
+                  <div key={j} className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-tight">
+                    <div className="w-1 h-[1px] bg-zinc-700" /> {sub}
                   </div>
                 ))}
               </div>
 
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-600 group-hover:text-white transition-colors">
-                ACCEDER AL ÁREA <ArrowUpRight className="w-3 h-3" />
+              <div className="flex items-center gap-2 text-[9px] font-black uppercase text-zinc-700 group-hover:text-white transition-all">
+                ACCESS SYSTEM <ArrowUpRight size={12} />
               </div>
 
-              <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-[#FF5F00]/10 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity" />
+              {/* FLARE EFFECT */}
+              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-orange-600/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* CALL TO ACTION */}
-      <section className="py-20 px-6">
-        <div className="max-w-7xl mx-auto relative overflow-hidden bg-zinc-950 border border-zinc-800 p-12 md:p-24 text-center">
-          <div className="relative z-10">
-            <h2 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter mb-8 leading-none">
-              ÚNETE A LA <br />
-              <span className="text-[#FF5F00]">ÉLITE DEPORTIVA</span>
-            </h2>
-            <button 
-              onClick={onJoin}
-              className="bg-white hover:bg-[#FF5F00] text-black px-12 py-5 text-sm font-black uppercase tracking-widest transition-all hover:shadow-[0_0_50px_rgba(255,95,0,0.3)] active:scale-95"
-            >
+      {/* FOOTER CALL */}
+      <section className="py-20 text-center border-t border-zinc-900 bg-zinc-950/50">
+        <h2 className="text-4xl font-black italic uppercase tracking-tighter text-zinc-800 mb-8">LABORATORY LOG ACCESS</h2>
+        <button className="text-zinc-500 hover:text-white font-black uppercase text-[10px] tracking-[0.5em] transition-all">
+          TERMS & CONDITIONS // PRIVACY_POLICY
+        </button>
+      </section>
+
+      <style jsx global>{`
+        .stroke-text {
+          -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.4);
+        }
+        @media (max-width: 768px) {
+          .stroke-text { -webkit-text-stroke: 1px rgba(255, 255, 255, 0.2); }
+        }
+      `}</style>
+    </div>
+  );
+};
