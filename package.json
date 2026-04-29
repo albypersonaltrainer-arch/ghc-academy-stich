@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -12,6 +12,10 @@
     "next": "14.2.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "lucide-react": "latest"
+    "lucide-react": "latest",
+    "@prisma/client": "latest"
+  },
+  "devDependencies": {
+    "prisma": "latest"
   }
 }
