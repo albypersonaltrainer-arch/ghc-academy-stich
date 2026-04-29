@@ -1,0 +1,85 @@
+// schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  STUDENT
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  enrollments   Enrollment[]
+  transactions  Transaction[]
+  examAttempts  ExamAttempt[]
+  affiliateCode String?   @unique // Código único si el usuario es un comercial
+  referredBy    String?   // ID del afiliado que lo recomendó (tracking)
+}
+
+model Course {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  price       Float
+  level       Int      // 1: Fundamentos, 2: Avanzado, 3: Elite
+  modules     Module[]
+}
+
+model Module {
+  id       String @id @default(uuid())
+  title    String
+  order    Int    // Crucial para la lógica de gating (1, 2, 3...)
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id])
+  content  Json   // { videoUrl: string, pdfUrl: string, text: string }
+  exam     Exam?
+}
+
+model Exam {
+  id        String @id @default(uuid())
+  moduleId  String @unique
+  module    Module @relation(fields: [moduleId], references: [id])
+  questions Json   // Array de preguntas { q: string, options: [], correct: int }
+  minScore  Float  @default(0.7) // 70% para aprobar
+}
+
+model Enrollment {
+  id        String @id @default(uuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  courseId  String
+  progress  Float  @default(0)
+  completed Boolean @default(false)
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  amount      Float
+  status      String   // PENDING, COMPLETED, FAILED
+  provider    String   // SUMUP, STRIPE, PAYPAL
+  affiliateId String?  // Atribución de comisión
+  createdAt   DateTime @default(now())
+}
+
+model ExamAttempt {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  examId    String
+  score     Float
+  passed    Boolean
+  createdAt DateTime @default(now())
+}
