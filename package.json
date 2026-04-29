@@ -1,52 +1,38 @@
-web application/stitch/projects/18408418472099523132/screens/f938f58ff5744d709b27c37984d2246c
-/* 
-   ESTRATEGIA SINGLE PAGE (SPA) PARA EVITAR PANTALLAS EN BLANCO 
-   Este componente maestro gestiona la visibilidad mediante estados de React
-   y clases de Tailwind CSS (hidden/block).
-*/
-
-import React, { useState, useEffect } from 'react';
-import { LandingView } from './sections/Landing';
-import { DashboardView } from './sections/Dashboard';
-import { AdminView } from './sections/Admin';
-import { Loader } from './common/Loader';
-
-export default function MainApp({ initialRole = 'PUBLIC' }) {
-  const [currentView, setCurrentView] = useState(initialRole); // PUBLIC, STUDENT, ADMIN
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulación de carga inicial para evitar flash de contenido
-    setTimeout(() => setIsLoading(false), 500);
-  }, []);
-
-  if (isLoading) return <Loader />;
-
-  return (
-    <main className="min-h-screen bg-[#121415] text-white font-['Space_Grotesk']">
-      
-      {/* SECCIÓN PÚBLICA (Landing/Tienda) */}
-      <section className={currentView === 'PUBLIC' ? 'block animate-fade-in' : 'hidden'}>
-        <LandingView onLogin={() => setCurrentView('STUDENT')} />
-      </section>
-
-      {/* PORTAL ALUMNO (Dashboard) */}
-      <section className={currentView === 'STUDENT' ? 'block animate-fade-in' : 'hidden'}>
-        <DashboardView onLogout={() => setCurrentView('PUBLIC')} />
-      </section>
-
-      {/* PANEL ADMIN (Oculto) */}
-      <section className={currentView === 'ADMIN' ? 'block animate-fade-in' : 'hidden'}>
-        <AdminView onExit={() => setCurrentView('PUBLIC')} />
-      </section>
-
-    </main>
-  );
+{
+  "name": "ghc-academy-stitch2",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "seed-db": "ts-node scripts/seed-db.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.0.0",
+    "@supabase/auth-helpers-nextjs": "^0.7.0",
+    "@supabase/supabase-js": "^2.26.0",
+    "framer-motion": "^10.12.0",
+    "lucide-react": "^0.263.0",
+    "next": "13.4.12",
+    "next-intl": "^2.19.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "tailwind-merge": "^1.14.0",
+    "sumup-sdk": "^1.0.0",
+    "clsx": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.4.5",
+    "@types/react": "18.2.17",
+    "@types/react-dom": "18.2.7",
+    "autoprefixer": "10.4.14",
+    "postcss": "8.4.27",
+    "prisma": "^5.0.0",
+    "tailwindcss": "3.3.3",
+    "typescript": "5.1.6",
+    "ts-node": "^10.9.1"
+  }
 }
-
-/* 
-   NOTAS TÉCNICAS:
-   1. Se usa condicional de clases (block/hidden) para que el DOM esté siempre listo.
-   2. El middleware de Next.js debe manejar el acceso a /admin antes de llegar aquí.
-   3. Los assets son precargados para una transición instantánea.
-*/
