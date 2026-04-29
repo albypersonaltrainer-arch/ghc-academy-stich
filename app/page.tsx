@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Importaciones de tus piezas premium
+// Importaciones con rutas relativas infalibles
 import { AIChatWidget } from '../components/common/AIChatWidget';
 import { Navbar } from '../components/common/Navbar';
 import { Footer } from '../components/common/Footer';
@@ -11,12 +11,13 @@ import { DashboardSection } from '../components/sections/Dashboard';
 import { AdminSection } from '../components/sections/Admin';
 
 export default function HomePage() {
-  // CONFIGURACIÓN INICIAL: Arranca en la Tienda Pública
+  // Estado inicial en PUBLIC
   const [currentView, setCurrentView] = useState('PUBLIC');
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Evitar parpadeos de carga
+  // EFECTO DE ARRANQUE: Fuerza la vista pública al montar el componente
   useEffect(() => {
+    setCurrentView('PUBLIC');
     setIsLoaded(true);
   }, []);
 
@@ -25,17 +26,17 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#121415] text-zinc-100 font-sans selection:bg-orange-600 overflow-x-hidden">
       
-      {/* MENÚ DE NAVEGACIÓN (Cambia el estado de la vista) */}
+      {/* NAVBAR */}
       <Navbar view={currentView} setView={setCurrentView} slogan="SPORT THROUGH SCIENCE" />
 
-      {/* CORE DE LA ACADEMIA: Transiciones entre secciones */}
+      {/* SISTEMA DE NAVEGACIÓN SPA */}
       <main className="relative">
         <AnimatePresence mode="wait">
           
-          {/* 1. MUESTRA LA TIENDA Y LANDING POR DEFECTO */}
+          {/* TIENDA / LANDING */}
           {currentView === 'PUBLIC' && (
             <motion.div
-              key="public"
+              key="landing"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -45,10 +46,10 @@ export default function HomePage() {
             </motion.div>
           )}
 
-          {/* 2. PORTAL DEL ALUMNO (Se activa al comprar o entrar) */}
+          {/* PORTAL ESTUDIANTE */}
           {currentView === 'STUDENT' && (
             <motion.div
-              key="student"
+              key="dashboard"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -58,10 +59,10 @@ export default function HomePage() {
             </motion.div>
           )}
 
-          {/* 3. PANEL DE ADMINISTRACIÓN (Acceso de control) */}
+          {/* PANEL ADMIN */}
           {currentView === 'ADMIN' && (
             <motion.div
-              key="admin"
+              key="admin-panel"
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.02 }}
@@ -74,20 +75,15 @@ export default function HomePage() {
         </AnimatePresence>
       </main>
 
-      {/* PIE DE PÁGINA */}
       <Footer slogan="SPORT THROUGH SCIENCE" />
-
-      {/* ASISTENTE INTELIGENTE STITCH 2.0 */}
       <AIChatWidget />
 
       <style jsx global>{`
-        body { 
-          background-color: #121415; 
-          margin: 0; 
-          -webkit-font-smoothing: antialiased;
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        body { background-color: #121415; margin: 0; }
       `}</style>
     </div>
   );
 }
+
+// VERSION_FORCE_REDEPLOY_001_STORE_ACTIVE
+// Esta línea final con espacios fuerza a Vercel a reconstruir todo el sitio.
