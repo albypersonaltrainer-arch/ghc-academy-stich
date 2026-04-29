@@ -1,0 +1,52 @@
+web application/stitch/projects/18408418472099523132/screens/f938f58ff5744d709b27c37984d2246c
+/* 
+   ESTRATEGIA SINGLE PAGE (SPA) PARA EVITAR PANTALLAS EN BLANCO 
+   Este componente maestro gestiona la visibilidad mediante estados de React
+   y clases de Tailwind CSS (hidden/block).
+*/
+
+import React, { useState, useEffect } from 'react';
+import { LandingView } from './sections/Landing';
+import { DashboardView } from './sections/Dashboard';
+import { AdminView } from './sections/Admin';
+import { Loader } from './common/Loader';
+
+export default function MainApp({ initialRole = 'PUBLIC' }) {
+  const [currentView, setCurrentView] = useState(initialRole); // PUBLIC, STUDENT, ADMIN
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulación de carga inicial para evitar flash de contenido
+    setTimeout(() => setIsLoading(false), 500);
+  }, []);
+
+  if (isLoading) return <Loader />;
+
+  return (
+    <main className="min-h-screen bg-[#121415] text-white font-['Space_Grotesk']">
+      
+      {/* SECCIÓN PÚBLICA (Landing/Tienda) */}
+      <section className={currentView === 'PUBLIC' ? 'block animate-fade-in' : 'hidden'}>
+        <LandingView onLogin={() => setCurrentView('STUDENT')} />
+      </section>
+
+      {/* PORTAL ALUMNO (Dashboard) */}
+      <section className={currentView === 'STUDENT' ? 'block animate-fade-in' : 'hidden'}>
+        <DashboardView onLogout={() => setCurrentView('PUBLIC')} />
+      </section>
+
+      {/* PANEL ADMIN (Oculto) */}
+      <section className={currentView === 'ADMIN' ? 'block animate-fade-in' : 'hidden'}>
+        <AdminView onExit={() => setCurrentView('PUBLIC')} />
+      </section>
+
+    </main>
+  );
+}
+
+/* 
+   NOTAS TÉCNICAS:
+   1. Se usa condicional de clases (block/hidden) para que el DOM esté siempre listo.
+   2. El middleware de Next.js debe manejar el acceso a /admin antes de llegar aquí.
+   3. Los assets son precargados para una transición instantánea.
+*/
