@@ -15,6 +15,7 @@
     "lucide-react": "latest",
     "@prisma/client": "latest",
     "next-intl": "latest",
+    "framer-motion": "latest",
     "clsx": "latest",
     "tailwind-merge": "latest"
   },
