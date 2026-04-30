@@ -1,116 +1,84 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  /* Brand Color Variable - Cyber-Mint (#00FF41) */
-  --brand-color: #00FF41;
-  --brand-color-rgb: 0, 255, 65;
-  --background: #121415;
-  --foreground: #ffffff;
-  --surface: #1A1D1E;
-  --surface-bright: #2A2D2F;
-  --dot-color: rgba(0, 255, 65, 0.08);
-  --selection-bg: rgba(0, 255, 65, 0.3);
-}
-
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: 'Space Grotesk', sans-serif;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-}
-
-::selection {
-  background: var(--selection-bg);
-  color: white;
-}
-
-/* Patrón de Rejilla Industrial (Laboratory Mesh) */
-.dot-grid {
-  background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
-  background-size: 30px 30px;
-  background-attachment: fixed;
-}
-
-/* Utilidades de Neón */
-.neon-text {
-  color: var(--brand-color);
-  text-shadow: 0 0 12px rgba(var(--brand-color-rgb), 0.6);
-}
-
-.neon-border {
-  border: 1px solid var(--brand-color);
-  box-shadow: 0 0 20px rgba(var(--brand-color-rgb), 0.15), inset 0 0 10px rgba(var(--brand-color-rgb), 0.05);
-}
-
-.neon-glow-bg {
-  background-color: var(--brand-color);
-  box-shadow: 0 0 30px rgba(var(--brand-color-rgb), 0.4);
-}
-
-/* Sistema Bento Grid */
-.bento-card {
-  background: rgba(26, 29, 30, 0.6);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.bento-card:hover {
-  border-color: var(--brand-color);
-  transform: translateY(-5px) scale(1.01);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-  z-index: 10;
-}
-
-/* Contenedores de Media Seguros */
-.video-container {
-  position: relative;
-  overflow: hidden;
-  background: black;
-  border-radius: 4px;
-}
-
-.dynamic-watermark {
-  position: absolute;
-  top: 15%;
-  left: 10%;
-  pointer-events: none;
-  opacity: 0.1;
-  color: white;
-  font-size: 0.75rem;
-  z-index: 50;
-  user-select: none;
-  white-space: nowrap;
-  font-weight: 300;
-  letter-spacing: 0.1em;
-}
-
-.podcast-player {
-  background: var(--surface);
-  border-left: 4px solid var(--brand-color);
-  padding: 1.5rem;
-}
-
-/* Scrollbar Personalizada Estilo Industrial */
-::-webkit-scrollbar {
-  width: 5px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--surface-bright);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--brand-color);
-}
+/**
+ * ACADEMY_CONFIG.ts
+ * Configuración Centralizada para GHC Academy STITCH 2.0
+ */
+export const ACADEMY_CONFIG = {
+  brand: {
+    name: "GHC ACADEMY",
+    slogan: "SPORT THROUGH SCIENCE",
+    primaryColor: "var(--brand-color)", 
+  },
+  i18n: {
+    defaultLocale: "es",
+    locales: ["es", "en"],
+    translations: {
+      es: {
+        heroTitle: "EL DEPORTE A TRAVÉS DE LA CIENCIA",
+        heroSub: "Protocolos avanzados de integración biológica para la optimización humana.",
+        explore: "EXPLORAR PROTOCOLOS",
+        portalLogin: "ACCESO PORTAL",
+        categories: {
+          elite: "Deporte Élite",
+          lesions: "Lesiones / Patologías",
+          tech: "Tecnificación / Datos",
+          personal: "Entrenamiento Personal",
+          nutrition: "Nutrición / Salud"
+        }
+      },
+      en: {
+        heroTitle: "SPORT THROUGH SCIENCE",
+        heroSub: "Advanced biological integration protocols for human optimization.",
+        explore: "EXPLORE PROTOCOLS",
+        portalLogin: "PORTAL ACCESS",
+        categories: {
+          elite: "Elite Sport",
+          lesions: "Injuries / Pathologies",
+          tech: "Data & Technique",
+          personal: "Personal Training",
+          nutrition: "Nutrition / Health"
+        }
+      }
+    }
+  },
+  taxonomy: [
+    {
+      id: "cat_01",
+      slug: "deporte-elite",
+      name: "Deporte Élite",
+      subgroups: [
+        {
+          id: "sub_01_01",
+          name: "Alto Rendimiento",
+          courses: [
+            { id: "c_01", title: "Optimización Biomecánica", type: "VIDEO", price: 299, duration: "45:00" },
+            { id: "c_02", title: "Neuro-fisiología del Esfuerzo", type: "AUDIO", price: 150, duration: "12:30" }
+          ]
+        }
+      ]
+    },
+    {
+      id: "cat_05",
+      slug: "nutricion-salud",
+      name: "Nutrición / Salud",
+      subgroups: [
+        {
+          id: "sub_05_01",
+          name: "Farmacología",
+          courses: [
+            { id: "c_03", title: "Ciclos y Rendimiento", type: "DOCUMENT", price: 450, pages: 120 },
+            { id: "c_04", title: "Suplementación Avanzada", type: "VIDEO", price: 199, duration: "60:00" }
+          ]
+        }
+      ]
+    }
+  ],
+  security: {
+    dynamicWatermark: true,
+    sessionLock: true,
+    secretAdminParam: "ghc_secure_access_2024",
+    contentProtection: {
+      disableRightClick: true,
+      preventCapture: true
+    }
+  }
+};
