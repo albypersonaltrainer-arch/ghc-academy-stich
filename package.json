@@ -1,32 +1,28 @@
 {
-  "name": "ghc-academy-stich",
+  "name": "ghc-academy",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
     "next": "14.2.3",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "lucide-react": "latest",
-    "@prisma/client": "latest",
-    "next-intl": "latest",
-    "framer-motion": "latest",
-    "clsx": "latest",
-    "tailwind-merge": "latest"
+    "react": "^18",
+    "react-dom": "^18",
+    "framer-motion": "^11.2.10",
+    "lucide-react": "^0.395.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
-    "prisma": "latest",
-    "typescript": "latest",
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "postcss": "^8.4.38",
-    "autoprefixer": "^10.4.19"
+    "typescript": "^5"
   }
 }
