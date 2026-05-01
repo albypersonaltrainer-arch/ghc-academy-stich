@@ -5,36 +5,41 @@
 @tailwind utilities;
 
 :root {
-  --brand-color: #00FF41 !important;
+  --brand-color: #00FF41;
   --brand-color-rgb: 0, 255, 65;
   --background: #121415;
   --foreground: #ffffff;
   --surface: #1A1D1E;
-  --dot-color: rgba(0, 255, 65, 0.08);
+  --dot-color: rgba(0, 255, 65, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background-color: var(--background) !important;
+  background-color: var(--background);
   color: var(--foreground);
   font-family: 'Space Grotesk', sans-serif;
-  margin: 0;
   -webkit-font-smoothing: antialiased;
 }
 
 /* Fondo industrial de puntos */
 .dot-grid {
-  background-image: radial-gradient(var(--dot-color) 1px, transparent 1px) !important;
+  background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
   background-size: 30px 30px;
   background-attachment: fixed;
 }
 
 .neon-text {
-  color: var(--brand-color) !important;
+  color: var(--brand-color);
   text-shadow: 0 0 12px rgba(var(--brand-color-rgb), 0.6);
 }
 
 .neon-border {
-  border: 1px solid var(--brand-color) !important;
+  border: 1px solid var(--brand-color);
   box-shadow: 0 0 20px rgba(var(--brand-color-rgb), 0.15);
 }
 
@@ -42,11 +47,23 @@ body {
   background: rgba(26, 29, 30, 0.6);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
   transition: all 0.4s ease;
 }
 
 .bento-card:hover {
-  border-color: var(--brand-color) !important;
+  border-color: var(--brand-color);
   transform: translateY(-5px);
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brand-color);
 }
