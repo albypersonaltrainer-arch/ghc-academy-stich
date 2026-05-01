@@ -1,8 +1,8 @@
-import './globals.css';
-import React from 'react'
+import './globals.css'
+import type { Metadata } from 'next'
 
-export const metadata = {
-  title: 'GHC Academy',
+export const metadata: Metadata = {
+  title: 'GHC ACADEMY',
   description: 'Sport Through Science',
 }
 
@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body style={{ margin: 0 }}>{children}</body>
+      <body>{children}</body>
     </html>
   )
 }
