@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GHC Academy - Sport Through Science</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#333535",
+                        "surface": "#121414",
+                        "secondary-fixed-dim": "#c9c6c5",
+                        "on-tertiary-container": "#616060",
+                        "surface-container": "#1e2020",
+                        "surface-tint": "#00e639",
+                        "surface-container-low": "#1a1c1c",
+                        "surface-container-high": "#282a2b",
+                        "surface-bright": "#37393a",
+                        "on-primary-fixed-variant": "#00530e",
+                        "tertiary-fixed": "#e5e2e1",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "primary-container": "#00ff41",
+                        "outline-variant": "#3b4b37",
+                        "primary-fixed-dim": "#00e639",
+                        "on-surface-variant": "#b9ccb2",
+                        "primary": "#ebffe2",
+                        "secondary-fixed": "#e5e2e1",
+                        "surface-dim": "#121414",
+                        "on-secondary": "#313030",
+                        "on-tertiary": "#313030",
+                        "on-error": "#690005",
+                        "secondary-container": "#4a4949",
+                        "inverse-primary": "#006e16",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#474746",
+                        "on-secondary-container": "#bab8b7",
+                        "inverse-on-surface": "#2f3131",
+                        "tertiary": "#fcf8f8",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed": "#1c1b1b",
+                        "secondary": "#c9c6c5",
+                        "on-primary-container": "#007117",
+                        "on-secondary-fixed-variant": "#474646",
+                        "surface-variant": "#333535",
+                        "primary-fixed": "#72ff70",
+                        "on-primary-fixed": "#002203",
+                        "tertiary-container": "#dfdcdb",
+                        "on-background": "#e2e2e2",
+                        "outline": "#84967e",
+                        "inverse-surface": "#e2e2e2",
+                        "background": "#121414",
+                        "surface-container-lowest": "#0c0f0f",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "on-surface": "#e2e2e2",
+                        "error": "#ffb4ab",
+                        "on-primary": "#003907"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "md": "24px",
+                        "xl": "80px",
+                        "sm": "16px",
+                        "xs": "8px",
+                        "base": "4px",
+                        "lg": "48px",
+                        "margin": "32px",
+                        "gutter": "24px"
+                    },
+                    fontFamily: {
+                        "label-caps": ["Space Grotesk"],
+                        "headline-lg": ["Space Grotesk"],
+                        "headline-xl": ["Space Grotesk"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Space Grotesk"]
+                    },
+                    fontSize: {
+                        "label-caps": ["12px", { lineHeight: "1", letterSpacing: "0.1em", fontWeight: "700" }],
+                        "headline-lg": ["40px", { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "600" }],
+                        "headline-xl": ["64px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "body-md": ["16px", { lineHeight: "1.5", fontWeight: "400" }],
+                        "body-lg": ["18px", { lineHeight: "1.6", fontWeight: "400" }],
+                        "body-sm": ["14px", { lineHeight: "1.5", fontWeight: "400" }],
+                        "headline-md": ["24px", { lineHeight: "1.3", fontWeight: "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #0a0a0a; color: #e2e2e2; }
+        .grid-bg { background-image: linear-gradient(to right, rgba(0, 255, 65, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 255, 65, 0.05) 1px, transparent 1px); background-size: 40px 40px; }
+        .glass-panel { background: rgba(18, 20, 20, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-top: 1px solid rgba(255, 255, 255, 0.2); border-left: 1px solid rgba(255, 255, 255, 0.2); }
+        .neon-glow { box-shadow: 0 0 15px rgba(0, 255, 65, 0.3); }
+        .neon-glow-hover:hover { box-shadow: 0 0 25px rgba(0, 255, 65, 0.5); }
+    </style>
+</head>
+<body class="min-h-screen grid-bg overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full rounded-none border-b border-white/10 bg-black/40 backdrop-blur-xl shadow-[0_0_15px_rgba(0,255,65,0.1)] flex justify-between items-center px-8 h-20 z-50">
+<div class="text-xl font-bold text-[#00FF41] uppercase font-['Space_Grotesk'] tracking-tight">GHC Academy</div>
+<div class="hidden md:flex gap-8">
+<a class="font-['Space_Grotesk'] tracking-tight text-[#00FF41] border-b-2 border-[#00FF41] pb-1 scale-95 active:scale-90 transition-all duration-300" href="/">Inicio</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-white/70 hover:text-white hover:text-[#00FF41] hover:drop-shadow-[0_0_8px_rgba(0,255,65,0.5)] transition-all duration-300 scale-95 active:scale-90" href="/cursos">Cursos</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-white/70 hover:text-white hover:text-[#00FF41] hover:drop-shadow-[0_0_8px_rgba(0,255,65,0.5)] transition-all duration-300 scale-95 active:scale-90" href="/cursos">Demo</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-white/70 hover:text-white hover:text-[#00FF41] hover:drop-shadow-[0_0_8px_rgba(0,255,65,0.5)] transition-all duration-300 scale-95 active:scale-90" href="/alumno">Alumno</a>
+
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary-container text-on-primary font-label-caps text-label-caps px-sm py-xs rounded hover:bg-primary-fixed-dim transition-colors neon-glow neon-glow-hover">Comprar Nivel 1</button>
+<span class="material-symbols-outlined text-primary-container cursor-pointer">language</span>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="pt-[120px] pb-xl px-gutter max-w-7xl mx-auto">
+<!-- Hero Section -->
+<section class="flex flex-col md:flex-row items-center gap-lg mb-xl relative">
+<div class="flex-1 relative z-10">
+<h1 class="font-headline-xl text-headline-xl text-on-surface mb-md">Entrena con ciencia.<br/><span class="text-primary-container">Evoluciona con método.</span></h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-margin max-w-2xl">Formación online premium para preparación física, salud y rendimiento humano.</p>
+<div class="flex gap-md">
+<button class="bg-primary-container text-on-primary font-label-caps text-label-caps px-md py-sm rounded neon-glow neon-glow-hover transition-all">Comprar Nivel 1</button>
+<button class="border border-primary-container text-primary-container font-label-caps text-label-caps px-md py-sm rounded hover:bg-primary-container/10 transition-all">Ver Demo</button>
+</div>
+</div>
+<div class="flex-1 relative h-[500px] w-full flex items-center justify-center">
+<!-- Decorative Tech Elements -->
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,65,0.1)_0%,transparent_70%)] rounded-full blur-3xl"></div>
+<div class="glass-panel w-full max-w-[400px] p-md rounded-xl relative z-10 neon-glow">
+<img alt="High-tech fitness" class="w-full h-48 object-cover rounded mb-sm grayscale contrast-125 opacity-80 mix-blend-screen" data-alt="A futuristic laboratory setting where an elite athlete is undergoing biomechanical analysis. The scene is illuminated by striking neon green laser grids and subtle blue ambient light, reflecting off sleek, dark metallic surfaces. Holographic data visualizations float in mid-air, displaying complex kinematic charts and performance metrics. The atmosphere is intense, focused, and cutting-edge, emphasizing scientific rigor in human performance optimization." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-o61NJpQdqNCGvgAUNaD4RWneKohGZitkkQ5RINUSQFzOiZMmdxAwlTf-E1psxSWbZZ-bi_aWuhCzwFOkFr5HMjaYJaN-_7JKOti_Y4EnRU7_sGHGHTVQKEB4VkPNZElgd90Nb7aZCCQqvn_O_hpwXdjzdHv0daSfko_SdOmVNrjCXuhv4S9UK6oQ6a48Tjzd7C3VU9OmzBatuAGLqwwyA3GreKZ9bj715nYFDWxbdhi4lZpo50uDsgOj827NJr2u1rxPYDDphg"/>
+<div class="flex justify-between items-center mb-xs">
+<span class="font-label-caps text-label-caps text-primary-container">Metric_Alpha</span>
+<span class="font-body-sm text-body-sm text-on-surface">98.4%</span>
+</div>
+<div class="w-full bg-surface-container-high h-1 rounded-full mb-sm overflow-hidden">
+<div class="bg-primary-container h-full w-[98.4%]"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Optimization</span>
+<span class="material-symbols-outlined text-primary-container text-sm">vital_signs</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats Section -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-md mb-xl">
+<div class="glass-panel p-md rounded-lg flex flex-col items-center justify-center border-l-2 border-l-primary-container">
+<span class="font-headline-lg text-headline-lg text-primary-container mb-xs">15k+</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Alumnos</span>
+</div>
+<div class="glass-panel p-md rounded-lg flex flex-col items-center justify-center border-l-2 border-l-primary-container">
+<span class="font-headline-lg text-headline-lg text-primary-container mb-xs">12</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Cursos</span>
+</div>
+<div class="glass-panel p-md rounded-lg flex flex-col items-center justify-center border-l-2 border-l-primary-container">
+<span class="font-headline-lg text-headline-lg text-primary-container mb-xs">94%</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Tasa de finalización</span>
+</div>
+</section>
+<!-- Courses Previews -->
+<section class="mb-xl">
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-md">Ruta de Formación</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<!-- Course 1 -->
+<div class="glass-panel p-md rounded-lg hover:border-primary-container/50 transition-all group">
+<div class="flex justify-between items-start mb-md">
+<span class="font-label-caps text-label-caps text-primary-container bg-primary-container/10 px-xs py-base rounded">Fase 01</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container transition-colors">science</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-sm">Nivel 1: Fundamentos</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-margin">Bases fisiológicas y metodológicas del entrenamiento.</p>
+<div class="flex justify-between items-center mt-auto border-t border-white/10 pt-sm">
+<span class="font-headline-md text-headline-md text-on-surface">$299</span>
+<button class="text-primary-container font-label-caps text-label-caps hover:underline">Inscribirse</button>
+</div>
+</div>
+<!-- Course 2 -->
+<div class="glass-panel p-md rounded-lg hover:border-primary-container/50 transition-all group border-primary-container/30">
+<div class="flex justify-between items-start mb-md">
+<span class="font-label-caps text-label-caps text-primary-container bg-primary-container/10 px-xs py-base rounded">Fase 02</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container transition-colors">monitoring</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-sm">Nivel 2: Aplicación</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-margin">Programación avanzada y cuantificación de cargas.</p>
+<div class="flex justify-between items-center mt-auto border-t border-white/10 pt-sm">
+<span class="font-headline-md text-headline-md text-on-surface">$399</span>
+<button class="text-primary-container font-label-caps text-label-caps hover:underline">Próximamente</button>
+</div>
+</div>
+<!-- Course 3 -->
+<div class="glass-panel p-md rounded-lg hover:border-primary-container/50 transition-all group opacity-70">
+<div class="flex justify-between items-start mb-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high px-xs py-base rounded">Fase 03</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-container transition-colors">model_training</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-sm">Nivel 3: Maestría</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-margin">Casos de estudio reales y optimización de élite.</p>
+<div class="flex justify-between items-center mt-auto border-t border-white/10 pt-sm">
+<span class="font-headline-md text-headline-md text-on-surface-variant">TBA</span>
+<span class="text-on-surface-variant font-label-caps text-label-caps">Bloqueado</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t border-white/10 bg-[#0a0a0a] py-12 px-8 flex flex-col items-center gap-4 mt-auto">
+<div class="text-md font-bold text-white font-['Space_Grotesk'] text-[10px] uppercase tracking-tighter">GHC Academy</div>
+<div class="flex gap-4">
+<a class="font-['Space_Grotesk'] text-[10px] uppercase tracking-tighter text-white/40 hover:text-[#00FF41] transition-opacity" href="/cursos">Privacy Policy</a>
+<a class="font-['Space_Grotesk'] text-[10px] uppercase tracking-tighter text-white/40 hover:text-[#00FF41] transition-opacity" href="/cursos">Terms of Service</a>
+<a class="font-['Space_Grotesk'] text-[10px] uppercase tracking-tighter text-white/40 hover:text-[#00FF41] transition-opacity" href="#">Scientific Rigor</a>
+<a class="font-['Space_Grotesk'] text-[10px] uppercase tracking-tighter text-white/40 hover:text-[#00FF41] transition-opacity" href="#">Contact</a>
+</div>
+<div class="font-['Space_Grotesk'] text-[10px] uppercase tracking-tighter text-white/40">© 2024 GHC ACADEMY | SPORT THROUGH SCIENCE</div>
+</footer>
+</body></html>

@@ -1,0 +1,22 @@
+{
+  "students": [
+    {"id":1,"name":"Juan Pérez","email":"juan@demo.com","progress":67,"status":"active"},
+    {"id":2,"name":"Laura Martín","email":"laura@demo.com","progress":82,"status":"active"},
+    {"id":3,"name":"Carlos Díaz","email":"carlos@demo.com","progress":45,"status":"active"},
+    {"id":4,"name":"Ana Suárez","email":"ana@demo.com","progress":91,"status":"active"},
+    {"id":5,"name":"Marta León","email":"marta@demo.com","progress":33,"status":"blocked"},
+    {"id":6,"name":"Sergio Ruiz","email":"sergio@demo.com","progress":58,"status":"active"},
+    {"id":7,"name":"Elena Castro","email":"elena@demo.com","progress":76,"status":"active"},
+    {"id":8,"name":"Diego Torres","email":"diego@demo.com","progress":21,"status":"active"},
+    {"id":9,"name":"Nuria Vega","email":"nuria@demo.com","progress":64,"status":"active"},
+    {"id":10,"name":"Pablo Ramos","email":"pablo@demo.com","progress":12,"status":"pending"}
+  ],
+  "levels": ["Nivel 1", "Nivel 2", "Nivel 3"],
+  "transactions": [
+    {"id":"T001","amount":297,"status":"completed"}, {"id":"T002","amount":497,"status":"pending"}, {"id":"T003","amount":997,"status":"completed"},
+    {"id":"T004","amount":297,"status":"failed"}, {"id":"T005","amount":497,"status":"completed"}, {"id":"T006","amount":297,"status":"completed"},
+    {"id":"T007","amount":997,"status":"pending"}, {"id":"T008","amount":497,"status":"completed"}, {"id":"T009","amount":297,"status":"completed"},
+    {"id":"T010","amount":497,"status":"failed"}, {"id":"T011","amount":997,"status":"completed"}, {"id":"T012","amount":297,"status":"completed"},
+    {"id":"T013","amount":497,"status":"pending"}, {"id":"T014","amount":997,"status":"completed"}, {"id":"T015","amount":297,"status":"completed"}
+  ]
+}
