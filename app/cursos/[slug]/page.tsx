@@ -4,248 +4,103 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
-type Course = {
-  id: string;
-  title: string;
-  slug: string;
-  subtitle?: string | null;
-  description?: string | null;
-  course_type: string;
-  level: string;
-  price: number;
-  duration_minutes?: number | null;
-  has_certificate?: boolean | null;
-};
-
-type Module = {
-  id: string;
-  course_id: string;
-  title: string;
-  description?: string | null;
-  position?: number | null;
-};
-
-type Lesson = {
-  id: string;
-  module_id: string;
-  title: string;
-  content?: string | null;
-  position?: number | null;
-};
-
 const neon = '#00FF41';
 
 export default function CourseDetailPage() {
   const params = useParams();
   const slug = String(params.slug);
 
-  const [course, setCourse] = useState<Course | null>(null);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [course, setCourse] = useState<any>(null);
+  const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadCourseContent() {
+    async function loadData() {
       try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-        if (!supabaseUrl || !supabaseKey) {
-          setLoading(false);
-          return;
-        }
-
-        // 1. Curso
+        // 1. Obtener curso por slug
         const courseRes = await fetch(
-          `${supabaseUrl}/rest/v1/courses?select=id,title,slug,subtitle,description,course_type,level,price,duration_minutes,has_certificate&slug=eq.${slug}&status=eq.published&limit=1`,
+          `${url}/rest/v1/courses?slug=eq.${slug}&limit=1`,
           {
             headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${supabaseKey}`,
+              apikey: key!,
+              Authorization: `Bearer ${key}`,
             },
           }
         );
 
         const courseData = await courseRes.json();
 
-        if (!Array.isArray(courseData) || courseData.length === 0) {
+        if (!courseData.length) {
           setLoading(false);
           return;
         }
 
-        const selectedCourse = courseData[0];
-        setCourse(selectedCourse);
+        const c = courseData[0];
+        setCourse(c);
 
-        // 2. Módulos (SIEMPRE carga)
+        // 2. DEBUG (IMPORTANTE)
+        console.log('COURSE ID:', c.id);
+
+        // 3. Traer TODOS los módulos (sin filtro)
         const modulesRes = await fetch(
-          `${supabaseUrl}/rest/v1/modules?select=id,course_id,title,description,position&course_id=eq.${selectedCourse.id}&order=position.asc`,
+          `${url}/rest/v1/modules?select=*`,
           {
             headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${supabaseKey}`,
+              apikey: key!,
+              Authorization: `Bearer ${key}`,
             },
           }
         );
 
         const modulesData = await modulesRes.json();
 
-        if (Array.isArray(modulesData)) {
-          setModules(modulesData);
-        } else {
-          setModules([]);
-        }
+        console.log('ALL MODULES:', modulesData);
 
-        // 3. Lecciones (no rompe nada si falla)
-        try {
-          if (Array.isArray(modulesData) && modulesData.length > 0) {
-            const moduleIds = modulesData.map((m) => m.id).join(',');
+        // 4. Filtrar en frontend
+        const filtered = modulesData.filter(
+          (m: any) => m.course_id === c.id
+        );
 
-            const lessonsRes = await fetch(
-              `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,position&module_id=in.(${moduleIds})&order=position.asc`,
-              {
-                headers: {
-                  apikey: supabaseKey,
-                  Authorization: `Bearer ${supabaseKey}`,
-                },
-              }
-            );
+        console.log('FILTERED MODULES:', filtered);
 
-            const lessonsData = await lessonsRes.json();
+        setModules(filtered);
 
-            if (Array.isArray(lessonsData)) {
-              setLessons(lessonsData);
-            } else {
-              setLessons([]);
-            }
-          }
-        } catch (err) {
-          console.error('Error loading lessons:', err);
-          setLessons([]);
-        }
-
-      } catch (error) {
-        console.error('Error loading course content:', error);
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
     }
 
-    loadCourseContent();
+    loadData();
   }, [slug]);
 
-  if (loading) {
-    return (
-      <main style={pageStyle}>
-        <div style={containerStyle}>
-          <p style={{ color: neon, fontWeight: 900 }}>Cargando contenido...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!course) {
-    return (
-      <main style={pageStyle}>
-        <div style={containerStyle}>
-          <Link href="/cursos" style={backButton}>← Volver a cursos</Link>
-          <h1 style={titleStyle}>Curso no encontrado</h1>
-        </div>
-      </main>
-    );
-  }
+  if (loading) return <div style={{ padding: 40 }}>Cargando...</div>;
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <Link href="/cursos" style={backButton}>← Volver a cursos</Link>
+    <main style={{ padding: 40 }}>
+      <Link href="/cursos" style={{ color: neon }}>
+        ← Volver a cursos
+      </Link>
 
-        <h1 style={titleStyle}>{course.title}</h1>
+      <h1>{course?.title}</h1>
 
-        <section style={{ marginTop: '40px' }}>
-          <h2 style={sectionTitle}>Módulos</h2>
+      <h2>Módulos</h2>
 
-          {modules.length === 0 && (
-            <div style={emptyBox}>
-              No hay módulos (revisar Supabase)
-            </div>
-          )}
+      {modules.length === 0 && (
+        <div style={{ border: '1px solid red', padding: 20 }}>
+          No hay módulos (problema de conexión course_id)
+        </div>
+      )}
 
-          <div style={{ display: 'grid', gap: '20px' }}>
-            {modules.map((module, index) => {
-              const moduleLessons = lessons.filter(
-                (lesson) => lesson.module_id === module.id
-              );
-
-              const unlocked = index === 0;
-
-              return (
-                <div key={module.id} style={{ opacity: unlocked ? 1 : 0.5 }}>
-                  <h3>{module.title}</h3>
-
-                  {moduleLessons.map((lesson) => (
-                    <div key={lesson.id} style={lessonRow}>
-                      <span>{lesson.title}</span>
-
-                      {unlocked ? (
-                        <Link href={`/cursos/${slug}/${lesson.id}`} style={openLessonLink}>
-                          Abrir
-                        </Link>
-                      ) : (
-                        <span>🔒</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </div>
+      {modules.map((m) => (
+        <div key={m.id} style={{ marginTop: 20 }}>
+          <h3>{m.title}</h3>
+        </div>
+      ))}
     </main>
   );
 }
-
-const pageStyle: React.CSSProperties = {
-  minHeight: '100vh',
-  background: '#030504',
-  color: 'white',
-  padding: '32px',
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: '900px',
-  margin: '0 auto',
-};
-
-const backButton: React.CSSProperties = {
-  color: neon,
-  textDecoration: 'none',
-};
-
-const titleStyle: React.CSSProperties = {
-  fontSize: '40px',
-  fontWeight: 900,
-};
-
-const sectionTitle: React.CSSProperties = {
-  fontSize: '24px',
-  marginTop: '20px',
-};
-
-const lessonRow: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  padding: '10px',
-  borderBottom: '1px solid #222',
-};
-
-const openLessonLink: React.CSSProperties = {
-  color: neon,
-  fontWeight: 900,
-  textDecoration: 'none',
-};
-
-const emptyBox: React.CSSProperties = {
-  padding: '20px',
-  border: '1px solid red',
-};
