@@ -154,9 +154,7 @@ export default function CourseDetailPage() {
             <p style={eyebrowStyle}>GHC Academy · Sport Through Science</p>
             <h1 style={titleStyle}>{course.title}</h1>
 
-            {course.subtitle && (
-              <p style={subtitleStyle}>{course.subtitle}</p>
-            )}
+            {course.subtitle && <p style={subtitleStyle}>{course.subtitle}</p>}
 
             <p style={textStyle}>
               {course.description || 'Formación premium basada en ciencia real.'}
@@ -166,7 +164,6 @@ export default function CourseDetailPage() {
           <aside style={priceCardStyle}>
             <p style={smallLabel}>Precio</p>
             <p style={priceStyle}>{Number(course.price || 0).toLocaleString('es-ES')}€</p>
-
             <button style={buyButton}>Solicitar acceso</button>
           </aside>
         </section>
@@ -222,7 +219,17 @@ export default function CourseDetailPage() {
                     {moduleLessons.map((lesson) => (
                       <div key={lesson.id} style={lessonRow}>
                         <span>{lesson.title}</span>
-                        <span>{unlocked ? 'Abrir' : '🔒'}</span>
+
+                        {unlocked ? (
+                          <Link
+                            href={`/cursos/${slug}/${lesson.id}`}
+                            style={openLessonLink}
+                          >
+                            Abrir
+                          </Link>
+                        ) : (
+                          <span>🔒</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -397,10 +404,17 @@ const lockBadge: React.CSSProperties = {
 const lessonRow: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
+  gap: '16px',
   borderRadius: '16px',
   border: '1px solid rgba(255,255,255,0.10)',
   background: 'rgba(0,0,0,0.26)',
   padding: '13px 14px',
   color: 'rgba(255,255,255,0.75)',
   fontSize: '14px',
+};
+
+const openLessonLink: React.CSSProperties = {
+  color: neon,
+  textDecoration: 'none',
+  fontWeight: 900,
 };
