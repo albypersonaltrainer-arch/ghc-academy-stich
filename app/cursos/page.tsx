@@ -6,92 +6,19 @@ type Course = {
   id: string;
   title: string;
   slug: string;
-  subtitle?: string;
-  description?: string;
+  subtitle?: string | null;
+  description?: string | null;
   course_type: 'curso' | 'minicurso' | 'perla';
   level: 'principiante' | 'intermedio' | 'avanzado';
   price: number;
-  duration_minutes?: number;
-  has_certificate?: boolean;
-  categories?: { name: string; slug: string } | null;
-  subcategories?: { name: string; slug: string } | null;
+  duration_minutes?: number | null;
+  has_certificate?: boolean | null;
 };
 
-const fallbackCourses: Course[] = [
-  {
-    id: '1',
-    title: 'Entrenador Personal Nivel 1',
-    slug: 'entrenador-personal-nivel-1',
-    subtitle: 'La base científica para empezar a entrenar personas con criterio.',
-    description: 'Curso principal de GHC Academy para formar entrenadores personales desde una base sólida, científica y aplicable.',
-    course_type: 'curso',
-    level: 'principiante',
-    price: 497,
-    duration_minutes: 900,
-    has_certificate: true,
-    categories: { name: 'Formación de Entrenadores', slug: 'formacion-entrenadores' },
-    subcategories: { name: 'Entrenador Personal Base', slug: 'entrenador-personal-base' },
-  },
-  {
-    id: '2',
-    title: 'Entrenador Personal Nivel 2',
-    slug: 'entrenador-personal-nivel-2',
-    subtitle: 'Programación, control de cargas y progresión avanzada.',
-    description: 'Segundo nivel de formación para entrenadores personales que quieren ir más allá de lo básico.',
-    course_type: 'curso',
-    level: 'intermedio',
-    price: 697,
-    duration_minutes: 1200,
-    has_certificate: true,
-    categories: { name: 'Formación de Entrenadores', slug: 'formacion-entrenadores' },
-    subcategories: { name: 'Entrenador Personal Base', slug: 'entrenador-personal-base' },
-  },
-  {
-    id: '3',
-    title: 'Entrenador Personal Nivel 3',
-    slug: 'entrenador-personal-nivel-3',
-    subtitle: 'Alto rendimiento, casos complejos y ciencia aplicada.',
-    description: 'Nivel avanzado para entrenadores que quieren dominar la intervención física con criterio profesional.',
-    course_type: 'curso',
-    level: 'avanzado',
-    price: 897,
-    duration_minutes: 1500,
-    has_certificate: true,
-    categories: { name: 'Formación de Entrenadores', slug: 'formacion-entrenadores' },
-    subcategories: { name: 'Entrenador Personal Base', slug: 'entrenador-personal-base' },
-  },
-  {
-    id: '4',
-    title: 'Entrenador Especializado en Lipedema',
-    slug: 'entrenador-especializado-lipedema',
-    subtitle: 'Especialización profesional para trabajar con mujeres con lipedema desde la ciencia.',
-    description: 'Curso especializado para entrenadores que quieran intervenir con criterio en casos de lipedema.',
-    course_type: 'curso',
-    level: 'avanzado',
-    price: 797,
-    duration_minutes: 1000,
-    has_certificate: true,
-    categories: { name: 'Formación de Entrenadores', slug: 'formacion-entrenadores' },
-    subcategories: { name: 'Especialización en Patologías', slug: 'especializacion-patologias' },
-  },
-  {
-    id: '5',
-    title: 'Perla: Por qué caminar no basta en lipedema',
-    slug: 'perla-caminar-no-basta-lipedema',
-    subtitle: 'Una explicación breve, directa y científica.',
-    description: 'Microcontenido de menos de 5 minutos para entender un concepto clave.',
-    course_type: 'perla',
-    level: 'principiante',
-    price: 19,
-    duration_minutes: 5,
-    has_certificate: false,
-    categories: { name: 'Formación de Entrenadores', slug: 'formacion-entrenadores' },
-    subcategories: { name: 'Especialización en Patologías', slug: 'especializacion-patologias' },
-  },
-];
+const neon = '#00FF41';
 
 export default function CursosPage() {
-  const [courses, setCourses] = useState<Course[]>(fallbackCourses);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState('todos');
@@ -110,7 +37,7 @@ export default function CursosPage() {
 
         const endpoint =
           `${supabaseUrl}/rest/v1/courses` +
-          '?select=id,title,slug,subtitle,description,course_type,level,price,duration_minutes,has_certificate,categories(name,slug),subcategories(name,slug)' +
+          '?select=id,title,slug,subtitle,description,course_type,level,price,duration_minutes,has_certificate' +
           '&status=eq.published' +
           '&order=created_at.desc';
 
@@ -121,18 +48,13 @@ export default function CursosPage() {
           },
         });
 
-        if (!response.ok) {
-          setLoading(false);
-          return;
-        }
-
         const data = await response.json();
 
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setCourses(data);
         }
-      } catch {
-        // Si Supabase falla, dejamos los cursos de seguridad para que la web nunca quede en blanco.
+      } catch (error) {
+        console.error('Error loading courses:', error);
       } finally {
         setLoading(false);
       }
@@ -143,7 +65,7 @@ export default function CursosPage() {
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
-      const searchText = `${course.title} ${course.subtitle ?? ''} ${course.description ?? ''} ${course.categories?.name ?? ''} ${course.subcategories?.name ?? ''}`.toLowerCase();
+      const searchText = `${course.title} ${course.subtitle ?? ''} ${course.description ?? ''}`.toLowerCase();
 
       const matchesQuery = searchText.includes(query.toLowerCase());
       const matchesLevel = level === 'todos' || course.level === level;
@@ -154,156 +76,371 @@ export default function CursosPage() {
   }, [courses, query, level, type]);
 
   return (
-    <main className="min-h-screen bg-[#050706] text-white">
-      <section className="relative overflow-hidden px-6 py-10 md:px-12 lg:px-20">
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute left-0 top-0 h-96 w-96 rounded-full bg-[#00FF41] blur-[160px]" />
-          <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-[#00FF41] blur-[180px]" />
-        </div>
-
-        <div className="relative mx-auto max-w-7xl">
-          <header className="mb-12 flex flex-col gap-6 border-b border-[#00FF41]/20 pb-8 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.4em] text-[#00FF41]">
-                GHC Academy
-              </p>
-              <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tight md:text-6xl">
-                Cursos basados en ciencia real
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/65 md:text-base">
-                Formación premium en entrenamiento, salud, nutrición, patologías,
-                ciencia del movimiento y preparación física.
-              </p>
-            </div>
-
-            <a
-              href="/"
-              className="rounded-full border border-[#00FF41]/40 px-5 py-3 text-sm font-bold uppercase tracking-widest text-[#00FF41] transition hover:bg-[#00FF41] hover:text-black"
+    <main
+      style={{
+        minHeight: '100vh',
+        background:
+          'radial-gradient(circle at top left, rgba(0,255,65,0.16), transparent 35%), radial-gradient(circle at bottom right, rgba(0,255,65,0.10), transparent 30%), #030504',
+        color: 'white',
+        padding: '32px',
+        fontFamily: 'Arial, Helvetica, sans-serif',
+      }}
+    >
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <header
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '24px',
+            alignItems: 'center',
+            marginBottom: '42px',
+            borderBottom: '1px solid rgba(0,255,65,0.25)',
+            paddingBottom: '24px',
+          }}
+        >
+          <div>
+            <p
+              style={{
+                color: neon,
+                fontSize: '12px',
+                letterSpacing: '0.35em',
+                fontWeight: 900,
+                textTransform: 'uppercase',
+                marginBottom: '12px',
+              }}
             >
-              Volver al inicio
-            </a>
-          </header>
-
-          <section className="mb-10 grid gap-4 rounded-3xl border border-[#00FF41]/20 bg-white/[0.03] p-5 backdrop-blur-xl md:grid-cols-4">
-            <div className="md:col-span-2">
-              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.25em] text-white/40">
-                Buscar
-              </label>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Buscar por lipedema, fuerza, nutrición, +40..."
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#00FF41]/70"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.25em] text-white/40">
-                Nivel
-              </label>
-              <select
-                value={level}
-                onChange={(event) => setLevel(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-[#00FF41]/70"
-              >
-                <option value="todos">Todos</option>
-                <option value="principiante">Principiante</option>
-                <option value="intermedio">Intermedio</option>
-                <option value="avanzado">Avanzado</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.25em] text-white/40">
-                Tipo
-              </label>
-              <select
-                value={type}
-                onChange={(event) => setType(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-[#00FF41]/70"
-              >
-                <option value="todos">Todos</option>
-                <option value="curso">Curso</option>
-                <option value="minicurso">Minicurso</option>
-                <option value="perla">Perla</option>
-              </select>
-            </div>
-          </section>
-
-          <div className="mb-6 flex items-center justify-between">
-            <p className="text-sm text-white/50">
-              {loading ? 'Conectando con Supabase...' : `${filteredCourses.length} contenidos encontrados`}
+              GHC Academy · Sport Through Science
             </p>
-            <p className="text-xs uppercase tracking-[0.3em] text-[#00FF41]">
-              Sport Through Science
+
+            <h1
+              style={{
+                fontSize: 'clamp(38px, 6vw, 72px)',
+                lineHeight: '0.95',
+                fontWeight: 900,
+                textTransform: 'uppercase',
+                margin: 0,
+              }}
+            >
+              Cursos basados en ciencia real
+            </h1>
+
+            <p
+              style={{
+                maxWidth: '720px',
+                marginTop: '18px',
+                color: 'rgba(255,255,255,0.68)',
+                fontSize: '16px',
+                lineHeight: '1.7',
+              }}
+            >
+              Formación premium en entrenamiento, salud, patologías, nutrición,
+              preparación física y ciencia del movimiento.
             </p>
           </div>
 
-          <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {filteredCourses.map((course) => (
-              <article
-                key={course.id}
-                className="group relative overflow-hidden rounded-3xl border border-[#00FF41]/20 bg-white/[0.035] p-6 shadow-[0_0_40px_rgba(0,255,65,0.06)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-[#00FF41]/60 hover:shadow-[0_0_70px_rgba(0,255,65,0.18)]"
-              >
-                <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-[#00FF41]/10 blur-3xl transition group-hover:bg-[#00FF41]/20" />
+          <a
+            href="/"
+            style={{
+              color: neon,
+              border: '1px solid rgba(0,255,65,0.45)',
+              padding: '13px 18px',
+              borderRadius: '999px',
+              textDecoration: 'none',
+              fontSize: '12px',
+              fontWeight: 900,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Volver al inicio
+          </a>
+        </header>
 
-                <div className="relative">
-                  <div className="mb-5 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-[#00FF41] px-3 py-1 text-xs font-black uppercase tracking-widest text-black">
-                      {course.course_type}
-                    </span>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-white/60">
-                      {course.level}
-                    </span>
-                  </div>
+        <section
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '16px',
+            marginBottom: '28px',
+            padding: '18px',
+            borderRadius: '26px',
+            background: 'rgba(255,255,255,0.035)',
+            border: '1px solid rgba(0,255,65,0.22)',
+            boxShadow: '0 0 60px rgba(0,255,65,0.07)',
+          }}
+        >
+          <div style={{ gridColumn: 'span 2' }}>
+            <label style={labelStyle}>Buscar</label>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar por lipedema, fuerza, nutrición..."
+              style={inputStyle}
+            />
+          </div>
 
-                  <h2 className="mb-3 text-2xl font-black leading-tight">
-                    {course.title}
-                  </h2>
+          <div>
+            <label style={labelStyle}>Nivel</label>
+            <select
+              value={level}
+              onChange={(event) => setLevel(event.target.value)}
+              style={inputStyle}
+            >
+              <option value="todos">Todos</option>
+              <option value="principiante">Principiante</option>
+              <option value="intermedio">Intermedio</option>
+              <option value="avanzado">Avanzado</option>
+            </select>
+          </div>
 
-                  <p className="mb-4 text-sm font-semibold text-[#00FF41]">
+          <div>
+            <label style={labelStyle}>Tipo</label>
+            <select
+              value={type}
+              onChange={(event) => setType(event.target.value)}
+              style={inputStyle}
+            >
+              <option value="todos">Todos</option>
+              <option value="curso">Curso</option>
+              <option value="minicurso">Minicurso</option>
+              <option value="perla">Perla</option>
+            </select>
+          </div>
+        </section>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '16px',
+            marginBottom: '22px',
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: '14px',
+          }}
+        >
+          <span>
+            {loading
+              ? 'Conectando con Supabase...'
+              : `${filteredCourses.length} contenidos encontrados`}
+          </span>
+          <span style={{ color: neon, letterSpacing: '0.22em', textTransform: 'uppercase' }}>
+            Sistema académico conectado
+          </span>
+        </div>
+
+        <section
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '22px',
+          }}
+        >
+          {filteredCourses.map((course) => (
+            <article
+              key={course.id}
+              style={{
+                position: 'relative',
+                overflow: 'hidden',
+                borderRadius: '28px',
+                padding: '24px',
+                background:
+                  'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
+                border: '1px solid rgba(0,255,65,0.26)',
+                boxShadow: '0 0 50px rgba(0,255,65,0.08)',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-70px',
+                  right: '-70px',
+                  width: '160px',
+                  height: '160px',
+                  borderRadius: '999px',
+                  background: 'rgba(0,255,65,0.14)',
+                  filter: 'blur(30px)',
+                }}
+              />
+
+              <div style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '18px' }}>
+                  <span style={badgeMain}>{course.course_type}</span>
+                  <span style={badgeSecondary}>{course.level}</span>
+                </div>
+
+                <h2
+                  style={{
+                    fontSize: '26px',
+                    lineHeight: '1.15',
+                    fontWeight: 900,
+                    margin: '0 0 12px',
+                  }}
+                >
+                  {course.title}
+                </h2>
+
+                {course.subtitle && (
+                  <p
+                    style={{
+                      color: neon,
+                      fontWeight: 800,
+                      fontSize: '14px',
+                      lineHeight: '1.5',
+                      marginBottom: '14px',
+                    }}
+                  >
                     {course.subtitle}
                   </p>
+                )}
 
-                  <p className="mb-6 min-h-20 text-sm leading-7 text-white/60">
-                    {course.description}
-                  </p>
+                <p
+                  style={{
+                    color: 'rgba(255,255,255,0.62)',
+                    fontSize: '14px',
+                    lineHeight: '1.7',
+                    minHeight: '76px',
+                  }}
+                >
+                  {course.description || 'Contenido académico premium de GHC Academy.'}
+                </p>
 
-                  <div className="mb-6 grid grid-cols-2 gap-3 text-xs">
-                    <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
-                      <p className="mb-1 text-white/35">Categoría</p>
-                      <p className="font-bold text-white/80">{course.categories?.name ?? 'General'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
-                      <p className="mb-1 text-white/35">Duración</p>
-                      <p className="font-bold text-white/80">{course.duration_minutes ?? 0} min</p>
-                    </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '12px',
+                    margin: '20px 0',
+                  }}
+                >
+                  <div style={miniBox}>
+                    <p style={miniLabel}>Duración</p>
+                    <p style={miniValue}>{course.duration_minutes || 0} min</p>
                   </div>
 
-                  <div className="mb-6 rounded-2xl border border-[#00FF41]/20 bg-[#00FF41]/5 p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-white/35">
-                      Precio
-                    </p>
-                    <p className="text-3xl font-black text-[#00FF41]">
-                      {Number(course.price).toLocaleString('es-ES')}€
-                    </p>
+                  <div style={miniBox}>
+                    <p style={miniLabel}>Certificado</p>
+                    <p style={miniValue}>{course.has_certificate ? 'Sí' : 'No'}</p>
                   </div>
-
-                  <button className="w-full rounded-2xl bg-[#00FF41] px-5 py-4 text-sm font-black uppercase tracking-[0.2em] text-black transition hover:scale-[1.02] hover:shadow-[0_0_35px_rgba(0,255,65,0.45)]">
-                    Ver contenido
-                  </button>
-
-                  {course.has_certificate && (
-                    <p className="mt-4 text-center text-xs text-white/40">
-                      Incluye certificado al completar la formación
-                    </p>
-                  )}
                 </div>
-              </article>
-            ))}
-          </section>
-        </div>
-      </section>
+
+                <div
+                  style={{
+                    borderRadius: '20px',
+                    border: '1px solid rgba(0,255,65,0.24)',
+                    background: 'rgba(0,255,65,0.06)',
+                    padding: '16px',
+                    marginBottom: '18px',
+                  }}
+                >
+                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.42)', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase' }}>
+                    Precio
+                  </p>
+                  <p style={{ margin: '6px 0 0', color: neon, fontSize: '34px', fontWeight: 900 }}>
+                    {Number(course.price || 0).toLocaleString('es-ES')}€
+                  </p>
+                </div>
+
+                <button
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    borderRadius: '18px',
+                    background: neon,
+                    color: '#000',
+                    padding: '15px',
+                    fontSize: '13px',
+                    fontWeight: 900,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 28px rgba(0,255,65,0.30)',
+                  }}
+                >
+                  Ver contenido
+                </button>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        {!loading && filteredCourses.length === 0 && (
+          <div
+            style={{
+              marginTop: '40px',
+              padding: '26px',
+              borderRadius: '24px',
+              border: '1px solid rgba(0,255,65,0.22)',
+              color: 'rgba(255,255,255,0.65)',
+              textAlign: 'center',
+            }}
+          >
+            No hay cursos que coincidan con la búsqueda.
+          </div>
+        )}
+      </div>
     </main>
   );
 }
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  marginBottom: '8px',
+  color: 'rgba(255,255,255,0.45)',
+  fontSize: '11px',
+  fontWeight: 900,
+  letterSpacing: '0.22em',
+  textTransform: 'uppercase',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  boxSizing: 'border-box',
+  borderRadius: '16px',
+  border: '1px solid rgba(255,255,255,0.12)',
+  background: 'rgba(0,0,0,0.42)',
+  color: 'white',
+  padding: '13px 14px',
+  outline: 'none',
+};
+
+const badgeMain: React.CSSProperties = {
+  background: neon,
+  color: '#000',
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '11px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '0.14em',
+};
+
+const badgeSecondary: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.14)',
+  color: 'rgba(255,255,255,0.72)',
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '11px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '0.14em',
+};
+
+const miniBox: React.CSSProperties = {
+  borderRadius: '16px',
+  border: '1px solid rgba(255,255,255,0.10)',
+  background: 'rgba(0,0,0,0.28)',
+  padding: '12px',
+};
+
+const miniLabel: React.CSSProperties = {
+  margin: 0,
+  color: 'rgba(255,255,255,0.38)',
+  fontSize: '11px',
+};
+
+const miniValue: React.CSSProperties = {
+  margin: '5px 0 0',
+  color: 'white',
+  fontWeight: 800,
+};
