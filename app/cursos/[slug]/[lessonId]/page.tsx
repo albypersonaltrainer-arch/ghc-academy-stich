@@ -1,682 +1,291 @@
-'use client';
+'use client'
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { createClient } from '@supabase/supabase-js'
 
-const neon = '#00FF41';
-
-type Course = {
-  id: string;
-  title: string;
-  slug: string;
-};
-
-type Module = {
-  id: string;
-  course_id: string;
-  title: string;
-  position?: number | null;
-};
-
-type Lesson = {
-  id: string;
-  module_id: string;
-  title: string;
-  content?: string | null;
-  content_type?: 'texto' | 'video' | 'audio' | 'pdf' | 'mixto' | null;
-  video_url?: string | null;
-  audio_url?: string | null;
-  pdf_url?: string | null;
-  sort_order?: number | null;
-};
-
-function getVideoEmbedUrl(url?: string | null) {
-  if (!url) return '';
-
-  if (url.includes('youtube.com/watch?v=')) {
-    const videoId = url.split('v=')[1]?.split('&')[0];
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
-  }
-
-  if (url.includes('youtu.be/')) {
-    const videoId = url.split('youtu.be/')[1]?.split('?')[0];
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
-  }
-
-  if (url.includes('vimeo.com/')) {
-    const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
-    return videoId ? `https://player.vimeo.com/video/${videoId}` : url;
-  }
-
-  return url;
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function LessonPage() {
-  const params = useParams();
-  const slug = String(params.slug);
-  const lessonId = String(params.lessonId);
+  const params = useParams()
+  const router = useRouter()
 
-  const [course, setCourse] = useState<Course | null>(null);
-  const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const slug = params.slug as string
+  const lessonId = params.lessonId as string
 
+  const [user, setUser] = useState<any>(null)
+  const [course, setCourse] = useState<any>(null)
+  const [modules, setModules] = useState<any[]>([])
+  const [currentLesson, setCurrentLesson] = useState<any>(null)
+
+  const [completedLessons, setCompletedLessons] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // =========================================
+  // 1. OBTENER USUARIO
+  // =========================================
   useEffect(() => {
-    async function loadLessonPlatform() {
-      try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      setUser(data.user)
+    }
 
-        if (!supabaseUrl || !supabaseKey) {
-          setMessage('Faltan variables de conexión con Supabase.');
-          setLoading(false);
-          return;
-        }
+    getUser()
+  }, [])
 
-        const headers = {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        };
+  // =========================================
+  // 2. CARGAR CURSO + MÓDULOS + LECCIONES
+  // =========================================
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!slug) return
 
-        const courseRes = await fetch(
-          `${supabaseUrl}/rest/v1/courses?select=id,title,slug&slug=eq.${encodeURIComponent(slug)}&limit=1`,
-          { headers }
-        );
+      const { data: courseData } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('slug', slug)
+        .single()
 
-        const courseData = await courseRes.json();
+      setCourse(courseData)
 
-        if (!Array.isArray(courseData) || courseData.length === 0) {
-          setMessage('Curso no encontrado.');
-          setLoading(false);
-          return;
-        }
+      const { data: modulesData } = await supabase
+        .from('modules')
+        .select(`
+          *,
+          lessons (*)
+        `)
+        .eq('course_id', courseData.id)
+        .order('order', { ascending: true })
 
-        const selectedCourse = courseData[0] as Course;
-        setCourse(selectedCourse);
+      modulesData?.forEach((m: any) => {
+        m.lessons.sort((a: any, b: any) => a.order - b.order)
+      })
 
-        const lessonRes = await fetch(
-          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,content_type,video_url,audio_url,pdf_url,sort_order&id=eq.${encodeURIComponent(lessonId)}&limit=1`,
-          { headers }
-        );
+      setModules(modulesData || [])
 
-        const lessonData = await lessonRes.json();
+      const lesson = modulesData
+        ?.flatMap((m: any) => m.lessons)
+        .find((l: any) => l.id === lessonId)
 
-        if (!Array.isArray(lessonData) || lessonData.length === 0) {
-          setMessage('Lección no encontrada.');
-          setLoading(false);
-          return;
-        }
+      setCurrentLesson(lesson)
+    }
 
-        const selectedLesson = lessonData[0] as Lesson;
-        setLesson(selectedLesson);
+    fetchData()
+  }, [slug, lessonId])
 
-        const modulesRes = await fetch(
-          `${supabaseUrl}/rest/v1/modules?select=id,course_id,title,position&course_id=eq.${encodeURIComponent(selectedCourse.id)}&order=position.asc`,
-          { headers }
-        );
+  // =========================================
+  // 3. CARGAR PROGRESO REAL
+  // =========================================
+  useEffect(() => {
+    const fetchProgress = async () => {
+      if (!user) return
 
-        const modulesData = await modulesRes.json();
-        const finalModules: Module[] = Array.isArray(modulesData) ? modulesData : [];
-        setModules(finalModules);
+      const { data } = await supabase
+        .from('lesson_progress')
+        .select('lesson_id')
+        .eq('user_id', user.id)
 
-        if (finalModules.length === 0) {
-          setLessons([]);
-          setLoading(false);
-          return;
-        }
-
-        const moduleIds = finalModules.map((module) => module.id).join(',');
-
-        const lessonsRes = await fetch(
-          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,content_type,video_url,audio_url,pdf_url,sort_order&module_id=in.(${moduleIds})&order=sort_order.asc`,
-          { headers }
-        );
-
-        const lessonsData = await lessonsRes.json();
-
-        if (Array.isArray(lessonsData)) {
-          setLessons(lessonsData);
-        } else {
-          setLessons([]);
-        }
-      } catch (error) {
-        console.error('Error loading lesson platform:', error);
-        setMessage('Error cargando la lección.');
-      } finally {
-        setLoading(false);
+      if (data) {
+        setCompletedLessons(data.map((p: any) => p.lesson_id))
       }
     }
 
-    loadLessonPlatform();
-  }, [slug, lessonId]);
+    fetchProgress()
+  }, [user])
 
-  const orderedLessons = useMemo(() => {
-    const orderedModules = [...modules].sort(
-      (a, b) => Number(a.position || 999) - Number(b.position || 999)
-    );
+  // =========================================
+  // 4. MARCAR COMO COMPLETADA
+  // =========================================
+  const markAsCompleted = async () => {
+    if (!user || !currentLesson || !course) return
 
-    return orderedModules.flatMap((module) =>
-      lessons
-        .filter((item) => item.module_id === module.id)
-        .sort((a, b) => Number(a.sort_order || 999) - Number(b.sort_order || 999))
-    );
-  }, [modules, lessons]);
+    await supabase
+      .from('lesson_progress')
+      .upsert({
+        user_id: user.id,
+        course_id: course.id,
+        module_id: currentLesson.module_id,
+        lesson_id: currentLesson.id,
+        completed: true,
+        completed_at: new Date().toISOString()
+      })
 
-  const currentIndex = orderedLessons.findIndex((item) => item.id === lesson?.id);
-
-  const completedLessonsCount =
-    currentIndex >= 0 ? currentIndex + 1 : 0;
-
-  const totalLessons = orderedLessons.length;
-
-  const progressPercent =
-    totalLessons > 0 ? Math.round((completedLessonsCount / totalLessons) * 100) : 0;
-
-  const previousLesson = currentIndex > 0 ? orderedLessons[currentIndex - 1] : null;
-
-  const nextLesson =
-    currentIndex >= 0 && currentIndex < orderedLessons.length - 1
-      ? orderedLessons[currentIndex + 1]
-      : null;
-
-  if (loading) {
-    return (
-      <main style={pageStyle}>
-        <p style={loadingStyle}>CARGANDO LECCIÓN...</p>
-      </main>
-    );
+    setCompletedLessons((prev) => [...prev, currentLesson.id])
   }
 
-  if (!lesson) {
-    return (
-      <main style={pageStyle}>
-        <div style={contentStyle}>
-          <Link href={`/cursos/${slug}`} style={backButton}>
-            ← Volver al curso
-          </Link>
-          <h1 style={titleStyle}>Lección no encontrada</h1>
-          <p style={textStyle}>{message}</p>
-        </div>
-      </main>
-    );
+  // =========================================
+  // 5. NAVEGACIÓN
+  // =========================================
+  const allLessons = modules.flatMap((m: any) => m.lessons)
+
+  const currentIndex = allLessons.findIndex(
+    (l: any) => l.id === lessonId
+  )
+
+  const prevLesson = allLessons[currentIndex - 1]
+  const nextLesson = allLessons[currentIndex + 1]
+
+  const goToLesson = (lessonId: string) => {
+    router.push(`/cursos/${slug}/${lessonId}`)
   }
 
-  const videoEmbedUrl = getVideoEmbedUrl(lesson.video_url);
-  const typeLabel = lesson.content_type || 'texto';
+  // =========================================
+  // 6. PROGRESO %
+  // =========================================
+  const totalLessons = allLessons.length
+  const completedCount = completedLessons.length
 
+  const progress =
+    totalLessons > 0
+      ? Math.round((completedCount / totalLessons) * 100)
+      : 0
+
+  // =========================================
+  // LOADING
+  // =========================================
+  if (loading || !currentLesson) {
+    return (
+      <div className="h-screen flex items-center justify-center text-white">
+        Cargando...
+      </div>
+    )
+  }
+
+  // =========================================
+  // RENDER CONTENIDO
+  // =========================================
+  const renderContent = () => {
+    switch (currentLesson.type) {
+      case 'video':
+        return (
+          <video
+            src={currentLesson.content}
+            controls
+            className="w-full rounded-xl"
+          />
+        )
+
+      case 'audio':
+        return (
+          <audio controls className="w-full">
+            <source src={currentLesson.content} />
+          </audio>
+        )
+
+      case 'pdf':
+        return (
+          <iframe
+            src={currentLesson.content}
+            className="w-full h-[600px]"
+          />
+        )
+
+      case 'text':
+        return (
+          <div
+            className="prose prose-invert max-w-none"
+            dangerouslySetInnerHTML={{
+              __html: currentLesson.content
+            }}
+          />
+        )
+
+      default:
+        return <p>Contenido no soportado</p>
+    }
+  }
+
+  // =========================================
+  // UI
+  // =========================================
   return (
-    <main style={pageStyle}>
-      <aside style={sidebarStyle}>
-        <Link href={`/cursos/${slug}`} style={backButton}>
-          ← Volver al curso
-        </Link>
+    <div className="flex h-screen bg-black text-white">
 
-        <p style={sidebarBrand}>GHC Academy</p>
-        <h2 style={sidebarTitle}>{course?.title || 'Curso'}</h2>
+      {/* SIDEBAR */}
+      <div className="w-80 border-r border-gray-800 p-4 overflow-y-auto">
+        <h2 className="text-xl font-bold mb-4">{course?.title}</h2>
 
-        <div style={progressCardStyle}>
-          <div style={progressTopStyle}>
-            <span>Progreso</span>
-            <strong>{progressPercent}%</strong>
+        {modules.map((module: any) => (
+          <div key={module.id} className="mb-4">
+            <h3 className="text-green-400 font-semibold mb-2">
+              {module.title}
+            </h3>
+
+            {module.lessons.map((lesson: any) => {
+              const isActive = lesson.id === lessonId
+              const isCompleted = completedLessons.includes(lesson.id)
+
+              return (
+                <div
+                  key={lesson.id}
+                  onClick={() => goToLesson(lesson.id)}
+                  className={`cursor-pointer p-2 rounded-lg mb-1 ${
+                    isActive
+                      ? 'bg-green-600'
+                      : 'hover:bg-gray-800'
+                  }`}
+                >
+                  {isCompleted ? '✓ ' : '▶ '}
+                  {lesson.title}
+                </div>
+              )
+            })}
           </div>
+        ))}
+      </div>
 
-          <div style={progressTrackStyle}>
+      {/* CONTENIDO */}
+      <div className="flex-1 p-8 overflow-y-auto">
+
+        {/* PROGRESO */}
+        <div className="mb-6">
+          <div className="w-full bg-gray-800 rounded-full h-2">
             <div
-              style={{
-                ...progressFillStyle,
-                width: `${progressPercent}%`,
-              }}
+              className="bg-green-500 h-2 rounded-full"
+              style={{ width: `${progress}%` }}
             />
           </div>
-
-          <p style={progressTextStyle}>
-            {completedLessonsCount} de {totalLessons} lecciones completadas
-          </p>
+          <p className="text-sm mt-2">{progress}% completado</p>
         </div>
 
-        <div style={{ display: 'grid', gap: '18px', marginTop: '26px' }}>
-          {modules.map((module) => {
-            const moduleLessons = lessons
-              .filter((item) => item.module_id === module.id)
-              .sort((a, b) => Number(a.sort_order || 999) - Number(b.sort_order || 999));
+        <h1 className="text-3xl font-bold mb-6">
+          {currentLesson.title}
+        </h1>
 
-            return (
-              <div key={module.id}>
-                <p style={moduleTitleStyle}>{module.title}</p>
+        {renderContent()}
 
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  {moduleLessons.length === 0 && (
-                    <div style={emptyLessonStyle}>Lecciones pendientes</div>
-                  )}
+        {/* BOTÓN COMPLETAR */}
+        <button
+          onClick={markAsCompleted}
+          className="mt-8 bg-green-500 hover:bg-green-400 text-black px-6 py-3 rounded-xl font-bold"
+        >
+          Marcar como completada
+        </button>
 
-                  {moduleLessons.map((item) => {
-                    const active = item.id === lesson.id;
-                    const itemIndex = orderedLessons.findIndex(
-                      (orderedItem) => orderedItem.id === item.id
-                    );
-                    const completed = itemIndex >= 0 && itemIndex < currentIndex;
-                    const current = itemIndex === currentIndex;
-
-                    return (
-                      <Link
-                        key={item.id}
-                        href={`/cursos/${slug}/${item.id}`}
-                        style={{
-                          ...lessonLinkStyle,
-                          border: active
-                            ? '1px solid rgba(0,255,65,0.65)'
-                            : '1px solid rgba(255,255,255,0.08)',
-                          background: active
-                            ? 'rgba(0,255,65,0.16)'
-                            : 'rgba(255,255,255,0.035)',
-                          color: active ? neon : 'rgba(255,255,255,0.78)',
-                        }}
-                      >
-                        <span>{item.title}</span>
-                        <span style={lessonStatusStyle}>
-                          {completed ? '✓' : current ? '▶' : '○'}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </aside>
-
-      <section style={contentStyle}>
-        <p style={eyebrowStyle}>Lección activa</p>
-
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
-          <span style={typeBadge}>{typeLabel}</span>
-          {lesson.video_url && <span style={softBadge}>vídeo</span>}
-          {lesson.audio_url && <span style={softBadge}>audio</span>}
-          {lesson.pdf_url && <span style={softBadge}>pdf</span>}
-          <span style={softBadge}>{progressPercent}% completado</span>
-        </div>
-
-        <h1 style={titleStyle}>{lesson.title}</h1>
-
-        {(lesson.content_type === 'video' || lesson.content_type === 'mixto') && lesson.video_url && (
-          <div style={mediaBlockStyle}>
-            {videoEmbedUrl.includes('youtube.com/embed') || videoEmbedUrl.includes('player.vimeo.com') ? (
-              <iframe
-                src={videoEmbedUrl}
-                title={lesson.title}
-                style={iframeStyle}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            ) : (
-              <video src={lesson.video_url} controls style={videoStyle} />
-            )}
-          </div>
-        )}
-
-        {(lesson.content_type === 'audio' || lesson.content_type === 'mixto') && lesson.audio_url && (
-          <div style={audioBlockStyle}>
-            <p style={mediaLabelStyle}>Audio de la lección</p>
-            <audio controls src={lesson.audio_url} style={{ width: '100%' }} />
-          </div>
-        )}
-
-        {(lesson.content_type === 'pdf' || lesson.content_type === 'mixto') && lesson.pdf_url && (
-          <div style={pdfBlockStyle}>
-            <p style={mediaLabelStyle}>Material PDF protegido</p>
-            <iframe src={lesson.pdf_url} title="PDF de la lección" style={pdfFrameStyle} />
-          </div>
-        )}
-
-        {(lesson.content_type === 'texto' || lesson.content_type === 'mixto' || !lesson.content_type) && (
-          <div style={lessonContentStyle}>
-            {lesson.content || 'Contenido aún no disponible.'}
-          </div>
-        )}
-
-        {lesson.content_type === 'video' && !lesson.video_url && (
-          <div style={noticeStyle}>Esta lección está marcada como vídeo, pero todavía no tiene video_url.</div>
-        )}
-
-        {lesson.content_type === 'audio' && !lesson.audio_url && (
-          <div style={noticeStyle}>Esta lección está marcada como audio, pero todavía no tiene audio_url.</div>
-        )}
-
-        {lesson.content_type === 'pdf' && !lesson.pdf_url && (
-          <div style={noticeStyle}>Esta lección está marcada como PDF, pero todavía no tiene pdf_url.</div>
-        )}
-
-        <div style={navigationStyle}>
-          {previousLesson ? (
-            <Link href={`/cursos/${slug}/${previousLesson.id}`} style={secondaryNavButton}>
+        {/* NAVEGACIÓN */}
+        <div className="flex justify-between mt-10">
+          {prevLesson && (
+            <button
+              onClick={() => goToLesson(prevLesson.id)}
+              className="px-4 py-2 bg-gray-800 rounded"
+            >
               ← Anterior
-              <span style={navLessonTitle}>{previousLesson.title}</span>
-            </Link>
-          ) : (
-            <div style={disabledNavButton}>
-              ← Anterior
-              <span style={navLessonTitle}>Primera lección</span>
-            </div>
+            </button>
           )}
 
-          {nextLesson ? (
-            <Link href={`/cursos/${slug}/${nextLesson.id}`} style={primaryNavButton}>
+          {nextLesson && (
+            <button
+              onClick={() => goToLesson(nextLesson.id)}
+              className="px-4 py-2 bg-gray-800 rounded"
+            >
               Siguiente →
-              <span style={navLessonTitle}>{nextLesson.title}</span>
-            </Link>
-          ) : (
-            <div style={disabledNavButton}>
-              Curso completado
-              <span style={navLessonTitle}>No hay más lecciones</span>
-            </div>
+            </button>
           )}
         </div>
-      </section>
-    </main>
-  );
+      </div>
+    </div>
+  )
 }
-
-const pageStyle: React.CSSProperties = {
-  minHeight: '100vh',
-  background:
-    'radial-gradient(circle at top left, rgba(0,255,65,0.10), transparent 32%), #030504',
-  color: 'white',
-  display: 'grid',
-  gridTemplateColumns: '340px minmax(0, 1fr)',
-  fontFamily: 'Arial, Helvetica, sans-serif',
-};
-
-const loadingStyle: React.CSSProperties = {
-  color: neon,
-  padding: '40px',
-  fontWeight: 900,
-  letterSpacing: '0.18em',
-};
-
-const sidebarStyle: React.CSSProperties = {
-  borderRight: '1px solid rgba(0,255,65,0.22)',
-  background: 'rgba(0,0,0,0.28)',
-  padding: '24px',
-  minHeight: '100vh',
-  overflowY: 'auto',
-};
-
-const backButton: React.CSSProperties = {
-  display: 'inline-block',
-  color: neon,
-  textDecoration: 'none',
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-  marginBottom: '26px',
-};
-
-const sidebarBrand: React.CSSProperties = {
-  color: neon,
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.28em',
-  textTransform: 'uppercase',
-  margin: 0,
-};
-
-const sidebarTitle: React.CSSProperties = {
-  fontSize: '20px',
-  lineHeight: '1.2',
-  margin: '10px 0 0',
-};
-
-const progressCardStyle: React.CSSProperties = {
-  marginTop: '22px',
-  borderRadius: '22px',
-  border: '1px solid rgba(0,255,65,0.22)',
-  background: 'rgba(255,255,255,0.04)',
-  padding: '16px',
-  boxShadow: '0 0 40px rgba(0,255,65,0.05)',
-};
-
-const progressTopStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  color: 'white',
-  fontSize: '13px',
-  fontWeight: 900,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-};
-
-const progressTrackStyle: React.CSSProperties = {
-  height: '10px',
-  borderRadius: '999px',
-  background: 'rgba(255,255,255,0.10)',
-  overflow: 'hidden',
-  marginTop: '12px',
-};
-
-const progressFillStyle: React.CSSProperties = {
-  height: '100%',
-  borderRadius: '999px',
-  background: neon,
-  boxShadow: '0 0 18px rgba(0,255,65,0.65)',
-  transition: 'width 0.35s ease',
-};
-
-const progressTextStyle: React.CSSProperties = {
-  margin: '10px 0 0',
-  color: 'rgba(255,255,255,0.52)',
-  fontSize: '12px',
-};
-
-const moduleTitleStyle: React.CSSProperties = {
-  color: neon,
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.18em',
-  textTransform: 'uppercase',
-  margin: '0 0 8px',
-};
-
-const lessonLinkStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '12px',
-  borderRadius: '14px',
-  padding: '12px',
-  textDecoration: 'none',
-  fontSize: '13px',
-  lineHeight: '1.35',
-};
-
-const lessonStatusStyle: React.CSSProperties = {
-  color: neon,
-  fontWeight: 900,
-  flexShrink: 0,
-};
-
-const emptyLessonStyle: React.CSSProperties = {
-  borderRadius: '14px',
-  padding: '12px',
-  color: 'rgba(255,255,255,0.42)',
-  background: 'rgba(255,255,255,0.025)',
-  fontSize: '13px',
-};
-
-const contentStyle: React.CSSProperties = {
-  padding: '42px',
-  maxWidth: '980px',
-};
-
-const eyebrowStyle: React.CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.3em',
-  textTransform: 'uppercase',
-};
-
-const titleStyle: React.CSSProperties = {
-  fontSize: 'clamp(38px, 5vw, 64px)',
-  lineHeight: '1',
-  fontWeight: 900,
-  margin: '0 0 26px',
-};
-
-const textStyle: React.CSSProperties = {
-  color: 'rgba(255,255,255,0.68)',
-  lineHeight: '1.75',
-};
-
-const typeBadge: React.CSSProperties = {
-  background: neon,
-  color: '#000',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-};
-
-const softBadge: React.CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.14)',
-  color: 'rgba(255,255,255,0.72)',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-};
-
-const mediaBlockStyle: React.CSSProperties = {
-  borderRadius: '28px',
-  overflow: 'hidden',
-  border: '1px solid rgba(0,255,65,0.22)',
-  background: 'rgba(255,255,255,0.045)',
-  marginBottom: '22px',
-  boxShadow: '0 0 60px rgba(0,255,65,0.06)',
-};
-
-const iframeStyle: React.CSSProperties = {
-  width: '100%',
-  aspectRatio: '16 / 9',
-  border: 'none',
-  display: 'block',
-};
-
-const videoStyle: React.CSSProperties = {
-  width: '100%',
-  display: 'block',
-  background: '#000',
-};
-
-const audioBlockStyle: React.CSSProperties = {
-  borderRadius: '24px',
-  border: '1px solid rgba(0,255,65,0.22)',
-  background: 'rgba(255,255,255,0.045)',
-  padding: '22px',
-  marginBottom: '22px',
-};
-
-const pdfBlockStyle: React.CSSProperties = {
-  borderRadius: '24px',
-  border: '1px solid rgba(0,255,65,0.22)',
-  background: 'rgba(255,255,255,0.045)',
-  padding: '22px',
-  marginBottom: '22px',
-};
-
-const pdfFrameStyle: React.CSSProperties = {
-  width: '100%',
-  height: '680px',
-  border: '1px solid rgba(255,255,255,0.12)',
-  borderRadius: '18px',
-  background: '#111',
-};
-
-const mediaLabelStyle: React.CSSProperties = {
-  margin: '0 0 14px',
-  color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.18em',
-  textTransform: 'uppercase',
-};
-
-const lessonContentStyle: React.CSSProperties = {
-  borderRadius: '28px',
-  border: '1px solid rgba(0,255,65,0.22)',
-  background: 'rgba(255,255,255,0.045)',
-  padding: '28px',
-  color: 'rgba(255,255,255,0.78)',
-  fontSize: '17px',
-  lineHeight: '1.85',
-  boxShadow: '0 0 60px rgba(0,255,65,0.06)',
-};
-
-const noticeStyle: React.CSSProperties = {
-  borderRadius: '22px',
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(255,255,255,0.035)',
-  padding: '18px',
-  color: 'rgba(255,255,255,0.64)',
-  marginBottom: '22px',
-};
-
-const navigationStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '16px',
-  marginTop: '28px',
-};
-
-const primaryNavButton: React.CSSProperties = {
-  borderRadius: '22px',
-  border: '1px solid rgba(0,255,65,0.55)',
-  background: neon,
-  color: '#000',
-  padding: '18px',
-  textDecoration: 'none',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-};
-
-const secondaryNavButton: React.CSSProperties = {
-  borderRadius: '22px',
-  border: '1px solid rgba(0,255,65,0.28)',
-  background: 'rgba(255,255,255,0.04)',
-  color: neon,
-  padding: '18px',
-  textDecoration: 'none',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-};
-
-const disabledNavButton: React.CSSProperties = {
-  borderRadius: '22px',
-  border: '1px solid rgba(255,255,255,0.08)',
-  background: 'rgba(255,255,255,0.025)',
-  color: 'rgba(255,255,255,0.32)',
-  padding: '18px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-};
-
-const navLessonTitle: React.CSSProperties = {
-  display: 'block',
-  marginTop: '8px',
-  fontSize: '12px',
-  fontWeight: 700,
-  letterSpacing: '0',
-  textTransform: 'none',
-  opacity: 0.72,
-};
