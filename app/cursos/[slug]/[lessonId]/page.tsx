@@ -24,8 +24,33 @@ type Lesson = {
   module_id: string;
   title: string;
   content?: string | null;
+  content_type?: 'texto' | 'video' | 'audio' | 'pdf' | 'mixto' | null;
+  video_url?: string | null;
+  audio_url?: string | null;
+  pdf_url?: string | null;
   sort_order?: number | null;
 };
+
+function getVideoEmbedUrl(url?: string | null) {
+  if (!url) return '';
+
+  if (url.includes('youtube.com/watch?v=')) {
+    const videoId = url.split('v=')[1]?.split('&')[0];
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+  }
+
+  if (url.includes('youtu.be/')) {
+    const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+  }
+
+  if (url.includes('vimeo.com/')) {
+    const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+    return videoId ? `https://player.vimeo.com/video/${videoId}` : url;
+  }
+
+  return url;
+}
 
 export default function LessonPage() {
   const params = useParams();
@@ -73,7 +98,7 @@ export default function LessonPage() {
         setCourse(selectedCourse);
 
         const lessonRes = await fetch(
-          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,sort_order&id=eq.${encodeURIComponent(lessonId)}&limit=1`,
+          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,content_type,video_url,audio_url,pdf_url,sort_order&id=eq.${encodeURIComponent(lessonId)}&limit=1`,
           { headers }
         );
 
@@ -106,7 +131,7 @@ export default function LessonPage() {
         const moduleIds = finalModules.map((module) => module.id).join(',');
 
         const lessonsRes = await fetch(
-          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,sort_order&module_id=in.(${moduleIds})&order=sort_order.asc`,
+          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,content_type,video_url,audio_url,pdf_url,sort_order&module_id=in.(${moduleIds})&order=sort_order.asc`,
           { headers }
         );
 
@@ -169,6 +194,9 @@ export default function LessonPage() {
     );
   }
 
+  const videoEmbedUrl = getVideoEmbedUrl(lesson.video_url);
+  const typeLabel = lesson.content_type || 'texto';
+
   return (
     <main style={pageStyle}>
       <aside style={sidebarStyle}>
@@ -225,11 +253,63 @@ export default function LessonPage() {
 
       <section style={contentStyle}>
         <p style={eyebrowStyle}>Lección activa</p>
+
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          <span style={typeBadge}>{typeLabel}</span>
+          {lesson.video_url && <span style={softBadge}>vídeo</span>}
+          {lesson.audio_url && <span style={softBadge}>audio</span>}
+          {lesson.pdf_url && <span style={softBadge}>pdf</span>}
+        </div>
+
         <h1 style={titleStyle}>{lesson.title}</h1>
 
-        <div style={lessonContentStyle}>
-          {lesson.content || 'Contenido aún no disponible.'}
-        </div>
+        {(lesson.content_type === 'video' || lesson.content_type === 'mixto') && lesson.video_url && (
+          <div style={mediaBlockStyle}>
+            {videoEmbedUrl.includes('youtube.com/embed') || videoEmbedUrl.includes('player.vimeo.com') ? (
+              <iframe
+                src={videoEmbedUrl}
+                title={lesson.title}
+                style={iframeStyle}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <video src={lesson.video_url} controls style={videoStyle} />
+            )}
+          </div>
+        )}
+
+        {(lesson.content_type === 'audio' || lesson.content_type === 'mixto') && lesson.audio_url && (
+          <div style={audioBlockStyle}>
+            <p style={mediaLabelStyle}>Audio de la lección</p>
+            <audio controls src={lesson.audio_url} style={{ width: '100%' }} />
+          </div>
+        )}
+
+        {(lesson.content_type === 'pdf' || lesson.content_type === 'mixto') && lesson.pdf_url && (
+          <div style={pdfBlockStyle}>
+            <p style={mediaLabelStyle}>Material PDF protegido</p>
+            <iframe src={lesson.pdf_url} title="PDF de la lección" style={pdfFrameStyle} />
+          </div>
+        )}
+
+        {(lesson.content_type === 'texto' || lesson.content_type === 'mixto' || !lesson.content_type) && (
+          <div style={lessonContentStyle}>
+            {lesson.content || 'Contenido aún no disponible.'}
+          </div>
+        )}
+
+        {lesson.content_type === 'video' && !lesson.video_url && (
+          <div style={noticeStyle}>Esta lección está marcada como vídeo, pero todavía no tiene video_url.</div>
+        )}
+
+        {lesson.content_type === 'audio' && !lesson.audio_url && (
+          <div style={noticeStyle}>Esta lección está marcada como audio, pero todavía no tiene audio_url.</div>
+        )}
+
+        {lesson.content_type === 'pdf' && !lesson.pdf_url && (
+          <div style={noticeStyle}>Esta lección está marcada como PDF, pero todavía no tiene pdf_url.</div>
+        )}
 
         <div style={navigationStyle}>
           {previousLesson ? (
@@ -363,6 +443,83 @@ const textStyle: React.CSSProperties = {
   lineHeight: '1.75',
 };
 
+const typeBadge: React.CSSProperties = {
+  background: neon,
+  color: '#000',
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '11px',
+  fontWeight: 900,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+};
+
+const softBadge: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.14)',
+  color: 'rgba(255,255,255,0.72)',
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '11px',
+  fontWeight: 900,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+};
+
+const mediaBlockStyle: React.CSSProperties = {
+  borderRadius: '28px',
+  overflow: 'hidden',
+  border: '1px solid rgba(0,255,65,0.22)',
+  background: 'rgba(255,255,255,0.045)',
+  marginBottom: '22px',
+  boxShadow: '0 0 60px rgba(0,255,65,0.06)',
+};
+
+const iframeStyle: React.CSSProperties = {
+  width: '100%',
+  aspectRatio: '16 / 9',
+  border: 'none',
+  display: 'block',
+};
+
+const videoStyle: React.CSSProperties = {
+  width: '100%',
+  display: 'block',
+  background: '#000',
+};
+
+const audioBlockStyle: React.CSSProperties = {
+  borderRadius: '24px',
+  border: '1px solid rgba(0,255,65,0.22)',
+  background: 'rgba(255,255,255,0.045)',
+  padding: '22px',
+  marginBottom: '22px',
+};
+
+const pdfBlockStyle: React.CSSProperties = {
+  borderRadius: '24px',
+  border: '1px solid rgba(0,255,65,0.22)',
+  background: 'rgba(255,255,255,0.045)',
+  padding: '22px',
+  marginBottom: '22px',
+};
+
+const pdfFrameStyle: React.CSSProperties = {
+  width: '100%',
+  height: '680px',
+  border: '1px solid rgba(255,255,255,0.12)',
+  borderRadius: '18px',
+  background: '#111',
+};
+
+const mediaLabelStyle: React.CSSProperties = {
+  margin: '0 0 14px',
+  color: neon,
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.18em',
+  textTransform: 'uppercase',
+};
+
 const lessonContentStyle: React.CSSProperties = {
   borderRadius: '28px',
   border: '1px solid rgba(0,255,65,0.22)',
@@ -372,6 +529,15 @@ const lessonContentStyle: React.CSSProperties = {
   fontSize: '17px',
   lineHeight: '1.85',
   boxShadow: '0 0 60px rgba(0,255,65,0.06)',
+};
+
+const noticeStyle: React.CSSProperties = {
+  borderRadius: '22px',
+  border: '1px solid rgba(255,255,255,0.10)',
+  background: 'rgba(255,255,255,0.035)',
+  padding: '18px',
+  color: 'rgba(255,255,255,0.64)',
+  marginBottom: '22px',
 };
 
 const navigationStyle: React.CSSProperties = {
