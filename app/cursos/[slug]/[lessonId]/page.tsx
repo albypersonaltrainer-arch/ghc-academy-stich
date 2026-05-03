@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -128,6 +128,25 @@ export default function LessonPage() {
     loadLessonPlatform();
   }, [slug, lessonId]);
 
+  const orderedLessons = useMemo(() => {
+    const orderedModules = [...modules].sort(
+      (a, b) => Number(a.position || 999) - Number(b.position || 999)
+    );
+
+    return orderedModules.flatMap((module) =>
+      lessons
+        .filter((item) => item.module_id === module.id)
+        .sort((a, b) => Number(a.sort_order || 999) - Number(b.sort_order || 999))
+    );
+  }, [modules, lessons]);
+
+  const currentIndex = orderedLessons.findIndex((item) => item.id === lesson?.id);
+  const previousLesson = currentIndex > 0 ? orderedLessons[currentIndex - 1] : null;
+  const nextLesson =
+    currentIndex >= 0 && currentIndex < orderedLessons.length - 1
+      ? orderedLessons[currentIndex + 1]
+      : null;
+
   if (loading) {
     return (
       <main style={pageStyle}>
@@ -210,6 +229,32 @@ export default function LessonPage() {
 
         <div style={lessonContentStyle}>
           {lesson.content || 'Contenido aún no disponible.'}
+        </div>
+
+        <div style={navigationStyle}>
+          {previousLesson ? (
+            <Link href={`/cursos/${slug}/${previousLesson.id}`} style={secondaryNavButton}>
+              ← Anterior
+              <span style={navLessonTitle}>{previousLesson.title}</span>
+            </Link>
+          ) : (
+            <div style={disabledNavButton}>
+              ← Anterior
+              <span style={navLessonTitle}>Primera lección</span>
+            </div>
+          )}
+
+          {nextLesson ? (
+            <Link href={`/cursos/${slug}/${nextLesson.id}`} style={primaryNavButton}>
+              Siguiente →
+              <span style={navLessonTitle}>{nextLesson.title}</span>
+            </Link>
+          ) : (
+            <div style={disabledNavButton}>
+              Curso completado
+              <span style={navLessonTitle}>No hay más lecciones</span>
+            </div>
+          )}
         </div>
       </section>
     </main>
@@ -327,4 +372,56 @@ const lessonContentStyle: React.CSSProperties = {
   fontSize: '17px',
   lineHeight: '1.85',
   boxShadow: '0 0 60px rgba(0,255,65,0.06)',
+};
+
+const navigationStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '16px',
+  marginTop: '28px',
+};
+
+const primaryNavButton: React.CSSProperties = {
+  borderRadius: '22px',
+  border: '1px solid rgba(0,255,65,0.55)',
+  background: neon,
+  color: '#000',
+  padding: '18px',
+  textDecoration: 'none',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '0.12em',
+};
+
+const secondaryNavButton: React.CSSProperties = {
+  borderRadius: '22px',
+  border: '1px solid rgba(0,255,65,0.28)',
+  background: 'rgba(255,255,255,0.04)',
+  color: neon,
+  padding: '18px',
+  textDecoration: 'none',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '0.12em',
+};
+
+const disabledNavButton: React.CSSProperties = {
+  borderRadius: '22px',
+  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'rgba(255,255,255,0.025)',
+  color: 'rgba(255,255,255,0.32)',
+  padding: '18px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '0.12em',
+};
+
+const navLessonTitle: React.CSSProperties = {
+  display: 'block',
+  marginTop: '8px',
+  fontSize: '12px',
+  fontWeight: 700,
+  letterSpacing: '0',
+  textTransform: 'none',
+  opacity: 0.72,
 };
