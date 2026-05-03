@@ -4,18 +4,17 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
+const neon = '#00FF41';
+
 type Lesson = {
   id: string;
   title: string;
   content?: string | null;
 };
 
-const neon = '#00FF41';
-
 export default function LessonPage() {
   const params = useParams();
   const lessonId = String(params.lessonId);
-  const slug = String(params.slug);
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,15 +22,15 @@ export default function LessonPage() {
   useEffect(() => {
     async function loadLesson() {
       try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
         const res = await fetch(
-          `${supabaseUrl}/rest/v1/lessons?select=id,title,content&id=eq.${lessonId}&limit=1`,
+          `${url}/rest/v1/lessons?id=eq.${lessonId}&select=id,title,content`,
           {
             headers: {
-              apikey: supabaseKey!,
-              Authorization: `Bearer ${supabaseKey}`,
+              apikey: key!,
+              Authorization: `Bearer ${key}`,
             },
           }
         );
@@ -42,7 +41,7 @@ export default function LessonPage() {
           setLesson(data[0]);
         }
       } catch (error) {
-        console.error(error);
+        console.error('Error loading lesson:', error);
       } finally {
         setLoading(false);
       }
@@ -53,7 +52,7 @@ export default function LessonPage() {
 
   if (loading) {
     return (
-      <main style={pageStyle}>
+      <main style={{ padding: 40 }}>
         <p style={{ color: neon }}>Cargando lección...</p>
       </main>
     );
@@ -61,9 +60,9 @@ export default function LessonPage() {
 
   if (!lesson) {
     return (
-      <main style={pageStyle}>
-        <Link href={`/cursos/${slug}`} style={backButton}>
-          ← Volver al curso
+      <main style={{ padding: 40 }}>
+        <Link href="/cursos" style={{ color: neon }}>
+          ← Volver a cursos
         </Link>
         <h1>Lección no encontrada</h1>
       </main>
@@ -71,48 +70,38 @@ export default function LessonPage() {
   }
 
   return (
-    <main style={pageStyle}>
-      <div style={container}>
-        <Link href={`/cursos/${slug}`} style={backButton}>
-          ← Volver al curso
-        </Link>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: '#030504',
+        color: 'white',
+        padding: '40px',
+        fontFamily: 'Arial, Helvetica, sans-serif',
+      }}
+    >
+      <Link href="/cursos" style={{ color: neon }}>
+        ← Volver a cursos
+      </Link>
 
-        <h1 style={title}>{lesson.title}</h1>
+      <h1
+        style={{
+          marginTop: 20,
+          fontSize: '40px',
+          fontWeight: 900,
+        }}
+      >
+        {lesson.title}
+      </h1>
 
-        <div style={content}>
-          {lesson.content || 'Contenido pendiente de añadir en Supabase.'}
-        </div>
+      <div
+        style={{
+          marginTop: 30,
+          lineHeight: '1.7',
+          color: 'rgba(255,255,255,0.75)',
+        }}
+      >
+        {lesson.content || 'Contenido aún no disponible'}
       </div>
     </main>
   );
 }
-
-const pageStyle: React.CSSProperties = {
-  minHeight: '100vh',
-  background: '#030504',
-  color: 'white',
-  padding: '32px',
-};
-
-const container: React.CSSProperties = {
-  maxWidth: '900px',
-  margin: '0 auto',
-};
-
-const backButton: React.CSSProperties = {
-  display: 'inline-block',
-  marginBottom: '20px',
-  color: neon,
-  textDecoration: 'none',
-};
-
-const title: React.CSSProperties = {
-  fontSize: '40px',
-  fontWeight: 900,
-  marginBottom: '20px',
-};
-
-const content: React.CSSProperties = {
-  lineHeight: '1.8',
-  color: 'rgba(255,255,255,0.8)',
-};
