@@ -166,7 +166,17 @@ export default function LessonPage() {
   }, [modules, lessons]);
 
   const currentIndex = orderedLessons.findIndex((item) => item.id === lesson?.id);
+
+  const completedLessonsCount =
+    currentIndex >= 0 ? currentIndex + 1 : 0;
+
+  const totalLessons = orderedLessons.length;
+
+  const progressPercent =
+    totalLessons > 0 ? Math.round((completedLessonsCount / totalLessons) * 100) : 0;
+
   const previousLesson = currentIndex > 0 ? orderedLessons[currentIndex - 1] : null;
+
   const nextLesson =
     currentIndex >= 0 && currentIndex < orderedLessons.length - 1
       ? orderedLessons[currentIndex + 1]
@@ -207,6 +217,26 @@ export default function LessonPage() {
         <p style={sidebarBrand}>GHC Academy</p>
         <h2 style={sidebarTitle}>{course?.title || 'Curso'}</h2>
 
+        <div style={progressCardStyle}>
+          <div style={progressTopStyle}>
+            <span>Progreso</span>
+            <strong>{progressPercent}%</strong>
+          </div>
+
+          <div style={progressTrackStyle}>
+            <div
+              style={{
+                ...progressFillStyle,
+                width: `${progressPercent}%`,
+              }}
+            />
+          </div>
+
+          <p style={progressTextStyle}>
+            {completedLessonsCount} de {totalLessons} lecciones completadas
+          </p>
+        </div>
+
         <div style={{ display: 'grid', gap: '18px', marginTop: '26px' }}>
           {modules.map((module) => {
             const moduleLessons = lessons
@@ -224,6 +254,11 @@ export default function LessonPage() {
 
                   {moduleLessons.map((item) => {
                     const active = item.id === lesson.id;
+                    const itemIndex = orderedLessons.findIndex(
+                      (orderedItem) => orderedItem.id === item.id
+                    );
+                    const completed = itemIndex >= 0 && itemIndex < currentIndex;
+                    const current = itemIndex === currentIndex;
 
                     return (
                       <Link
@@ -240,7 +275,10 @@ export default function LessonPage() {
                           color: active ? neon : 'rgba(255,255,255,0.78)',
                         }}
                       >
-                        {item.title}
+                        <span>{item.title}</span>
+                        <span style={lessonStatusStyle}>
+                          {completed ? '✓' : current ? '▶' : '○'}
+                        </span>
                       </Link>
                     );
                   })}
@@ -259,6 +297,7 @@ export default function LessonPage() {
           {lesson.video_url && <span style={softBadge}>vídeo</span>}
           {lesson.audio_url && <span style={softBadge}>audio</span>}
           {lesson.pdf_url && <span style={softBadge}>pdf</span>}
+          <span style={softBadge}>{progressPercent}% completado</span>
         </div>
 
         <h1 style={titleStyle}>{lesson.title}</h1>
@@ -392,6 +431,48 @@ const sidebarTitle: React.CSSProperties = {
   margin: '10px 0 0',
 };
 
+const progressCardStyle: React.CSSProperties = {
+  marginTop: '22px',
+  borderRadius: '22px',
+  border: '1px solid rgba(0,255,65,0.22)',
+  background: 'rgba(255,255,255,0.04)',
+  padding: '16px',
+  boxShadow: '0 0 40px rgba(0,255,65,0.05)',
+};
+
+const progressTopStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  color: 'white',
+  fontSize: '13px',
+  fontWeight: 900,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+};
+
+const progressTrackStyle: React.CSSProperties = {
+  height: '10px',
+  borderRadius: '999px',
+  background: 'rgba(255,255,255,0.10)',
+  overflow: 'hidden',
+  marginTop: '12px',
+};
+
+const progressFillStyle: React.CSSProperties = {
+  height: '100%',
+  borderRadius: '999px',
+  background: neon,
+  boxShadow: '0 0 18px rgba(0,255,65,0.65)',
+  transition: 'width 0.35s ease',
+};
+
+const progressTextStyle: React.CSSProperties = {
+  margin: '10px 0 0',
+  color: 'rgba(255,255,255,0.52)',
+  fontSize: '12px',
+};
+
 const moduleTitleStyle: React.CSSProperties = {
   color: neon,
   fontSize: '11px',
@@ -402,12 +483,20 @@ const moduleTitleStyle: React.CSSProperties = {
 };
 
 const lessonLinkStyle: React.CSSProperties = {
-  display: 'block',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
   borderRadius: '14px',
   padding: '12px',
   textDecoration: 'none',
   fontSize: '13px',
   lineHeight: '1.35',
+};
+
+const lessonStatusStyle: React.CSSProperties = {
+  color: neon,
+  fontWeight: 900,
+  flexShrink: 0,
 };
 
 const emptyLessonStyle: React.CSSProperties = {
