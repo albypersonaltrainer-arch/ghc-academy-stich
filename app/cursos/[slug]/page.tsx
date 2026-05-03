@@ -30,7 +30,7 @@ type Lesson = {
   module_id: string;
   title: string;
   content?: string | null;
-  position?: number | null;
+  sort_order?: number | null;
 };
 
 const neon = '#00FF41';
@@ -78,34 +78,13 @@ export default function CourseDetailPage() {
         const selectedCourse = courseData[0] as Course;
         setCourse(selectedCourse);
 
-        let finalModules: Module[] = [];
-
         const modulesRes = await fetch(
           `${supabaseUrl}/rest/v1/modules?select=id,course_id,title,description,position&course_id=eq.${encodeURIComponent(selectedCourse.id)}&order=position.asc`,
           { headers }
         );
 
         const modulesData = await modulesRes.json();
-
-        if (Array.isArray(modulesData)) {
-          finalModules = modulesData;
-        }
-
-        if (finalModules.length === 0) {
-          const fallbackModulesRes = await fetch(
-            `${supabaseUrl}/rest/v1/modules?select=id,course_id,title,description,position&order=position.asc`,
-            { headers }
-          );
-
-          const fallbackModulesData = await fallbackModulesRes.json();
-
-          if (Array.isArray(fallbackModulesData)) {
-            finalModules = fallbackModulesData.filter(
-              (module) =>
-                String(module.course_id).trim() === String(selectedCourse.id).trim()
-            );
-          }
-        }
+        const finalModules: Module[] = Array.isArray(modulesData) ? modulesData : [];
 
         finalModules.sort((a, b) => Number(a.position || 999) - Number(b.position || 999));
         setModules(finalModules);
@@ -121,21 +100,16 @@ export default function CourseDetailPage() {
 
         const moduleIds = finalModules.map((module) => module.id).join(',');
 
-        try {
-          const lessonsRes = await fetch(
-            `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,position&module_id=in.(${moduleIds})&order=position.asc`,
-            { headers }
-          );
+        const lessonsRes = await fetch(
+          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,sort_order&module_id=in.(${moduleIds})&order=sort_order.asc`,
+          { headers }
+        );
 
-          const lessonsData = await lessonsRes.json();
+        const lessonsData = await lessonsRes.json();
 
-          if (Array.isArray(lessonsData)) {
-            setLessons(lessonsData);
-          } else {
-            setLessons([]);
-          }
-        } catch (error) {
-          console.error('Error loading lessons:', error);
+        if (Array.isArray(lessonsData)) {
+          setLessons(lessonsData);
+        } else {
           setLessons([]);
         }
       } catch (error) {
@@ -232,7 +206,7 @@ export default function CourseDetailPage() {
             {modules.map((module, index) => {
               const moduleLessons = lessons
                 .filter((lesson) => lesson.module_id === module.id)
-                .sort((a, b) => Number(a.position || 999) - Number(b.position || 999));
+                .sort((a, b) => Number(a.sort_order || 999) - Number(b.sort_order || 999));
 
               const unlocked = index === 0;
 
