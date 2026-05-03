@@ -6,192 +6,325 @@ import { useParams } from 'next/navigation';
 
 const neon = '#00FF41';
 
-type Lesson = {
+type Course = {
   id: string;
   title: string;
-  content?: string | null;
-  module_id: string;
+  slug: string;
 };
 
 type Module = {
   id: string;
+  course_id: string;
   title: string;
+  position?: number | null;
+};
+
+type Lesson = {
+  id: string;
+  module_id: string;
+  title: string;
+  content?: string | null;
+  sort_order?: number | null;
 };
 
 export default function LessonPage() {
   const params = useParams();
-  const lessonId = String(params.lessonId);
   const slug = String(params.slug);
+  const lessonId = String(params.lessonId);
 
+  const [course, setCourse] = useState<Course | null>(null);
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
-    async function loadData() {
+    async function loadLessonPlatform() {
       try {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-        const headers = {
-          apikey: key!,
-          Authorization: `Bearer ${key}`,
-        };
-
-        // 👉 1. Cargar lección actual
-        const lessonRes = await fetch(
-          `${url}/rest/v1/lessons?id=eq.${lessonId}&select=*`,
-          { headers }
-        );
-        const lessonData = await lessonRes.json();
-
-        if (!lessonData.length) {
+        if (!supabaseUrl || !supabaseKey) {
+          setMessage('Faltan variables de conexión con Supabase.');
           setLoading(false);
           return;
         }
 
-        const currentLesson = lessonData[0];
-        setLesson(currentLesson);
+        const headers = {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        };
 
-        // 👉 2. Cargar módulos
+        const courseRes = await fetch(
+          `${supabaseUrl}/rest/v1/courses?select=id,title,slug&slug=eq.${encodeURIComponent(slug)}&limit=1`,
+          { headers }
+        );
+
+        const courseData = await courseRes.json();
+
+        if (!Array.isArray(courseData) || courseData.length === 0) {
+          setMessage('Curso no encontrado.');
+          setLoading(false);
+          return;
+        }
+
+        const selectedCourse = courseData[0] as Course;
+        setCourse(selectedCourse);
+
+        const lessonRes = await fetch(
+          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,sort_order&id=eq.${encodeURIComponent(lessonId)}&limit=1`,
+          { headers }
+        );
+
+        const lessonData = await lessonRes.json();
+
+        if (!Array.isArray(lessonData) || lessonData.length === 0) {
+          setMessage('Lección no encontrada.');
+          setLoading(false);
+          return;
+        }
+
+        const selectedLesson = lessonData[0] as Lesson;
+        setLesson(selectedLesson);
+
         const modulesRes = await fetch(
-          `${url}/rest/v1/modules?select=id,title,position&order=position.asc`,
+          `${supabaseUrl}/rest/v1/modules?select=id,course_id,title,position&course_id=eq.${encodeURIComponent(selectedCourse.id)}&order=position.asc`,
           { headers }
         );
-        const modulesData = await modulesRes.json();
-        setModules(modulesData || []);
 
-        // 👉 3. Cargar lecciones
+        const modulesData = await modulesRes.json();
+        const finalModules: Module[] = Array.isArray(modulesData) ? modulesData : [];
+        setModules(finalModules);
+
+        if (finalModules.length === 0) {
+          setLessons([]);
+          setLoading(false);
+          return;
+        }
+
+        const moduleIds = finalModules.map((module) => module.id).join(',');
+
         const lessonsRes = await fetch(
-          `${url}/rest/v1/lessons?select=id,title,module_id,position&order=position.asc`,
+          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,sort_order&module_id=in.(${moduleIds})&order=sort_order.asc`,
           { headers }
         );
+
         const lessonsData = await lessonsRes.json();
-        setLessons(lessonsData || []);
+
+        if (Array.isArray(lessonsData)) {
+          setLessons(lessonsData);
+        } else {
+          setLessons([]);
+        }
       } catch (error) {
-        console.error(error);
+        console.error('Error loading lesson platform:', error);
+        setMessage('Error cargando la lección.');
       } finally {
         setLoading(false);
       }
     }
 
-    loadData();
-  }, [lessonId]);
+    loadLessonPlatform();
+  }, [slug, lessonId]);
 
   if (loading) {
-    return <p style={{ color: neon, padding: 40 }}>Cargando...</p>;
+    return (
+      <main style={pageStyle}>
+        <p style={loadingStyle}>CARGANDO LECCIÓN...</p>
+      </main>
+    );
   }
 
   if (!lesson) {
-    return <p style={{ padding: 40 }}>Lección no encontrada</p>;
+    return (
+      <main style={pageStyle}>
+        <div style={contentStyle}>
+          <Link href={`/cursos/${slug}`} style={backButton}>
+            ← Volver al curso
+          </Link>
+          <h1 style={titleStyle}>Lección no encontrada</h1>
+          <p style={textStyle}>{message}</p>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main style={page}>
-      {/* SIDEBAR */}
-      <aside style={sidebar}>
-        <Link href={`/cursos/${slug}`} style={back}>
-          ← Volver
+    <main style={pageStyle}>
+      <aside style={sidebarStyle}>
+        <Link href={`/cursos/${slug}`} style={backButton}>
+          ← Volver al curso
         </Link>
 
-        {modules.map((module) => {
-          const moduleLessons = lessons.filter(
-            (l) => l.module_id === module.id
-          );
+        <p style={sidebarBrand}>GHC Academy</p>
+        <h2 style={sidebarTitle}>{course?.title || 'Curso'}</h2>
 
-          return (
-            <div key={module.id} style={{ marginBottom: 20 }}>
-              <p style={moduleTitle}>{module.title}</p>
+        <div style={{ display: 'grid', gap: '18px', marginTop: '26px' }}>
+          {modules.map((module) => {
+            const moduleLessons = lessons
+              .filter((item) => item.module_id === module.id)
+              .sort((a, b) => Number(a.sort_order || 999) - Number(b.sort_order || 999));
 
-              {moduleLessons.map((l) => (
-                <Link
-                  key={l.id}
-                  href={`/cursos/${slug}/${l.id}`}
-                  style={{
-                    ...lessonLink,
-                    background:
-                      l.id === lesson.id ? 'rgba(0,255,65,0.2)' : 'transparent',
-                    border:
-                      l.id === lesson.id
-                        ? '1px solid rgba(0,255,65,0.5)'
-                        : '1px solid transparent',
-                  }}
-                >
-                  {l.title}
-                </Link>
-              ))}
-            </div>
-          );
-        })}
+            return (
+              <div key={module.id}>
+                <p style={moduleTitleStyle}>{module.title}</p>
+
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {moduleLessons.length === 0 && (
+                    <div style={emptyLessonStyle}>Lecciones pendientes</div>
+                  )}
+
+                  {moduleLessons.map((item) => {
+                    const active = item.id === lesson.id;
+
+                    return (
+                      <Link
+                        key={item.id}
+                        href={`/cursos/${slug}/${item.id}`}
+                        style={{
+                          ...lessonLinkStyle,
+                          border: active
+                            ? '1px solid rgba(0,255,65,0.65)'
+                            : '1px solid rgba(255,255,255,0.08)',
+                          background: active
+                            ? 'rgba(0,255,65,0.16)'
+                            : 'rgba(255,255,255,0.035)',
+                          color: active ? neon : 'rgba(255,255,255,0.78)',
+                        }}
+                      >
+                        {item.title}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </aside>
 
-      {/* CONTENIDO */}
-      <section style={content}>
-        <h1 style={title}>{lesson.title}</h1>
+      <section style={contentStyle}>
+        <p style={eyebrowStyle}>Lección activa</p>
+        <h1 style={titleStyle}>{lesson.title}</h1>
 
-        <div style={text}>
-          {lesson.content || 'Contenido no disponible'}
+        <div style={lessonContentStyle}>
+          {lesson.content || 'Contenido aún no disponible.'}
         </div>
       </section>
     </main>
   );
 }
 
-/* 🎨 ESTILOS */
-
-const page: React.CSSProperties = {
-  display: 'flex',
+const pageStyle: React.CSSProperties = {
   minHeight: '100vh',
-  background: '#030504',
+  background:
+    'radial-gradient(circle at top left, rgba(0,255,65,0.10), transparent 32%), #030504',
   color: 'white',
+  display: 'grid',
+  gridTemplateColumns: '340px minmax(0, 1fr)',
+  fontFamily: 'Arial, Helvetica, sans-serif',
 };
 
-const sidebar: React.CSSProperties = {
-  width: '320px',
-  borderRight: '1px solid rgba(0,255,65,0.2)',
-  padding: '20px',
+const loadingStyle: React.CSSProperties = {
+  color: neon,
+  padding: '40px',
+  fontWeight: 900,
+  letterSpacing: '0.18em',
+};
+
+const sidebarStyle: React.CSSProperties = {
+  borderRight: '1px solid rgba(0,255,65,0.22)',
+  background: 'rgba(0,0,0,0.28)',
+  padding: '24px',
+  minHeight: '100vh',
   overflowY: 'auto',
 };
 
-const back: React.CSSProperties = {
+const backButton: React.CSSProperties = {
+  display: 'inline-block',
   color: neon,
-  display: 'block',
-  marginBottom: 20,
   textDecoration: 'none',
-  fontWeight: 800,
-};
-
-const moduleTitle: React.CSSProperties = {
-  fontSize: 12,
-  color: neon,
-  marginBottom: 10,
-  textTransform: 'uppercase',
-  letterSpacing: '0.2em',
-};
-
-const lessonLink: React.CSSProperties = {
-  display: 'block',
-  padding: '10px',
-  borderRadius: 10,
-  marginBottom: 6,
-  color: 'white',
-  textDecoration: 'none',
-  fontSize: 14,
-};
-
-const content: React.CSSProperties = {
-  flex: 1,
-  padding: '40px',
-};
-
-const title: React.CSSProperties = {
-  fontSize: 36,
+  fontSize: '12px',
   fontWeight: 900,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  marginBottom: '26px',
 };
 
-const text: React.CSSProperties = {
-  marginTop: 20,
-  lineHeight: 1.7,
-  color: 'rgba(255,255,255,0.7)',
+const sidebarBrand: React.CSSProperties = {
+  color: neon,
+  fontSize: '11px',
+  fontWeight: 900,
+  letterSpacing: '0.28em',
+  textTransform: 'uppercase',
+  margin: 0,
+};
+
+const sidebarTitle: React.CSSProperties = {
+  fontSize: '20px',
+  lineHeight: '1.2',
+  margin: '10px 0 0',
+};
+
+const moduleTitleStyle: React.CSSProperties = {
+  color: neon,
+  fontSize: '11px',
+  fontWeight: 900,
+  letterSpacing: '0.18em',
+  textTransform: 'uppercase',
+  margin: '0 0 8px',
+};
+
+const lessonLinkStyle: React.CSSProperties = {
+  display: 'block',
+  borderRadius: '14px',
+  padding: '12px',
+  textDecoration: 'none',
+  fontSize: '13px',
+  lineHeight: '1.35',
+};
+
+const emptyLessonStyle: React.CSSProperties = {
+  borderRadius: '14px',
+  padding: '12px',
+  color: 'rgba(255,255,255,0.42)',
+  background: 'rgba(255,255,255,0.025)',
+  fontSize: '13px',
+};
+
+const contentStyle: React.CSSProperties = {
+  padding: '42px',
+  maxWidth: '980px',
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  color: neon,
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.3em',
+  textTransform: 'uppercase',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontSize: 'clamp(38px, 5vw, 64px)',
+  lineHeight: '1',
+  fontWeight: 900,
+  margin: '0 0 26px',
+};
+
+const textStyle: React.CSSProperties = {
+  color: 'rgba(255,255,255,0.68)',
+  lineHeight: '1.75',
+};
+
+const lessonContentStyle: React.CSSProperties = {
+  borderRadius: '28px',
+  border: '1px solid rgba(0,255,65,0.22)',
+  background: 'rgba(255,255,255,0.045)',
+  padding: '28px',
+  color: 'rgba(255,255,255,0.78)',
+  fontSize: '17px',
+  lineHeight: '1.85',
+  boxShadow: '0 0 60px rgba(0,255,65,0.06)',
 };
