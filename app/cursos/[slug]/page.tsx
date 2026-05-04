@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 
 type Course = {
   id: string;
@@ -23,6 +24,8 @@ type Module = {
   title: string;
   description?: string | null;
   position?: number | null;
+  sort_order?: number | null;
+  order?: number | null;
 };
 
 type Lesson = {
@@ -31,62 +34,86 @@ type Lesson = {
   title: string;
   content?: string | null;
   sort_order?: number | null;
+  position?: number | null;
+  order?: number | null;
+};
+
+type CourseCompletion = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  completed: boolean;
+  final_score: number;
+  completed_at: string;
+};
+
+type LessonProgress = {
+  lesson_id: string;
 };
 
 const neon = '#00FF41';
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
+
 export default function CourseDetailPage() {
   const params = useParams();
-  const slug = String(params.slug);
+  const slug = String(params.slug || '');
 
+  const [user, setUser] = useState<any>(null);
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [completion, setCompletion] = useState<CourseCompletion | null>(null);
+  const [lessonProgress, setLessonProgress] = useState<LessonProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
 
   useEffect(() => {
     async function loadCourseContent() {
       try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        setLoading(true);
+        setSystemMessage('');
 
-        if (!supabaseUrl || !supabaseKey) {
-          setSystemMessage('Faltan variables de conexión con Supabase.');
-          setLoading(false);
-          return;
-        }
+        const { data: userData } = await supabase.auth.getUser();
+        const activeUser = userData?.user || null;
+        setUser(activeUser);
 
-        const headers = {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        };
+        const { data: courseData, error: courseError } = await supabase
+          .from('courses')
+          .select(
+            'id,title,slug,subtitle,description,course_type,level,price,duration_minutes,has_certificate,status'
+          )
+          .eq('slug', slug)
+          .eq('status', 'published')
+          .maybeSingle();
 
-        const courseRes = await fetch(
-          `${supabaseUrl}/rest/v1/courses?select=id,title,slug,subtitle,description,course_type,level,price,duration_minutes,has_certificate&slug=eq.${encodeURIComponent(slug)}&status=eq.published&limit=1`,
-          { headers }
-        );
-
-        const courseData = await courseRes.json();
-
-        if (!Array.isArray(courseData) || courseData.length === 0) {
+        if (courseError || !courseData) {
           setSystemMessage('Este curso no existe o todavía no está publicado.');
           setLoading(false);
           return;
         }
 
-        const selectedCourse = courseData[0] as Course;
+        const selectedCourse = courseData as Course;
         setCourse(selectedCourse);
 
-        const modulesRes = await fetch(
-          `${supabaseUrl}/rest/v1/modules?select=id,course_id,title,description,position&course_id=eq.${encodeURIComponent(selectedCourse.id)}&order=position.asc`,
-          { headers }
-        );
+        const { data: modulesData, error: modulesError } = await supabase
+          .from('modules')
+          .select('id,course_id,title,description,position,sort_order,order')
+          .eq('course_id', selectedCourse.id);
 
-        const modulesData = await modulesRes.json();
-        const finalModules: Module[] = Array.isArray(modulesData) ? modulesData : [];
+        if (modulesError) {
+          setSystemMessage('Curso cargado, pero no se pudieron cargar los módulos.');
+          setLoading(false);
+          return;
+        }
 
-        finalModules.sort((a, b) => Number(a.position || 999) - Number(b.position || 999));
+        const finalModules: Module[] = Array.isArray(modulesData)
+          ? [...modulesData].sort(sortByOrder)
+          : [];
+
         setModules(finalModules);
 
         if (finalModules.length === 0) {
@@ -98,19 +125,37 @@ export default function CourseDetailPage() {
           return;
         }
 
-        const moduleIds = finalModules.map((module) => module.id).join(',');
+        const moduleIds = finalModules.map((module) => module.id);
 
-        const lessonsRes = await fetch(
-          `${supabaseUrl}/rest/v1/lessons?select=id,module_id,title,content,sort_order&module_id=in.(${moduleIds})&order=sort_order.asc`,
-          { headers }
-        );
+        const { data: lessonsData, error: lessonsError } = await supabase
+          .from('lessons')
+          .select('id,module_id,title,content,sort_order,position,order')
+          .in('module_id', moduleIds);
 
-        const lessonsData = await lessonsRes.json();
-
-        if (Array.isArray(lessonsData)) {
-          setLessons(lessonsData);
-        } else {
+        if (lessonsError) {
           setLessons([]);
+        } else {
+          setLessons(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLessons) : []);
+        }
+
+        if (activeUser?.id) {
+          const { data: completionData } = await supabase
+            .from('course_completions')
+            .select('id,user_id,course_id,completed,final_score,completed_at')
+            .eq('user_id', activeUser.id)
+            .eq('course_id', selectedCourse.id)
+            .maybeSingle();
+
+          setCompletion((completionData as CourseCompletion) || null);
+
+          const { data: progressData } = await supabase
+            .from('lesson_progress')
+            .select('lesson_id')
+            .eq('user_id', activeUser.id)
+            .eq('course_id', selectedCourse.id)
+            .eq('completed', true);
+
+          setLessonProgress(Array.isArray(progressData) ? progressData : []);
         }
       } catch (error) {
         console.error('Error loading course content:', error);
@@ -120,8 +165,20 @@ export default function CourseDetailPage() {
       }
     }
 
-    loadCourseContent();
+    if (slug) {
+      loadCourseContent();
+    }
   }, [slug]);
+
+  const totalLessons = lessons.length;
+  const completedLessons = lessonProgress.length;
+
+  const lessonProgressPercent = useMemo(() => {
+    if (totalLessons === 0) return 0;
+    return Math.round((completedLessons / totalLessons) * 100);
+  }, [completedLessons, totalLessons]);
+
+  const isOfficiallyCompleted = Boolean(completion?.completed);
 
   if (loading) {
     return (
@@ -163,6 +220,7 @@ export default function CourseDetailPage() {
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
               {course.course_type && <span style={badgeMain}>{course.course_type}</span>}
               {course.level && <span style={badgeSecondary}>{course.level}</span>}
+              {isOfficiallyCompleted && <span style={completedBadge}>Completado oficialmente</span>}
             </div>
 
             <h1 style={titleStyle}>{course.title}</h1>
@@ -176,9 +234,7 @@ export default function CourseDetailPage() {
 
           <aside style={priceCardStyle}>
             <p style={smallLabel}>Precio</p>
-            <p style={priceStyle}>
-              {Number(course.price || 0).toLocaleString('es-ES')}€
-            </p>
+            <p style={priceStyle}>{Number(course.price || 0).toLocaleString('es-ES')}€</p>
 
             <div style={dataGridStyle}>
               <div style={miniBox}>
@@ -196,6 +252,69 @@ export default function CourseDetailPage() {
           </aside>
         </section>
 
+        <section style={statusGrid}>
+          <article style={officialStatusCard(isOfficiallyCompleted)}>
+            <p style={sectionLabel}>Estado oficial</p>
+
+            <h2 style={statusTitle}>
+              {isOfficiallyCompleted ? 'Curso completado oficialmente' : 'Curso en progreso'}
+            </h2>
+
+            {isOfficiallyCompleted ? (
+              <>
+                <p style={textStyle}>
+                  Has aprobado el examen final y el curso ya consta como completado en Supabase.
+                </p>
+
+                <div style={statusDataGrid}>
+                  <div style={miniBox}>
+                    <p style={miniLabel}>Nota final</p>
+                    <p style={miniValue}>{completion?.final_score || 0}%</p>
+                  </div>
+
+                  <div style={miniBox}>
+                    <p style={miniLabel}>Fecha</p>
+                    <p style={miniValue}>{formatDate(completion?.completed_at)}</p>
+                  </div>
+
+                  <div style={miniBox}>
+                    <p style={miniLabel}>Certificado</p>
+                    <p style={miniValue}>Próximamente</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={textStyle}>
+                  Completa las lecciones y aprueba el examen final para registrar oficialmente la
+                  finalización del curso.
+                </p>
+
+                {!user && (
+                  <div style={noticeBox}>
+                    Para guardar progreso oficial por alumno necesitamos iniciar sesión. El sistema
+                    de login será el siguiente bloque profesional.
+                  </div>
+                )}
+              </>
+            )}
+          </article>
+
+          <article style={progressStatusCard}>
+            <p style={sectionLabel}>Progreso de aprendizaje</p>
+
+            <h2 style={statusTitle}>{lessonProgressPercent}%</h2>
+
+            <div style={progressTrack}>
+              <div style={{ ...progressFill, width: `${lessonProgressPercent}%` }} />
+            </div>
+
+            <p style={textStyle}>
+              {completedLessons} de {totalLessons} lecciones completadas.
+            </p>
+          </article>
+        </section>
+
         <section style={{ marginTop: '42px' }}>
           <p style={sectionLabel}>Contenido académico</p>
           <h2 style={sectionTitle}>Módulos y lecciones</h2>
@@ -206,9 +325,9 @@ export default function CourseDetailPage() {
             {modules.map((module, index) => {
               const moduleLessons = lessons
                 .filter((lesson) => lesson.module_id === module.id)
-                .sort((a, b) => Number(a.sort_order || 999) - Number(b.sort_order || 999));
+                .sort(sortLessons);
 
-              const unlocked = index === 0;
+              const unlocked = index === 0 || isOfficiallyCompleted;
 
               return (
                 <article
@@ -220,16 +339,14 @@ export default function CourseDetailPage() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                     <div>
-                      <p style={moduleNumber}>Módulo {module.position || index + 1}</p>
+                      <p style={moduleNumber}>Módulo {getOrder(module, index + 1)}</p>
                       <h3 style={moduleTitle}>{module.title}</h3>
                       <p style={textStyle}>
                         {module.description || 'Módulo formativo de GHC Academy.'}
                       </p>
                     </div>
 
-                    <span style={lockBadge}>
-                      {unlocked ? 'Disponible' : 'Bloqueado'}
-                    </span>
+                    <span style={lockBadge}>{unlocked ? 'Disponible' : 'Bloqueado'}</span>
                   </div>
 
                   <div style={{ marginTop: '18px', display: 'grid', gap: '10px' }}>
@@ -240,19 +357,28 @@ export default function CourseDetailPage() {
                       </div>
                     )}
 
-                    {moduleLessons.map((lesson) => (
-                      <div key={lesson.id} style={lessonRow}>
-                        <span>{lesson.title}</span>
+                    {moduleLessons.map((lesson) => {
+                      const lessonCompleted = lessonProgress.some(
+                        (progress) => progress.lesson_id === lesson.id
+                      );
 
-                        {unlocked ? (
-                          <Link href={`/cursos/${slug}/${lesson.id}`} style={openLessonLink}>
-                            Abrir
-                          </Link>
-                        ) : (
-                          <span>🔒</span>
-                        )}
-                      </div>
-                    ))}
+                      return (
+                        <div key={lesson.id} style={lessonRow}>
+                          <span>
+                            {lessonCompleted ? '✓ ' : ''}
+                            {lesson.title}
+                          </span>
+
+                          {unlocked ? (
+                            <Link href={`/cursos/${slug}/${lesson.id}`} style={openLessonLink}>
+                              Abrir
+                            </Link>
+                          ) : (
+                            <span>🔒</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </article>
               );
@@ -262,6 +388,38 @@ export default function CourseDetailPage() {
       </div>
     </main>
   );
+}
+
+function getOrder(item: Module | Lesson, fallback: number) {
+  return item.position ?? item.sort_order ?? item.order ?? fallback;
+}
+
+function sortByOrder(a: Module, b: Module) {
+  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
+}
+
+function sortLessons(a: Lesson, b: Lesson) {
+  const aNumber = extractLessonNumber(a.title);
+  const bNumber = extractLessonNumber(b.title);
+
+  if (aNumber !== bNumber) return aNumber - bNumber;
+
+  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
+}
+
+function extractLessonNumber(title: string = '') {
+  const match = title.match(/lecci[oó]n\s*(\d+)/i);
+  return match ? Number(match[1]) : 999;
+}
+
+function formatDate(value?: string) {
+  if (!value) return '—';
+
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
 }
 
 const pageStyle: React.CSSProperties = {
@@ -358,6 +516,20 @@ const dataGridStyle: React.CSSProperties = {
   marginBottom: '18px',
 };
 
+const statusGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
+  gap: '24px',
+  marginTop: '28px',
+};
+
+const statusDataGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: '12px',
+  marginTop: '18px',
+};
+
 const miniBox: React.CSSProperties = {
   borderRadius: '16px',
   border: '1px solid rgba(255,255,255,0.10)',
@@ -414,6 +586,18 @@ const badgeSecondary: React.CSSProperties = {
   letterSpacing: '0.14em',
 };
 
+const completedBadge: React.CSSProperties = {
+  background: 'rgba(0,255,65,0.14)',
+  border: '1px solid rgba(0,255,65,0.55)',
+  color: neon,
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '11px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '0.14em',
+};
+
 const sectionLabel: React.CSSProperties = {
   color: neon,
   fontSize: '12px',
@@ -427,6 +611,45 @@ const sectionTitle: React.CSSProperties = {
   fontWeight: 900,
   textTransform: 'uppercase',
   marginTop: 0,
+};
+
+const statusTitle: React.CSSProperties = {
+  fontSize: '30px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  margin: '0 0 12px',
+};
+
+const officialStatusCard = (completed: boolean): React.CSSProperties => ({
+  borderRadius: '30px',
+  padding: '24px',
+  background: completed
+    ? 'linear-gradient(145deg, rgba(0,255,65,0.16), rgba(255,255,255,0.045))'
+    : 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
+  border: completed ? '1px solid rgba(0,255,65,0.55)' : '1px solid rgba(0,255,65,0.24)',
+  boxShadow: completed ? '0 0 70px rgba(0,255,65,0.12)' : 'none',
+});
+
+const progressStatusCard: React.CSSProperties = {
+  borderRadius: '30px',
+  padding: '24px',
+  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
+  border: '1px solid rgba(0,255,65,0.24)',
+};
+
+const progressTrack: React.CSSProperties = {
+  height: '12px',
+  borderRadius: '999px',
+  overflow: 'hidden',
+  background: 'rgba(255,255,255,0.12)',
+  margin: '18px 0',
+};
+
+const progressFill: React.CSSProperties = {
+  height: '100%',
+  borderRadius: '999px',
+  background: neon,
+  boxShadow: '0 0 20px rgba(0,255,65,0.55)',
 };
 
 const noticeBox: React.CSSProperties = {
