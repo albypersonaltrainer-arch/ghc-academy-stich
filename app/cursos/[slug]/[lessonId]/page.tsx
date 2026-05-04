@@ -63,9 +63,9 @@ export default function LessonPage() {
         const orderedModules = (modulesData || [])
           .map((module: AnyRecord) => ({
             ...module,
-            lessons: [...(module.lessons || [])].sort(sortLessons)
+            lessons: [...(module.lessons || [])].sort(sortLessonsPremium)
           }))
-          .sort(sortItems)
+          .sort(sortModulesPremium)
 
         setModules(orderedModules)
 
@@ -169,32 +169,12 @@ export default function LessonPage() {
     if (!currentLesson) return null
 
     const type = getLessonType(currentLesson)
-
-    const textContent =
-      currentLesson.content ||
-      currentLesson.body ||
-      currentLesson.text ||
-      currentLesson.description ||
-      ''
-
-    const videoUrl =
-      currentLesson.video_url ||
-      currentLesson.video ||
-      currentLesson.url ||
-      (type === 'video' ? currentLesson.content : '')
-
-    const audioUrl =
-      currentLesson.audio_url ||
-      currentLesson.audio ||
-      (type === 'audio' ? currentLesson.content : '')
-
-    const pdfUrl =
-      currentLesson.pdf_url ||
-      currentLesson.pdf ||
-      currentLesson.file_url ||
-      (type === 'pdf' ? currentLesson.content : '')
-
     const isMixed = type === 'mixed' || type === 'mixto'
+
+    const textContent = getTextContent(currentLesson)
+    const videoUrl = getVideoUrl(currentLesson)
+    const audioUrl = getAudioUrl(currentLesson)
+    const pdfUrl = getPdfUrl(currentLesson)
 
     return (
       <div className="ghc-content-stack">
@@ -384,24 +364,127 @@ function getLessonType(lesson: AnyRecord) {
   ).toLowerCase()
 }
 
-function sortItems(a: AnyRecord, b: AnyRecord) {
-  const aOrder = a.order ?? a.position ?? a.order_index ?? 0
-  const bOrder = b.order ?? b.position ?? b.order_index ?? 0
+function getTextContent(lesson: AnyRecord) {
+  return (
+    lesson.text_content ||
+    lesson.html_content ||
+    lesson.body ||
+    lesson.text ||
+    lesson.description ||
+    (isProbablyText(lesson.content) ? lesson.content : '') ||
+    ''
+  )
+}
+
+function getVideoUrl(lesson: AnyRecord) {
+  const candidates = [
+    lesson.video_url,
+    lesson.videoUrl,
+    lesson.video,
+    lesson.video_file,
+    lesson.video_file_url,
+    lesson.media_video_url,
+    lesson.video_src,
+    lesson.content_url,
+    lesson.media_url,
+    lesson.url,
+    lesson.file_url,
+    lesson.content
+  ]
+
+  return findUrlByExtension(candidates, ['.mp4', '.webm', '.mov', '.m4v'])
+}
+
+function getAudioUrl(lesson: AnyRecord) {
+  const candidates = [
+    lesson.audio_url,
+    lesson.audioUrl,
+    lesson.audio,
+    lesson.audio_file,
+    lesson.audio_file_url,
+    lesson.media_audio_url,
+    lesson.audio_src,
+    lesson.content_url,
+    lesson.media_url,
+    lesson.url,
+    lesson.file_url,
+    lesson.content
+  ]
+
+  return findUrlByExtension(candidates, ['.mp3', '.wav', '.m4a', '.ogg'])
+}
+
+function getPdfUrl(lesson: AnyRecord) {
+  const candidates = [
+    lesson.pdf_url,
+    lesson.pdfUrl,
+    lesson.pdf,
+    lesson.pdf_file,
+    lesson.pdf_file_url,
+    lesson.file_url,
+    lesson.document_url,
+    lesson.content_url,
+    lesson.media_url,
+    lesson.url,
+    lesson.content
+  ]
+
+  return findUrlByExtension(candidates, ['.pdf'])
+}
+
+function findUrlByExtension(values: any[], extensions: string[]) {
+  const cleanValues = values
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+
+  const exact = cleanValues.find((value) =>
+    extensions.some((extension) => value.toLowerCase().includes(extension))
+  )
+
+  return exact || ''
+}
+
+function isProbablyText(value: any) {
+  if (!value) return false
+  const text = String(value)
+
+  if (text.startsWith('http://') || text.startsWith('https://')) {
+    return false
+  }
+
+  return true
+}
+
+function sortModulesPremium(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractModuleNumber(a.title)
+  const bNumber = extractModuleNumber(b.title)
+
+  if (aNumber !== bNumber) return aNumber - bNumber
+
+  const aOrder = Number(a.order ?? a.position ?? a.order_index ?? 999)
+  const bOrder = Number(b.order ?? b.position ?? b.order_index ?? 999)
+
   return aOrder - bOrder
 }
 
-function sortLessons(a: AnyRecord, b: AnyRecord) {
-  const aOrder = a.order ?? a.position ?? a.order_index
-  const bOrder = b.order ?? b.position ?? b.order_index
+function sortLessonsPremium(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractLessonNumber(a.title)
+  const bNumber = extractLessonNumber(b.title)
 
-  if (typeof aOrder === 'number' && typeof bOrder === 'number') {
-    return aOrder - bOrder
-  }
+  if (aNumber !== bNumber) return aNumber - bNumber
 
-  return extractLessonNumber(a.title) - extractLessonNumber(b.title)
+  const aOrder = Number(a.order ?? a.position ?? a.order_index ?? 999)
+  const bOrder = Number(b.order ?? b.position ?? b.order_index ?? 999)
+
+  return aOrder - bOrder
 }
 
 function extractLessonNumber(title: string = '') {
   const match = title.match(/lecci[oó]n\s*(\d+)/i)
+  return match ? Number(match[1]) : 999
+}
+
+function extractModuleNumber(title: string = '') {
+  const match = title.match(/m[oó]dulo\s*(\d+)/i)
   return match ? Number(match[1]) : 999
 }
