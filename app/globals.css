@@ -1,17 +1,15 @@
 :root {
   --ghc-bg: #050706;
   --ghc-black: #000000;
-  --ghc-panel: rgba(255, 255, 255, 0.055);
-  --ghc-panel-strong: rgba(255, 255, 255, 0.085);
-  --ghc-border: rgba(0, 255, 65, 0.22);
-  --ghc-border-soft: rgba(255, 255, 255, 0.1);
-  --ghc-green: #00FF41;
-  --ghc-green-soft: rgba(0, 255, 65, 0.14);
-  --ghc-text: #f4f7f5;
-  --ghc-muted: #a7ada9;
-  --ghc-muted-2: #707873;
-  --ghc-danger: #ff4d4d;
-  --ghc-warning: #facc15;
+  --ghc-panel: rgba(255, 255, 255, 0.06);
+  --ghc-panel-strong: rgba(255, 255, 255, 0.1);
+  --ghc-border: rgba(0, 255, 65, 0.28);
+  --ghc-border-soft: rgba(255, 255, 255, 0.12);
+  --ghc-green: #00ff41;
+  --ghc-green-2: #39ff6a;
+  --ghc-text: #f4fff7;
+  --ghc-muted: #aab5af;
+  --ghc-muted-2: #707a74;
 }
 
 html,
@@ -20,21 +18,15 @@ body {
   min-height: 100%;
   background: var(--ghc-bg);
   color: var(--ghc-text);
-  font-family: Inter, Arial, Helvetica, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 * {
   box-sizing: border-box;
 }
 
-button,
-input,
-textarea,
-select {
-  font-family: inherit;
-}
-
 button {
+  font-family: inherit;
   cursor: pointer;
 }
 
@@ -47,16 +39,12 @@ button {
   background: var(--ghc-bg);
 }
 
-/* ============================= */
-/* GHC PREMIUM LESSON PLATFORM */
-/* ============================= */
-
 .ghc-lesson-page {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 18% 0%, rgba(0, 255, 65, 0.16), transparent 34%),
-    radial-gradient(circle at 90% 8%, rgba(0, 255, 65, 0.08), transparent 28%),
-    linear-gradient(135deg, #050706 0%, #030403 55%, #000 100%);
+    radial-gradient(circle at 18% 0%, rgba(0, 255, 65, 0.16), transparent 35%),
+    radial-gradient(circle at 95% 5%, rgba(0, 255, 65, 0.08), transparent 30%),
+    linear-gradient(135deg, #050706 0%, #020302 65%, #000 100%);
   color: var(--ghc-text);
 }
 
@@ -68,12 +56,12 @@ button {
 
 .ghc-sidebar {
   border-right: 1px solid var(--ghc-border);
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.78);
   backdrop-filter: blur(18px);
   padding: 28px;
+  height: 100vh;
   position: sticky;
   top: 0;
-  height: 100vh;
   overflow-y: auto;
 }
 
@@ -87,9 +75,9 @@ button {
 }
 
 .ghc-sidebar-title {
-  margin: 0 0 24px;
-  font-size: 26px;
-  line-height: 1.08;
+  margin: 0 0 26px;
+  font-size: 28px;
+  line-height: 1.05;
   font-weight: 950;
 }
 
@@ -99,28 +87,347 @@ button {
   border-radius: 28px;
   padding: 20px;
   margin-bottom: 30px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
 }
 
 .ghc-progress-top {
   display: flex;
   justify-content: space-between;
-  color: var(--ghc-muted);
   margin-bottom: 12px;
+  color: var(--ghc-muted);
+  font-size: 14px;
+}
+
+.ghc-progress-top strong {
+  color: var(--ghc-green);
 }
 
 .ghc-progress-track {
   height: 12px;
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .ghc-progress-fill {
   height: 100%;
-  border-radius: 999px;
   background: var(--ghc-green);
+  border-radius: 999px;
+  box-shadow: 0 0 24px rgba(0, 255, 65, 0.8);
+}
+
+.ghc-progress-small {
+  margin: 12px 0 0;
+  color: var(--ghc-muted-2);
+  font-size: 12px;
+}
+
+.ghc-module-list {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.ghc-module-title {
+  margin: 0 0 12px;
+  color: var(--ghc-muted);
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ghc-lessons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.ghc-lesson-item {
+  width: 100%;
+  border: 1px solid var(--ghc-border-soft);
+  background: rgba(255, 255, 255, 0.045);
+  color: #dfe8e2;
+  border-radius: 18px;
+  padding: 14px;
+  text-align: left;
+  display: flex;
+  gap: 12px;
+  transition: 180ms ease;
+}
+
+.ghc-lesson-item:hover {
+  border-color: rgba(0, 255, 65, 0.65);
+  background: rgba(0, 255, 65, 0.08);
+}
+
+.ghc-lesson-item-active {
+  border-color: var(--ghc-green);
+  background: rgba(0, 255, 65, 0.16);
+  box-shadow: 0 0 30px rgba(0, 255, 65, 0.14);
+}
+
+.ghc-lesson-status {
+  color: var(--ghc-green);
+  min-width: 18px;
+  font-weight: 950;
+}
+
+.ghc-lesson-name {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 800;
 }
 
 .ghc-main {
-  padding: 40px;
+  padding: 44px 56px;
+  min-width: 0;
+}
+
+.ghc-main-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.ghc-hero {
+  border: 1px solid var(--ghc-border);
+  background:
+    linear-gradient(135deg, rgba(0, 255, 65, 0.14), rgba(255, 255, 255, 0.045)),
+    rgba(255, 255, 255, 0.03);
+  border-radius: 34px;
+  padding: 36px;
+  margin-bottom: 34px;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.35);
+}
+
+.ghc-title {
+  margin: 0 0 20px;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  font-weight: 950;
+}
+
+.ghc-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ghc-pill {
+  border: 1px solid var(--ghc-border-soft);
+  background: rgba(0, 0, 0, 0.42);
+  color: #d9dfdc;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ghc-content-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.ghc-content-card {
+  border: 1px solid var(--ghc-border);
+  background: var(--ghc-panel);
+  border-radius: 30px;
+  padding: 22px;
+  box-shadow: 0 26px 90px rgba(0, 0, 0, 0.28);
+}
+
+.ghc-content-label {
+  margin: 0 0 14px;
+  color: var(--ghc-green);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.ghc-video {
+  width: 100%;
+  display: block;
+  border-radius: 22px;
+  background: #000;
+}
+
+.ghc-audio {
+  width: 100%;
+}
+
+.ghc-pdf {
+  width: 100%;
+  height: 680px;
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+}
+
+.ghc-text-content {
+  color: #e6ece8;
+  font-size: 18px;
+  line-height: 1.85;
+}
+
+.ghc-text-content p {
+  margin: 0 0 18px;
+}
+
+.ghc-empty-content {
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  background: rgba(250, 204, 21, 0.08);
+  color: #fde68a;
+  border-radius: 30px;
+  padding: 28px;
+  font-weight: 800;
+}
+
+.ghc-complete-card {
+  margin-top: 34px;
+  border: 1px solid var(--ghc-border);
+  background: var(--ghc-panel);
+  border-radius: 30px;
+  padding: 22px;
+}
+
+.ghc-primary-button {
+  width: 100%;
+  border: 0;
+  border-radius: 20px;
+  padding: 18px 22px;
+  background: var(--ghc-green);
+  color: #000;
+  font-size: 17px;
+  font-weight: 950;
+  box-shadow: 0 0 30px rgba(0, 255, 65, 0.25);
+  transition: 180ms ease;
+}
+
+.ghc-primary-button:hover {
+  transform: translateY(-1px);
+  background: var(--ghc-green-2);
+  box-shadow: 0 0 44px rgba(0, 255, 65, 0.35);
+}
+
+.ghc-navigation-grid {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.ghc-nav-card,
+.ghc-nav-card-muted,
+.ghc-exam-card {
+  border-radius: 30px;
+  padding: 24px;
+  text-align: left;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ghc-nav-card {
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  background: var(--ghc-panel);
+  color: #fff;
+  transition: 180ms ease;
+}
+
+.ghc-nav-card:hover {
+  border-color: var(--ghc-green);
+  background: rgba(0, 255, 65, 0.09);
+}
+
+.ghc-nav-card-muted {
+  border: 1px solid var(--ghc-border-soft);
+  background: rgba(255, 255, 255, 0.035);
+  color: #7a827d;
+}
+
+.ghc-exam-card {
+  border: 1px solid var(--ghc-green);
+  background: var(--ghc-green);
+  color: #000;
+  box-shadow: 0 0 40px rgba(0, 255, 65, 0.32);
+  transition: 180ms ease;
+}
+
+.ghc-exam-card:hover {
+  transform: translateY(-2px);
+  background: var(--ghc-green-2);
+  box-shadow: 0 0 58px rgba(0, 255, 65, 0.42);
+}
+
+.ghc-card-title {
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.ghc-card-subtitle {
+  opacity: 0.72;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ghc-center-page {
+  min-height: 100vh;
+  background: var(--ghc-bg);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+
+.ghc-loading-box,
+.ghc-error-box {
+  max-width: 560px;
+  border-radius: 30px;
+  padding: 30px;
+  text-align: center;
+}
+
+.ghc-loading-box {
+  border: 1px solid var(--ghc-border);
+  background: var(--ghc-panel);
+  color: var(--ghc-green);
+  font-weight: 950;
+}
+
+.ghc-error-box {
+  border: 1px solid rgba(255, 77, 77, 0.35);
+  background: rgba(255, 77, 77, 0.08);
+}
+
+@media (max-width: 1024px) {
+  .ghc-lesson-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .ghc-sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--ghc-border);
+  }
+
+  .ghc-main {
+    padding: 28px 18px;
+  }
+
+  .ghc-navigation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ghc-pdf {
+    height: 560px;
+  }
 }
