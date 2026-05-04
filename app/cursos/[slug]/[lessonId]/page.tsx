@@ -9,6 +9,9 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 )
 
+const SAMPLE_VIDEO_URL =
+  'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
+
 type AnyRecord = Record<string, any>
 
 export default function LessonPage() {
@@ -126,6 +129,14 @@ export default function LessonPage() {
     router.push(`/cursos/${slug}/${id}`)
   }
 
+  const goToCourse = () => {
+    router.push(`/cursos/${slug}`)
+  }
+
+  const goToCatalog = () => {
+    router.push('/cursos')
+  }
+
   const goToExam = () => {
     if (!course?.id) return
     router.push(`/exam/${course.id}`)
@@ -172,7 +183,7 @@ export default function LessonPage() {
     const isMixed = type === 'mixed' || type === 'mixto'
 
     const textContent = getTextContent(currentLesson)
-    const videoUrl = getVideoUrl(currentLesson)
+    const videoUrl = getVideoUrl(currentLesson) || (isMixed ? SAMPLE_VIDEO_URL : '')
     const audioUrl = getAudioUrl(currentLesson)
     const pdfUrl = getPdfUrl(currentLesson)
 
@@ -229,7 +240,7 @@ export default function LessonPage() {
         <div className="ghc-error-box">
           <h1>Error de lección</h1>
           <p>{errorMessage}</p>
-          <button onClick={() => router.push('/cursos')} className="ghc-primary-button">
+          <button onClick={goToCatalog} className="ghc-primary-button">
             Volver a cursos
           </button>
         </div>
@@ -292,6 +303,15 @@ export default function LessonPage() {
 
         <section className="ghc-main">
           <div className="ghc-main-inner">
+            <div className="ghc-top-actions">
+              <button onClick={goToCourse} className="ghc-top-back">
+                ← Volver al curso
+              </button>
+              <button onClick={goToCatalog} className="ghc-top-back">
+                Catálogo de cursos
+              </button>
+            </div>
+
             <header className="ghc-hero">
               <p className="ghc-kicker">Plataforma premium</p>
               <h1 className="ghc-title">{currentLesson?.title}</h1>
