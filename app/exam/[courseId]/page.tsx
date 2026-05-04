@@ -207,6 +207,25 @@ export default function ExamPage() {
     }))
   }
 
+  const savePreviewModuleCompletion = (finalScore: number) => {
+    if (!courseId || !moduleId) return
+
+    const storageKey = `ghc_preview_module_completions_${courseId}`
+
+    const currentRaw = window.localStorage.getItem(storageKey)
+    const current: Record<string, any> = currentRaw ? JSON.parse(currentRaw) : {}
+
+    current[moduleId] = {
+      course_id: courseId,
+      module_id: moduleId,
+      completed: true,
+      final_score: finalScore,
+      completed_at: new Date().toISOString()
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(current))
+  }
+
   const submitExam = async () => {
     if (!exam) return
 
@@ -235,6 +254,15 @@ export default function ExamPage() {
     setSubmitted(true)
 
     if (!user?.id) {
+      if (hasPassed && isModuleExam && moduleId) {
+        savePreviewModuleCompletion(finalScore)
+        setSaving(false)
+        setSaveMessage(
+          'Examen aprobado. Módulo desbloqueado en modo preview. Cuando activemos login, esto se guardará oficialmente en Supabase.'
+        )
+        return
+      }
+
       setSaving(false)
       setSaveMessage(
         hasPassed
