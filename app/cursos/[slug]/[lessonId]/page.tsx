@@ -111,14 +111,36 @@ export default function LessonPage() {
     return modules.flatMap((module: AnyRecord) => module.lessons || [])
   }, [modules])
 
+  const currentModule = useMemo(() => {
+    if (!currentLesson) return null
+
+    return modules.find((module: AnyRecord) =>
+      (module.lessons || []).some((lesson: AnyRecord) => String(lesson.id) === lessonId)
+    ) || null
+  }, [modules, currentLesson, lessonId])
+
+  const currentModuleLessons = useMemo(() => {
+    if (!currentModule) return []
+
+    return [...(currentModule.lessons || [])].sort(sortLessonsPremium)
+  }, [currentModule])
+
   const currentIndex = allLessons.findIndex((lesson: AnyRecord) => String(lesson.id) === lessonId)
+
+  const currentIndexInModule = currentModuleLessons.findIndex(
+    (lesson: AnyRecord) => String(lesson.id) === lessonId
+  )
+
   const previousLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null
+
   const nextLesson =
     currentIndex >= 0 && currentIndex < allLessons.length - 1
       ? allLessons[currentIndex + 1]
       : null
 
-  const isLastLesson = allLessons.length > 0 && currentIndex === allLessons.length - 1
+  const isLastLessonOfModule =
+    currentModuleLessons.length > 0 &&
+    currentIndexInModule === currentModuleLessons.length - 1
 
   const progress =
     allLessons.length > 0
@@ -137,9 +159,10 @@ export default function LessonPage() {
     router.push('/cursos')
   }
 
-  const goToExam = () => {
-    if (!course?.id) return
-    router.push(`/exam/${course.id}`)
+  const goToModuleExam = () => {
+    if (!course?.id || !currentModule?.id) return
+
+    router.push(`/exam/${course.id}?moduleId=${currentModule.id}`)
   }
 
   const markAsCompleted = async () => {
@@ -319,9 +342,12 @@ export default function LessonPage() {
               <div className="ghc-pills">
                 <span className="ghc-pill">{course?.title}</span>
                 <span className="ghc-pill">
-                  Lección {currentIndex + 1} de {allLessons.length}
+                  Módulo: {currentModule?.title || '—'}
                 </span>
-                <span className="ghc-pill">Progreso {progress}%</span>
+                <span className="ghc-pill">
+                  Lección {currentIndexInModule + 1} de {currentModuleLessons.length}
+                </span>
+                <span className="ghc-pill">Progreso curso {progress}%</span>
               </div>
             </header>
 
@@ -349,11 +375,11 @@ export default function LessonPage() {
                 </div>
               )}
 
-              {isLastLesson ? (
-                <button onClick={goToExam} className="ghc-exam-card">
-                  <span className="ghc-card-title">HACER EXAMEN FINAL →</span>
+              {isLastLessonOfModule ? (
+                <button onClick={goToModuleExam} className="ghc-exam-card">
+                  <span className="ghc-card-title">HACER EXAMEN DEL MÓDULO →</span>
                   <span className="ghc-card-subtitle">
-                    Último paso para completar el curso
+                    Aprueba para desbloquear el siguiente módulo
                   </span>
                 </button>
               ) : (
@@ -481,8 +507,8 @@ function sortModulesPremium(a: AnyRecord, b: AnyRecord) {
 
   if (aNumber !== bNumber) return aNumber - bNumber
 
-  const aOrder = Number(a.order ?? a.position ?? a.order_index ?? 999)
-  const bOrder = Number(b.order ?? b.position ?? b.order_index ?? 999)
+  const aOrder = Number(a.order ?? a.position ?? a.order_index ?? a.sort_order ?? 999)
+  const bOrder = Number(b.order ?? b.position ?? b.order_index ?? b.sort_order ?? 999)
 
   return aOrder - bOrder
 }
@@ -493,8 +519,8 @@ function sortLessonsPremium(a: AnyRecord, b: AnyRecord) {
 
   if (aNumber !== bNumber) return aNumber - bNumber
 
-  const aOrder = Number(a.order ?? a.position ?? a.order_index ?? 999)
-  const bOrder = Number(b.order ?? b.position ?? b.order_index ?? 999)
+  const aOrder = Number(a.order ?? a.position ?? a.order_index ?? a.sort_order ?? 999)
+  const bOrder = Number(b.order ?? b.position ?? b.order_index ?? b.sort_order ?? 999)
 
   return aOrder - bOrder
 }
