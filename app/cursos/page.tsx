@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -36,6 +37,13 @@ type Lesson = {
   module_id: string;
   title: string;
   content?: string | null;
+  type?: string | null;
+  content_type?: string | null;
+  lesson_type?: string | null;
+  video_url?: string | null;
+  audio_url?: string | null;
+  pdf_url?: string | null;
+  file_url?: string | null;
   sort_order?: number | null;
   position?: number | null;
   order?: number | null;
@@ -100,11 +108,10 @@ export default function CourseDetailPage() {
           .from('courses')
           .select('*')
           .eq('slug', slug)
-          .eq('status', 'published')
           .maybeSingle();
 
         if (courseError || !courseData) {
-          setSystemMessage('Este curso no existe o todavía no está publicado.');
+          setSystemMessage('Este curso no existe o todavía no está disponible.');
           setLoading(false);
           return;
         }
@@ -153,7 +160,11 @@ export default function CourseDetailPage() {
           setSystemMessage('Curso cargado, pero no se pudieron cargar las lecciones.');
           setLessons([]);
         } else {
-          setLessons(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLessons) : []);
+          const finalLessons: Lesson[] = Array.isArray(lessonsData)
+            ? [...lessonsData].sort(sortLessons)
+            : [];
+
+          setLessons(finalLessons);
         }
 
         if (activeUser?.id) {
@@ -237,15 +248,15 @@ export default function CourseDetailPage() {
         .filter((lesson) => lesson.module_id === module.id)
         .sort(sortLessons);
 
-      const lessonCompletedCount = moduleLessons.filter((lesson) =>
+      const completedLessonCount = moduleLessons.filter((lesson) =>
         completedLessonIds.has(lesson.id)
       ).length;
 
-      const completionRecord = moduleCompletions.find(
+      const moduleCompletionRecord = moduleCompletions.find(
         (item) => item.module_id === module.id && item.completed
       );
 
-      const moduleCompleted = Boolean(completionRecord);
+      const moduleCompleted = Boolean(moduleCompletionRecord);
 
       let unlocked = index === 0 || isCourseOfficiallyCompleted || moduleCompleted;
 
@@ -256,11 +267,11 @@ export default function CourseDetailPage() {
 
       map[module.id] = {
         lessons: moduleLessons,
-        completedLessons: lessonCompletedCount,
+        completedLessons: completedLessonCount,
         totalLessons: moduleLessons.length,
         completed: moduleCompleted,
         unlocked,
-        finalScore: completionRecord?.final_score,
+        finalScore: moduleCompletionRecord?.final_score,
       };
     });
 
@@ -344,7 +355,9 @@ export default function CourseDetailPage() {
               </div>
             </div>
 
-            <button style={buyButton}>Solicitar acceso</button>
+            <button style={buyButton}>
+              {user ? 'Acceso activo' : 'Solicitar acceso'}
+            </button>
           </aside>
         </section>
 
@@ -388,8 +401,8 @@ export default function CourseDetailPage() {
 
                 {!user && (
                   <div style={noticeBox}>
-                    Para guardar progreso oficial por alumno necesitamos iniciar sesión. El sistema
-                    de login será el siguiente bloque profesional.
+                    Vista previa activa. El módulo 1 está disponible para prueba. Cuando activemos
+                    login y pagos, el progreso quedará asociado a cada alumno.
                   </div>
                 )}
               </>
@@ -476,13 +489,20 @@ export default function CourseDetailPage() {
 
                     {moduleLessons.map((lesson) => {
                       const lessonCompleted = completedLessonIds.has(lesson.id);
+                      const lessonType = getLessonTypeLabel(lesson);
 
                       return (
                         <div key={lesson.id} style={lessonRow}>
-                          <span>
-                            {lessonCompleted ? '✓ ' : ''}
-                            {lesson.title}
-                          </span>
+                          <div>
+                            <span>
+                              {lessonCompleted ? '✓ ' : ''}
+                              {lesson.title}
+                            </span>
+
+                            <div style={lessonMetaRow}>
+                              <span style={lessonTypeBadge}>{lessonType}</span>
+                            </div>
+                          </div>
 
                           {unlocked ? (
                             <Link href={`/cursos/${slug}/${lesson.id}`} style={openLessonLink}>
@@ -537,6 +557,38 @@ function extractModuleNumber(title: string = '') {
   return match ? Number(match[1]) : 999;
 }
 
+function getLessonTypeLabel(lesson: Lesson) {
+  const rawType = String(
+    lesson.type ||
+      lesson.content_type ||
+      lesson.lesson_type ||
+      ''
+  ).toLowerCase();
+
+  const allValues = [
+    lesson.content,
+    lesson.video_url,
+    lesson.audio_url,
+    lesson.pdf_url,
+    lesson.file_url,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const hasVideo = rawType.includes('video') || /\.(mp4|webm|mov|m4v)/i.test(allValues);
+  const hasAudio = rawType.includes('audio') || /\.(mp3|wav|m4a|ogg)/i.test(allValues);
+  const hasPdf = rawType.includes('pdf') || /\.pdf/i.test(allValues);
+  const isMixed = rawType.includes('mixed') || rawType.includes('mixto');
+
+  if (isMixed || [hasVideo, hasAudio, hasPdf].filter(Boolean).length >= 2) return 'Mixto';
+  if (hasVideo) return 'Vídeo';
+  if (hasAudio) return 'Audio';
+  if (hasPdf) return 'PDF';
+
+  return 'Texto';
+}
+
 function formatDate(value?: string) {
   if (!value) return '—';
 
@@ -547,7 +599,7 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-const pageStyle: React.CSSProperties = {
+const pageStyle: CSSProperties = {
   minHeight: '100vh',
   background:
     'radial-gradient(circle at top left, rgba(0,255,65,0.16), transparent 35%), radial-gradient(circle at bottom right, rgba(0,255,65,0.10), transparent 30%), #030504',
@@ -556,12 +608,12 @@ const pageStyle: React.CSSProperties = {
   fontFamily: 'Arial, Helvetica, sans-serif',
 };
 
-const containerStyle: React.CSSProperties = {
+const containerStyle: CSSProperties = {
   maxWidth: '1200px',
   margin: '0 auto',
 };
 
-const backButton: React.CSSProperties = {
+const backButton: CSSProperties = {
   display: 'inline-block',
   marginBottom: '28px',
   color: neon,
@@ -575,13 +627,13 @@ const backButton: React.CSSProperties = {
   textTransform: 'uppercase',
 };
 
-const heroStyle: React.CSSProperties = {
+const heroStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
   gap: '24px',
 };
 
-const eyebrowStyle: React.CSSProperties = {
+const eyebrowStyle: CSSProperties = {
   color: neon,
   fontSize: '12px',
   letterSpacing: '0.35em',
@@ -589,7 +641,7 @@ const eyebrowStyle: React.CSSProperties = {
   textTransform: 'uppercase',
 };
 
-const titleStyle: React.CSSProperties = {
+const titleStyle: CSSProperties = {
   fontSize: 'clamp(38px, 6vw, 72px)',
   lineHeight: '0.95',
   fontWeight: 900,
@@ -597,7 +649,7 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
 };
 
-const subtitleStyle: React.CSSProperties = {
+const subtitleStyle: CSSProperties = {
   color: neon,
   fontWeight: 900,
   fontSize: '18px',
@@ -605,13 +657,13 @@ const subtitleStyle: React.CSSProperties = {
   marginTop: '20px',
 };
 
-const textStyle: React.CSSProperties = {
+const textStyle: CSSProperties = {
   color: 'rgba(255,255,255,0.66)',
   fontSize: '15px',
   lineHeight: '1.75',
 };
 
-const priceCardStyle: React.CSSProperties = {
+const priceCardStyle: CSSProperties = {
   borderRadius: '30px',
   border: '1px solid rgba(0,255,65,0.26)',
   background: 'rgba(255,255,255,0.045)',
@@ -619,7 +671,7 @@ const priceCardStyle: React.CSSProperties = {
   boxShadow: '0 0 60px rgba(0,255,65,0.08)',
 };
 
-const smallLabel: React.CSSProperties = {
+const smallLabel: CSSProperties = {
   margin: 0,
   color: 'rgba(255,255,255,0.42)',
   fontSize: '11px',
@@ -627,54 +679,54 @@ const smallLabel: React.CSSProperties = {
   textTransform: 'uppercase',
 };
 
-const priceStyle: React.CSSProperties = {
+const priceStyle: CSSProperties = {
   margin: '8px 0 20px',
   color: neon,
   fontSize: '46px',
   fontWeight: 900,
 };
 
-const dataGridStyle: React.CSSProperties = {
+const dataGridStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: '12px',
   marginBottom: '18px',
 };
 
-const statusGrid: React.CSSProperties = {
+const statusGrid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
   gap: '24px',
   marginTop: '28px',
 };
 
-const statusDataGrid: React.CSSProperties = {
+const statusDataGrid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
   gap: '12px',
   marginTop: '18px',
 };
 
-const miniBox: React.CSSProperties = {
+const miniBox: CSSProperties = {
   borderRadius: '16px',
   border: '1px solid rgba(255,255,255,0.10)',
   background: 'rgba(0,0,0,0.28)',
   padding: '12px',
 };
 
-const miniLabel: React.CSSProperties = {
+const miniLabel: CSSProperties = {
   margin: 0,
   color: 'rgba(255,255,255,0.38)',
   fontSize: '11px',
 };
 
-const miniValue: React.CSSProperties = {
+const miniValue: CSSProperties = {
   margin: '5px 0 0',
   color: 'white',
   fontWeight: 800,
 };
 
-const buyButton: React.CSSProperties = {
+const buyButton: CSSProperties = {
   width: '100%',
   border: 'none',
   borderRadius: '18px',
@@ -689,7 +741,7 @@ const buyButton: React.CSSProperties = {
   boxShadow: '0 0 28px rgba(0,255,65,0.30)',
 };
 
-const badgeMain: React.CSSProperties = {
+const badgeMain: CSSProperties = {
   background: neon,
   color: '#000',
   borderRadius: '999px',
@@ -700,7 +752,7 @@ const badgeMain: React.CSSProperties = {
   letterSpacing: '0.14em',
 };
 
-const badgeSecondary: React.CSSProperties = {
+const badgeSecondary: CSSProperties = {
   border: '1px solid rgba(255,255,255,0.14)',
   color: 'rgba(255,255,255,0.72)',
   borderRadius: '999px',
@@ -711,7 +763,7 @@ const badgeSecondary: React.CSSProperties = {
   letterSpacing: '0.14em',
 };
 
-const completedBadge: React.CSSProperties = {
+const completedBadge: CSSProperties = {
   background: 'rgba(0,255,65,0.14)',
   border: '1px solid rgba(0,255,65,0.55)',
   color: neon,
@@ -723,7 +775,7 @@ const completedBadge: React.CSSProperties = {
   letterSpacing: '0.14em',
 };
 
-const sectionLabel: React.CSSProperties = {
+const sectionLabel: CSSProperties = {
   color: neon,
   fontSize: '12px',
   fontWeight: 900,
@@ -731,21 +783,21 @@ const sectionLabel: React.CSSProperties = {
   textTransform: 'uppercase',
 };
 
-const sectionTitle: React.CSSProperties = {
+const sectionTitle: CSSProperties = {
   fontSize: '34px',
   fontWeight: 900,
   textTransform: 'uppercase',
   marginTop: 0,
 };
 
-const statusTitle: React.CSSProperties = {
+const statusTitle: CSSProperties = {
   fontSize: '30px',
   fontWeight: 900,
   textTransform: 'uppercase',
   margin: '0 0 12px',
 };
 
-const officialStatusCard = (completed: boolean): React.CSSProperties => ({
+const officialStatusCard = (completed: boolean): CSSProperties => ({
   borderRadius: '30px',
   padding: '24px',
   background: completed
@@ -755,14 +807,14 @@ const officialStatusCard = (completed: boolean): React.CSSProperties => ({
   boxShadow: completed ? '0 0 70px rgba(0,255,65,0.12)' : 'none',
 });
 
-const progressStatusCard: React.CSSProperties = {
+const progressStatusCard: CSSProperties = {
   borderRadius: '30px',
   padding: '24px',
   background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
   border: '1px solid rgba(0,255,65,0.24)',
 };
 
-const progressTrack: React.CSSProperties = {
+const progressTrack: CSSProperties = {
   height: '12px',
   borderRadius: '999px',
   overflow: 'hidden',
@@ -770,14 +822,14 @@ const progressTrack: React.CSSProperties = {
   margin: '18px 0',
 };
 
-const progressFill: React.CSSProperties = {
+const progressFill: CSSProperties = {
   height: '100%',
   borderRadius: '999px',
   background: neon,
   boxShadow: '0 0 20px rgba(0,255,65,0.55)',
 };
 
-const noticeBox: React.CSSProperties = {
+const noticeBox: CSSProperties = {
   padding: '22px',
   borderRadius: '24px',
   border: '1px solid rgba(0,255,65,0.22)',
@@ -786,20 +838,20 @@ const noticeBox: React.CSSProperties = {
   background: 'rgba(255,255,255,0.035)',
 };
 
-const moduleCard: React.CSSProperties = {
+const moduleCard: CSSProperties = {
   borderRadius: '28px',
   padding: '24px',
   background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
   border: '1px solid rgba(0,255,65,0.24)',
 };
 
-const moduleCompletedCard: React.CSSProperties = {
+const moduleCompletedCard: CSSProperties = {
   border: '1px solid rgba(0,255,65,0.58)',
   background: 'linear-gradient(145deg, rgba(0,255,65,0.13), rgba(255,255,255,0.035))',
   boxShadow: '0 0 50px rgba(0,255,65,0.10)',
 };
 
-const moduleNumber: React.CSSProperties = {
+const moduleNumber: CSSProperties = {
   color: neon,
   fontSize: '12px',
   fontWeight: 900,
@@ -808,14 +860,14 @@ const moduleNumber: React.CSSProperties = {
   margin: 0,
 };
 
-const moduleTitle: React.CSSProperties = {
+const moduleTitle: CSSProperties = {
   fontSize: '26px',
   lineHeight: '1.15',
   fontWeight: 900,
   margin: '8px 0 10px',
 };
 
-const moduleProgressText: React.CSSProperties = {
+const moduleProgressText: CSSProperties = {
   color: neon,
   fontSize: '12px',
   fontWeight: 900,
@@ -824,14 +876,14 @@ const moduleProgressText: React.CSSProperties = {
   marginTop: '10px',
 };
 
-const moduleScoreText: React.CSSProperties = {
+const moduleScoreText: CSSProperties = {
   color: 'rgba(255,255,255,0.78)',
   fontSize: '13px',
   fontWeight: 800,
   marginTop: '8px',
 };
 
-const lockBadge: React.CSSProperties = {
+const lockBadge: CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
   border: '1px solid rgba(0,255,65,0.35)',
@@ -844,7 +896,7 @@ const lockBadge: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const completedModuleBadge: React.CSSProperties = {
+const completedModuleBadge: CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
   border: '1px solid rgba(0,255,65,0.65)',
@@ -858,7 +910,7 @@ const completedModuleBadge: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const blockedBadge: React.CSSProperties = {
+const blockedBadge: CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
   border: '1px solid rgba(255,255,255,0.16)',
@@ -871,9 +923,10 @@ const blockedBadge: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const lessonRow: React.CSSProperties = {
+const lessonRow: CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
+  alignItems: 'center',
   gap: '16px',
   borderRadius: '16px',
   border: '1px solid rgba(255,255,255,0.10)',
@@ -883,7 +936,26 @@ const lessonRow: React.CSSProperties = {
   fontSize: '14px',
 };
 
-const openLessonLink: React.CSSProperties = {
+const lessonMetaRow: CSSProperties = {
+  display: 'flex',
+  gap: '8px',
+  marginTop: '7px',
+};
+
+const lessonTypeBadge: CSSProperties = {
+  display: 'inline-flex',
+  width: 'fit-content',
+  borderRadius: '999px',
+  border: '1px solid rgba(0,255,65,0.24)',
+  color: neon,
+  padding: '4px 8px',
+  fontSize: '10px',
+  fontWeight: 900,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+};
+
+const openLessonLink: CSSProperties = {
   color: neon,
   textDecoration: 'none',
   fontWeight: 900,
