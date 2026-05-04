@@ -5,51 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
-type Course = {
-  id: string;
-  title: string;
-  slug: string;
-  subtitle?: string | null;
-  description?: string | null;
-  course_type?: string | null;
-  level?: string | null;
-  price?: number | null;
-  duration_minutes?: number | null;
-  has_certificate?: boolean | null;
-};
-
-type Module = {
-  id: string;
-  course_id: string;
-  title: string;
-  description?: string | null;
-  position?: number | null;
-  sort_order?: number | null;
-  order?: number | null;
-};
-
-type Lesson = {
-  id: string;
-  module_id: string;
-  title: string;
-  content?: string | null;
-  sort_order?: number | null;
-  position?: number | null;
-  order?: number | null;
-};
-
-type CourseCompletion = {
-  id: string;
-  user_id: string;
-  course_id: string;
-  completed: boolean;
-  final_score: number;
-  completed_at: string;
-};
-
-type LessonProgress = {
-  lesson_id: string;
-};
+type AnyRecord = Record<string, any>;
 
 const neon = '#00FF41';
 
@@ -63,16 +19,17 @@ export default function CourseDetailPage() {
   const slug = String(params.slug || '');
 
   const [user, setUser] = useState<any>(null);
-  const [course, setCourse] = useState<Course | null>(null);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [completion, setCompletion] = useState<CourseCompletion | null>(null);
-  const [lessonProgress, setLessonProgress] = useState<LessonProgress[]>([]);
+  const [course, setCourse] = useState<AnyRecord | null>(null);
+  const [modules, setModules] = useState<AnyRecord[]>([]);
+  const [lessons, setLessons] = useState<AnyRecord[]>([]);
+  const [lessonProgress, setLessonProgress] = useState<AnyRecord[]>([]);
+  const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
+  const [courseCompletion, setCourseCompletion] = useState<AnyRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
 
   useEffect(() => {
-    async function loadCourseContent() {
+    async function loadCourseDetail() {
       try {
         setLoading(true);
         setSystemMessage('');
@@ -83,40 +40,39 @@ export default function CourseDetailPage() {
 
         const { data: courseData, error: courseError } = await supabase
           .from('courses')
-          .select(
-            'id,title,slug,subtitle,description,course_type,level,price,duration_minutes,has_certificate,status'
-          )
+          .select('*')
           .eq('slug', slug)
-          .eq('status', 'published')
           .maybeSingle();
 
         if (courseError || !courseData) {
-          setSystemMessage('Este curso no existe o todavía no está publicado.');
+          setSystemMessage('Este curso no existe o todavía no está disponible.');
           setLoading(false);
           return;
         }
 
-        const selectedCourse = courseData as Course;
-        setCourse(selectedCourse);
+        setCourse(courseData);
 
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
-          .select('id,course_id,title,description,position,sort_order,order')
-          .eq('course_id', selectedCourse.id);
+          .select('*')
+          .eq('course_id', courseData.id);
 
         if (modulesError) {
+          console.error('Error cargando módulos:', modulesError);
           setSystemMessage('Curso cargado, pero no se pudieron cargar los módulos.');
+          setModules([]);
+          setLessons([]);
           setLoading(false);
           return;
         }
 
-        const finalModules: Module[] = Array.isArray(modulesData)
-          ? [...modulesData].sort(sortByOrder)
+        const orderedModules = Array.isArray(modulesData)
+          ? [...modulesData].sort(sortModules)
           : [];
 
-        setModules(finalModules);
+        setModules(orderedModules);
 
-        if (finalModules.length === 0) {
+        if (orderedModules.length === 0) {
           setSystemMessage(
             'Curso cargado correctamente, pero todavía no se han encontrado módulos asociados.'
           );
@@ -125,40 +81,57 @@ export default function CourseDetailPage() {
           return;
         }
 
-        const moduleIds = finalModules.map((module) => module.id);
+        const moduleIds = orderedModules.map((module) => module.id);
 
         const { data: lessonsData, error: lessonsError } = await supabase
           .from('lessons')
-          .select('id,module_id,title,content,sort_order,position,order')
+          .select('*')
           .in('module_id', moduleIds);
 
         if (lessonsError) {
+          console.error('Error cargando lecciones:', lessonsError);
+          setSystemMessage('Curso cargado, pero no se pudieron cargar las lecciones.');
           setLessons([]);
         } else {
-          setLessons(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLessons) : []);
+          const orderedLessons = Array.isArray(lessonsData)
+            ? [...lessonsData].sort(sortLessons)
+            : [];
+
+          setLessons(orderedLessons);
         }
 
         if (activeUser?.id) {
-          const { data: completionData } = await supabase
-            .from('course_completions')
-            .select('id,user_id,course_id,completed,final_score,completed_at')
-            .eq('user_id', activeUser.id)
-            .eq('course_id', selectedCourse.id)
-            .maybeSingle();
-
-          setCompletion((completionData as CourseCompletion) || null);
-
           const { data: progressData } = await supabase
             .from('lesson_progress')
-            .select('lesson_id')
+            .select('*')
             .eq('user_id', activeUser.id)
-            .eq('course_id', selectedCourse.id)
+            .eq('course_id', courseData.id)
             .eq('completed', true);
 
           setLessonProgress(Array.isArray(progressData) ? progressData : []);
+
+          const { data: moduleCompletionData } = await supabase
+            .from('module_completions')
+            .select('*')
+            .eq('user_id', activeUser.id)
+            .eq('course_id', courseData.id)
+            .eq('completed', true);
+
+          setModuleCompletions(
+            Array.isArray(moduleCompletionData) ? moduleCompletionData : []
+          );
+
+          const { data: courseCompletionData } = await supabase
+            .from('course_completions')
+            .select('*')
+            .eq('user_id', activeUser.id)
+            .eq('course_id', courseData.id)
+            .maybeSingle();
+
+          setCourseCompletion(courseCompletionData || null);
         }
       } catch (error) {
-        console.error('Error loading course content:', error);
+        console.error('Error cargando detalle del curso:', error);
         setSystemMessage('Error cargando el contenido del curso.');
       } finally {
         setLoading(false);
@@ -166,27 +139,49 @@ export default function CourseDetailPage() {
     }
 
     if (slug) {
-      loadCourseContent();
+      loadCourseDetail();
     }
   }, [slug]);
+
+  const completedLessonIds = useMemo(() => {
+    return new Set(lessonProgress.map((item) => String(item.lesson_id)));
+  }, [lessonProgress]);
+
+  const completedModuleIds = useMemo(() => {
+    return new Set(moduleCompletions.map((item) => String(item.module_id)));
+  }, [moduleCompletions]);
 
   const totalLessons = lessons.length;
   const completedLessons = lessonProgress.length;
 
-  const lessonProgressPercent = useMemo(() => {
-    if (totalLessons === 0) return 0;
-    return Math.round((completedLessons / totalLessons) * 100);
-  }, [completedLessons, totalLessons]);
+  const lessonProgressPercent =
+    totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
-  const isOfficiallyCompleted = Boolean(completion?.completed);
+  const isCourseCompleted = Boolean(courseCompletion?.completed);
+
+  const getModuleLessons = (moduleId: string) => {
+    return lessons
+      .filter((lesson) => String(lesson.module_id) === String(moduleId))
+      .sort(sortLessons);
+  };
+
+  const isModuleUnlocked = (module: AnyRecord, index: number) => {
+    if (index === 0) return true;
+    if (isCourseCompleted) return true;
+    if (completedModuleIds.has(String(module.id))) return true;
+
+    const previousModule = modules[index - 1];
+
+    if (!previousModule) return false;
+
+    return completedModuleIds.has(String(previousModule.id));
+  };
 
   if (loading) {
     return (
       <main style={pageStyle}>
         <div style={containerStyle}>
-          <p style={{ color: neon, fontWeight: 900, letterSpacing: '0.18em' }}>
-            CARGANDO CONTENIDO ACADÉMICO...
-          </p>
+          <p style={loadingText}>CARGANDO CONTENIDO ACADÉMICO...</p>
         </div>
       </main>
     );
@@ -197,8 +192,9 @@ export default function CourseDetailPage() {
       <main style={pageStyle}>
         <div style={containerStyle}>
           <Link href="/cursos" style={backButton}>
-            ← Volver a cursos
+            ← Volver al catálogo
           </Link>
+
           <h1 style={titleStyle}>Curso no encontrado</h1>
           <p style={textStyle}>{systemMessage}</p>
         </div>
@@ -210,17 +206,19 @@ export default function CourseDetailPage() {
     <main style={pageStyle}>
       <div style={containerStyle}>
         <Link href="/cursos" style={backButton}>
-          ← Volver a cursos
+          ← Volver al catálogo
         </Link>
 
         <section style={heroStyle}>
           <div>
             <p style={eyebrowStyle}>GHC Academy · Sport Through Science</p>
 
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
+            <div style={badgeRow}>
               {course.course_type && <span style={badgeMain}>{course.course_type}</span>}
               {course.level && <span style={badgeSecondary}>{course.level}</span>}
-              {isOfficiallyCompleted && <span style={completedBadge}>Completado oficialmente</span>}
+              {isCourseCompleted && (
+                <span style={completedBadge}>Curso completado oficialmente</span>
+              )}
             </div>
 
             <h1 style={titleStyle}>{course.title}</h1>
@@ -234,7 +232,10 @@ export default function CourseDetailPage() {
 
           <aside style={priceCardStyle}>
             <p style={smallLabel}>Precio</p>
-            <p style={priceStyle}>{Number(course.price || 0).toLocaleString('es-ES')}€</p>
+
+            <p style={priceStyle}>
+              {Number(course.price || 0).toLocaleString('es-ES')}€
+            </p>
 
             <div style={dataGridStyle}>
               <div style={miniBox}>
@@ -248,59 +249,35 @@ export default function CourseDetailPage() {
               </div>
             </div>
 
-            <button style={buyButton}>Solicitar acceso</button>
+            <button style={buyButton}>
+              {user ? 'Acceso activo' : 'Solicitar acceso'}
+            </button>
           </aside>
         </section>
 
         <section style={statusGrid}>
-          <article style={officialStatusCard(isOfficiallyCompleted)}>
-            <p style={sectionLabel}>Estado oficial</p>
+          <article style={statusCard}>
+            <p style={sectionLabel}>Estado oficial del curso</p>
 
             <h2 style={statusTitle}>
-              {isOfficiallyCompleted ? 'Curso completado oficialmente' : 'Curso en progreso'}
+              {isCourseCompleted ? 'Curso completado oficialmente' : 'Curso en progreso'}
             </h2>
 
-            {isOfficiallyCompleted ? (
-              <>
-                <p style={textStyle}>
-                  Has aprobado el examen final y el curso ya consta como completado en Supabase.
-                </p>
+            <p style={textStyle}>
+              {isCourseCompleted
+                ? 'Has aprobado el examen final y el curso ya consta como completado oficialmente.'
+                : 'Aprueba cada examen de módulo para desbloquear el siguiente bloque. El curso completo se cerrará más adelante con un examen final.'}
+            </p>
 
-                <div style={statusDataGrid}>
-                  <div style={miniBox}>
-                    <p style={miniLabel}>Nota final</p>
-                    <p style={miniValue}>{completion?.final_score || 0}%</p>
-                  </div>
-
-                  <div style={miniBox}>
-                    <p style={miniLabel}>Fecha</p>
-                    <p style={miniValue}>{formatDate(completion?.completed_at)}</p>
-                  </div>
-
-                  <div style={miniBox}>
-                    <p style={miniLabel}>Certificado</p>
-                    <p style={miniValue}>Próximamente</p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <p style={textStyle}>
-                  Completa las lecciones y aprueba el examen final para registrar oficialmente la
-                  finalización del curso.
-                </p>
-
-                {!user && (
-                  <div style={noticeBox}>
-                    Para guardar progreso oficial por alumno necesitamos iniciar sesión. El sistema
-                    de login será el siguiente bloque profesional.
-                  </div>
-                )}
-              </>
+            {!user && (
+              <div style={noticeBox}>
+                Vista previa activa. El módulo 1 está disponible para prueba. Cuando activemos login,
+                pagos y control de acceso, el progreso quedará asociado a cada alumno.
+              </div>
             )}
           </article>
 
-          <article style={progressStatusCard}>
+          <article style={statusCard}>
             <p style={sectionLabel}>Progreso de aprendizaje</p>
 
             <h2 style={statusTitle}>{lessonProgressPercent}%</h2>
@@ -321,35 +298,64 @@ export default function CourseDetailPage() {
 
           {systemMessage && <div style={noticeBox}>{systemMessage}</div>}
 
-          <div style={{ display: 'grid', gap: '18px' }}>
+          <div style={modulesGrid}>
             {modules.map((module, index) => {
-              const moduleLessons = lessons
-                .filter((lesson) => lesson.module_id === module.id)
-                .sort(sortLessons);
+              const moduleLessons = getModuleLessons(String(module.id));
+              const unlocked = isModuleUnlocked(module, index);
+              const moduleCompleted = completedModuleIds.has(String(module.id));
 
-              const unlocked = index === 0 || isOfficiallyCompleted;
+              const completionRecord = moduleCompletions.find(
+                (item) => String(item.module_id) === String(module.id)
+              );
+
+              const completedInModule = moduleLessons.filter((lesson) =>
+                completedLessonIds.has(String(lesson.id))
+              ).length;
 
               return (
                 <article
                   key={module.id}
                   style={{
                     ...moduleCard,
+                    ...(moduleCompleted ? moduleCompletedCard : {}),
                     opacity: unlocked ? 1 : 0.48,
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                  <div style={moduleHeader}>
                     <div>
-                      <p style={moduleNumber}>Módulo {getOrder(module, index + 1)}</p>
+                      <p style={moduleNumber}>Módulo {index + 1}</p>
+
                       <h3 style={moduleTitle}>{module.title}</h3>
+
                       <p style={textStyle}>
                         {module.description || 'Módulo formativo de GHC Academy.'}
                       </p>
+
+                      <p style={moduleProgressText}>
+                        {completedInModule} de {moduleLessons.length} lecciones completadas
+                      </p>
+
+                      {moduleCompleted && (
+                        <p style={moduleScoreText}>
+                          Módulo aprobado · Nota: {completionRecord?.final_score || 0}%
+                        </p>
+                      )}
                     </div>
 
-                    <span style={lockBadge}>{unlocked ? 'Disponible' : 'Bloqueado'}</span>
+                    <span
+                      style={
+                        moduleCompleted
+                          ? completedModuleBadge
+                          : unlocked
+                            ? availableBadge
+                            : blockedBadge
+                      }
+                    >
+                      {moduleCompleted ? 'Completado' : unlocked ? 'Disponible' : 'Bloqueado'}
+                    </span>
                   </div>
 
-                  <div style={{ marginTop: '18px', display: 'grid', gap: '10px' }}>
+                  <div style={lessonsList}>
                     {moduleLessons.length === 0 && (
                       <div style={lessonRow}>
                         <span>Lecciones pendientes de crear</span>
@@ -358,16 +364,21 @@ export default function CourseDetailPage() {
                     )}
 
                     {moduleLessons.map((lesson) => {
-                      const lessonCompleted = lessonProgress.some(
-                        (progress) => progress.lesson_id === lesson.id
-                      );
+                      const lessonCompleted = completedLessonIds.has(String(lesson.id));
+                      const lessonType = getLessonTypeLabel(lesson);
 
                       return (
                         <div key={lesson.id} style={lessonRow}>
-                          <span>
-                            {lessonCompleted ? '✓ ' : ''}
-                            {lesson.title}
-                          </span>
+                          <div>
+                            <span>
+                              {lessonCompleted ? '✓ ' : ''}
+                              {lesson.title}
+                            </span>
+
+                            <div style={lessonMetaRow}>
+                              <span style={lessonTypeBadge}>{lessonType}</span>
+                            </div>
+                          </div>
 
                           {unlocked ? (
                             <Link href={`/cursos/${slug}/${lesson.id}`} style={openLessonLink}>
@@ -390,15 +401,20 @@ export default function CourseDetailPage() {
   );
 }
 
-function getOrder(item: Module | Lesson, fallback: number) {
-  return item.position ?? item.sort_order ?? item.order ?? fallback;
+function getOrder(item: AnyRecord, fallback: number) {
+  return item.position ?? item.sort_order ?? item.order_index ?? item.order ?? fallback;
 }
 
-function sortByOrder(a: Module, b: Module) {
+function sortModules(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractModuleNumber(a.title);
+  const bNumber = extractModuleNumber(b.title);
+
+  if (aNumber !== bNumber) return aNumber - bNumber;
+
   return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
 }
 
-function sortLessons(a: Lesson, b: Lesson) {
+function sortLessons(a: AnyRecord, b: AnyRecord) {
   const aNumber = extractLessonNumber(a.title);
   const bNumber = extractLessonNumber(b.title);
 
@@ -412,14 +428,44 @@ function extractLessonNumber(title: string = '') {
   return match ? Number(match[1]) : 999;
 }
 
-function formatDate(value?: string) {
-  if (!value) return '—';
+function extractModuleNumber(title: string = '') {
+  const match = title.match(/m[oó]dulo\s*(\d+)/i);
+  return match ? Number(match[1]) : 999;
+}
 
-  return new Intl.DateTimeFormat('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(value));
+function getLessonTypeLabel(lesson: AnyRecord) {
+  const rawType = String(
+    lesson.type ||
+      lesson.content_type ||
+      lesson.lesson_type ||
+      ''
+  ).toLowerCase();
+
+  const allValues = [
+    lesson.content,
+    lesson.video_url,
+    lesson.audio_url,
+    lesson.pdf_url,
+    lesson.file_url,
+    lesson.url,
+    lesson.media_url,
+    lesson.content_url,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const hasVideo = rawType.includes('video') || /\.(mp4|webm|mov|m4v)/i.test(allValues);
+  const hasAudio = rawType.includes('audio') || /\.(mp3|wav|m4a|ogg)/i.test(allValues);
+  const hasPdf = rawType.includes('pdf') || /\.pdf/i.test(allValues);
+  const isMixed = rawType.includes('mixed') || rawType.includes('mixto');
+
+  if (isMixed || [hasVideo, hasAudio, hasPdf].filter(Boolean).length >= 2) return 'Mixto';
+  if (hasVideo) return 'Vídeo';
+  if (hasAudio) return 'Audio';
+  if (hasPdf) return 'PDF';
+
+  return 'Texto';
 }
 
 const pageStyle: React.CSSProperties = {
@@ -434,6 +480,12 @@ const pageStyle: React.CSSProperties = {
 const containerStyle: React.CSSProperties = {
   maxWidth: '1200px',
   margin: '0 auto',
+};
+
+const loadingText: React.CSSProperties = {
+  color: neon,
+  fontWeight: 900,
+  letterSpacing: '0.18em',
 };
 
 const backButton: React.CSSProperties = {
@@ -462,6 +514,13 @@ const eyebrowStyle: React.CSSProperties = {
   letterSpacing: '0.35em',
   fontWeight: 900,
   textTransform: 'uppercase',
+};
+
+const badgeRow: React.CSSProperties = {
+  display: 'flex',
+  gap: '10px',
+  flexWrap: 'wrap',
+  marginBottom: '18px',
 };
 
 const titleStyle: React.CSSProperties = {
@@ -516,20 +575,6 @@ const dataGridStyle: React.CSSProperties = {
   marginBottom: '18px',
 };
 
-const statusGrid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
-  gap: '24px',
-  marginTop: '28px',
-};
-
-const statusDataGrid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-  gap: '12px',
-  marginTop: '18px',
-};
-
 const miniBox: React.CSSProperties = {
   borderRadius: '16px',
   border: '1px solid rgba(255,255,255,0.10)',
@@ -562,6 +607,166 @@ const buyButton: React.CSSProperties = {
   textTransform: 'uppercase',
   cursor: 'pointer',
   boxShadow: '0 0 28px rgba(0,255,65,0.30)',
+};
+
+const statusGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
+  gap: '24px',
+  marginTop: '28px',
+};
+
+const statusCard: React.CSSProperties = {
+  borderRadius: '30px',
+  padding: '24px',
+  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
+  border: '1px solid rgba(0,255,65,0.24)',
+};
+
+const sectionLabel: React.CSSProperties = {
+  color: neon,
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.3em',
+  textTransform: 'uppercase',
+};
+
+const sectionTitle: React.CSSProperties = {
+  fontSize: '34px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  marginTop: 0,
+};
+
+const statusTitle: React.CSSProperties = {
+  fontSize: '30px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  margin: '0 0 12px',
+};
+
+const progressTrack: React.CSSProperties = {
+  height: '12px',
+  borderRadius: '999px',
+  overflow: 'hidden',
+  background: 'rgba(255,255,255,0.12)',
+  margin: '18px 0',
+};
+
+const progressFill: React.CSSProperties = {
+  height: '100%',
+  borderRadius: '999px',
+  background: neon,
+  boxShadow: '0 0 20px rgba(0,255,65,0.55)',
+};
+
+const noticeBox: React.CSSProperties = {
+  padding: '22px',
+  borderRadius: '24px',
+  border: '1px solid rgba(0,255,65,0.22)',
+  color: 'rgba(255,255,255,0.72)',
+  marginBottom: '20px',
+  background: 'rgba(255,255,255,0.035)',
+};
+
+const modulesGrid: React.CSSProperties = {
+  display: 'grid',
+  gap: '18px',
+};
+
+const moduleCard: React.CSSProperties = {
+  borderRadius: '28px',
+  padding: '24px',
+  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
+  border: '1px solid rgba(0,255,65,0.24)',
+};
+
+const moduleCompletedCard: React.CSSProperties = {
+  border: '1px solid rgba(0,255,65,0.58)',
+  background: 'linear-gradient(145deg, rgba(0,255,65,0.13), rgba(255,255,255,0.035))',
+  boxShadow: '0 0 50px rgba(0,255,65,0.10)',
+};
+
+const moduleHeader: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '16px',
+};
+
+const moduleNumber: React.CSSProperties = {
+  color: neon,
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.22em',
+  textTransform: 'uppercase',
+  margin: 0,
+};
+
+const moduleTitle: React.CSSProperties = {
+  fontSize: '26px',
+  lineHeight: '1.15',
+  fontWeight: 900,
+  margin: '8px 0 10px',
+};
+
+const moduleProgressText: React.CSSProperties = {
+  color: neon,
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  marginTop: '10px',
+};
+
+const moduleScoreText: React.CSSProperties = {
+  color: 'rgba(255,255,255,0.78)',
+  fontSize: '13px',
+  fontWeight: 800,
+  marginTop: '8px',
+};
+
+const lessonsList: React.CSSProperties = {
+  marginTop: '18px',
+  display: 'grid',
+  gap: '10px',
+};
+
+const lessonRow: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '16px',
+  borderRadius: '16px',
+  border: '1px solid rgba(255,255,255,0.10)',
+  background: 'rgba(0,0,0,0.26)',
+  padding: '13px 14px',
+  color: 'rgba(255,255,255,0.75)',
+  fontSize: '14px',
+};
+
+const lessonMetaRow: React.CSSProperties = {
+  display: 'flex',
+  gap: '8px',
+  marginTop: '7px',
+};
+
+const lessonTypeBadge: React.CSSProperties = {
+  display: 'inline-flex',
+  width: 'fit-content',
+  borderRadius: '999px',
+  border: '1px solid rgba(0,255,65,0.24)',
+  color: neon,
+  padding: '4px 8px',
+  fontSize: '10px',
+  fontWeight: 900,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+};
+
+const openLessonLink: React.CSSProperties = {
+  color: neon,
+  textDecoration: 'none',
+  fontWeight: 900,
 };
 
 const badgeMain: React.CSSProperties = {
@@ -598,93 +803,7 @@ const completedBadge: React.CSSProperties = {
   letterSpacing: '0.14em',
 };
 
-const sectionLabel: React.CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.3em',
-  textTransform: 'uppercase',
-};
-
-const sectionTitle: React.CSSProperties = {
-  fontSize: '34px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  marginTop: 0,
-};
-
-const statusTitle: React.CSSProperties = {
-  fontSize: '30px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  margin: '0 0 12px',
-};
-
-const officialStatusCard = (completed: boolean): React.CSSProperties => ({
-  borderRadius: '30px',
-  padding: '24px',
-  background: completed
-    ? 'linear-gradient(145deg, rgba(0,255,65,0.16), rgba(255,255,255,0.045))'
-    : 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-  border: completed ? '1px solid rgba(0,255,65,0.55)' : '1px solid rgba(0,255,65,0.24)',
-  boxShadow: completed ? '0 0 70px rgba(0,255,65,0.12)' : 'none',
-});
-
-const progressStatusCard: React.CSSProperties = {
-  borderRadius: '30px',
-  padding: '24px',
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-  border: '1px solid rgba(0,255,65,0.24)',
-};
-
-const progressTrack: React.CSSProperties = {
-  height: '12px',
-  borderRadius: '999px',
-  overflow: 'hidden',
-  background: 'rgba(255,255,255,0.12)',
-  margin: '18px 0',
-};
-
-const progressFill: React.CSSProperties = {
-  height: '100%',
-  borderRadius: '999px',
-  background: neon,
-  boxShadow: '0 0 20px rgba(0,255,65,0.55)',
-};
-
-const noticeBox: React.CSSProperties = {
-  padding: '22px',
-  borderRadius: '24px',
-  border: '1px solid rgba(0,255,65,0.22)',
-  color: 'rgba(255,255,255,0.72)',
-  marginBottom: '20px',
-  background: 'rgba(255,255,255,0.035)',
-};
-
-const moduleCard: React.CSSProperties = {
-  borderRadius: '28px',
-  padding: '24px',
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-  border: '1px solid rgba(0,255,65,0.24)',
-};
-
-const moduleNumber: React.CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.22em',
-  textTransform: 'uppercase',
-  margin: 0,
-};
-
-const moduleTitle: React.CSSProperties = {
-  fontSize: '26px',
-  lineHeight: '1.15',
-  fontWeight: 900,
-  margin: '8px 0 10px',
-};
-
-const lockBadge: React.CSSProperties = {
+const availableBadge: React.CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
   border: '1px solid rgba(0,255,65,0.35)',
@@ -697,20 +816,29 @@ const lockBadge: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const lessonRow: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '16px',
-  borderRadius: '16px',
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(0,0,0,0.26)',
-  padding: '13px 14px',
-  color: 'rgba(255,255,255,0.75)',
-  fontSize: '14px',
+const completedModuleBadge: React.CSSProperties = {
+  height: 'fit-content',
+  borderRadius: '999px',
+  border: '1px solid rgba(0,255,65,0.65)',
+  background: 'rgba(0,255,65,0.14)',
+  color: neon,
+  padding: '9px 12px',
+  fontSize: '11px',
+  fontWeight: 900,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  whiteSpace: 'nowrap',
 };
 
-const openLessonLink: React.CSSProperties = {
-  color: neon,
-  textDecoration: 'none',
+const blockedBadge: React.CSSProperties = {
+  height: 'fit-content',
+  borderRadius: '999px',
+  border: '1px solid rgba(255,255,255,0.16)',
+  color: 'rgba(255,255,255,0.42)',
+  padding: '9px 12px',
+  fontSize: '11px',
   fontWeight: 900,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  whiteSpace: 'nowrap',
 };
