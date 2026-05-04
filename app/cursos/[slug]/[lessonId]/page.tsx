@@ -63,9 +63,9 @@ export default function LessonPage() {
         const orderedModules = (modulesData || [])
           .map((module: AnyRecord) => ({
             ...module,
-            lessons: [...(module.lessons || [])].sort(sortByOrder)
+            lessons: [...(module.lessons || [])].sort(sortLessons)
           }))
-          .sort(sortByOrder)
+          .sort(sortItems)
 
         setModules(orderedModules)
 
@@ -384,8 +384,24 @@ function getLessonType(lesson: AnyRecord) {
   ).toLowerCase()
 }
 
-function sortByOrder(a: AnyRecord, b: AnyRecord) {
+function sortItems(a: AnyRecord, b: AnyRecord) {
   const aOrder = a.order ?? a.position ?? a.order_index ?? 0
   const bOrder = b.order ?? b.position ?? b.order_index ?? 0
   return aOrder - bOrder
+}
+
+function sortLessons(a: AnyRecord, b: AnyRecord) {
+  const aOrder = a.order ?? a.position ?? a.order_index
+  const bOrder = b.order ?? b.position ?? b.order_index
+
+  if (typeof aOrder === 'number' && typeof bOrder === 'number') {
+    return aOrder - bOrder
+  }
+
+  return extractLessonNumber(a.title) - extractLessonNumber(b.title)
+}
+
+function extractLessonNumber(title: string = '') {
+  const match = title.match(/lecci[oó]n\s*(\d+)/i)
+  return match ? Number(match[1]) : 999
 }
