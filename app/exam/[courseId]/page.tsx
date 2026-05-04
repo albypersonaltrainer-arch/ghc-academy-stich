@@ -55,6 +55,7 @@ export default function ExamPage() {
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
   const [passed, setPassed] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -63,6 +64,7 @@ export default function ExamPage() {
       try {
         setLoading(true)
         setErrorMessage('')
+        setSaveMessage('')
 
         const { data: userData } = await supabase.auth.getUser()
         setUser(userData?.user || null)
@@ -148,7 +150,6 @@ export default function ExamPage() {
   }, [exam])
 
   const allAnswered = questions.every((question) => Boolean(answers[question.id]))
-
   const selectedAnswersCount = Object.keys(answers).length
 
   const progress =
@@ -167,6 +168,9 @@ export default function ExamPage() {
 
   const submitExam = async () => {
     if (!exam) return
+
+    setSaving(true)
+    setSaveMessage('')
 
     let correct = 0
 
@@ -189,10 +193,19 @@ export default function ExamPage() {
     setPassed(hasPassed)
     setSubmitted(true)
 
-    if (user?.id) {
-      setSaving(true)
+    if (!user?.id) {
+      setSaving(false)
+      setSaveMessage(
+        hasPassed
+          ? 'Resultado mostrado en pantalla. Cuando activemos login, quedará guardado oficialmente.'
+          : 'Resultado mostrado en pantalla. Debes repetir el examen para aprobar.'
+      )
+      return
+    }
 
-      const { error } = await supabase.from('exam_attempts').insert({
+    const { data: attemptData, error: attemptError } = await supabase
+      .from('exam_attempts')
+      .insert({
         user_id: user.id,
         course_id: courseId,
         exam_id: exam.id,
@@ -203,13 +216,50 @@ export default function ExamPage() {
         answers,
         completed_at: new Date().toISOString()
       })
+      .select('id')
+      .single()
 
-      if (error) {
-        console.error(error)
+    if (attemptError) {
+      console.error(attemptError)
+      setSaving(false)
+      setSaveMessage('El resultado se calculó, pero no se pudo guardar el intento.')
+      return
+    }
+
+    if (hasPassed) {
+      const { error: completionError } = await supabase
+        .from('course_completions')
+        .upsert(
+          {
+            user_id: user.id,
+            course_id: courseId,
+            exam_id: exam.id,
+            exam_attempt_id: attemptData?.id || null,
+            completed: true,
+            final_score: finalScore,
+            completed_at: new Date().toISOString()
+          },
+          {
+            onConflict: 'user_id,course_id'
+          }
+        )
+
+      if (completionError) {
+        console.error(completionError)
+        setSaving(false)
+        setSaveMessage(
+          'Examen aprobado y resultado guardado, pero no se pudo registrar la finalización oficial del curso.'
+        )
+        return
       }
 
       setSaving(false)
+      setSaveMessage('Examen aprobado. Curso completado oficialmente.')
+      return
     }
+
+    setSaving(false)
+    setSaveMessage('Resultado guardado. Examen no aprobado, debes repetirlo.')
   }
 
   const resetExam = () => {
@@ -218,6 +268,8 @@ export default function ExamPage() {
     setScore(0)
     setCorrectAnswersCount(0)
     setPassed(false)
+    setSaving(false)
+    setSaveMessage('')
   }
 
   const goBackToCourse = () => {
@@ -365,12 +417,14 @@ export default function ExamPage() {
 
           {!submitted ? (
             <button
-              disabled={!allAnswered}
+              disabled={!allAnswered || saving}
               onClick={submitExam}
               className="ghc-primary-button"
             >
               {allAnswered
-                ? 'Enviar examen'
+                ? saving
+                  ? 'Guardando resultado...'
+                  : 'Enviar examen'
                 : `Responde todas las preguntas (${selectedAnswersCount}/${questions.length})`}
             </button>
           ) : (
@@ -390,11 +444,7 @@ export default function ExamPage() {
               </p>
 
               <p>
-                {saving
-                  ? 'Guardando resultado...'
-                  : user?.id
-                    ? 'Resultado guardado en tu historial.'
-                    : 'Resultado mostrado en pantalla. Cuando activemos login, quedará asociado al alumno.'}
+                {saving ? 'Guardando resultado...' : saveMessage}
               </p>
 
               <div className="ghc-result-actions">
