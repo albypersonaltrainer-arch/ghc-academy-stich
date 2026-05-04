@@ -18,6 +18,7 @@ type Course = {
   status?: string | null;
   image_url?: string | null;
   cover_url?: string | null;
+  category?: string | null;
 };
 
 const neon = '#00FF41';
@@ -27,83 +28,158 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
+const TYPE_ORDER = [
+  'Curso principal',
+  'Curso',
+  'Programa',
+  'Minicurso',
+  'Perla',
+  'Gratis',
+  'Recurso',
+  'Otro',
+];
+
 export default function CoursesCatalogPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [items, setItems] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('Todos');
   const [levelFilter, setLevelFilter] = useState('Todos');
 
   useEffect(() => {
-    async function loadCourses() {
+    async function loadCatalog() {
       try {
         setLoading(true);
         setSystemMessage('');
 
         const { data, error } = await supabase
           .from('courses')
-          .select('*')
-          .eq('status', 'published');
+          .select('*');
 
         if (error) {
-          console.error('Error cargando cursos:', error);
-          setSystemMessage('No se pudieron cargar los cursos publicados.');
-          setCourses([]);
+          console.error('Error cargando catálogo:', error);
+          setSystemMessage('No se pudo cargar el catálogo académico.');
+          setItems([]);
           setLoading(false);
           return;
         }
 
-        const finalCourses = Array.isArray(data)
-          ? [...data].sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
+        const finalItems = Array.isArray(data)
+          ? [...data]
+              .filter(isVisibleCatalogItem)
+              .sort(sortCatalogItems)
           : [];
 
-        setCourses(finalCourses as Course[]);
+        setItems(finalItems as Course[]);
+
+        if (finalItems.length === 0) {
+          setSystemMessage(
+            'No hay cursos, minicursos o perlas visibles todavía. Revisa el estado de publicación en Supabase.'
+          );
+        }
       } catch (error) {
-        console.error('Error inesperado cargando cursos:', error);
-        setSystemMessage('Error cargando el catálogo de cursos.');
+        console.error('Error inesperado cargando catálogo:', error);
+        setSystemMessage('Error cargando el catálogo de GHC Academy.');
       } finally {
         setLoading(false);
       }
     }
 
-    loadCourses();
+    loadCatalog();
   }, []);
 
+  const availableTypes = useMemo(() => {
+    const types = items.map(getDisplayType);
+    const uniqueTypes = Array.from(new Set(types));
+
+    uniqueTypes.sort((a, b) => {
+      const aIndex = TYPE_ORDER.indexOf(a);
+      const bIndex = TYPE_ORDER.indexOf(b);
+
+      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+
+      return aIndex - bIndex;
+    });
+
+    return ['Todos', ...uniqueTypes];
+  }, [items]);
+
   const availableLevels = useMemo(() => {
-    const levels = courses
-      .map((course) => course.level)
+    const levels = items
+      .map((item) => item.level)
       .filter(Boolean)
       .map((level) => String(level));
 
     return ['Todos', ...Array.from(new Set(levels))];
-  }, [courses]);
+  }, [items]);
 
-  const filteredCourses = useMemo(() => {
+  const filteredItems = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
 
-    return courses.filter((course) => {
+    return items.filter((item) => {
+      const itemType = getDisplayType(item);
+
       const matchesSearch =
         !searchValue ||
-        String(course.title || '').toLowerCase().includes(searchValue) ||
-        String(course.subtitle || '').toLowerCase().includes(searchValue) ||
-        String(course.description || '').toLowerCase().includes(searchValue) ||
-        String(course.course_type || '').toLowerCase().includes(searchValue) ||
-        String(course.level || '').toLowerCase().includes(searchValue);
+        String(item.title || '').toLowerCase().includes(searchValue) ||
+        String(item.subtitle || '').toLowerCase().includes(searchValue) ||
+        String(item.description || '').toLowerCase().includes(searchValue) ||
+        String(item.course_type || '').toLowerCase().includes(searchValue) ||
+        String(item.category || '').toLowerCase().includes(searchValue) ||
+        String(item.level || '').toLowerCase().includes(searchValue);
+
+      const matchesType =
+        typeFilter === 'Todos' || itemType === typeFilter;
 
       const matchesLevel =
-        levelFilter === 'Todos' || String(course.level || '') === levelFilter;
+        levelFilter === 'Todos' || String(item.level || '') === levelFilter;
 
-      return matchesSearch && matchesLevel;
+      return matchesSearch && matchesType && matchesLevel;
     });
-  }, [courses, search, levelFilter]);
+  }, [items, search, typeFilter, levelFilter]);
+
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, Course[]> = {};
+
+    filteredItems.forEach((item) => {
+      const type = getDisplayType(item);
+
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+
+      groups[type].push(item);
+    });
+
+    return Object.entries(groups).sort(([a], [b]) => {
+      const aIndex = TYPE_ORDER.indexOf(a);
+      const bIndex = TYPE_ORDER.indexOf(b);
+
+      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+
+      return aIndex - bIndex;
+    });
+  }, [filteredItems]);
+
+  const principalCount = items.filter((item) =>
+    ['Curso principal', 'Curso', 'Programa'].includes(getDisplayType(item))
+  ).length;
+
+  const miniCount = items.filter((item) => getDisplayType(item) === 'Minicurso').length;
+  const pearlCount = items.filter((item) => getDisplayType(item) === 'Perla').length;
 
   if (loading) {
     return (
       <main style={pageStyle}>
         <div style={containerStyle}>
           <p style={kickerStyle}>GHC Academy</p>
-          <h1 style={titleStyle}>Cargando catálogo</h1>
-          <p style={textStyle}>Estamos preparando la plataforma académica.</p>
+          <h1 style={titleStyle}>Cargando academia</h1>
+          <p style={textStyle}>Estamos preparando cursos, minicursos y perlas.</p>
         </div>
       </main>
     );
@@ -116,31 +192,37 @@ export default function CoursesCatalogPage() {
           <div>
             <p style={kickerStyle}>GHC Academy · Sport Through Science</p>
 
-            <h1 style={titleStyle}>Catálogo de cursos</h1>
+            <h1 style={titleStyle}>Catálogo académico</h1>
 
             <p style={subtitleStyle}>
-              Formación premium en entrenamiento, salud, nutrición y alto rendimiento basada en ciencia real.
+              Cursos premium, minicursos y perlas formativas para aprender desde la ciencia,
+              progresar con estructura y aplicar conocimiento real.
             </p>
 
             <p style={textStyle}>
-              Explora los programas disponibles y entra en el itinerario académico para ver módulos,
-              lecciones, evaluaciones y progreso.
+              Esta será la entrada principal al ecosistema formativo: programas largos, módulos
+              especializados, contenidos rápidos de alto valor y recursos introductorios.
             </p>
           </div>
 
           <aside style={heroPanelStyle}>
-            <p style={smallLabel}>Cursos publicados</p>
-            <p style={bigNumber}>{courses.length}</p>
+            <p style={smallLabel}>Contenido disponible</p>
+            <p style={bigNumber}>{items.length}</p>
 
             <div style={miniGrid}>
               <div style={miniBox}>
-                <p style={miniLabel}>Modelo</p>
-                <p style={miniValue}>Academia premium</p>
+                <p style={miniLabel}>Cursos / programas</p>
+                <p style={miniValue}>{principalCount}</p>
               </div>
 
               <div style={miniBox}>
-                <p style={miniLabel}>Sistema</p>
-                <p style={miniValue}>Módulos + examen</p>
+                <p style={miniLabel}>Minicursos</p>
+                <p style={miniValue}>{miniCount}</p>
+              </div>
+
+              <div style={miniBox}>
+                <p style={miniLabel}>Perlas</p>
+                <p style={miniValue}>{pearlCount}</p>
               </div>
             </div>
           </aside>
@@ -150,9 +232,21 @@ export default function CoursesCatalogPage() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar curso, nivel o temática..."
+            placeholder="Buscar curso, minicurso, perla, nivel o temática..."
             style={searchInputStyle}
           />
+
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value)}
+            style={selectStyle}
+          >
+            {availableTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
 
           <select
             value={levelFilter}
@@ -169,73 +263,217 @@ export default function CoursesCatalogPage() {
 
         {systemMessage && <div style={noticeBox}>{systemMessage}</div>}
 
-        {filteredCourses.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <section style={emptyStateStyle}>
             <p style={kickerStyle}>Sin resultados</p>
-            <h2 style={sectionTitle}>No hay cursos que coincidan con la búsqueda</h2>
+            <h2 style={sectionTitle}>No hay contenidos que coincidan con la búsqueda</h2>
             <p style={textStyle}>
               Prueba a cambiar el filtro o vuelve al catálogo completo.
             </p>
           </section>
         ) : (
-          <section style={coursesGridStyle}>
-            {filteredCourses.map((course) => (
-              <article key={course.id} style={courseCardStyle}>
-                <div style={courseGlowStyle} />
-
-                <div style={cardTopStyle}>
-                  <div style={badgeRowStyle}>
-                    {course.course_type && (
-                      <span style={badgeMain}>{course.course_type}</span>
-                    )}
-
-                    {course.level && (
-                      <span style={badgeSecondary}>{course.level}</span>
-                    )}
+          <div style={groupsStackStyle}>
+            {groupedItems.map(([groupName, groupItems]) => (
+              <section key={groupName}>
+                <div style={groupHeaderStyle}>
+                  <div>
+                    <p style={sectionLabel}>{getGroupEyebrow(groupName)}</p>
+                    <h2 style={sectionTitle}>{groupName}</h2>
                   </div>
 
-                  <p style={courseStatusStyle}>Publicado</p>
+                  <span style={groupCounterStyle}>
+                    {groupItems.length} {groupItems.length === 1 ? 'contenido' : 'contenidos'}
+                  </span>
                 </div>
 
-                <h2 style={courseTitleStyle}>{course.title}</h2>
+                <div style={coursesGridStyle}>
+                  {groupItems.map((item) => (
+                    <article key={item.id} style={courseCardStyle}>
+                      <div style={courseGlowStyle} />
 
-                {course.subtitle && (
-                  <p style={courseSubtitleStyle}>{course.subtitle}</p>
-                )}
+                      <div style={cardTopStyle}>
+                        <div style={badgeRowStyle}>
+                          <span style={getTypeBadgeStyle(getDisplayType(item))}>
+                            {getDisplayType(item)}
+                          </span>
 
-                <p style={courseTextStyle}>
-                  {course.description || 'Formación premium basada en ciencia real.'}
-                </p>
+                          {item.level && (
+                            <span style={badgeSecondary}>{item.level}</span>
+                          )}
+                        </div>
 
-                <div style={courseDataGridStyle}>
-                  <div style={miniBox}>
-                    <p style={miniLabel}>Precio</p>
-                    <p style={miniValue}>
-                      {Number(course.price || 0).toLocaleString('es-ES')}€
-                    </p>
-                  </div>
+                        <p style={courseStatusStyle}>
+                          {getStatusLabel(item.status)}
+                        </p>
+                      </div>
 
-                  <div style={miniBox}>
-                    <p style={miniLabel}>Duración</p>
-                    <p style={miniValue}>{course.duration_minutes || 0} min</p>
-                  </div>
+                      <h3 style={courseTitleStyle}>{item.title}</h3>
 
-                  <div style={miniBox}>
-                    <p style={miniLabel}>Certificado</p>
-                    <p style={miniValue}>{course.has_certificate ? 'Sí' : 'No'}</p>
-                  </div>
+                      {item.subtitle && (
+                        <p style={courseSubtitleStyle}>{item.subtitle}</p>
+                      )}
+
+                      <p style={courseTextStyle}>
+                        {item.description || getDefaultDescription(getDisplayType(item))}
+                      </p>
+
+                      <div style={courseDataGridStyle}>
+                        <div style={miniBox}>
+                          <p style={miniLabel}>Precio</p>
+                          <p style={miniValue}>
+                            {Number(item.price || 0).toLocaleString('es-ES')}€
+                          </p>
+                        </div>
+
+                        <div style={miniBox}>
+                          <p style={miniLabel}>Duración</p>
+                          <p style={miniValue}>{item.duration_minutes || 0} min</p>
+                        </div>
+
+                        <div style={miniBox}>
+                          <p style={miniLabel}>Certificado</p>
+                          <p style={miniValue}>{item.has_certificate ? 'Sí' : 'No'}</p>
+                        </div>
+                      </div>
+
+                      <Link href={`/cursos/${item.slug}`} style={openCourseButton}>
+                        {getOpenButtonText(getDisplayType(item))}
+                      </Link>
+                    </article>
+                  ))}
                 </div>
-
-                <Link href={`/cursos/${course.slug}`} style={openCourseButton}>
-                  Ver contenidos →
-                </Link>
-              </article>
+              </section>
             ))}
-          </section>
+          </div>
         )}
       </div>
     </main>
   );
+}
+
+function isVisibleCatalogItem(item: Course) {
+  const status = String(item.status || '').toLowerCase();
+
+  if (!status) return true;
+
+  return [
+    'published',
+    'publicado',
+    'active',
+    'activo',
+    'preview',
+    'demo',
+    'draft',
+    'borrador',
+  ].includes(status);
+}
+
+function getDisplayType(item: Course) {
+  const raw = String(item.course_type || item.category || '').trim().toLowerCase();
+
+  if (!raw) return 'Curso';
+
+  if (raw.includes('perla')) return 'Perla';
+  if (raw.includes('mini')) return 'Minicurso';
+  if (raw.includes('programa')) return 'Programa';
+  if (raw.includes('principal')) return 'Curso principal';
+  if (raw.includes('gratis') || raw.includes('free')) return 'Gratis';
+  if (raw.includes('recurso')) return 'Recurso';
+  if (raw.includes('curso')) return 'Curso';
+
+  return capitalize(raw);
+}
+
+function getStatusLabel(status?: string | null) {
+  const value = String(status || '').toLowerCase();
+
+  if (!value) return 'Visible';
+  if (value === 'published' || value === 'publicado') return 'Publicado';
+  if (value === 'draft' || value === 'borrador') return 'Borrador';
+  if (value === 'preview' || value === 'demo') return 'Preview';
+
+  return capitalize(value);
+}
+
+function sortCatalogItems(a: Course, b: Course) {
+  const typeA = getDisplayType(a);
+  const typeB = getDisplayType(b);
+
+  const typeIndexA = TYPE_ORDER.indexOf(typeA);
+  const typeIndexB = TYPE_ORDER.indexOf(typeB);
+
+  if (typeIndexA !== typeIndexB) {
+    if (typeIndexA === -1) return 1;
+    if (typeIndexB === -1) return -1;
+    return typeIndexA - typeIndexB;
+  }
+
+  return String(a.title || '').localeCompare(String(b.title || ''));
+}
+
+function getGroupEyebrow(groupName: string) {
+  if (groupName === 'Curso principal' || groupName === 'Curso' || groupName === 'Programa') {
+    return 'Itinerarios largos';
+  }
+
+  if (groupName === 'Minicurso') {
+    return 'Formación compacta';
+  }
+
+  if (groupName === 'Perla') {
+    return 'Contenido rápido de alto valor';
+  }
+
+  if (groupName === 'Gratis') {
+    return 'Acceso inicial';
+  }
+
+  return 'Biblioteca GHC';
+}
+
+function getDefaultDescription(type: string) {
+  if (type === 'Perla') {
+    return 'Contenido breve y directo para resolver una idea clave en pocos minutos.';
+  }
+
+  if (type === 'Minicurso') {
+    return 'Formación compacta para profundizar en una habilidad o concepto concreto.';
+  }
+
+  return 'Formación premium basada en ciencia real, progresión y aplicación práctica.';
+}
+
+function getOpenButtonText(type: string) {
+  if (type === 'Perla') return 'Ver perla →';
+  if (type === 'Minicurso') return 'Ver minicurso →';
+
+  return 'Ver contenidos →';
+}
+
+function getTypeBadgeStyle(type: string): React.CSSProperties {
+  if (type === 'Perla') {
+    return {
+      ...badgeMain,
+      background: 'rgba(0,255,65,0.16)',
+      color: neon,
+      border: '1px solid rgba(0,255,65,0.55)',
+    };
+  }
+
+  if (type === 'Minicurso') {
+    return {
+      ...badgeMain,
+      background: '#ffffff',
+      color: '#000',
+    };
+  }
+
+  return badgeMain;
+}
+
+function capitalize(value: string) {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 const pageStyle: React.CSSProperties = {
@@ -345,7 +583,7 @@ const miniValue: React.CSSProperties = {
 
 const toolbarStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) minmax(180px, 240px)',
+  gridTemplateColumns: 'minmax(0, 1fr) minmax(170px, 220px) minmax(170px, 220px)',
   gap: '14px',
   margin: '34px 0 24px',
 };
@@ -389,11 +627,43 @@ const emptyStateStyle: React.CSSProperties = {
   padding: '28px',
 };
 
+const groupsStackStyle: React.CSSProperties = {
+  display: 'grid',
+  gap: '44px',
+};
+
+const groupHeaderStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '20px',
+  alignItems: 'flex-end',
+  margin: '0 0 18px',
+};
+
+const groupCounterStyle: React.CSSProperties = {
+  color: neon,
+  border: '1px solid rgba(0,255,65,0.28)',
+  borderRadius: '999px',
+  padding: '9px 13px',
+  fontSize: '12px',
+  fontWeight: 900,
+  whiteSpace: 'nowrap',
+};
+
+const sectionLabel: React.CSSProperties = {
+  color: neon,
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.3em',
+  textTransform: 'uppercase',
+  margin: 0,
+};
+
 const sectionTitle: React.CSSProperties = {
   fontSize: '34px',
   fontWeight: 900,
   textTransform: 'uppercase',
-  margin: 0,
+  margin: '6px 0 0',
 };
 
 const coursesGridStyle: React.CSSProperties = {
