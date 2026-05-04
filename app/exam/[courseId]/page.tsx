@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 
@@ -9,41 +9,37 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 )
 
-const questions = [
-  {
-    id: 'q1',
-    question: '¿Cuál es el objetivo principal de este curso?',
-    options: [
-      'Memorizar conceptos sin aplicarlos',
-      'Comprender y aplicar conocimientos de forma práctica',
-      'Ver vídeos sin evaluación',
-      'Completar lecciones sin seguimiento'
-    ],
-    correct: 1
-  },
-  {
-    id: 'q2',
-    question: '¿Qué representa el progreso dentro de una plataforma premium?',
-    options: [
-      'Una decoración visual',
-      'Un sistema de motivación y control del aprendizaje',
-      'Un elemento sin importancia',
-      'Solo una barra estética'
-    ],
-    correct: 1
-  },
-  {
-    id: 'q3',
-    question: '¿Qué debe ocurrir antes de considerar un curso como completado?',
-    options: [
-      'Ver solo la primera lección',
-      'Aprobar el examen final',
-      'Entrar una vez al curso',
-      'Cerrar la página'
-    ],
-    correct: 1
-  }
-]
+type Answer = {
+  id: string
+  answer: string
+  is_correct: boolean
+  sort_order: number
+}
+
+type Question = {
+  id: string
+  question: string
+  explanation?: string | null
+  question_type: string
+  sort_order: number
+  exam_answers: Answer[]
+}
+
+type Exam = {
+  id: string
+  course_id: string
+  title: string
+  description?: string | null
+  pass_score: number
+  status: string
+  exam_questions: Question[]
+}
+
+type Course = {
+  id: string
+  title: string
+  slug: string
+}
 
 export default function ExamPage() {
   const params = useParams()
@@ -51,53 +47,144 @@ export default function ExamPage() {
   const courseId = String(params.courseId || '')
 
   const [user, setUser] = useState<any>(null)
-  const [course, setCourse] = useState<any>(null)
-  const [answers, setAnswers] = useState<Record<string, number>>({})
+  const [course, setCourse] = useState<Course | null>(null)
+  const [exam, setExam] = useState<Exam | null>(null)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
   const [passed, setPassed] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    const loadData = async () => {
-      const { data: userData } = await supabase.auth.getUser()
-      setUser(userData?.user || null)
+    const loadExam = async () => {
+      try {
+        setLoading(true)
+        setErrorMessage('')
 
-      const { data: courseData } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('id', courseId)
-        .maybeSingle()
+        const { data: userData } = await supabase.auth.getUser()
+        setUser(userData?.user || null)
 
-      setCourse(courseData || null)
+        const { data: courseData, error: courseError } = await supabase
+          .from('courses')
+          .select('id, title, slug')
+          .eq('id', courseId)
+          .maybeSingle()
+
+        if (courseError || !courseData) {
+          setErrorMessage('No se ha podido cargar el curso asociado al examen.')
+          setLoading(false)
+          return
+        }
+
+        setCourse(courseData as Course)
+
+        const { data: examData, error: examError } = await supabase
+          .from('exams')
+          .select(`
+            id,
+            course_id,
+            title,
+            description,
+            pass_score,
+            status,
+            exam_questions (
+              id,
+              question,
+              explanation,
+              question_type,
+              sort_order,
+              exam_answers (
+                id,
+                answer,
+                is_correct,
+                sort_order
+              )
+            )
+          `)
+          .eq('course_id', courseId)
+          .eq('status', 'published')
+          .maybeSingle()
+
+        if (examError) {
+          console.error(examError)
+          setErrorMessage('No se ha podido cargar el examen.')
+          setLoading(false)
+          return
+        }
+
+        if (!examData) {
+          setErrorMessage('Este curso todavía no tiene un examen publicado.')
+          setLoading(false)
+          return
+        }
+
+        const orderedExam = normalizeExam(examData as Exam)
+
+        if (!orderedExam.exam_questions.length) {
+          setErrorMessage('Este examen no tiene preguntas todavía.')
+          setLoading(false)
+          return
+        }
+
+        setExam(orderedExam)
+        setLoading(false)
+      } catch (error) {
+        console.error(error)
+        setErrorMessage('Ha ocurrido un error inesperado cargando el examen.')
+        setLoading(false)
+      }
     }
 
     if (courseId) {
-      loadData()
+      loadExam()
     }
   }, [courseId])
 
-  const selectAnswer = (questionId: string, optionIndex: number) => {
+  const questions = useMemo(() => {
+    return exam?.exam_questions || []
+  }, [exam])
+
+  const allAnswered = questions.every((question) => Boolean(answers[question.id]))
+
+  const selectedAnswersCount = Object.keys(answers).length
+
+  const progress =
+    questions.length > 0
+      ? Math.round((selectedAnswersCount / questions.length) * 100)
+      : 0
+
+  const selectAnswer = (questionId: string, answerId: string) => {
     if (submitted) return
 
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: optionIndex
+      [questionId]: answerId
     }))
   }
 
   const submitExam = async () => {
-    let correctAnswers = 0
+    if (!exam) return
+
+    let correct = 0
 
     questions.forEach((question) => {
-      if (answers[question.id] === question.correct) {
-        correctAnswers++
+      const selectedAnswerId = answers[question.id]
+      const selectedAnswer = question.exam_answers.find(
+        (answer) => answer.id === selectedAnswerId
+      )
+
+      if (selectedAnswer?.is_correct) {
+        correct += 1
       }
     })
 
-    const finalScore = Math.round((correctAnswers / questions.length) * 100)
-    const hasPassed = finalScore >= 70
+    const finalScore = Math.round((correct / questions.length) * 100)
+    const hasPassed = finalScore >= exam.pass_score
 
+    setCorrectAnswersCount(correct)
     setScore(finalScore)
     setPassed(hasPassed)
     setSubmitted(true)
@@ -105,22 +192,33 @@ export default function ExamPage() {
     if (user?.id) {
       setSaving(true)
 
-      await supabase.from('exam_attempts').insert({
+      const { error } = await supabase.from('exam_attempts').insert({
         user_id: user.id,
         course_id: courseId,
+        exam_id: exam.id,
         score: finalScore,
         total_questions: questions.length,
-        correct_answers: correctAnswers,
+        correct_answers: correct,
         passed: hasPassed,
         answers,
         completed_at: new Date().toISOString()
       })
 
+      if (error) {
+        console.error(error)
+      }
+
       setSaving(false)
     }
   }
 
-  const allAnswered = questions.every((question) => answers[question.id] !== undefined)
+  const resetExam = () => {
+    setAnswers({})
+    setSubmitted(false)
+    setScore(0)
+    setCorrectAnswersCount(0)
+    setPassed(false)
+  }
 
   const goBackToCourse = () => {
     if (course?.slug) {
@@ -131,6 +229,33 @@ export default function ExamPage() {
     router.push('/cursos')
   }
 
+  const goToCatalog = () => {
+    router.push('/cursos')
+  }
+
+  if (loading) {
+    return (
+      <main className="ghc-center-page">
+        <div className="ghc-loading-box">Cargando examen...</div>
+      </main>
+    )
+  }
+
+  if (errorMessage) {
+    return (
+      <main className="ghc-center-page">
+        <div className="ghc-error-box">
+          <h1>Error de examen</h1>
+          <p>{errorMessage}</p>
+
+          <button onClick={goToCatalog} className="ghc-primary-button">
+            Volver a cursos
+          </button>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="ghc-exam-page">
       <div className="ghc-exam-wrap">
@@ -139,7 +264,7 @@ export default function ExamPage() {
             ← Volver al curso
           </button>
 
-          <button onClick={() => router.push('/cursos')} className="ghc-top-back">
+          <button onClick={goToCatalog} className="ghc-top-back">
             Catálogo de cursos
           </button>
         </div>
@@ -147,13 +272,24 @@ export default function ExamPage() {
         <section className="ghc-exam-panel">
           <p className="ghc-kicker">Evaluación final</p>
 
-          <h1 className="ghc-title">Examen final</h1>
+          <h1 className="ghc-title">
+            {exam?.title || 'Examen final'}
+          </h1>
+
+          {exam?.description && (
+            <p className="ghc-exam-description">
+              {exam.description}
+            </p>
+          )}
 
           <div className="ghc-pills">
             <span className="ghc-pill">{course?.title || 'Curso GHC Academy'}</span>
-            <span className="ghc-pill">Aprobado mínimo 70%</span>
+            <span className="ghc-pill">Aprobado mínimo {exam?.pass_score || 70}%</span>
             <span className="ghc-pill">
               Estado: {submitted ? (passed ? 'Aprobado' : 'Suspendido') : 'Pendiente'}
+            </span>
+            <span className="ghc-pill">
+              Progreso examen {progress}%
             </span>
           </div>
 
@@ -164,14 +300,29 @@ export default function ExamPage() {
             </div>
 
             <div className="ghc-exam-stat">
-              <span>Aprobado mínimo</span>
-              <strong>70%</strong>
+              <span>Respondidas</span>
+              <strong>{selectedAnswersCount}/{questions.length}</strong>
             </div>
 
             <div className="ghc-exam-stat">
-              <span>Estado</span>
-              <strong>{submitted ? (passed ? 'OK' : 'Repetir') : 'Pendiente'}</strong>
+              <span>Aprobado mínimo</span>
+              <strong>{exam?.pass_score || 70}%</strong>
             </div>
+          </div>
+
+          <div className="ghc-progress-card">
+            <div className="ghc-progress-top">
+              <span>Progreso del examen</span>
+              <strong>{progress}%</strong>
+            </div>
+
+            <div className="ghc-progress-track">
+              <div className="ghc-progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+
+            <p className="ghc-progress-small">
+              {selectedAnswersCount} de {questions.length} preguntas respondidas
+            </p>
           </div>
 
           {questions.map((question, index) => (
@@ -181,10 +332,10 @@ export default function ExamPage() {
               </h2>
 
               <div className="ghc-options-grid">
-                {question.options.map((option, optionIndex) => {
-                  const selected = answers[question.id] === optionIndex
-                  const correct = submitted && question.correct === optionIndex
-                  const wrong = submitted && selected && question.correct !== optionIndex
+                {question.exam_answers.map((answer) => {
+                  const selected = answers[question.id] === answer.id
+                  const correct = submitted && answer.is_correct
+                  const wrong = submitted && selected && !answer.is_correct
 
                   let className = 'ghc-option'
 
@@ -194,15 +345,21 @@ export default function ExamPage() {
 
                   return (
                     <button
-                      key={optionIndex}
-                      onClick={() => selectAnswer(question.id, optionIndex)}
+                      key={answer.id}
+                      onClick={() => selectAnswer(question.id, answer.id)}
                       className={className}
                     >
-                      {option}
+                      {answer.answer}
                     </button>
                   )
                 })}
               </div>
+
+              {submitted && question.explanation && (
+                <div className="ghc-question-explanation">
+                  <strong>Explicación:</strong> {question.explanation}
+                </div>
+              )}
             </section>
           ))}
 
@@ -212,7 +369,9 @@ export default function ExamPage() {
               onClick={submitExam}
               className="ghc-primary-button"
             >
-              Enviar examen
+              {allAnswered
+                ? 'Enviar examen'
+                : `Responde todas las preguntas (${selectedAnswersCount}/${questions.length})`}
             </button>
           ) : (
             <section className="ghc-result-card">
@@ -227,20 +386,53 @@ export default function ExamPage() {
               </h2>
 
               <p>
+                Has acertado {correctAnswersCount} de {questions.length} preguntas.
+              </p>
+
+              <p>
                 {saving
                   ? 'Guardando resultado...'
                   : user?.id
                     ? 'Resultado guardado en tu historial.'
-                    : 'Resultado mostrado en pantalla. Cuando actives login, quedará asociado al alumno.'}
+                    : 'Resultado mostrado en pantalla. Cuando activemos login, quedará asociado al alumno.'}
               </p>
 
-              <button onClick={goBackToCourse} className="ghc-primary-button">
-                Volver al curso
-              </button>
+              <div className="ghc-result-actions">
+                {!passed && (
+                  <button onClick={resetExam} className="ghc-top-back">
+                    Repetir examen
+                  </button>
+                )}
+
+                <button onClick={goBackToCourse} className="ghc-primary-button">
+                  Volver al curso
+                </button>
+              </div>
             </section>
           )}
         </section>
       </div>
     </main>
   )
+}
+
+function normalizeExam(exam: Exam): Exam {
+  const orderedQuestions = [...(exam.exam_questions || [])]
+    .map((question) => ({
+      ...question,
+      exam_answers: [...(question.exam_answers || [])].sort(sortByOrder)
+    }))
+    .sort(sortByOrder)
+
+  return {
+    ...exam,
+    exam_questions: orderedQuestions
+  }
+}
+
+function sortByOrder(a: { sort_order?: number }, b: { sort_order?: number }) {
+  const aOrder = Number(a.sort_order ?? 999)
+  const bOrder = Number(b.sort_order ?? 999)
+
+  return aOrder - bOrder
 }
