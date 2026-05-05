@@ -203,6 +203,16 @@ export default function CourseDetailPage() {
 
   const isCourseCompleted = Boolean(courseCompletion?.completed);
 
+  const allModulesCompleted =
+    modules.length > 0 &&
+    modules.every((module) => completedModuleIds.has(String(module.id)));
+
+  const completedModulesCount = modules.filter((module) =>
+    completedModuleIds.has(String(module.id))
+  ).length;
+
+  const finalExamUnlocked = allModulesCompleted && !isCourseCompleted;
+
   const getModuleLessons = (moduleId: string) => {
     return lessons
       .filter((lesson) => String(lesson.module_id) === String(moduleId))
@@ -263,6 +273,9 @@ export default function CourseDetailPage() {
               {isCourseCompleted && (
                 <span style={completedBadge}>Curso completado oficialmente</span>
               )}
+              {finalExamUnlocked && (
+                <span style={finalUnlockedBadge}>Evaluación final desbloqueada</span>
+              )}
             </div>
 
             <h1 style={titleStyle}>{course.title}</h1>
@@ -310,14 +323,14 @@ export default function CourseDetailPage() {
             <p style={textStyle}>
               {isCourseCompleted
                 ? 'Has aprobado el examen final y el curso ya consta como completado oficialmente.'
-                : 'Aprueba cada examen de módulo para desbloquear el siguiente bloque. El curso completo se cerrará más adelante con un examen final.'}
+                : 'Aprueba cada examen de módulo para desbloquear el siguiente bloque. Cuando completes todos los módulos, se desbloqueará la evaluación final del curso.'}
             </p>
 
             {!user && (
               <div style={noticeBox}>
-                Vista previa activa. El módulo 1 está disponible para prueba. Si apruebas un examen
-                de módulo, el siguiente módulo se desbloquea en este navegador. Cuando activemos
-                login, pagos y control de acceso, el progreso quedará guardado oficialmente por alumno.
+                Vista previa activa. Los módulos aprobados se desbloquean en este navegador. Cuando
+                activemos login, pagos y control de acceso, el progreso quedará guardado
+                oficialmente por alumno.
               </div>
             )}
           </article>
@@ -335,12 +348,60 @@ export default function CourseDetailPage() {
               {completedLessons} de {totalLessons} lecciones completadas.
             </p>
 
+            <p style={previewText}>
+              {completedModulesCount} de {modules.length} módulos aprobados.
+            </p>
+
             {previewModuleCompletions.length > 0 && !user && (
               <p style={previewText}>
                 {previewModuleCompletions.length} módulo(s) desbloqueado(s) en modo preview.
               </p>
             )}
           </article>
+        </section>
+
+        <section style={finalExamSectionStyle(finalExamUnlocked, isCourseCompleted)}>
+          <div>
+            <p style={sectionLabel}>
+              {isCourseCompleted
+                ? 'Cierre académico'
+                : finalExamUnlocked
+                  ? 'Evaluación final disponible'
+                  : 'Evaluación final bloqueada'}
+            </p>
+
+            <h2 style={finalExamTitleStyle}>
+              {isCourseCompleted
+                ? 'Curso completado oficialmente'
+                : finalExamUnlocked
+                  ? 'Ya puedes realizar el examen final del curso'
+                  : 'Completa todos los módulos para desbloquear el examen final'}
+            </h2>
+
+            <p style={textStyle}>
+              {isCourseCompleted
+                ? 'El curso ya está registrado como completado. El siguiente bloque será la certificación digital.'
+                : finalExamUnlocked
+                  ? 'Has aprobado todos los módulos. Realiza la evaluación final para cerrar oficialmente el curso y desbloquear el paso de certificación.'
+                  : `Has aprobado ${completedModulesCount} de ${modules.length} módulos. Cuando estén todos aprobados, aparecerá aquí el acceso a la evaluación final.`}
+            </p>
+          </div>
+
+          {isCourseCompleted ? (
+            <div style={finalExamLockedBox}>
+              <p style={miniLabel}>Certificado</p>
+              <p style={miniValue}>Próximamente</p>
+            </div>
+          ) : finalExamUnlocked ? (
+            <Link href={`/exam/${course.id}`} style={finalExamButton}>
+              Hacer examen final →
+            </Link>
+          ) : (
+            <div style={finalExamLockedBox}>
+              <p style={miniLabel}>Estado</p>
+              <p style={miniValue}>Bloqueado</p>
+            </div>
+          )}
         </section>
 
         <section style={{ marginTop: '42px' }}>
@@ -863,6 +924,18 @@ const completedBadge: CSSProperties = {
   letterSpacing: '0.14em',
 };
 
+const finalUnlockedBadge: CSSProperties = {
+  background: neon,
+  border: '1px solid rgba(0,255,65,0.75)',
+  color: '#000',
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '11px',
+  fontWeight: 950,
+  textTransform: 'uppercase',
+  letterSpacing: '0.14em',
+};
+
 const availableBadge: CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
@@ -902,3 +975,57 @@ const blockedBadge: CSSProperties = {
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
 };
+
+const finalExamButton: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
+  maxWidth: '320px',
+  borderRadius: '18px',
+  background: neon,
+  color: '#000',
+  padding: '16px 20px',
+  fontSize: '13px',
+  fontWeight: 950,
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  textDecoration: 'none',
+  textAlign: 'center',
+  boxShadow: '0 0 34px rgba(0,255,65,0.34)',
+};
+
+const finalExamTitleStyle: CSSProperties = {
+  fontSize: '30px',
+  fontWeight: 950,
+  textTransform: 'uppercase',
+  margin: '0 0 12px',
+  lineHeight: 1.08,
+};
+
+const finalExamLockedBox: CSSProperties = {
+  minWidth: '220px',
+  borderRadius: '20px',
+  border: '1px solid rgba(255,255,255,0.12)',
+  background: 'rgba(0,0,0,0.28)',
+  padding: '16px',
+};
+
+function finalExamSectionStyle(unlocked: boolean, completed: boolean): CSSProperties {
+  return {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 320px)',
+    gap: '24px',
+    alignItems: 'center',
+    marginTop: '28px',
+    borderRadius: '32px',
+    padding: '26px',
+    border: unlocked || completed
+      ? '1px solid rgba(0,255,65,0.60)'
+      : '1px solid rgba(0,255,65,0.24)',
+    background: unlocked || completed
+      ? 'linear-gradient(145deg, rgba(0,255,65,0.16), rgba(255,255,255,0.04))'
+      : 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025))',
+    boxShadow: unlocked || completed ? '0 0 70px rgba(0,255,65,0.12)' : 'none',
+  };
+}
