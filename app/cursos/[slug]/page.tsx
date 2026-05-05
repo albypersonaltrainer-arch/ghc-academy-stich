@@ -8,6 +8,18 @@ import { createClient } from '@supabase/supabase-js';
 
 type AnyRecord = Record<string, any>;
 
+type PreviewCertificate = {
+  certificate_id: string;
+  certificate_code: string;
+  verification_slug: string;
+  student_name: string;
+  course_id: string;
+  course_title: string;
+  final_score: number;
+  issued_at: string;
+  status: 'valid';
+};
+
 const neon = '#00FF41';
 
 const supabase = createClient(
@@ -28,6 +40,7 @@ export default function CourseDetailPage() {
   const [previewModuleCompletions, setPreviewModuleCompletions] = useState<AnyRecord[]>([]);
   const [courseCompletion, setCourseCompletion] = useState<AnyRecord | null>(null);
   const [previewCourseCompletion, setPreviewCourseCompletion] = useState<AnyRecord | null>(null);
+  const [previewCertificate, setPreviewCertificate] = useState<PreviewCertificate | null>(null);
   const [loading, setLoading] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
 
@@ -57,6 +70,7 @@ export default function CourseDetailPage() {
 
         loadPreviewModuleCompletions(courseData.id);
         loadPreviewCourseCompletion(courseData.id);
+        loadPreviewCertificate(courseData.id);
 
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
@@ -197,6 +211,60 @@ export default function CourseDetailPage() {
     }
   }
 
+  function loadPreviewCertificate(courseId: string) {
+    try {
+      if (typeof window === 'undefined') return;
+
+      const storageKey = `ghc_preview_certificate_${courseId}`;
+      const raw = window.localStorage.getItem(storageKey);
+
+      if (!raw) {
+        setPreviewCertificate(null);
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+
+      if (parsed?.certificate_id && parsed?.status === 'valid') {
+        setPreviewCertificate(parsed);
+        return;
+      }
+
+      setPreviewCertificate(null);
+    } catch (error) {
+      console.error('Error leyendo preview certificate:', error);
+      setPreviewCertificate(null);
+    }
+  }
+
+  function issuePreviewCertificate() {
+    if (!course || !effectiveCourseCompletion?.completed) return;
+
+    const now = new Date();
+    const certificateId = crypto.randomUUID();
+    const code = generateCertificateCode(course.title);
+    const verificationSlug = `${code.toLowerCase()}-${certificateId.slice(0, 8)}`;
+
+    const certificate: PreviewCertificate = {
+      certificate_id: certificateId,
+      certificate_code: code,
+      verification_slug: verificationSlug,
+      student_name: user?.user_metadata?.full_name || user?.email || 'Alumno GHC Academy',
+      course_id: String(course.id),
+      course_title: String(course.title || 'Curso GHC Academy'),
+      final_score: Number(effectiveCourseCompletion.final_score || 100),
+      issued_at: now.toISOString(),
+      status: 'valid',
+    };
+
+    window.localStorage.setItem(
+      `ghc_preview_certificate_${course.id}`,
+      JSON.stringify(certificate)
+    );
+
+    setPreviewCertificate(certificate);
+  }
+
   const effectiveModuleCompletions = useMemo(() => {
     const byModuleId = new Map<string, AnyRecord>();
 
@@ -242,6 +310,7 @@ export default function CourseDetailPage() {
   ).length;
 
   const finalExamUnlocked = allModulesCompleted && !isCourseCompleted;
+  const certificateAvailable = isCourseCompleted;
 
   const getModuleLessons = (moduleId: string) => {
     return lessons
@@ -312,6 +381,10 @@ export default function CourseDetailPage() {
               {finalExamUnlocked && (
                 <span style={finalUnlockedBadge}>Evaluación final desbloqueada</span>
               )}
+
+              {previewCertificate && (
+                <span style={certificateBadge}>Certificado emitido · Preview</span>
+              )}
             </div>
 
             <h1 style={titleStyle}>{course.title}</h1>
@@ -338,7 +411,9 @@ export default function CourseDetailPage() {
 
               <div style={miniBox}>
                 <p style={miniLabel}>Certificado</p>
-                <p style={miniValue}>{course.has_certificate ? 'Sí' : 'No'}</p>
+                <p style={miniValue}>
+                  {previewCertificate ? 'Emitido' : course.has_certificate ? 'Sí' : 'No'}
+                </p>
               </div>
             </div>
 
@@ -366,9 +441,9 @@ export default function CourseDetailPage() {
 
             {!user && (
               <div style={noticeBox}>
-                Vista previa activa. Los módulos y el cierre del curso pueden probarse en este
-                navegador. Cuando activemos login, pagos y control de acceso, el progreso quedará
-                guardado oficialmente por alumno.
+                Vista previa activa. Los módulos, el cierre del curso y el certificado pueden
+                probarse en este navegador. Cuando activemos login, pagos y control de acceso, el
+                progreso quedará guardado oficialmente por alumno.
               </div>
             )}
           </article>
@@ -418,7 +493,7 @@ export default function CourseDetailPage() {
 
             <p style={textStyle}>
               {isCourseCompleted
-                ? 'El curso ya está marcado como completado. El siguiente bloque será la certificación digital.'
+                ? 'El curso ya está marcado como completado. El siguiente bloque es la certificación digital.'
                 : finalExamUnlocked
                   ? 'Has aprobado todos los módulos. Realiza la evaluación final para cerrar oficialmente el curso y desbloquear el paso de certificación.'
                   : `Has aprobado ${completedModulesCount} de ${modules.length} módulos. Cuando estén todos aprobados, aparecerá aquí el acceso a la evaluación final.`}
@@ -428,12 +503,61 @@ export default function CourseDetailPage() {
           {isCourseCompleted ? (
             <div style={finalExamLockedBox}>
               <p style={miniLabel}>Certificado</p>
-              <p style={miniValue}>Próximamente</p>
+              <p style={miniValue}>{previewCertificate ? 'Emitido' : 'Disponible'}</p>
             </div>
           ) : finalExamUnlocked ? (
             <Link href={`/exam?courseId=${course.id}`} style={finalExamButton}>
               Hacer examen final →
             </Link>
+          ) : (
+            <div style={finalExamLockedBox}>
+              <p style={miniLabel}>Estado</p>
+              <p style={miniValue}>Bloqueado</p>
+            </div>
+          )}
+        </section>
+
+        <section style={certificateSectionStyle(certificateAvailable, Boolean(previewCertificate))}>
+          <div>
+            <p style={sectionLabel}>
+              {certificateAvailable ? 'Certificación digital' : 'Certificación bloqueada'}
+            </p>
+
+            <h2 style={finalExamTitleStyle}>
+              {previewCertificate
+                ? 'Certificado digital emitido'
+                : certificateAvailable
+                  ? 'Certificado digital disponible'
+                  : 'Completa el curso para desbloquear el certificado'}
+            </h2>
+
+            <p style={textStyle}>
+              {previewCertificate
+                ? `Certificado ${previewCertificate.certificate_code} emitido para ${previewCertificate.student_name}.`
+                : certificateAvailable
+                  ? 'Puedes emitir un certificado digital de prueba para validar el flujo completo. Más adelante este certificado será generado desde Supabase y asociado al alumno real.'
+                  : 'El certificado solo estará disponible cuando el curso esté completado oficialmente o en modo preview.'}
+            </p>
+          </div>
+
+          {previewCertificate ? (
+            <div style={certificateActions}>
+              <Link
+                href={`/certificados/${previewCertificate.verification_slug}`}
+                style={finalExamButton}
+              >
+                Ver certificado →
+              </Link>
+
+              <div style={finalExamLockedBox}>
+                <p style={miniLabel}>Estado</p>
+                <p style={miniValue}>Válido</p>
+              </div>
+            </div>
+          ) : certificateAvailable ? (
+            <button onClick={issuePreviewCertificate} style={certificateButton}>
+              Emitir certificado de prueba →
+            </button>
           ) : (
             <div style={finalExamLockedBox}>
               <p style={miniLabel}>Estado</p>
@@ -550,6 +674,20 @@ export default function CourseDetailPage() {
       </div>
     </main>
   );
+}
+
+function generateCertificateCode(courseTitle: string) {
+  const prefix = String(courseTitle || 'GHC')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 6)
+    .toUpperCase()
+    .padEnd(6, 'G');
+
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+
+  return `GHC-${prefix}-${random}`;
 }
 
 function getOrder(item: AnyRecord, fallback: number) {
@@ -974,6 +1112,18 @@ const finalUnlockedBadge: CSSProperties = {
   letterSpacing: '0.14em',
 };
 
+const certificateBadge: CSSProperties = {
+  background: 'rgba(255,255,255,0.92)',
+  border: '1px solid rgba(255,255,255,0.92)',
+  color: '#000',
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '11px',
+  fontWeight: 950,
+  textTransform: 'uppercase',
+  letterSpacing: '0.14em',
+};
+
 const availableBadge: CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
@@ -1033,6 +1183,27 @@ const finalExamButton: CSSProperties = {
   boxShadow: '0 0 34px rgba(0,255,65,0.34)',
 };
 
+const certificateButton: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
+  maxWidth: '360px',
+  border: 'none',
+  borderRadius: '18px',
+  background: neon,
+  color: '#000',
+  padding: '16px 20px',
+  fontSize: '13px',
+  fontWeight: 950,
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  textDecoration: 'none',
+  textAlign: 'center',
+  boxShadow: '0 0 34px rgba(0,255,65,0.34)',
+  cursor: 'pointer',
+};
+
 const finalExamTitleStyle: CSSProperties = {
   fontSize: '30px',
   fontWeight: 950,
@@ -1047,6 +1218,11 @@ const finalExamLockedBox: CSSProperties = {
   border: '1px solid rgba(255,255,255,0.12)',
   background: 'rgba(0,0,0,0.28)',
   padding: '16px',
+};
+
+const certificateActions: CSSProperties = {
+  display: 'grid',
+  gap: '14px',
 };
 
 function finalExamSectionStyle(unlocked: boolean, completed: boolean): CSSProperties {
@@ -1065,5 +1241,26 @@ function finalExamSectionStyle(unlocked: boolean, completed: boolean): CSSProper
       ? 'linear-gradient(145deg, rgba(0,255,65,0.16), rgba(255,255,255,0.04))'
       : 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025))',
     boxShadow: unlocked || completed ? '0 0 70px rgba(0,255,65,0.12)' : 'none',
+  };
+}
+
+function certificateSectionStyle(available: boolean, emitted: boolean): CSSProperties {
+  return {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 360px)',
+    gap: '24px',
+    alignItems: 'center',
+    marginTop: '28px',
+    borderRadius: '32px',
+    padding: '26px',
+    border: available
+      ? '1px solid rgba(255,255,255,0.38)'
+      : '1px solid rgba(0,255,65,0.20)',
+    background: emitted
+      ? 'linear-gradient(145deg, rgba(255,255,255,0.14), rgba(0,255,65,0.08))'
+      : available
+        ? 'linear-gradient(145deg, rgba(255,255,255,0.09), rgba(0,255,65,0.06))'
+        : 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
+    boxShadow: available ? '0 0 70px rgba(255,255,255,0.08)' : 'none',
   };
 }
