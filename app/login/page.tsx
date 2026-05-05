@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
@@ -26,6 +26,40 @@ export default function LoginPage() {
 
   const isRegister = mode === 'register';
 
+  useEffect(() => {
+    async function checkSessionOrConfirmation() {
+      if (typeof window === 'undefined') return;
+
+      const params = new URLSearchParams(window.location.search);
+      const confirmed = params.get('confirmed');
+
+      if (confirmed === '1') {
+        setMode('login');
+        setMessage('Email confirmado correctamente. Ya puedes iniciar sesión.');
+      }
+
+      const { data } = await supabase.auth.getUser();
+
+      if (data.user) {
+        setMessage('Sesión activa. Redirigiendo al portal del alumno...');
+
+        setTimeout(() => {
+          router.push('/alumno');
+        }, 800);
+      }
+    }
+
+    checkSessionOrConfirmation();
+  }, [router]);
+
+  const getRedirectUrl = () => {
+    if (typeof window === 'undefined') {
+      return 'https://ghc-academy-stich.vercel.app/login?confirmed=1';
+    }
+
+    return `${window.location.origin}/login?confirmed=1`;
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -50,6 +84,7 @@ export default function LoginPage() {
         email,
         password,
         options: {
+          emailRedirectTo: getRedirectUrl(),
           data: {
             full_name: fullName.trim(),
           },
@@ -74,7 +109,7 @@ export default function LoginPage() {
       setLoading(false);
 
       setTimeout(() => {
-        router.push('/cursos');
+        router.push('/alumno');
       }, 800);
 
       return;
@@ -95,7 +130,7 @@ export default function LoginPage() {
     setLoading(false);
 
     setTimeout(() => {
-      router.push('/cursos');
+      router.push('/alumno');
     }, 700);
   };
 
@@ -110,9 +145,7 @@ export default function LoginPage() {
           <div style={brandPanelStyle}>
             <p style={kickerStyle}>GHC Academy · Sport Through Science</p>
 
-            <h1 style={titleStyle}>
-              Acceso alumno
-            </h1>
+            <h1 style={titleStyle}>Acceso alumno</h1>
 
             <p style={subtitleStyle}>
               Entra en tu plataforma de formación para guardar progreso real, desbloquear módulos,
@@ -201,17 +234,9 @@ export default function LoginPage() {
                 />
               </label>
 
-              {errorMessage && (
-                <div style={errorBoxStyle}>
-                  {errorMessage}
-                </div>
-              )}
+              {errorMessage && <div style={errorBoxStyle}>{errorMessage}</div>}
 
-              {message && (
-                <div style={successBoxStyle}>
-                  {message}
-                </div>
-              )}
+              {message && <div style={successBoxStyle}>{message}</div>}
 
               <button type="submit" disabled={loading} style={submitButtonStyle}>
                 {loading
