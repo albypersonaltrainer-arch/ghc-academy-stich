@@ -114,14 +114,15 @@ export default function LessonPage() {
   const currentModule = useMemo(() => {
     if (!currentLesson) return null
 
-    return modules.find((module: AnyRecord) =>
-      (module.lessons || []).some((lesson: AnyRecord) => String(lesson.id) === lessonId)
-    ) || null
+    return (
+      modules.find((module: AnyRecord) =>
+        (module.lessons || []).some((lesson: AnyRecord) => String(lesson.id) === lessonId)
+      ) || null
+    )
   }, [modules, currentLesson, lessonId])
 
   const currentModuleLessons = useMemo(() => {
     if (!currentModule) return []
-
     return [...(currentModule.lessons || [])].sort(sortLessonsPremium)
   }, [currentModule])
 
@@ -162,7 +163,7 @@ export default function LessonPage() {
   const goToModuleExam = () => {
     if (!course?.id || !currentModule?.id) return
 
-    router.push(`/exam/${course.id}?moduleId=${currentModule.id}`)
+    router.push(`/exam?courseId=${course.id}&moduleId=${currentModule.id}`)
   }
 
   const markAsCompleted = async () => {
