@@ -1,1031 +1,630 @@
-'use client';
+'use client'
 
-import { useEffect, useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-
-type AnyRecord = Record<string, any>;
-
-const neon = '#00FF41';
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+)
 
-export default function CourseDetailPage() {
-  const params = useParams();
-  const slug = String(params.slug || '');
+type Answer = {
+  id: string
+  answer: string
+  is_correct: boolean
+  sort_order: number
+}
 
-  const [user, setUser] = useState<any>(null);
-  const [course, setCourse] = useState<AnyRecord | null>(null);
-  const [modules, setModules] = useState<AnyRecord[]>([]);
-  const [lessons, setLessons] = useState<AnyRecord[]>([]);
-  const [lessonProgress, setLessonProgress] = useState<AnyRecord[]>([]);
-  const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
-  const [previewModuleCompletions, setPreviewModuleCompletions] = useState<AnyRecord[]>([]);
-  const [courseCompletion, setCourseCompletion] = useState<AnyRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [systemMessage, setSystemMessage] = useState('');
+type Question = {
+  id: string
+  question: string
+  explanation?: string | null
+  question_type: string
+  sort_order: number
+  exam_answers: Answer[]
+}
+
+type Exam = {
+  id: string
+  course_id: string
+  module_id?: string | null
+  exam_scope?: string | null
+  title: string
+  description?: string | null
+  pass_score: number
+  status: string
+  exam_questions: Question[]
+}
+
+type Course = {
+  id: string
+  title: string
+  slug: string
+}
+
+type Module = {
+  id: string
+  title: string
+}
+
+export default function ExamPage() {
+  const params = useParams()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  const courseId = String(params.courseId || '')
+  const moduleId = searchParams.get('moduleId')
+
+  const [user, setUser] = useState<any>(null)
+  const [course, setCourse] = useState<Course | null>(null)
+  const [module, setModule] = useState<Module | null>(null)
+  const [exam, setExam] = useState<Exam | null>(null)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [submitted, setSubmitted] = useState(false)
+  const [score, setScore] = useState(0)
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
+  const [passed, setPassed] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const isModuleExam = Boolean(moduleId)
 
   useEffect(() => {
-    async function loadCourseDetail() {
+    const loadExam = async () => {
       try {
-        setLoading(true);
-        setSystemMessage('');
+        setLoading(true)
+        setErrorMessage('')
+        setSaveMessage('')
 
-        const { data: userData } = await supabase.auth.getUser();
-        const activeUser = userData?.user || null;
-        setUser(activeUser);
+        const { data: userData } = await supabase.auth.getUser()
+        setUser(userData?.user || null)
 
         const { data: courseData, error: courseError } = await supabase
           .from('courses')
-          .select('*')
-          .eq('slug', slug)
-          .maybeSingle();
+          .select('id, title, slug')
+          .eq('id', courseId)
+          .maybeSingle()
 
         if (courseError || !courseData) {
-          setSystemMessage('Este curso no existe o todavía no está disponible.');
-          setLoading(false);
-          return;
+          setErrorMessage('No se ha podido cargar el curso asociado al examen.')
+          setLoading(false)
+          return
         }
 
-        setCourse(courseData);
+        setCourse(courseData as Course)
 
-        loadPreviewModuleCompletions(courseData.id);
+        if (moduleId) {
+          const { data: moduleData } = await supabase
+            .from('modules')
+            .select('id, title')
+            .eq('id', moduleId)
+            .maybeSingle()
 
-        const { data: modulesData, error: modulesError } = await supabase
-          .from('modules')
-          .select('*')
-          .eq('course_id', courseData.id);
-
-        if (modulesError) {
-          console.error('Error cargando módulos:', modulesError);
-          setSystemMessage('Curso cargado, pero no se pudieron cargar los módulos.');
-          setModules([]);
-          setLessons([]);
-          setLoading(false);
-          return;
+          setModule((moduleData as Module) || null)
         }
 
-        const orderedModules = Array.isArray(modulesData)
-          ? [...modulesData].sort(sortModules)
-          : [];
+        let examQuery = supabase
+          .from('exams')
+          .select(`
+            id,
+            course_id,
+            module_id,
+            exam_scope,
+            title,
+            description,
+            pass_score,
+            status,
+            exam_questions (
+              id,
+              question,
+              explanation,
+              question_type,
+              sort_order,
+              exam_answers (
+                id,
+                answer,
+                is_correct,
+                sort_order
+              )
+            )
+          `)
+          .eq('course_id', courseId)
+          .eq('status', 'published')
+          .limit(1)
 
-        setModules(orderedModules);
-
-        if (orderedModules.length === 0) {
-          setSystemMessage(
-            'Curso cargado correctamente, pero todavía no se han encontrado módulos asociados.'
-          );
-          setLessons([]);
-          setLoading(false);
-          return;
-        }
-
-        const moduleIds = orderedModules.map((module) => module.id);
-
-        const { data: lessonsData, error: lessonsError } = await supabase
-          .from('lessons')
-          .select('*')
-          .in('module_id', moduleIds);
-
-        if (lessonsError) {
-          console.error('Error cargando lecciones:', lessonsError);
-          setSystemMessage('Curso cargado, pero no se pudieron cargar las lecciones.');
-          setLessons([]);
+        if (moduleId) {
+          examQuery = examQuery
+            .eq('module_id', moduleId)
+            .eq('exam_scope', 'module')
         } else {
-          const orderedLessons = Array.isArray(lessonsData)
-            ? [...lessonsData].sort(sortLessons)
-            : [];
-
-          setLessons(orderedLessons);
+          examQuery = examQuery
+            .eq('exam_scope', 'course')
+            .is('module_id', null)
         }
 
-        if (activeUser?.id) {
-          const { data: progressData } = await supabase
-            .from('lesson_progress')
-            .select('*')
-            .eq('user_id', activeUser.id)
-            .eq('course_id', courseData.id)
-            .eq('completed', true);
+        const { data: examData, error: examError } = await examQuery.maybeSingle()
 
-          setLessonProgress(Array.isArray(progressData) ? progressData : []);
-
-          const { data: moduleCompletionData } = await supabase
-            .from('module_completions')
-            .select('*')
-            .eq('user_id', activeUser.id)
-            .eq('course_id', courseData.id)
-            .eq('completed', true);
-
-          setModuleCompletions(
-            Array.isArray(moduleCompletionData) ? moduleCompletionData : []
-          );
-
-          const { data: courseCompletionData } = await supabase
-            .from('course_completions')
-            .select('*')
-            .eq('user_id', activeUser.id)
-            .eq('course_id', courseData.id)
-            .maybeSingle();
-
-          setCourseCompletion(courseCompletionData || null);
+        if (examError) {
+          console.error(examError)
+          setErrorMessage('No se ha podido cargar el examen.')
+          setLoading(false)
+          return
         }
+
+        if (!examData) {
+          setErrorMessage(
+            moduleId
+              ? 'Este módulo todavía no tiene un examen publicado.'
+              : 'Este curso todavía no tiene un examen final publicado.'
+          )
+          setLoading(false)
+          return
+        }
+
+        const orderedExam = normalizeExam(examData as Exam)
+
+        if (!orderedExam.exam_questions.length) {
+          setErrorMessage('Este examen no tiene preguntas todavía.')
+          setLoading(false)
+          return
+        }
+
+        setExam(orderedExam)
+        setLoading(false)
       } catch (error) {
-        console.error('Error cargando detalle del curso:', error);
-        setSystemMessage('Error cargando el contenido del curso.');
-      } finally {
-        setLoading(false);
+        console.error(error)
+        setErrorMessage('Ha ocurrido un error inesperado cargando el examen.')
+        setLoading(false)
       }
     }
 
-    if (slug) {
-      loadCourseDetail();
+    if (courseId) {
+      loadExam()
     }
-  }, [slug]);
+  }, [courseId, moduleId])
 
-  function loadPreviewModuleCompletions(courseId: string) {
-    try {
-      if (typeof window === 'undefined') return;
+  const questions = useMemo(() => {
+    return exam?.exam_questions || []
+  }, [exam])
 
-      const storageKey = `ghc_preview_module_completions_${courseId}`;
-      const raw = window.localStorage.getItem(storageKey);
+  const allAnswered = questions.every((question) => Boolean(answers[question.id]))
+  const selectedAnswersCount = Object.keys(answers).length
 
-      if (!raw) {
-        setPreviewModuleCompletions([]);
-        return;
-      }
+  const progress =
+    questions.length > 0
+      ? Math.round((selectedAnswersCount / questions.length) * 100)
+      : 0
 
-      const parsed = JSON.parse(raw);
-      const records = Object.values(parsed || {}) as AnyRecord[];
+  const selectAnswer = (questionId: string, answerId: string) => {
+    if (submitted) return
 
-      setPreviewModuleCompletions(records.filter((item) => item?.completed));
-    } catch (error) {
-      console.error('Error leyendo preview module completions:', error);
-      setPreviewModuleCompletions([]);
-    }
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: answerId
+    }))
   }
 
-  const effectiveModuleCompletions = useMemo(() => {
-    const byModuleId = new Map<string, AnyRecord>();
+  const savePreviewModuleCompletion = (finalScore: number) => {
+    if (!courseId || !moduleId) return
 
-    moduleCompletions.forEach((item) => {
-      if (item?.module_id) {
-        byModuleId.set(String(item.module_id), item);
+    const storageKey = `ghc_preview_module_completions_${courseId}`
+    const currentRaw = window.localStorage.getItem(storageKey)
+    const current: Record<string, any> = currentRaw ? JSON.parse(currentRaw) : {}
+
+    current[moduleId] = {
+      course_id: courseId,
+      module_id: moduleId,
+      completed: true,
+      final_score: finalScore,
+      completed_at: new Date().toISOString()
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(current))
+  }
+
+  const savePreviewCourseCompletion = (finalScore: number) => {
+    if (!courseId) return
+
+    const storageKey = `ghc_preview_course_completion_${courseId}`
+
+    const record = {
+      course_id: courseId,
+      completed: true,
+      final_score: finalScore,
+      completed_at: new Date().toISOString()
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(record))
+  }
+
+  const submitExam = async () => {
+    if (!exam) return
+
+    setSaving(true)
+    setSaveMessage('')
+
+    let correct = 0
+
+    questions.forEach((question) => {
+      const selectedAnswerId = answers[question.id]
+      const selectedAnswer = question.exam_answers.find(
+        (answer) => answer.id === selectedAnswerId
+      )
+
+      if (selectedAnswer?.is_correct) {
+        correct += 1
       }
-    });
+    })
 
-    previewModuleCompletions.forEach((item) => {
-      if (item?.module_id && !byModuleId.has(String(item.module_id))) {
-        byModuleId.set(String(item.module_id), item);
+    const finalScore = Math.round((correct / questions.length) * 100)
+    const hasPassed = finalScore >= exam.pass_score
+
+    setCorrectAnswersCount(correct)
+    setScore(finalScore)
+    setPassed(hasPassed)
+    setSubmitted(true)
+
+    if (!user?.id) {
+      if (hasPassed && isModuleExam && moduleId) {
+        savePreviewModuleCompletion(finalScore)
+        setSaving(false)
+        setSaveMessage(
+          'Módulo aprobado. El siguiente bloque ya está disponible en modo preview.'
+        )
+        return
       }
-    });
 
-    return Array.from(byModuleId.values());
-  }, [moduleCompletions, previewModuleCompletions]);
+      if (hasPassed && !isModuleExam) {
+        savePreviewCourseCompletion(finalScore)
+        setSaving(false)
+        setSaveMessage(
+          'Examen final aprobado. Curso completado en modo preview. El siguiente paso será la certificación digital.'
+        )
+        return
+      }
 
-  const completedLessonIds = useMemo(() => {
-    return new Set(lessonProgress.map((item) => String(item.lesson_id)));
-  }, [lessonProgress]);
+      setSaving(false)
+      setSaveMessage(
+        isModuleExam
+          ? 'Resultado mostrado en pantalla. Debes repetir el examen del módulo para aprobar.'
+          : 'Resultado mostrado en pantalla. Debes repetir el examen final para completar el curso.'
+      )
+      return
+    }
 
-  const completedModuleIds = useMemo(() => {
-    return new Set(effectiveModuleCompletions.map((item) => String(item.module_id)));
-  }, [effectiveModuleCompletions]);
+    const { data: attemptData, error: attemptError } = await supabase
+      .from('exam_attempts')
+      .insert({
+        user_id: user.id,
+        course_id: courseId,
+        exam_id: exam.id,
+        score: finalScore,
+        total_questions: questions.length,
+        correct_answers: correct,
+        passed: hasPassed,
+        answers,
+        completed_at: new Date().toISOString()
+      })
+      .select('id')
+      .single()
 
-  const totalLessons = lessons.length;
-  const completedLessons = lessonProgress.length;
+    if (attemptError) {
+      console.error(attemptError)
+      setSaving(false)
+      setSaveMessage('El resultado se calculó, pero no se pudo guardar el intento.')
+      return
+    }
 
-  const lessonProgressPercent =
-    totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    if (hasPassed && isModuleExam && moduleId) {
+      const { error: moduleCompletionError } = await supabase
+        .from('module_completions')
+        .upsert(
+          {
+            user_id: user.id,
+            course_id: courseId,
+            module_id: moduleId,
+            exam_id: exam.id,
+            exam_attempt_id: attemptData?.id || null,
+            completed: true,
+            final_score: finalScore,
+            completed_at: new Date().toISOString()
+          },
+          {
+            onConflict: 'user_id,module_id'
+          }
+        )
 
-  const isCourseCompleted = Boolean(courseCompletion?.completed);
+      if (moduleCompletionError) {
+        console.error(moduleCompletionError)
+        setSaving(false)
+        setSaveMessage(
+          'Examen aprobado y resultado guardado, pero no se pudo registrar la finalización del módulo.'
+        )
+        return
+      }
 
-  const allModulesCompleted =
-    modules.length > 0 &&
-    modules.every((module) => completedModuleIds.has(String(module.id)));
+      setSaving(false)
+      setSaveMessage('Módulo aprobado. Tu progreso ha sido guardado correctamente.')
+      return
+    }
 
-  const completedModulesCount = modules.filter((module) =>
-    completedModuleIds.has(String(module.id))
-  ).length;
+    if (hasPassed && !isModuleExam) {
+      const { error: courseCompletionError } = await supabase
+        .from('course_completions')
+        .upsert(
+          {
+            user_id: user.id,
+            course_id: courseId,
+            exam_id: exam.id,
+            exam_attempt_id: attemptData?.id || null,
+            completed: true,
+            final_score: finalScore,
+            completed_at: new Date().toISOString()
+          },
+          {
+            onConflict: 'user_id,course_id'
+          }
+        )
 
-  const finalExamUnlocked = allModulesCompleted && !isCourseCompleted;
+      if (courseCompletionError) {
+        console.error(courseCompletionError)
+        setSaving(false)
+        setSaveMessage(
+          'Examen aprobado y resultado guardado, pero no se pudo registrar la finalización oficial del curso.'
+        )
+        return
+      }
 
-  const getModuleLessons = (moduleId: string) => {
-    return lessons
-      .filter((lesson) => String(lesson.module_id) === String(moduleId))
-      .sort(sortLessons);
-  };
+      setSaving(false)
+      setSaveMessage('Examen final aprobado. Curso completado oficialmente.')
+      return
+    }
 
-  const isModuleUnlocked = (module: AnyRecord, index: number) => {
-    if (index === 0) return true;
-    if (isCourseCompleted) return true;
-    if (completedModuleIds.has(String(module.id))) return true;
+    setSaving(false)
+    setSaveMessage(
+      isModuleExam
+        ? 'Resultado guardado. Módulo no aprobado, debes repetirlo.'
+        : 'Resultado guardado. Examen final no aprobado, debes repetirlo.'
+    )
+  }
 
-    const previousModule = modules[index - 1];
+  const resetExam = () => {
+    setAnswers({})
+    setSubmitted(false)
+    setScore(0)
+    setCorrectAnswersCount(0)
+    setPassed(false)
+    setSaving(false)
+    setSaveMessage('')
+  }
 
-    if (!previousModule) return false;
+  const goBackToCourse = () => {
+    if (course?.slug) {
+      router.push(`/cursos/${course.slug}`)
+      return
+    }
 
-    return completedModuleIds.has(String(previousModule.id));
-  };
+    router.push('/cursos')
+  }
+
+  const goToCatalog = () => {
+    router.push('/cursos')
+  }
 
   if (loading) {
     return (
-      <main style={pageStyle}>
-        <div style={containerStyle}>
-          <p style={loadingText}>CARGANDO CONTENIDO ACADÉMICO...</p>
-        </div>
+      <main className="ghc-center-page">
+        <div className="ghc-loading-box">Cargando examen...</div>
       </main>
-    );
+    )
   }
 
-  if (!course) {
+  if (errorMessage) {
     return (
-      <main style={pageStyle}>
-        <div style={containerStyle}>
-          <Link href="/cursos" style={backButton}>
-            ← Volver al catálogo
-          </Link>
+      <main className="ghc-center-page">
+        <div className="ghc-error-box">
+          <h1>Error de examen</h1>
+          <p>{errorMessage}</p>
 
-          <h1 style={titleStyle}>Curso no encontrado</h1>
-          <p style={textStyle}>{systemMessage}</p>
+          <button onClick={goToCatalog} className="ghc-primary-button">
+            Volver a cursos
+          </button>
         </div>
       </main>
-    );
+    )
   }
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <Link href="/cursos" style={backButton}>
-          ← Volver al catálogo
-        </Link>
+    <main className="ghc-exam-page">
+      <div className="ghc-exam-wrap">
+        <div className="ghc-top-actions">
+          <button onClick={goBackToCourse} className="ghc-top-back">
+            ← Volver al curso
+          </button>
 
-        <section style={heroStyle}>
-          <div>
-            <p style={eyebrowStyle}>GHC Academy · Sport Through Science</p>
+          <button onClick={goToCatalog} className="ghc-top-back">
+            Catálogo de cursos
+          </button>
+        </div>
 
-            <div style={badgeRow}>
-              {course.course_type && <span style={badgeMain}>{course.course_type}</span>}
-              {course.level && <span style={badgeSecondary}>{course.level}</span>}
-              {isCourseCompleted && (
-                <span style={completedBadge}>Curso completado oficialmente</span>
-              )}
-              {finalExamUnlocked && (
-                <span style={finalUnlockedBadge}>Evaluación final desbloqueada</span>
-              )}
-            </div>
+        <section className="ghc-exam-panel">
+          <p className="ghc-kicker">
+            {isModuleExam ? 'Evaluación del módulo' : 'Evaluación final del curso'}
+          </p>
 
-            <h1 style={titleStyle}>{course.title}</h1>
+          <h1 className="ghc-title">
+            {exam?.title || (isModuleExam ? 'Examen del módulo' : 'Examen final')}
+          </h1>
 
-            {course.subtitle && <p style={subtitleStyle}>{course.subtitle}</p>}
-
-            <p style={textStyle}>
-              {course.description || 'Formación premium basada en ciencia real.'}
+          {exam?.description && (
+            <p className="ghc-exam-description">
+              {exam.description}
             </p>
-          </div>
-
-          <aside style={priceCardStyle}>
-            <p style={smallLabel}>Precio</p>
-
-            <p style={priceStyle}>
-              {Number(course.price || 0).toLocaleString('es-ES')}€
-            </p>
-
-            <div style={dataGridStyle}>
-              <div style={miniBox}>
-                <p style={miniLabel}>Duración</p>
-                <p style={miniValue}>{course.duration_minutes || 0} min</p>
-              </div>
-
-              <div style={miniBox}>
-                <p style={miniLabel}>Certificado</p>
-                <p style={miniValue}>{course.has_certificate ? 'Sí' : 'No'}</p>
-              </div>
-            </div>
-
-            <button style={buyButton}>
-              {user ? 'Acceso activo' : 'Solicitar acceso'}
-            </button>
-          </aside>
-        </section>
-
-        <section style={statusGrid}>
-          <article style={statusCard}>
-            <p style={sectionLabel}>Estado oficial del curso</p>
-
-            <h2 style={statusTitle}>
-              {isCourseCompleted ? 'Curso completado oficialmente' : 'Curso en progreso'}
-            </h2>
-
-            <p style={textStyle}>
-              {isCourseCompleted
-                ? 'Has aprobado el examen final y el curso ya consta como completado oficialmente.'
-                : 'Aprueba cada examen de módulo para desbloquear el siguiente bloque. Cuando completes todos los módulos, se desbloqueará la evaluación final del curso.'}
-            </p>
-
-            {!user && (
-              <div style={noticeBox}>
-                Vista previa activa. Los módulos aprobados se desbloquean en este navegador. Cuando
-                activemos login, pagos y control de acceso, el progreso quedará guardado
-                oficialmente por alumno.
-              </div>
-            )}
-          </article>
-
-          <article style={statusCard}>
-            <p style={sectionLabel}>Progreso de aprendizaje</p>
-
-            <h2 style={statusTitle}>{lessonProgressPercent}%</h2>
-
-            <div style={progressTrack}>
-              <div style={{ ...progressFill, width: `${lessonProgressPercent}%` }} />
-            </div>
-
-            <p style={textStyle}>
-              {completedLessons} de {totalLessons} lecciones completadas.
-            </p>
-
-            <p style={previewText}>
-              {completedModulesCount} de {modules.length} módulos aprobados.
-            </p>
-
-            {previewModuleCompletions.length > 0 && !user && (
-              <p style={previewText}>
-                {previewModuleCompletions.length} módulo(s) desbloqueado(s) en modo preview.
-              </p>
-            )}
-          </article>
-        </section>
-
-        <section style={finalExamSectionStyle(finalExamUnlocked, isCourseCompleted)}>
-          <div>
-            <p style={sectionLabel}>
-              {isCourseCompleted
-                ? 'Cierre académico'
-                : finalExamUnlocked
-                  ? 'Evaluación final disponible'
-                  : 'Evaluación final bloqueada'}
-            </p>
-
-            <h2 style={finalExamTitleStyle}>
-              {isCourseCompleted
-                ? 'Curso completado oficialmente'
-                : finalExamUnlocked
-                  ? 'Ya puedes realizar el examen final del curso'
-                  : 'Completa todos los módulos para desbloquear el examen final'}
-            </h2>
-
-            <p style={textStyle}>
-              {isCourseCompleted
-                ? 'El curso ya está registrado como completado. El siguiente bloque será la certificación digital.'
-                : finalExamUnlocked
-                  ? 'Has aprobado todos los módulos. Realiza la evaluación final para cerrar oficialmente el curso y desbloquear el paso de certificación.'
-                  : `Has aprobado ${completedModulesCount} de ${modules.length} módulos. Cuando estén todos aprobados, aparecerá aquí el acceso a la evaluación final.`}
-            </p>
-          </div>
-
-          {isCourseCompleted ? (
-            <div style={finalExamLockedBox}>
-              <p style={miniLabel}>Certificado</p>
-              <p style={miniValue}>Próximamente</p>
-            </div>
-          ) : finalExamUnlocked ? (
-            <Link href={`/exam/${course.id}`} style={finalExamButton}>
-              Hacer examen final →
-            </Link>
-          ) : (
-            <div style={finalExamLockedBox}>
-              <p style={miniLabel}>Estado</p>
-              <p style={miniValue}>Bloqueado</p>
-            </div>
           )}
-        </section>
 
-        <section style={{ marginTop: '42px' }}>
-          <p style={sectionLabel}>Contenido académico</p>
-          <h2 style={sectionTitle}>Módulos y lecciones</h2>
+          <div className="ghc-pills">
+            <span className="ghc-pill">{course?.title || 'Curso GHC Academy'}</span>
 
-          {systemMessage && <div style={noticeBox}>{systemMessage}</div>}
+            {module && (
+              <span className="ghc-pill">
+                Módulo: {module.title}
+              </span>
+            )}
 
-          <div style={modulesGrid}>
-            {modules.map((module, index) => {
-              const moduleLessons = getModuleLessons(String(module.id));
-              const unlocked = isModuleUnlocked(module, index);
-              const moduleCompleted = completedModuleIds.has(String(module.id));
+            <span className="ghc-pill">Aprobado mínimo {exam?.pass_score || 70}%</span>
 
-              const completionRecord = effectiveModuleCompletions.find(
-                (item) => String(item.module_id) === String(module.id)
-              );
+            <span className="ghc-pill">
+              Estado: {submitted ? (passed ? 'Aprobado' : 'Suspendido') : 'Pendiente'}
+            </span>
 
-              const completedInModule = moduleLessons.filter((lesson) =>
-                completedLessonIds.has(String(lesson.id))
-              ).length;
-
-              return (
-                <article
-                  key={module.id}
-                  style={{
-                    ...moduleCard,
-                    ...(moduleCompleted ? moduleCompletedCard : {}),
-                    opacity: unlocked ? 1 : 0.48,
-                  }}
-                >
-                  <div style={moduleHeader}>
-                    <div>
-                      <p style={moduleNumber}>Módulo {index + 1}</p>
-
-                      <h3 style={moduleTitle}>{module.title}</h3>
-
-                      <p style={textStyle}>
-                        {module.description || 'Módulo formativo de GHC Academy.'}
-                      </p>
-
-                      <p style={moduleProgressText}>
-                        {completedInModule} de {moduleLessons.length} lecciones completadas
-                      </p>
-
-                      {moduleCompleted && (
-                        <p style={moduleScoreText}>
-                          Módulo aprobado · Nota: {completionRecord?.final_score || 0}%
-                          {!user ? ' · Preview' : ''}
-                        </p>
-                      )}
-                    </div>
-
-                    <span
-                      style={
-                        moduleCompleted
-                          ? completedModuleBadge
-                          : unlocked
-                            ? availableBadge
-                            : blockedBadge
-                      }
-                    >
-                      {moduleCompleted ? 'Completado' : unlocked ? 'Disponible' : 'Bloqueado'}
-                    </span>
-                  </div>
-
-                  <div style={lessonsList}>
-                    {moduleLessons.length === 0 && (
-                      <div style={lessonRow}>
-                        <span>Lecciones pendientes de crear</span>
-                        <span>—</span>
-                      </div>
-                    )}
-
-                    {moduleLessons.map((lesson) => {
-                      const lessonCompleted = completedLessonIds.has(String(lesson.id));
-                      const lessonType = getLessonTypeLabel(lesson);
-
-                      return (
-                        <div key={lesson.id} style={lessonRow}>
-                          <div>
-                            <span>
-                              {lessonCompleted ? '✓ ' : ''}
-                              {lesson.title}
-                            </span>
-
-                            <div style={lessonMetaRow}>
-                              <span style={lessonTypeBadge}>{lessonType}</span>
-                            </div>
-                          </div>
-
-                          {unlocked ? (
-                            <Link href={`/cursos/${slug}/${lesson.id}`} style={openLessonLink}>
-                              Abrir
-                            </Link>
-                          ) : (
-                            <span>🔒</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </article>
-              );
-            })}
+            <span className="ghc-pill">
+              Progreso examen {progress}%
+            </span>
           </div>
+
+          <div className="ghc-exam-stats">
+            <div className="ghc-exam-stat">
+              <span>Preguntas</span>
+              <strong>{questions.length}</strong>
+            </div>
+
+            <div className="ghc-exam-stat">
+              <span>Respondidas</span>
+              <strong>{selectedAnswersCount}/{questions.length}</strong>
+            </div>
+
+            <div className="ghc-exam-stat">
+              <span>Aprobado mínimo</span>
+              <strong>{exam?.pass_score || 70}%</strong>
+            </div>
+          </div>
+
+          <div className="ghc-progress-card">
+            <div className="ghc-progress-top">
+              <span>Progreso del examen</span>
+              <strong>{progress}%</strong>
+            </div>
+
+            <div className="ghc-progress-track">
+              <div className="ghc-progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+
+            <p className="ghc-progress-small">
+              {selectedAnswersCount} de {questions.length} preguntas respondidas
+            </p>
+          </div>
+
+          {questions.map((question, index) => (
+            <section key={question.id} className="ghc-question-card">
+              <h2 className="ghc-question-title">
+                {index + 1}. {question.question}
+              </h2>
+
+              <div className="ghc-options-grid">
+                {question.exam_answers.map((answer) => {
+                  const selected = answers[question.id] === answer.id
+                  const correct = submitted && answer.is_correct
+                  const wrong = submitted && selected && !answer.is_correct
+
+                  let className = 'ghc-option'
+
+                  if (correct) className += ' ghc-option-correct'
+                  else if (wrong) className += ' ghc-option-wrong'
+                  else if (selected) className += ' ghc-option-selected'
+
+                  return (
+                    <button
+                      key={answer.id}
+                      onClick={() => selectAnswer(question.id, answer.id)}
+                      className={className}
+                    >
+                      {answer.answer}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {submitted && question.explanation && (
+                <div className="ghc-question-explanation">
+                  <strong>Explicación:</strong> {question.explanation}
+                </div>
+              )}
+            </section>
+          ))}
+
+          {!submitted ? (
+            <button
+              disabled={!allAnswered || saving}
+              onClick={submitExam}
+              className="ghc-primary-button"
+            >
+              {allAnswered
+                ? saving
+                  ? 'Guardando resultado...'
+                  : 'Enviar examen'
+                : `Responde todas las preguntas (${selectedAnswersCount}/${questions.length})`}
+            </button>
+          ) : (
+            <section className="ghc-result-card">
+              <p className="ghc-kicker">Resultado</p>
+
+              <div className="ghc-result-score">{score}%</div>
+
+              <h2>
+                {passed
+                  ? isModuleExam
+                    ? 'Examen aprobado. Módulo completado.'
+                    : 'Examen final aprobado. Curso completado.'
+                  : 'Examen no aprobado. Debes repetirlo.'}
+              </h2>
+
+              <p>
+                Has acertado {correctAnswersCount} de {questions.length} preguntas.
+              </p>
+
+              <p>
+                {saving ? 'Guardando resultado...' : saveMessage}
+              </p>
+
+              <div className="ghc-result-actions">
+                {!passed && (
+                  <button onClick={resetExam} className="ghc-top-back">
+                    Repetir examen
+                  </button>
+                )}
+
+                <button onClick={goBackToCourse} className="ghc-primary-button">
+                  Volver al curso
+                </button>
+              </div>
+            </section>
+          )}
         </section>
       </div>
     </main>
-  );
+  )
 }
 
-function getOrder(item: AnyRecord, fallback: number) {
-  return item.position ?? item.sort_order ?? item.order_index ?? item.order ?? fallback;
-}
+function normalizeExam(exam: Exam): Exam {
+  const orderedQuestions = [...(exam.exam_questions || [])]
+    .map((question) => ({
+      ...question,
+      exam_answers: [...(question.exam_answers || [])].sort(sortByOrder)
+    }))
+    .sort(sortByOrder)
 
-function sortModules(a: AnyRecord, b: AnyRecord) {
-  const aNumber = extractModuleNumber(a.title);
-  const bNumber = extractModuleNumber(b.title);
-
-  if (aNumber !== bNumber) return aNumber - bNumber;
-
-  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
-}
-
-function sortLessons(a: AnyRecord, b: AnyRecord) {
-  const aNumber = extractLessonNumber(a.title);
-  const bNumber = extractLessonNumber(b.title);
-
-  if (aNumber !== bNumber) return aNumber - bNumber;
-
-  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
-}
-
-function extractLessonNumber(title: string = '') {
-  const match = title.match(/lecci[oó]n\s*(\d+)/i);
-  return match ? Number(match[1]) : 999;
-}
-
-function extractModuleNumber(title: string = '') {
-  const match = title.match(/m[oó]dulo\s*(\d+)/i);
-  return match ? Number(match[1]) : 999;
-}
-
-function getLessonTypeLabel(lesson: AnyRecord) {
-  const rawType = String(
-    lesson.type ||
-      lesson.content_type ||
-      lesson.lesson_type ||
-      ''
-  ).toLowerCase();
-
-  const allValues = [
-    lesson.content,
-    lesson.video_url,
-    lesson.audio_url,
-    lesson.pdf_url,
-    lesson.file_url,
-    lesson.url,
-    lesson.media_url,
-    lesson.content_url,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  const hasVideo = rawType.includes('video') || /\.(mp4|webm|mov|m4v)/i.test(allValues);
-  const hasAudio = rawType.includes('audio') || /\.(mp3|wav|m4a|ogg)/i.test(allValues);
-  const hasPdf = rawType.includes('pdf') || /\.pdf/i.test(allValues);
-  const isMixed = rawType.includes('mixed') || rawType.includes('mixto');
-
-  if (isMixed || [hasVideo, hasAudio, hasPdf].filter(Boolean).length >= 2) return 'Mixto';
-  if (hasVideo) return 'Vídeo';
-  if (hasAudio) return 'Audio';
-  if (hasPdf) return 'PDF';
-
-  return 'Texto';
-}
-
-const pageStyle: CSSProperties = {
-  minHeight: '100vh',
-  background:
-    'radial-gradient(circle at top left, rgba(0,255,65,0.16), transparent 35%), radial-gradient(circle at bottom right, rgba(0,255,65,0.10), transparent 30%), #030504',
-  color: 'white',
-  padding: '32px',
-  fontFamily: 'Arial, Helvetica, sans-serif',
-};
-
-const containerStyle: CSSProperties = {
-  maxWidth: '1200px',
-  margin: '0 auto',
-};
-
-const loadingText: CSSProperties = {
-  color: neon,
-  fontWeight: 900,
-  letterSpacing: '0.18em',
-};
-
-const backButton: CSSProperties = {
-  display: 'inline-block',
-  marginBottom: '28px',
-  color: neon,
-  border: '1px solid rgba(0,255,65,0.45)',
-  padding: '12px 16px',
-  borderRadius: '999px',
-  textDecoration: 'none',
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.16em',
-  textTransform: 'uppercase',
-};
-
-const heroStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
-  gap: '24px',
-};
-
-const eyebrowStyle: CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  letterSpacing: '0.35em',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-};
-
-const badgeRow: CSSProperties = {
-  display: 'flex',
-  gap: '10px',
-  flexWrap: 'wrap',
-  marginBottom: '18px',
-};
-
-const titleStyle: CSSProperties = {
-  fontSize: 'clamp(38px, 6vw, 72px)',
-  lineHeight: '0.95',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  margin: 0,
-};
-
-const subtitleStyle: CSSProperties = {
-  color: neon,
-  fontWeight: 900,
-  fontSize: '18px',
-  lineHeight: '1.5',
-  marginTop: '20px',
-};
-
-const textStyle: CSSProperties = {
-  color: 'rgba(255,255,255,0.66)',
-  fontSize: '15px',
-  lineHeight: '1.75',
-};
-
-const previewText: CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-};
-
-const priceCardStyle: CSSProperties = {
-  borderRadius: '30px',
-  border: '1px solid rgba(0,255,65,0.26)',
-  background: 'rgba(255,255,255,0.045)',
-  padding: '24px',
-  boxShadow: '0 0 60px rgba(0,255,65,0.08)',
-};
-
-const smallLabel: CSSProperties = {
-  margin: 0,
-  color: 'rgba(255,255,255,0.42)',
-  fontSize: '11px',
-  letterSpacing: '0.22em',
-  textTransform: 'uppercase',
-};
-
-const priceStyle: CSSProperties = {
-  margin: '8px 0 20px',
-  color: neon,
-  fontSize: '46px',
-  fontWeight: 900,
-};
-
-const dataGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '12px',
-  marginBottom: '18px',
-};
-
-const miniBox: CSSProperties = {
-  borderRadius: '16px',
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(0,0,0,0.28)',
-  padding: '12px',
-};
-
-const miniLabel: CSSProperties = {
-  margin: 0,
-  color: 'rgba(255,255,255,0.38)',
-  fontSize: '11px',
-};
-
-const miniValue: CSSProperties = {
-  margin: '5px 0 0',
-  color: 'white',
-  fontWeight: 800,
-};
-
-const buyButton: CSSProperties = {
-  width: '100%',
-  border: 'none',
-  borderRadius: '18px',
-  background: neon,
-  color: '#000',
-  padding: '15px',
-  fontSize: '13px',
-  fontWeight: 900,
-  letterSpacing: '0.18em',
-  textTransform: 'uppercase',
-  cursor: 'pointer',
-  boxShadow: '0 0 28px rgba(0,255,65,0.30)',
-};
-
-const statusGrid: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
-  gap: '24px',
-  marginTop: '28px',
-};
-
-const statusCard: CSSProperties = {
-  borderRadius: '30px',
-  padding: '24px',
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-  border: '1px solid rgba(0,255,65,0.24)',
-};
-
-const sectionLabel: CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.3em',
-  textTransform: 'uppercase',
-};
-
-const sectionTitle: CSSProperties = {
-  fontSize: '34px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  marginTop: 0,
-};
-
-const statusTitle: CSSProperties = {
-  fontSize: '30px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  margin: '0 0 12px',
-};
-
-const progressTrack: CSSProperties = {
-  height: '12px',
-  borderRadius: '999px',
-  overflow: 'hidden',
-  background: 'rgba(255,255,255,0.12)',
-  margin: '18px 0',
-};
-
-const progressFill: CSSProperties = {
-  height: '100%',
-  borderRadius: '999px',
-  background: neon,
-  boxShadow: '0 0 20px rgba(0,255,65,0.55)',
-};
-
-const noticeBox: CSSProperties = {
-  padding: '22px',
-  borderRadius: '24px',
-  border: '1px solid rgba(0,255,65,0.22)',
-  color: 'rgba(255,255,255,0.72)',
-  marginBottom: '20px',
-  background: 'rgba(255,255,255,0.035)',
-};
-
-const modulesGrid: CSSProperties = {
-  display: 'grid',
-  gap: '18px',
-};
-
-const moduleCard: CSSProperties = {
-  borderRadius: '28px',
-  padding: '24px',
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-  border: '1px solid rgba(0,255,65,0.24)',
-};
-
-const moduleCompletedCard: CSSProperties = {
-  border: '1px solid rgba(0,255,65,0.58)',
-  background: 'linear-gradient(145deg, rgba(0,255,65,0.13), rgba(255,255,255,0.035))',
-  boxShadow: '0 0 50px rgba(0,255,65,0.10)',
-};
-
-const moduleHeader: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '16px',
-};
-
-const moduleNumber: CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.22em',
-  textTransform: 'uppercase',
-  margin: 0,
-};
-
-const moduleTitle: CSSProperties = {
-  fontSize: '26px',
-  lineHeight: '1.15',
-  fontWeight: 900,
-  margin: '8px 0 10px',
-};
-
-const moduleProgressText: CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  marginTop: '10px',
-};
-
-const moduleScoreText: CSSProperties = {
-  color: 'rgba(255,255,255,0.78)',
-  fontSize: '13px',
-  fontWeight: 800,
-  marginTop: '8px',
-};
-
-const lessonsList: CSSProperties = {
-  marginTop: '18px',
-  display: 'grid',
-  gap: '10px',
-};
-
-const lessonRow: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: '16px',
-  borderRadius: '16px',
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(0,0,0,0.26)',
-  padding: '13px 14px',
-  color: 'rgba(255,255,255,0.75)',
-  fontSize: '14px',
-};
-
-const lessonMetaRow: CSSProperties = {
-  display: 'flex',
-  gap: '8px',
-  marginTop: '7px',
-};
-
-const lessonTypeBadge: CSSProperties = {
-  display: 'inline-flex',
-  width: 'fit-content',
-  borderRadius: '999px',
-  border: '1px solid rgba(0,255,65,0.24)',
-  color: neon,
-  padding: '4px 8px',
-  fontSize: '10px',
-  fontWeight: 900,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-};
-
-const openLessonLink: CSSProperties = {
-  color: neon,
-  textDecoration: 'none',
-  fontWeight: 900,
-};
-
-const badgeMain: CSSProperties = {
-  background: neon,
-  color: '#000',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.14em',
-};
-
-const badgeSecondary: CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.14)',
-  color: 'rgba(255,255,255,0.72)',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.14em',
-};
-
-const completedBadge: CSSProperties = {
-  background: 'rgba(0,255,65,0.14)',
-  border: '1px solid rgba(0,255,65,0.55)',
-  color: neon,
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.14em',
-};
-
-const finalUnlockedBadge: CSSProperties = {
-  background: neon,
-  border: '1px solid rgba(0,255,65,0.75)',
-  color: '#000',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  letterSpacing: '0.14em',
-};
-
-const availableBadge: CSSProperties = {
-  height: 'fit-content',
-  borderRadius: '999px',
-  border: '1px solid rgba(0,255,65,0.35)',
-  color: neon,
-  padding: '9px 12px',
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-};
-
-const completedModuleBadge: CSSProperties = {
-  height: 'fit-content',
-  borderRadius: '999px',
-  border: '1px solid rgba(0,255,65,0.65)',
-  background: 'rgba(0,255,65,0.14)',
-  color: neon,
-  padding: '9px 12px',
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-};
-
-const blockedBadge: CSSProperties = {
-  height: 'fit-content',
-  borderRadius: '999px',
-  border: '1px solid rgba(255,255,255,0.16)',
-  color: 'rgba(255,255,255,0.42)',
-  padding: '9px 12px',
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-};
-
-const finalExamButton: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  maxWidth: '320px',
-  borderRadius: '18px',
-  background: neon,
-  color: '#000',
-  padding: '16px 20px',
-  fontSize: '13px',
-  fontWeight: 950,
-  letterSpacing: '0.16em',
-  textTransform: 'uppercase',
-  textDecoration: 'none',
-  textAlign: 'center',
-  boxShadow: '0 0 34px rgba(0,255,65,0.34)',
-};
-
-const finalExamTitleStyle: CSSProperties = {
-  fontSize: '30px',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  margin: '0 0 12px',
-  lineHeight: 1.08,
-};
-
-const finalExamLockedBox: CSSProperties = {
-  minWidth: '220px',
-  borderRadius: '20px',
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(0,0,0,0.28)',
-  padding: '16px',
-};
-
-function finalExamSectionStyle(unlocked: boolean, completed: boolean): CSSProperties {
   return {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 320px)',
-    gap: '24px',
-    alignItems: 'center',
-    marginTop: '28px',
-    borderRadius: '32px',
-    padding: '26px',
-    border: unlocked || completed
-      ? '1px solid rgba(0,255,65,0.60)'
-      : '1px solid rgba(0,255,65,0.24)',
-    background: unlocked || completed
-      ? 'linear-gradient(145deg, rgba(0,255,65,0.16), rgba(255,255,255,0.04))'
-      : 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025))',
-    boxShadow: unlocked || completed ? '0 0 70px rgba(0,255,65,0.12)' : 'none',
-  };
+    ...exam,
+    exam_questions: orderedQuestions
+  }
+}
+
+function sortByOrder(a: { sort_order?: number }, b: { sort_order?: number }) {
+  const aOrder = Number(a.sort_order ?? 999)
+  const bOrder = Number(b.sort_order ?? 999)
+
+  return aOrder - bOrder
 }
