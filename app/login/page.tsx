@@ -20,6 +20,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [sessionEmail, setSessionEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -28,29 +30,31 @@ export default function LoginPage() {
 
   useEffect(() => {
     async function checkSessionOrConfirmation() {
-      if (typeof window === 'undefined') return;
+      try {
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          const confirmed = params.get('confirmed');
 
-      const params = new URLSearchParams(window.location.search);
-      const confirmed = params.get('confirmed');
+          if (confirmed === '1') {
+            setMode('login');
+            setMessage('Email confirmado correctamente. Ya puedes iniciar sesión.');
+          }
+        }
 
-      if (confirmed === '1') {
-        setMode('login');
-        setMessage('Email confirmado correctamente. Ya puedes iniciar sesión.');
-      }
+        const { data } = await supabase.auth.getUser();
 
-      const { data } = await supabase.auth.getUser();
-
-      if (data.user) {
-        setMessage('Sesión activa. Redirigiendo al portal del alumno...');
-
-        setTimeout(() => {
-          router.push('/alumno');
-        }, 800);
+        if (data.user) {
+          setSessionEmail(data.user.email || '');
+        }
+      } catch (error) {
+        console.error('Error checking login session:', error);
+      } finally {
+        setCheckingSession(false);
       }
     }
 
     checkSessionOrConfirmation();
-  }, [router]);
+  }, []);
 
   const getRedirectUrl = () => {
     if (typeof window === 'undefined') {
@@ -60,6 +64,19 @@ export default function LoginPage() {
     return `${window.location.origin}/login?confirmed=1`;
   };
 
+  const clearMessages = () => {
+    setMessage('');
+    setErrorMessage('');
+  };
+
+  const handleLogout = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setSessionEmail('');
+    setMessage('Sesión cerrada correctamente.');
+    setLoading(false);
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -67,13 +84,17 @@ export default function LoginPage() {
     setMessage('');
     setErrorMessage('');
 
-    if (!email || !password) {
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+    const cleanFullName = fullName.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       setErrorMessage('Introduce email y contraseña.');
       setLoading(false);
       return;
     }
 
-    if (isRegister && !fullName.trim()) {
+    if (isRegister && !cleanFullName) {
       setErrorMessage('Introduce tu nombre completo.');
       setLoading(false);
       return;
@@ -81,12 +102,12 @@ export default function LoginPage() {
 
     if (isRegister) {
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: cleanEmail,
+        password: cleanPassword,
         options: {
           emailRedirectTo: getRedirectUrl(),
           data: {
-            full_name: fullName.trim(),
+            full_name: cleanFullName,
           },
         },
       });
@@ -106,18 +127,19 @@ export default function LoginPage() {
       }
 
       setMessage('Cuenta creada correctamente. Entrando en la academia...');
+      setSessionEmail(data.user?.email || cleanEmail);
       setLoading(false);
 
       setTimeout(() => {
         router.push('/alumno');
-      }, 800);
+      }, 700);
 
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: cleanPassword,
     });
 
     if (error) {
@@ -126,6 +148,7 @@ export default function LoginPage() {
       return;
     }
 
+    setSessionEmail(data.user?.email || cleanEmail);
     setMessage('Acceso correcto. Entrando en la academia...');
     setLoading(false);
 
@@ -133,6 +156,20 @@ export default function LoginPage() {
       router.push('/alumno');
     }, 700);
   };
+
+  if (checkingSession) {
+    return (
+      <main style={pageStyle}>
+        <div style={containerStyle}>
+          <section style={singleCardStyle}>
+            <p style={kickerStyle}>GHC Academy</p>
+            <h1 style={titleStyle}>Comprobando sesión</h1>
+            <p style={textStyle}>Estamos verificando tu acceso.</p>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={pageStyle}>
@@ -171,86 +208,136 @@ export default function LoginPage() {
           </div>
 
           <div style={formPanelStyle}>
-            <div style={tabsStyle}>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setMessage('');
-                  setErrorMessage('');
-                }}
-                style={mode === 'login' ? activeTabStyle : tabStyle}
-              >
-                Iniciar sesión
-              </button>
+            {sessionEmail ? (
+              <div style={sessionBoxStyle}>
+                <p style={kickerStyle}>Sesión activa</p>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('register');
-                  setMessage('');
-                  setErrorMessage('');
-                }}
-                style={mode === 'register' ? activeTabStyle : tabStyle}
-              >
-                Crear cuenta
-              </button>
-            </div>
+                <h2 style={panelTitleStyle}>Ya estás dentro</h2>
 
-            <form onSubmit={handleSubmit} style={formStyle}>
-              {isRegister && (
-                <label style={labelStyle}>
-                  Nombre completo
-                  <input
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    placeholder="Ej: Gonzalo Cervera"
-                    style={inputStyle}
-                  />
-                </label>
-              )}
+                <p style={textStyle}>
+                  Hay una sesión activa con:
+                  <br />
+                  <strong style={{ color: neon }}>{sessionEmail}</strong>
+                </p>
 
-              <label style={labelStyle}>
-                Email
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="tu@email.com"
-                  type="email"
-                  autoComplete="email"
-                  style={inputStyle}
-                />
-              </label>
+                <div style={sessionActionsStyle}>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/alumno')}
+                    style={submitButtonStyle}
+                    disabled={loading}
+                  >
+                    Ir al portal del alumno
+                  </button>
 
-              <label style={labelStyle}>
-                Contraseña
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  type="password"
-                  autoComplete={isRegister ? 'new-password' : 'current-password'}
-                  style={inputStyle}
-                />
-              </label>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/cursos')}
+                    style={secondaryButtonStyle}
+                    disabled={loading}
+                  >
+                    Ir al catálogo
+                  </button>
 
-              {errorMessage && <div style={errorBoxStyle}>{errorMessage}</div>}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    style={dangerButtonStyle}
+                    disabled={loading}
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
 
-              {message && <div style={successBoxStyle}>{message}</div>}
+                {message && <div style={successBoxStyle}>{message}</div>}
+              </div>
+            ) : (
+              <>
+                <div style={tabsStyle}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      clearMessages();
+                    }}
+                    style={mode === 'login' ? activeTabStyle : tabStyle}
+                    disabled={loading}
+                  >
+                    Iniciar sesión
+                  </button>
 
-              <button type="submit" disabled={loading} style={submitButtonStyle}>
-                {loading
-                  ? 'Procesando...'
-                  : isRegister
-                    ? 'Crear cuenta'
-                    : 'Entrar en la academia'}
-              </button>
-            </form>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('register');
+                      clearMessages();
+                    }}
+                    style={mode === 'register' ? activeTabStyle : tabStyle}
+                    disabled={loading}
+                  >
+                    Crear cuenta
+                  </button>
+                </div>
 
-            <p style={helperTextStyle}>
-              Este login ya usa Supabase Auth. En el siguiente bloque conectaremos el acceso real a
-              cursos, progreso y certificados.
-            </p>
+                <form onSubmit={handleSubmit} style={formStyle}>
+                  {isRegister && (
+                    <label style={labelStyle}>
+                      Nombre completo
+                      <input
+                        value={fullName}
+                        onChange={(event) => setFullName(event.target.value)}
+                        placeholder="Ej: Alby"
+                        style={inputStyle}
+                        disabled={loading}
+                      />
+                    </label>
+                  )}
+
+                  <label style={labelStyle}>
+                    Email
+                    <input
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="tu@email.com"
+                      type="email"
+                      autoComplete="email"
+                      style={inputStyle}
+                      disabled={loading}
+                    />
+                  </label>
+
+                  <label style={labelStyle}>
+                    Contraseña
+                    <input
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      type="password"
+                      autoComplete={isRegister ? 'new-password' : 'current-password'}
+                      style={inputStyle}
+                      disabled={loading}
+                    />
+                  </label>
+
+                  {errorMessage && <div style={errorBoxStyle}>{errorMessage}</div>}
+
+                  {message && <div style={successBoxStyle}>{message}</div>}
+
+                  <button type="submit" disabled={loading} style={submitButtonStyle}>
+                    {loading
+                      ? 'Procesando...'
+                      : isRegister
+                        ? 'Crear cuenta'
+                        : 'Entrar en la academia'}
+                  </button>
+                </form>
+
+                <p style={helperTextStyle}>
+                  Si ya confirmaste tu email, usa “Iniciar sesión”. Si no recuerdas si hay una
+                  sesión abierta, refresca la página o entra al portal del alumno.
+                </p>
+              </>
+            )}
           </div>
         </section>
       </div>
@@ -293,13 +380,19 @@ const shellStyle: React.CSSProperties = {
   alignItems: 'stretch',
 };
 
-const brandPanelStyle: React.CSSProperties = {
+const singleCardStyle: React.CSSProperties = {
   borderRadius: '36px',
   border: '1px solid rgba(0,255,65,0.28)',
   background:
     'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025))',
   padding: '34px',
   boxShadow: '0 0 80px rgba(0,255,65,0.10)',
+};
+
+const brandPanelStyle: React.CSSProperties = {
+  ...singleCardStyle,
+  position: 'relative',
+  zIndex: 1,
 };
 
 const kickerStyle: React.CSSProperties = {
@@ -320,12 +413,26 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
 };
 
+const panelTitleStyle: React.CSSProperties = {
+  margin: '0 0 14px',
+  fontSize: '34px',
+  lineHeight: '1',
+  fontWeight: 950,
+  textTransform: 'uppercase',
+};
+
 const subtitleStyle: React.CSSProperties = {
   color: 'rgba(255,255,255,0.70)',
   fontSize: '17px',
   lineHeight: 1.7,
   maxWidth: '780px',
   margin: '24px 0 0',
+};
+
+const textStyle: React.CSSProperties = {
+  color: 'rgba(255,255,255,0.66)',
+  fontSize: '15px',
+  lineHeight: 1.75,
 };
 
 const featureGridStyle: React.CSSProperties = {
@@ -365,6 +472,9 @@ const formPanelStyle: React.CSSProperties = {
     'linear-gradient(145deg, rgba(0,255,65,0.10), rgba(255,255,255,0.035))',
   padding: '26px',
   boxShadow: '0 0 80px rgba(0,255,65,0.10)',
+  position: 'relative',
+  zIndex: 5,
+  pointerEvents: 'auto',
 };
 
 const tabsStyle: React.CSSProperties = {
@@ -384,6 +494,8 @@ const tabStyle: React.CSSProperties = {
   fontWeight: 900,
   textTransform: 'uppercase',
   letterSpacing: '0.12em',
+  cursor: 'pointer',
+  pointerEvents: 'auto',
 };
 
 const activeTabStyle: React.CSSProperties = {
@@ -396,6 +508,9 @@ const activeTabStyle: React.CSSProperties = {
 const formStyle: React.CSSProperties = {
   display: 'grid',
   gap: '16px',
+  position: 'relative',
+  zIndex: 10,
+  pointerEvents: 'auto',
 };
 
 const labelStyle: React.CSSProperties = {
@@ -418,6 +533,7 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
   fontSize: '15px',
   fontWeight: 700,
+  pointerEvents: 'auto',
 };
 
 const submitButtonStyle: React.CSSProperties = {
@@ -433,6 +549,31 @@ const submitButtonStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   cursor: 'pointer',
   boxShadow: '0 0 30px rgba(0,255,65,0.32)',
+  pointerEvents: 'auto',
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+  ...submitButtonStyle,
+  background: 'rgba(0,255,65,0.10)',
+  color: neon,
+  border: '1px solid rgba(0,255,65,0.40)',
+};
+
+const dangerButtonStyle: React.CSSProperties = {
+  ...submitButtonStyle,
+  background: 'rgba(255,80,80,0.16)',
+  color: '#ffaaaa',
+  border: '1px solid rgba(255,80,80,0.45)',
+};
+
+const sessionBoxStyle: React.CSSProperties = {
+  display: 'grid',
+  gap: '18px',
+};
+
+const sessionActionsStyle: React.CSSProperties = {
+  display: 'grid',
+  gap: '12px',
 };
 
 const errorBoxStyle: React.CSSProperties = {
