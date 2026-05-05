@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
 type AnyRecord = Record<string, any>;
@@ -15,14 +14,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-export default function AlumnoDashboardPage() {
+export default function AlumnoPage() {
   const router = useRouter();
 
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
   const [courses, setCourses] = useState<AnyRecord[]>([]);
-  const [modules, setModules] = useState<AnyRecord[]>([]);
-  const [lessons, setLessons] = useState<AnyRecord[]>([]);
   const [lessonProgress, setLessonProgress] = useState<AnyRecord[]>([]);
   const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
   const [courseCompletions, setCourseCompletions] = useState<AnyRecord[]>([]);
@@ -34,7 +31,6 @@ export default function AlumnoDashboardPage() {
     async function loadDashboard() {
       try {
         setLoading(true);
-        setSystemMessage('');
 
         const { data: userData, error: userError } = await supabase.auth.getUser();
 
@@ -54,54 +50,20 @@ export default function AlumnoDashboardPage() {
 
         setProfile(profileData || null);
 
-        const { data: coursesData, error: coursesError } = await supabase
+        const { data: coursesData } = await supabase
           .from('courses')
           .select('*');
 
-        if (coursesError) {
-          console.error('Error loading courses:', coursesError);
-          setSystemMessage('No se pudieron cargar los cursos del alumno.');
-          setCourses([]);
-          setLoading(false);
-          return;
-        }
-
         const visibleCourses = Array.isArray(coursesData)
           ? coursesData
-              .filter((course) => isVisibleCourse(course))
+              .filter((course) => {
+                const status = String(course.status || '').toLowerCase();
+                return !status || ['published', 'publicado', 'active', 'activo', 'preview', 'demo'].includes(status);
+              })
               .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
           : [];
 
         setCourses(visibleCourses);
-
-        const courseIds = visibleCourses.map((course) => course.id).filter(Boolean);
-
-        if (courseIds.length === 0) {
-          setLoading(false);
-          return;
-        }
-
-        const { data: modulesData } = await supabase
-          .from('modules')
-          .select('*')
-          .in('course_id', courseIds);
-
-        const finalModules = Array.isArray(modulesData)
-          ? [...modulesData].sort(sortModules)
-          : [];
-
-        setModules(finalModules);
-
-        const moduleIds = finalModules.map((module) => module.id).filter(Boolean);
-
-        if (moduleIds.length > 0) {
-          const { data: lessonsData } = await supabase
-            .from('lessons')
-            .select('*')
-            .in('module_id', moduleIds);
-
-          setLessons(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLessons) : []);
-        }
 
         const { data: progressData } = await supabase
           .from('lesson_progress')
@@ -111,15 +73,13 @@ export default function AlumnoDashboardPage() {
 
         setLessonProgress(Array.isArray(progressData) ? progressData : []);
 
-        const { data: moduleCompletionData } = await supabase
+        const { data: moduleData } = await supabase
           .from('module_completions')
           .select('*')
           .eq('user_id', activeUser.id)
           .eq('completed', true);
 
-        setModuleCompletions(
-          Array.isArray(moduleCompletionData) ? moduleCompletionData : []
-        );
+        setModuleCompletions(Array.isArray(moduleData) ? moduleData : []);
 
         const { data: courseCompletionData } = await supabase
           .from('course_completions')
@@ -127,20 +87,18 @@ export default function AlumnoDashboardPage() {
           .eq('user_id', activeUser.id)
           .eq('completed', true);
 
-        setCourseCompletions(
-          Array.isArray(courseCompletionData) ? courseCompletionData : []
-        );
+        setCourseCompletions(Array.isArray(courseCompletionData) ? courseCompletionData : []);
 
-        const { data: certificatesData } = await supabase
+        const { data: certificateData } = await supabase
           .from('certificates')
           .select('*')
           .eq('user_id', activeUser.id)
           .eq('status', 'valid');
 
-        setCertificates(Array.isArray(certificatesData) ? certificatesData : []);
+        setCertificates(Array.isArray(certificateData) ? certificateData : []);
       } catch (error) {
-        console.error('Error loading student dashboard:', error);
-        setSystemMessage('Error cargando el panel del alumno.');
+        console.error('Error cargando dashboard alumno:', error);
+        setSystemMessage('No se pudo cargar el panel del alumno.');
       } finally {
         setLoading(false);
       }
@@ -156,210 +114,155 @@ export default function AlumnoDashboardPage() {
     'Alumno GHC Academy';
 
   const stats = useMemo(() => {
-    const totalCourses = courses.length;
-    const completedCourses = courseCompletions.length;
-    const completedModules = moduleCompletions.length;
-    const completedLessons = lessonProgress.length;
-    const issuedCertificates = certificates.length;
-
     return {
-      totalCourses,
-      completedCourses,
-      completedModules,
-      completedLessons,
-      issuedCertificates,
+      courses: courses.length,
+      lessons: lessonProgress.length,
+      modules: moduleCompletions.length,
+      completedCourses: courseCompletions.length,
+      certificates: certificates.length,
     };
-  }, [courses, courseCompletions, moduleCompletions, lessonProgress, certificates]);
+  }, [courses, lessonProgress, moduleCompletions, courseCompletions, certificates]);
 
-  const courseCards = useMemo(() => {
-    return courses.map((course) => {
-      const courseModules = modules
-        .filter((module) => String(module.course_id) === String(course.id))
-        .sort(sortModules);
-
-      const courseLessons = lessons
-        .filter((lesson) =>
-          courseModules.some((module) => String(module.id) === String(lesson.module_id))
-        )
-        .sort(sortLessons);
-
-      const completedLessonCount = courseLessons.filter((lesson) =>
-        lessonProgress.some(
-          (progress) =>
-            String(progress.lesson_id) === String(lesson.id) &&
-            String(progress.course_id) === String(course.id)
-        )
-      ).length;
-
-      const completedModuleCount = courseModules.filter((module) =>
-        moduleCompletions.some(
-          (completion) => String(completion.module_id) === String(module.id)
-        )
-      ).length;
-
-      const courseCompletion = courseCompletions.find(
+  const activeCourses = useMemo(() => {
+    return courses.filter((course) => {
+      return !courseCompletions.some(
         (completion) => String(completion.course_id) === String(course.id)
       );
-
-      const certificate = certificates.find(
-        (item) => String(item.course_id) === String(course.id)
-      );
-
-      const progressPercent =
-        courseLessons.length > 0
-          ? Math.round((completedLessonCount / courseLessons.length) * 100)
-          : 0;
-
-      const nextLesson = findNextLesson({
-        course,
-        courseModules,
-        courseLessons,
-        completedModuleCount,
-        lessonProgress,
-        moduleCompletions,
-      });
-
-      return {
-        course,
-        courseModules,
-        courseLessons,
-        completedLessonCount,
-        completedModuleCount,
-        progressPercent,
-        courseCompletion,
-        certificate,
-        nextLesson,
-      };
     });
-  }, [
-    courses,
-    modules,
-    lessons,
-    lessonProgress,
-    moduleCompletions,
-    courseCompletions,
-    certificates,
-  ]);
+  }, [courses, courseCompletions]);
 
-  const activeCourses = courseCards.filter((card) => !card.courseCompletion);
-  const completedCourses = courseCards.filter((card) => card.courseCompletion);
-
-  const handleLogout = async () => {
+  async function handleLogout() {
     await supabase.auth.signOut();
     router.replace('/acceso');
-  };
+  }
 
   if (loading) {
     return (
-      <main style={pageStyle}>
-        <section style={loadingCardStyle}>
-          <p style={kickerStyle}>GHC Academy</p>
-          <h1 style={titleStyle}>Cargando portal</h1>
-          <p style={textStyle}>Estamos preparando tu panel real de alumno.</p>
+      <main style={page}>
+        <section style={loadingCard}>
+          <p style={kicker}>GHC Academy</p>
+          <h1 style={title}>Cargando portal</h1>
+          <p style={text}>Estamos preparando tu dashboard real de alumno.</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <header style={headerStyle}>
+    <main style={page}>
+      <div style={container}>
+        <header style={header}>
           <div>
-            <p style={kickerStyle}>Portal real del alumno</p>
-            <h1 style={titleStyle}>Hola, {displayName}</h1>
-            <p style={subtitleStyle}>
-              Aquí verás tus cursos, progreso real, módulos aprobados y certificados digitales.
+            <p style={kicker}>Portal real del alumno</p>
+            <h1 style={title}>Hola, {displayName}</h1>
+            <p style={subtitle}>
+              Sesión activa con {user?.email}. Aquí verás tu progreso real, módulos aprobados,
+              cursos completados y certificados emitidos.
             </p>
           </div>
 
-          <div style={headerActionsStyle}>
-            <Link href="/cursos" style={secondaryButtonStyle}>
+          <div style={actions}>
+            <Link href="/cursos" style={secondaryButton}>
               Catálogo
             </Link>
 
-            <button onClick={handleLogout} style={logoutButtonStyle}>
+            <button onClick={handleLogout} style={logoutButton}>
               Cerrar sesión
             </button>
           </div>
         </header>
 
-        {systemMessage && <div style={noticeBox}>{systemMessage}</div>}
+        {systemMessage && <div style={notice}>{systemMessage}</div>}
 
-        <section style={statsGridStyle}>
-          <article style={statCardStyle}>
+        <section style={statsGrid}>
+          <article style={statCard}>
             <p style={smallLabel}>Cursos visibles</p>
-            <strong style={statValueStyle}>{stats.totalCourses}</strong>
+            <strong style={statValue}>{stats.courses}</strong>
           </article>
 
-          <article style={statCardStyle}>
+          <article style={statCard}>
             <p style={smallLabel}>Lecciones completadas</p>
-            <strong style={statValueStyle}>{stats.completedLessons}</strong>
+            <strong style={statValue}>{stats.lessons}</strong>
           </article>
 
-          <article style={statCardStyle}>
+          <article style={statCard}>
             <p style={smallLabel}>Módulos aprobados</p>
-            <strong style={statValueStyle}>{stats.completedModules}</strong>
+            <strong style={statValue}>{stats.modules}</strong>
           </article>
 
-          <article style={statCardStyle}>
+          <article style={statCard}>
             <p style={smallLabel}>Certificados</p>
-            <strong style={statValueStyle}>{stats.issuedCertificates}</strong>
+            <strong style={statValue}>{stats.certificates}</strong>
           </article>
         </section>
 
-        <section style={sectionBlockStyle}>
-          <div style={sectionHeaderStyle}>
+        <section style={section}>
+          <div style={sectionHeader}>
             <div>
               <p style={sectionLabel}>Formación activa</p>
-              <h2 style={sectionTitle}>Mis cursos en progreso</h2>
+              <h2 style={sectionTitle}>Mis cursos</h2>
             </div>
           </div>
 
           {activeCourses.length === 0 ? (
-            <div style={emptyStateStyle}>
-              <p style={kickerStyle}>Sin cursos activos</p>
-              <h3 style={emptyTitleStyle}>Todavía no tienes progreso iniciado</h3>
-              <p style={textStyle}>
-                Entra en un curso desde el catálogo, completa lecciones y aprueba módulos para que
-                aparezcan aquí.
+            <article style={emptyCard}>
+              <p style={kicker}>Sin cursos activos</p>
+              <h3 style={cardTitle}>Todavía no tienes progreso iniciado</h3>
+              <p style={text}>
+                Entra en un curso del catálogo, completa lecciones y aprueba módulos para que
+                aparezca aquí tu progreso.
               </p>
-              <Link href="/cursos" style={primaryButtonStyle}>
+              <Link href="/cursos" style={primaryButton}>
                 Explorar catálogo →
               </Link>
-            </div>
+            </article>
           ) : (
-            <div style={courseGridStyle}>
-              {activeCourses.map((card) => (
-                <CourseCard key={card.course.id} card={card} />
+            <div style={courseGrid}>
+              {activeCourses.map((course) => (
+                <article key={course.id} style={courseCard}>
+                  <div style={badgeRow}>
+                    {course.course_type && <span style={badgeMain}>{course.course_type}</span>}
+                    {course.level && <span style={badgeSecondary}>{course.level}</span>}
+                  </div>
+
+                  <h3 style={courseTitle}>{course.title}</h3>
+
+                  {course.subtitle && <p style={courseSubtitle}>{course.subtitle}</p>}
+
+                  <p style={courseText}>
+                    {course.description || 'Formación premium basada en ciencia real.'}
+                  </p>
+
+                  <div style={miniGrid}>
+                    <div style={miniBox}>
+                      <p style={miniLabel}>Precio</p>
+                      <p style={miniValue}>
+                        {Number(course.price || 0).toLocaleString('es-ES')}€
+                      </p>
+                    </div>
+
+                    <div style={miniBox}>
+                      <p style={miniLabel}>Duración</p>
+                      <p style={miniValue}>{course.duration_minutes || 0} min</p>
+                    </div>
+
+                    <div style={miniBox}>
+                      <p style={miniLabel}>Certificado</p>
+                      <p style={miniValue}>{course.has_certificate ? 'Sí' : 'No'}</p>
+                    </div>
+                  </div>
+
+                  <Link href={`/cursos/${course.slug}`} style={primaryButton}>
+                    Ver curso →
+                  </Link>
+                </article>
               ))}
             </div>
           )}
         </section>
 
-        <section style={sectionBlockStyle}>
-          <div style={sectionHeaderStyle}>
-            <div>
-              <p style={sectionLabel}>Historial académico</p>
-              <h2 style={sectionTitle}>Cursos completados</h2>
-            </div>
-          </div>
-
-          {completedCourses.length === 0 ? (
-            <div style={emptyStateStyle}>
-              <p style={textStyle}>Cuando completes un curso, aparecerá aquí con su certificado.</p>
-            </div>
-          ) : (
-            <div style={courseGridStyle}>
-              {completedCourses.map((card) => (
-                <CourseCard key={card.course.id} card={card} completed />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section style={sectionBlockStyle}>
-          <div style={sectionHeaderStyle}>
+        <section style={section}>
+          <div style={sectionHeader}>
             <div>
               <p style={sectionLabel}>Credenciales</p>
               <h2 style={sectionTitle}>Mis certificados</h2>
@@ -367,27 +270,21 @@ export default function AlumnoDashboardPage() {
           </div>
 
           {certificates.length === 0 ? (
-            <div style={emptyStateStyle}>
-              <p style={textStyle}>
-                Tus certificados reales aparecerán aquí cuando completes cursos y los emitas desde
-                GHC Academy.
+            <article style={emptyCard}>
+              <p style={text}>
+                Cuando completes un curso y emitas un certificado real, aparecerá aquí.
               </p>
-            </div>
+            </article>
           ) : (
-            <div style={certificateGridStyle}>
+            <div style={courseGrid}>
               {certificates.map((certificate) => (
-                <article key={certificate.id} style={certificateCardStyle}>
+                <article key={certificate.id} style={certificateCard}>
                   <p style={smallLabel}>Certificado válido</p>
-                  <h3 style={certificateTitleStyle}>{certificate.course_title}</h3>
-                  <p style={textStyle}>
-                    Código: <strong>{certificate.certificate_code}</strong>
-                  </p>
-                  <p style={textStyle}>Nota final: {certificate.final_score}%</p>
+                  <h3 style={courseTitle}>{certificate.course_title}</h3>
+                  <p style={text}>Código: {certificate.certificate_code}</p>
+                  <p style={text}>Nota final: {certificate.final_score}%</p>
 
-                  <Link
-                    href={`/certificados/${certificate.verification_slug}`}
-                    style={primaryButtonStyle}
-                  >
+                  <Link href={`/certificados/${certificate.verification_slug}`} style={primaryButton}>
                     Ver certificado →
                   </Link>
                 </article>
@@ -400,155 +297,7 @@ export default function AlumnoDashboardPage() {
   );
 }
 
-function CourseCard({
-  card,
-  completed = false,
-}: {
-  card: AnyRecord;
-  completed?: boolean;
-}) {
-  const course = card.course;
-  const nextLesson = card.nextLesson;
-
-  return (
-    <article style={courseCardStyle}>
-      <div style={cardTopStyle}>
-        <div style={badgeRowStyle}>
-          {course.course_type && <span style={badgeMain}>{course.course_type}</span>}
-          {course.level && <span style={badgeSecondary}>{course.level}</span>}
-          {completed && <span style={completedBadge}>Completado</span>}
-        </div>
-      </div>
-
-      <h3 style={courseTitleStyle}>{course.title}</h3>
-
-      {course.subtitle && <p style={courseSubtitleStyle}>{course.subtitle}</p>}
-
-      <p style={courseTextStyle}>
-        {course.description || 'Formación premium basada en ciencia real.'}
-      </p>
-
-      <div style={miniStatsGridStyle}>
-        <div style={miniBox}>
-          <p style={miniLabel}>Lecciones</p>
-          <p style={miniValue}>
-            {card.completedLessonCount}/{card.courseLessons.length}
-          </p>
-        </div>
-
-        <div style={miniBox}>
-          <p style={miniLabel}>Módulos</p>
-          <p style={miniValue}>
-            {card.completedModuleCount}/{card.courseModules.length}
-          </p>
-        </div>
-
-        <div style={miniBox}>
-          <p style={miniLabel}>Progreso</p>
-          <p style={miniValue}>{card.progressPercent}%</p>
-        </div>
-      </div>
-
-      <div style={progressTrackStyle}>
-        <div style={{ ...progressFillStyle, width: `${card.progressPercent}%` }} />
-      </div>
-
-      <div style={cardActionsStyle}>
-        {nextLesson ? (
-          <Link href={`/cursos/${course.slug}/${nextLesson.id}`} style={primaryButtonStyle}>
-            Continuar →
-          </Link>
-        ) : (
-          <Link href={`/cursos/${course.slug}`} style={primaryButtonStyle}>
-            Ver curso →
-          </Link>
-        )}
-
-        <Link href={`/cursos/${course.slug}`} style={secondaryLinkStyle}>
-          Detalle
-        </Link>
-      </div>
-    </article>
-  );
-}
-
-function isVisibleCourse(course: AnyRecord) {
-  const status = String(course.status || '').toLowerCase();
-
-  if (!status) return true;
-
-  return ['published', 'publicado', 'active', 'activo', 'preview', 'demo'].includes(status);
-}
-
-function findNextLesson({
-  courseModules,
-  courseLessons,
-  lessonProgress,
-  moduleCompletions,
-}: {
-  course: AnyRecord;
-  courseModules: AnyRecord[];
-  courseLessons: AnyRecord[];
-  lessonProgress: AnyRecord[];
-  moduleCompletions: AnyRecord[];
-}) {
-  const completedLessonIds = new Set(lessonProgress.map((item) => String(item.lesson_id)));
-  const completedModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
-
-  for (let index = 0; index < courseModules.length; index++) {
-    const module = courseModules[index];
-    const moduleUnlocked =
-      index === 0 ||
-      completedModuleIds.has(String(module.id)) ||
-      completedModuleIds.has(String(courseModules[index - 1]?.id));
-
-    if (!moduleUnlocked) continue;
-
-    const moduleLessons = courseLessons
-      .filter((lesson) => String(lesson.module_id) === String(module.id))
-      .sort(sortLessons);
-
-    const nextLesson = moduleLessons.find((lesson) => !completedLessonIds.has(String(lesson.id)));
-
-    if (nextLesson) return nextLesson;
-  }
-
-  return courseLessons[0] || null;
-}
-
-function getOrder(item: AnyRecord, fallback: number) {
-  return item.position ?? item.sort_order ?? item.order_index ?? item.order ?? fallback;
-}
-
-function sortModules(a: AnyRecord, b: AnyRecord) {
-  const aNumber = extractModuleNumber(a.title);
-  const bNumber = extractModuleNumber(b.title);
-
-  if (aNumber !== bNumber) return aNumber - bNumber;
-
-  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
-}
-
-function sortLessons(a: AnyRecord, b: AnyRecord) {
-  const aNumber = extractLessonNumber(a.title);
-  const bNumber = extractLessonNumber(b.title);
-
-  if (aNumber !== bNumber) return aNumber - bNumber;
-
-  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
-}
-
-function extractLessonNumber(title: string = '') {
-  const match = title.match(/lecci[oó]n\s*(\d+)/i);
-  return match ? Number(match[1]) : 999;
-}
-
-function extractModuleNumber(title: string = '') {
-  const match = title.match(/m[oó]dulo\s*(\d+)/i);
-  return match ? Number(match[1]) : 999;
-}
-
-const pageStyle: CSSProperties = {
+const page: React.CSSProperties = {
   minHeight: '100vh',
   background:
     'radial-gradient(circle at top left, rgba(0,255,65,0.16), transparent 35%), radial-gradient(circle at bottom right, rgba(0,255,65,0.10), transparent 30%), #030504',
@@ -557,12 +306,12 @@ const pageStyle: CSSProperties = {
   fontFamily: 'Arial, Helvetica, sans-serif',
 };
 
-const containerStyle: CSSProperties = {
+const container: React.CSSProperties = {
   maxWidth: '1240px',
   margin: '0 auto',
 };
 
-const loadingCardStyle: CSSProperties = {
+const loadingCard: React.CSSProperties = {
   maxWidth: '620px',
   margin: '22vh auto 0',
   borderRadius: '34px',
@@ -571,7 +320,7 @@ const loadingCardStyle: CSSProperties = {
   padding: '34px',
 };
 
-const headerStyle: CSSProperties = {
+const header: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   gap: '24px',
@@ -579,14 +328,14 @@ const headerStyle: CSSProperties = {
   marginBottom: '30px',
 };
 
-const headerActionsStyle: CSSProperties = {
+const actions: React.CSSProperties = {
   display: 'flex',
   gap: '12px',
   flexWrap: 'wrap',
   justifyContent: 'flex-end',
 };
 
-const kickerStyle: CSSProperties = {
+const kicker: React.CSSProperties = {
   color: neon,
   fontSize: '12px',
   letterSpacing: '0.34em',
@@ -595,7 +344,7 @@ const kickerStyle: CSSProperties = {
   margin: '0 0 14px',
 };
 
-const titleStyle: CSSProperties = {
+const title: React.CSSProperties = {
   fontSize: 'clamp(44px, 7vw, 84px)',
   lineHeight: '0.9',
   fontWeight: 950,
@@ -604,7 +353,7 @@ const titleStyle: CSSProperties = {
   margin: 0,
 };
 
-const subtitleStyle: CSSProperties = {
+const subtitle: React.CSSProperties = {
   color: 'rgba(255,255,255,0.70)',
   fontSize: '17px',
   lineHeight: 1.65,
@@ -612,13 +361,13 @@ const subtitleStyle: CSSProperties = {
   margin: '18px 0 0',
 };
 
-const textStyle: CSSProperties = {
+const text: React.CSSProperties = {
   color: 'rgba(255,255,255,0.66)',
   fontSize: '14px',
   lineHeight: 1.7,
 };
 
-const noticeBox: CSSProperties = {
+const notice: React.CSSProperties = {
   padding: '22px',
   borderRadius: '24px',
   border: '1px solid rgba(0,255,65,0.22)',
@@ -627,21 +376,21 @@ const noticeBox: CSSProperties = {
   background: 'rgba(255,255,255,0.035)',
 };
 
-const statsGridStyle: CSSProperties = {
+const statsGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
   gap: '16px',
   marginBottom: '34px',
 };
 
-const statCardStyle: CSSProperties = {
+const statCard: React.CSSProperties = {
   borderRadius: '26px',
   border: '1px solid rgba(0,255,65,0.24)',
   background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
   padding: '20px',
 };
 
-const smallLabel: CSSProperties = {
+const smallLabel: React.CSSProperties = {
   margin: 0,
   color: 'rgba(255,255,255,0.42)',
   fontSize: '11px',
@@ -650,7 +399,7 @@ const smallLabel: CSSProperties = {
   fontWeight: 900,
 };
 
-const statValueStyle: CSSProperties = {
+const statValue: React.CSSProperties = {
   display: 'block',
   marginTop: '10px',
   color: neon,
@@ -659,11 +408,11 @@ const statValueStyle: CSSProperties = {
   fontWeight: 950,
 };
 
-const sectionBlockStyle: CSSProperties = {
+const section: React.CSSProperties = {
   marginTop: '40px',
 };
 
-const sectionHeaderStyle: CSSProperties = {
+const sectionHeader: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   gap: '20px',
@@ -671,7 +420,7 @@ const sectionHeaderStyle: CSSProperties = {
   marginBottom: '18px',
 };
 
-const sectionLabel: CSSProperties = {
+const sectionLabel: React.CSSProperties = {
   color: neon,
   fontSize: '12px',
   fontWeight: 900,
@@ -680,40 +429,34 @@ const sectionLabel: CSSProperties = {
   margin: 0,
 };
 
-const sectionTitle: CSSProperties = {
+const sectionTitle: React.CSSProperties = {
   fontSize: '34px',
   fontWeight: 950,
   textTransform: 'uppercase',
   margin: '6px 0 0',
 };
 
-const emptyStateStyle: CSSProperties = {
+const emptyCard: React.CSSProperties = {
   borderRadius: '28px',
   border: '1px solid rgba(0,255,65,0.24)',
   background: 'rgba(255,255,255,0.045)',
   padding: '26px',
 };
 
-const emptyTitleStyle: CSSProperties = {
+const cardTitle: React.CSSProperties = {
   fontSize: '28px',
   fontWeight: 950,
   textTransform: 'uppercase',
   margin: 0,
 };
 
-const courseGridStyle: CSSProperties = {
+const courseGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))',
   gap: '22px',
 };
 
-const certificateGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-  gap: '18px',
-};
-
-const courseCardStyle: CSSProperties = {
+const courseCard: React.CSSProperties = {
   borderRadius: '30px',
   border: '1px solid rgba(0,255,65,0.24)',
   background: 'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025))',
@@ -721,36 +464,20 @@ const courseCardStyle: CSSProperties = {
   boxShadow: '0 0 60px rgba(0,255,65,0.065)',
 };
 
-const certificateCardStyle: CSSProperties = {
-  borderRadius: '28px',
+const certificateCard: React.CSSProperties = {
+  ...courseCard,
   border: '1px solid rgba(255,255,255,0.28)',
   background: 'linear-gradient(145deg, rgba(255,255,255,0.12), rgba(0,255,65,0.05))',
-  padding: '22px',
 };
 
-const certificateTitleStyle: CSSProperties = {
-  fontSize: '25px',
-  lineHeight: 1.05,
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  margin: '10px 0 12px',
-};
-
-const cardTopStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '12px',
-  alignItems: 'flex-start',
-  marginBottom: '18px',
-};
-
-const badgeRowStyle: CSSProperties = {
+const badgeRow: React.CSSProperties = {
   display: 'flex',
   gap: '8px',
   flexWrap: 'wrap',
+  marginBottom: '18px',
 };
 
-const badgeMain: CSSProperties = {
+const badgeMain: React.CSSProperties = {
   background: neon,
   color: '#000',
   borderRadius: '999px',
@@ -761,7 +488,7 @@ const badgeMain: CSSProperties = {
   letterSpacing: '0.14em',
 };
 
-const badgeSecondary: CSSProperties = {
+const badgeSecondary: React.CSSProperties = {
   border: '1px solid rgba(255,255,255,0.14)',
   color: 'rgba(255,255,255,0.72)',
   borderRadius: '999px',
@@ -772,19 +499,7 @@ const badgeSecondary: CSSProperties = {
   letterSpacing: '0.14em',
 };
 
-const completedBadge: CSSProperties = {
-  background: 'rgba(0,255,65,0.14)',
-  border: '1px solid rgba(0,255,65,0.55)',
-  color: neon,
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.14em',
-};
-
-const courseTitleStyle: CSSProperties = {
+const courseTitle: React.CSSProperties = {
   fontSize: '30px',
   lineHeight: 1,
   fontWeight: 950,
@@ -792,7 +507,7 @@ const courseTitleStyle: CSSProperties = {
   margin: '0 0 12px',
 };
 
-const courseSubtitleStyle: CSSProperties = {
+const courseSubtitle: React.CSSProperties = {
   color: neon,
   fontSize: '15px',
   fontWeight: 900,
@@ -800,62 +515,40 @@ const courseSubtitleStyle: CSSProperties = {
   margin: '0 0 12px',
 };
 
-const courseTextStyle: CSSProperties = {
+const courseText: React.CSSProperties = {
   color: 'rgba(255,255,255,0.64)',
   fontSize: '14px',
   lineHeight: 1.7,
   minHeight: '72px',
 };
 
-const miniStatsGridStyle: CSSProperties = {
+const miniGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
   gap: '10px',
   margin: '18px 0',
 };
 
-const miniBox: CSSProperties = {
+const miniBox: React.CSSProperties = {
   borderRadius: '16px',
   border: '1px solid rgba(255,255,255,0.10)',
   background: 'rgba(0,0,0,0.28)',
   padding: '12px',
 };
 
-const miniLabel: CSSProperties = {
+const miniLabel: React.CSSProperties = {
   margin: 0,
   color: 'rgba(255,255,255,0.38)',
   fontSize: '11px',
 };
 
-const miniValue: CSSProperties = {
+const miniValue: React.CSSProperties = {
   margin: '5px 0 0',
   color: 'white',
   fontWeight: 800,
 };
 
-const progressTrackStyle: CSSProperties = {
-  height: '12px',
-  borderRadius: '999px',
-  overflow: 'hidden',
-  background: 'rgba(255,255,255,0.12)',
-  margin: '18px 0',
-};
-
-const progressFillStyle: CSSProperties = {
-  height: '100%',
-  borderRadius: '999px',
-  background: neon,
-  boxShadow: '0 0 20px rgba(0,255,65,0.55)',
-};
-
-const cardActionsStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr auto',
-  gap: '10px',
-  alignItems: 'center',
-};
-
-const primaryButtonStyle: CSSProperties = {
+const primaryButton: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -872,22 +565,14 @@ const primaryButtonStyle: CSSProperties = {
   boxShadow: '0 0 28px rgba(0,255,65,0.28)',
 };
 
-const secondaryButtonStyle: CSSProperties = {
-  ...primaryButtonStyle,
+const secondaryButton: React.CSSProperties = {
+  ...primaryButton,
   background: 'rgba(0,255,65,0.10)',
   color: neon,
   border: '1px solid rgba(0,255,65,0.40)',
 };
 
-const secondaryLinkStyle: CSSProperties = {
-  color: neon,
-  fontSize: '13px',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  textDecoration: 'none',
-};
-
-const logoutButtonStyle: CSSProperties = {
+const logoutButton: React.CSSProperties = {
   border: '1px solid rgba(255,80,80,0.40)',
   background: 'rgba(255,80,80,0.12)',
   color: '#ffaaaa',
