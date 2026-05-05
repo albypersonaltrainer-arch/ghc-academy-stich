@@ -27,7 +27,7 @@ const supabase = createClient(
 
 export default function CertificateVerificationPage() {
   const params = useParams();
-  const certificateId = String(params.certificateId || '');
+  const certificateId = decodeURIComponent(String(params.certificateId || ''));
 
   const [certificate, setCertificate] = useState<Certificate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,48 +49,29 @@ export default function CertificateVerificationPage() {
           return;
         }
 
-        const { data, error } = await supabase
-          .from('certificates')
-          .select('*')
-          .or(`verification_slug.eq.${certificateId},certificate_code.eq.${certificateId},id.eq.${certificateId}`)
-          .maybeSingle();
+        const realCertificate = await findCertificateInSupabase(certificateId);
 
-        if (error) {
-          console.error('Error loading certificate:', error);
-          setMessage('No se pudo consultar el certificado.');
-          setLoading(false);
-          return;
-        }
-
-        if (!data) {
+        if (!realCertificate) {
           setMessage('No se ha encontrado ningún certificado con este identificador.');
           setLoading(false);
           return;
         }
 
-        setCertificate({
-          id: data.id,
-          certificate_code: data.certificate_code,
-          verification_slug: data.verification_slug,
-          student_name: data.student_name,
-          course_id: data.course_id,
-          course_title: data.course_title,
-          final_score: data.final_score,
-          issued_at: data.issued_at,
-          status: data.status,
-        });
-
+        setCertificate(realCertificate);
         setSource('supabase');
         setLoading(false);
       } catch (error) {
         console.error('Unexpected certificate error:', error);
-        setMessage('Error inesperado al verificar el certificado.');
+        setMessage('No se pudo consultar el certificado.');
         setLoading(false);
       }
     }
 
     if (certificateId) {
       loadCertificate();
+    } else {
+      setMessage('No se recibió un identificador de certificado.');
+      setLoading(false);
     }
   }, [certificateId]);
 
@@ -210,13 +191,77 @@ export default function CertificateVerificationPage() {
         {source === 'preview' && (
           <section style={noticeBox}>
             <strong>Modo preview:</strong> este certificado se ha generado en este navegador para
-            validar el flujo completo. Cuando activemos login, pagos y control de acceso, el
+            validar el flujo completo. Cuando activemos pagos y control de acceso completo, el
             certificado se emitirá desde Supabase y quedará asociado al alumno real.
           </section>
         )}
       </div>
     </main>
   );
+}
+
+async function findCertificateInSupabase(identifier: string): Promise<Certificate | null> {
+  const cleanId = identifier.trim();
+
+  const bySlug = await supabase
+    .from('certificates')
+    .select('*')
+    .eq('verification_slug', cleanId)
+    .maybeSingle();
+
+  if (bySlug.error) {
+    console.error('Certificate lookup by slug failed:', bySlug.error);
+  }
+
+  if (bySlug.data) {
+    return mapSupabaseCertificate(bySlug.data);
+  }
+
+  const byCode = await supabase
+    .from('certificates')
+    .select('*')
+    .eq('certificate_code', cleanId)
+    .maybeSingle();
+
+  if (byCode.error) {
+    console.error('Certificate lookup by code failed:', byCode.error);
+  }
+
+  if (byCode.data) {
+    return mapSupabaseCertificate(byCode.data);
+  }
+
+  if (isUuid(cleanId)) {
+    const byId = await supabase
+      .from('certificates')
+      .select('*')
+      .eq('id', cleanId)
+      .maybeSingle();
+
+    if (byId.error) {
+      console.error('Certificate lookup by UUID failed:', byId.error);
+    }
+
+    if (byId.data) {
+      return mapSupabaseCertificate(byId.data);
+    }
+  }
+
+  return null;
+}
+
+function mapSupabaseCertificate(data: any): Certificate {
+  return {
+    id: data.id,
+    certificate_code: data.certificate_code,
+    verification_slug: data.verification_slug,
+    student_name: data.student_name,
+    course_id: data.course_id,
+    course_title: data.course_title,
+    final_score: data.final_score,
+    issued_at: data.issued_at,
+    status: data.status,
+  };
 }
 
 function loadPreviewCertificate(identifier: string): Certificate | null {
@@ -247,6 +292,12 @@ function loadPreviewCertificate(identifier: string): Certificate | null {
   }
 
   return null;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
 }
 
 function formatDate(value?: string) {
