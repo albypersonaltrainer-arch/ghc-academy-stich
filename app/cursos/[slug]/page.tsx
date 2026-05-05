@@ -35,12 +35,16 @@ export default function CourseDetailPage() {
   const [course, setCourse] = useState<AnyRecord | null>(null);
   const [modules, setModules] = useState<AnyRecord[]>([]);
   const [lessons, setLessons] = useState<AnyRecord[]>([]);
+
   const [lessonProgress, setLessonProgress] = useState<AnyRecord[]>([]);
   const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
-  const [previewModuleCompletions, setPreviewModuleCompletions] = useState<AnyRecord[]>([]);
   const [courseCompletion, setCourseCompletion] = useState<AnyRecord | null>(null);
+  const [realCertificate, setRealCertificate] = useState<AnyRecord | null>(null);
+
+  const [previewModuleCompletions, setPreviewModuleCompletions] = useState<AnyRecord[]>([]);
   const [previewCourseCompletion, setPreviewCourseCompletion] = useState<AnyRecord | null>(null);
   const [previewCertificate, setPreviewCertificate] = useState<PreviewCertificate | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
 
@@ -68,9 +72,15 @@ export default function CourseDetailPage() {
 
         setCourse(courseData);
 
-        loadPreviewModuleCompletions(courseData.id);
-        loadPreviewCourseCompletion(courseData.id);
-        loadPreviewCertificate(courseData.id);
+        if (!activeUser?.id) {
+          loadPreviewModuleCompletions(courseData.id);
+          loadPreviewCourseCompletion(courseData.id);
+          loadPreviewCertificate(courseData.id);
+        } else {
+          setPreviewModuleCompletions([]);
+          setPreviewCourseCompletion(null);
+          setPreviewCertificate(null);
+        }
 
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
@@ -149,6 +159,16 @@ export default function CourseDetailPage() {
             .maybeSingle();
 
           setCourseCompletion(courseCompletionData || null);
+
+          const { data: certificateData } = await supabase
+            .from('certificates')
+            .select('*')
+            .eq('user_id', activeUser.id)
+            .eq('course_id', courseData.id)
+            .eq('status', 'valid')
+            .maybeSingle();
+
+          setRealCertificate(certificateData || null);
         }
       } catch (error) {
         console.error('Error cargando detalle del curso:', error);
@@ -237,6 +257,48 @@ export default function CourseDetailPage() {
     }
   }
 
+  async function issueCertificate() {
+    if (!course || !effectiveCourseCompletion?.completed) return;
+
+    if (!user?.id) {
+      issuePreviewCertificate();
+      return;
+    }
+
+    const existing = realCertificate;
+
+    if (existing) return;
+
+    const code = generateCertificateCode(course.title);
+    const certificateId = crypto.randomUUID();
+    const verificationSlug = `${code.toLowerCase()}-${certificateId.slice(0, 8)}`;
+
+    const { data, error } = await supabase
+      .from('certificates')
+      .insert({
+        user_id: user.id,
+        course_id: course.id,
+        course_completion_id: courseCompletion?.id || null,
+        student_name:
+          user?.user_metadata?.full_name || user?.email || 'Alumno GHC Academy',
+        course_title: String(course.title || 'Curso GHC Academy'),
+        final_score: Number(effectiveCourseCompletion.final_score || 100),
+        certificate_code: code,
+        verification_slug: verificationSlug,
+        status: 'valid',
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error emitiendo certificado real:', error);
+      alert('No se pudo emitir el certificado real. Revisa Supabase.');
+      return;
+    }
+
+    setRealCertificate(data);
+  }
+
   function issuePreviewCertificate() {
     if (!course || !effectiveCourseCompletion?.completed) return;
 
@@ -249,7 +311,7 @@ export default function CourseDetailPage() {
       certificate_id: certificateId,
       certificate_code: code,
       verification_slug: verificationSlug,
-      student_name: user?.user_metadata?.full_name || user?.email || 'Alumno GHC Academy',
+      student_name: 'Alumno GHC Academy',
       course_id: String(course.id),
       course_title: String(course.title || 'Curso GHC Academy'),
       final_score: Number(effectiveCourseCompletion.final_score || 100),
@@ -266,24 +328,26 @@ export default function CourseDetailPage() {
   }
 
   const effectiveModuleCompletions = useMemo(() => {
+    if (user?.id) return moduleCompletions;
+
     const byModuleId = new Map<string, AnyRecord>();
 
-    moduleCompletions.forEach((item) => {
+    previewModuleCompletions.forEach((item) => {
       if (item?.module_id) {
         byModuleId.set(String(item.module_id), item);
       }
     });
 
-    previewModuleCompletions.forEach((item) => {
-      if (item?.module_id && !byModuleId.has(String(item.module_id))) {
-        byModuleId.set(String(item.module_id), item);
-      }
-    });
-
     return Array.from(byModuleId.values());
-  }, [moduleCompletions, previewModuleCompletions]);
+  }, [user, moduleCompletions, previewModuleCompletions]);
 
-  const effectiveCourseCompletion = courseCompletion || previewCourseCompletion;
+  const effectiveCourseCompletion = user?.id
+    ? courseCompletion
+    : previewCourseCompletion;
+
+  const effectiveCertificate = user?.id
+    ? realCertificate
+    : previewCertificate;
 
   const completedLessonIds = useMemo(() => {
     return new Set(lessonProgress.map((item) => String(item.lesson_id)));
@@ -355,6 +419,10 @@ export default function CourseDetailPage() {
     );
   }
 
+  const certificateLink = effectiveCertificate
+    ? `/certificados/${effectiveCertificate.verification_slug}`
+    : '';
+
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>
@@ -372,9 +440,7 @@ export default function CourseDetailPage() {
 
               {isCourseCompleted && (
                 <span style={completedBadge}>
-                  {previewCourseCompletion && !courseCompletion
-                    ? 'Curso completado · Preview'
-                    : 'Curso completado oficialmente'}
+                  {!user?.id ? 'Curso completado · Preview' : 'Curso completado oficialmente'}
                 </span>
               )}
 
@@ -382,8 +448,10 @@ export default function CourseDetailPage() {
                 <span style={finalUnlockedBadge}>Evaluación final desbloqueada</span>
               )}
 
-              {previewCertificate && (
-                <span style={certificateBadge}>Certificado emitido · Preview</span>
+              {effectiveCertificate && (
+                <span style={certificateBadge}>
+                  {!user?.id ? 'Certificado emitido · Preview' : 'Certificado emitido'}
+                </span>
               )}
             </div>
 
@@ -412,7 +480,7 @@ export default function CourseDetailPage() {
               <div style={miniBox}>
                 <p style={miniLabel}>Certificado</p>
                 <p style={miniValue}>
-                  {previewCertificate ? 'Emitido' : course.has_certificate ? 'Sí' : 'No'}
+                  {effectiveCertificate ? 'Emitido' : course.has_certificate ? 'Sí' : 'No'}
                 </p>
               </div>
             </div>
@@ -433,8 +501,8 @@ export default function CourseDetailPage() {
 
             <p style={textStyle}>
               {isCourseCompleted
-                ? previewCourseCompletion && !courseCompletion
-                  ? 'Has aprobado el examen final en modo preview. Cuando activemos login, este cierre quedará guardado oficialmente en Supabase.'
+                ? !user?.id
+                  ? 'Has aprobado el examen final en modo preview. Cuando activemos acceso completo, este cierre quedará guardado oficialmente en Supabase.'
                   : 'Has aprobado el examen final y el curso ya consta como completado oficialmente.'
                 : 'Aprueba cada examen de módulo para desbloquear el siguiente bloque. Cuando completes todos los módulos, se desbloqueará la evaluación final del curso.'}
             </p>
@@ -442,8 +510,7 @@ export default function CourseDetailPage() {
             {!user && (
               <div style={noticeBox}>
                 Vista previa activa. Los módulos, el cierre del curso y el certificado pueden
-                probarse en este navegador. Cuando activemos login, pagos y control de acceso, el
-                progreso quedará guardado oficialmente por alumno.
+                probarse en este navegador. Cuando actives sesión, la fuente real será Supabase.
               </div>
             )}
           </article>
@@ -464,12 +531,6 @@ export default function CourseDetailPage() {
             <p style={previewText}>
               {completedModulesCount} de {modules.length} módulos aprobados.
             </p>
-
-            {previewModuleCompletions.length > 0 && !user && (
-              <p style={previewText}>
-                {previewModuleCompletions.length} módulo(s) desbloqueado(s) en modo preview.
-              </p>
-            )}
           </article>
         </section>
 
@@ -503,7 +564,7 @@ export default function CourseDetailPage() {
           {isCourseCompleted ? (
             <div style={finalExamLockedBox}>
               <p style={miniLabel}>Certificado</p>
-              <p style={miniValue}>{previewCertificate ? 'Emitido' : 'Disponible'}</p>
+              <p style={miniValue}>{effectiveCertificate ? 'Emitido' : 'Disponible'}</p>
             </div>
           ) : finalExamUnlocked ? (
             <Link href={`/exam?courseId=${course.id}`} style={finalExamButton}>
@@ -517,14 +578,14 @@ export default function CourseDetailPage() {
           )}
         </section>
 
-        <section style={certificateSectionStyle(certificateAvailable, Boolean(previewCertificate))}>
+        <section style={certificateSectionStyle(certificateAvailable, Boolean(effectiveCertificate))}>
           <div>
             <p style={sectionLabel}>
               {certificateAvailable ? 'Certificación digital' : 'Certificación bloqueada'}
             </p>
 
             <h2 style={finalExamTitleStyle}>
-              {previewCertificate
+              {effectiveCertificate
                 ? 'Certificado digital emitido'
                 : certificateAvailable
                   ? 'Certificado digital disponible'
@@ -532,20 +593,19 @@ export default function CourseDetailPage() {
             </h2>
 
             <p style={textStyle}>
-              {previewCertificate
-                ? `Certificado ${previewCertificate.certificate_code} emitido para ${previewCertificate.student_name}.`
+              {effectiveCertificate
+                ? `Certificado ${effectiveCertificate.certificate_code} emitido para ${effectiveCertificate.student_name}.`
                 : certificateAvailable
-                  ? 'Puedes emitir un certificado digital de prueba para validar el flujo completo. Más adelante este certificado será generado desde Supabase y asociado al alumno real.'
-                  : 'El certificado solo estará disponible cuando el curso esté completado oficialmente o en modo preview.'}
+                  ? user?.id
+                    ? 'Puedes emitir tu certificado digital real. Quedará guardado en Supabase y asociado a tu usuario.'
+                    : 'Puedes emitir un certificado digital de prueba para validar el flujo completo.'
+                  : 'El certificado solo estará disponible cuando el curso esté completado.'}
             </p>
           </div>
 
-          {previewCertificate ? (
+          {effectiveCertificate ? (
             <div style={certificateActions}>
-              <Link
-                href={`/certificados/${previewCertificate.verification_slug}`}
-                style={finalExamButton}
-              >
+              <Link href={certificateLink} style={finalExamButton}>
                 Ver certificado →
               </Link>
 
@@ -555,8 +615,8 @@ export default function CourseDetailPage() {
               </div>
             </div>
           ) : certificateAvailable ? (
-            <button onClick={issuePreviewCertificate} style={certificateButton}>
-              Emitir certificado de prueba →
+            <button onClick={issueCertificate} style={certificateButton}>
+              {user?.id ? 'Emitir certificado digital →' : 'Emitir certificado de prueba →'}
             </button>
           ) : (
             <div style={finalExamLockedBox}>
