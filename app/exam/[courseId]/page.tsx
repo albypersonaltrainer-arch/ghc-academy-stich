@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -50,21 +50,23 @@ type Module = {
 
 export default function ExamPage() {
   const params = useParams()
-  const searchParams = useSearchParams()
   const router = useRouter()
 
-  const courseId = String(params.courseId || '')
-  const moduleId = searchParams.get('moduleId')
+  const [courseId, setCourseId] = useState('')
+  const [moduleId, setModuleId] = useState<string | null>(null)
+  const [urlReady, setUrlReady] = useState(false)
 
   const [user, setUser] = useState<any>(null)
   const [course, setCourse] = useState<Course | null>(null)
   const [module, setModule] = useState<Module | null>(null)
   const [exam, setExam] = useState<Exam | null>(null)
+
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
   const [passed, setPassed] = useState(false)
+
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -73,11 +75,31 @@ export default function ExamPage() {
   const isModuleExam = Boolean(moduleId)
 
   useEffect(() => {
+    const resolvedCourseId = resolveCourseIdFromRoute(params?.courseId)
+    const resolvedModuleId =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('moduleId')
+        : null
+
+    setCourseId(resolvedCourseId)
+    setModuleId(resolvedModuleId)
+    setUrlReady(true)
+  }, [params])
+
+  useEffect(() => {
     const loadExam = async () => {
       try {
         setLoading(true)
         setErrorMessage('')
         setSaveMessage('')
+
+        if (!courseId) {
+          setErrorMessage(
+            'No se ha encontrado el identificador del curso para cargar el examen.'
+          )
+          setLoading(false)
+          return
+        }
 
         const { data: userData } = await supabase.auth.getUser()
         setUser(userData?.user || null)
@@ -89,6 +111,7 @@ export default function ExamPage() {
           .maybeSingle()
 
         if (courseError || !courseData) {
+          console.error(courseError)
           setErrorMessage('No se ha podido cargar el curso asociado al examen.')
           setLoading(false)
           return
@@ -97,13 +120,19 @@ export default function ExamPage() {
         setCourse(courseData as Course)
 
         if (moduleId) {
-          const { data: moduleData } = await supabase
+          const { data: moduleData, error: moduleError } = await supabase
             .from('modules')
             .select('id, title')
             .eq('id', moduleId)
             .maybeSingle()
 
+          if (moduleError) {
+            console.error(moduleError)
+          }
+
           setModule((moduleData as Module) || null)
+        } else {
+          setModule(null)
         }
 
         let examQuery = supabase
@@ -133,7 +162,6 @@ export default function ExamPage() {
           `)
           .eq('course_id', courseId)
           .eq('status', 'published')
-          .limit(1)
 
         if (moduleId) {
           examQuery = examQuery
@@ -145,7 +173,7 @@ export default function ExamPage() {
             .is('module_id', null)
         }
 
-        const { data: examData, error: examError } = await examQuery.maybeSingle()
+        const { data: examRows, error: examError } = await examQuery
 
         if (examError) {
           console.error(examError)
@@ -154,7 +182,9 @@ export default function ExamPage() {
           return
         }
 
-        if (!examData) {
+        const firstExam = Array.isArray(examRows) ? examRows[0] : null
+
+        if (!firstExam) {
           setErrorMessage(
             moduleId
               ? 'Este módulo todavía no tiene un examen publicado.'
@@ -164,7 +194,7 @@ export default function ExamPage() {
           return
         }
 
-        const orderedExam = normalizeExam(examData as Exam)
+        const orderedExam = normalizeExam(firstExam as Exam)
 
         if (!orderedExam.exam_questions.length) {
           setErrorMessage('Este examen no tiene preguntas todavía.')
@@ -181,10 +211,10 @@ export default function ExamPage() {
       }
     }
 
-    if (courseId) {
+    if (urlReady) {
       loadExam()
     }
-  }, [courseId, moduleId])
+  }, [courseId, moduleId, urlReady])
 
   const questions = useMemo(() => {
     return exam?.exam_questions || []
@@ -208,10 +238,10 @@ export default function ExamPage() {
   }
 
   const savePreviewModuleCompletion = (finalScore: number) => {
+    if (typeof window === 'undefined') return
     if (!courseId || !moduleId) return
 
     const storageKey = `ghc_preview_module_completions_${courseId}`
-
     const currentRaw = window.localStorage.getItem(storageKey)
     const current: Record<string, any> = currentRaw ? JSON.parse(currentRaw) : {}
 
@@ -224,6 +254,22 @@ export default function ExamPage() {
     }
 
     window.localStorage.setItem(storageKey, JSON.stringify(current))
+  }
+
+  const savePreviewCourseCompletion = (finalScore: number) => {
+    if (typeof window === 'undefined') return
+    if (!courseId) return
+
+    const storageKey = `ghc_preview_course_completion_${courseId}`
+
+    const record = {
+      course_id: courseId,
+      completed: true,
+      final_score: finalScore,
+      completed_at: new Date().toISOString()
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(record))
   }
 
   const submitExam = async () => {
@@ -257,17 +303,24 @@ export default function ExamPage() {
       if (hasPassed && isModuleExam && moduleId) {
         savePreviewModuleCompletion(finalScore)
         setSaving(false)
+        setSaveMessage('Módulo aprobado. El siguiente bloque ya está disponible en modo preview.')
+        return
+      }
+
+      if (hasPassed && !isModuleExam) {
+        savePreviewCourseCompletion(finalScore)
+        setSaving(false)
         setSaveMessage(
-          'Examen aprobado. Módulo desbloqueado en modo preview. Cuando activemos login, esto se guardará oficialmente en Supabase.'
+          'Examen final aprobado. Curso completado en modo preview. El siguiente paso será la certificación digital.'
         )
         return
       }
 
       setSaving(false)
       setSaveMessage(
-        hasPassed
-          ? 'Resultado mostrado en pantalla. Cuando activemos login, quedará guardado oficialmente.'
-          : 'Resultado mostrado en pantalla. Debes repetir el examen para aprobar.'
+        isModuleExam
+          ? 'Resultado mostrado en pantalla. Debes repetir el examen del módulo para aprobar.'
+          : 'Resultado mostrado en pantalla. Debes repetir el examen final para completar el curso.'
       )
       return
     }
@@ -324,7 +377,7 @@ export default function ExamPage() {
       }
 
       setSaving(false)
-      setSaveMessage('Examen aprobado. Módulo completado oficialmente.')
+      setSaveMessage('Módulo aprobado. Tu progreso ha sido guardado correctamente.')
       return
     }
 
@@ -356,7 +409,7 @@ export default function ExamPage() {
       }
 
       setSaving(false)
-      setSaveMessage('Examen aprobado. Curso completado oficialmente.')
+      setSaveMessage('Examen final aprobado. Curso completado oficialmente.')
       return
     }
 
@@ -429,7 +482,7 @@ export default function ExamPage() {
 
         <section className="ghc-exam-panel">
           <p className="ghc-kicker">
-            {isModuleExam ? 'Evaluación del módulo' : 'Evaluación final'}
+            {isModuleExam ? 'Evaluación del módulo' : 'Evaluación final del curso'}
           </p>
 
           <h1 className="ghc-title">
@@ -554,7 +607,7 @@ export default function ExamPage() {
                 {passed
                   ? isModuleExam
                     ? 'Examen aprobado. Módulo completado.'
-                    : 'Examen aprobado. Curso completado.'
+                    : 'Examen final aprobado. Curso completado.'
                   : 'Examen no aprobado. Debes repetirlo.'}
               </h2>
 
@@ -583,6 +636,35 @@ export default function ExamPage() {
       </div>
     </main>
   )
+}
+
+function resolveCourseIdFromRoute(routeValue: unknown) {
+  let value = ''
+
+  if (typeof routeValue === 'string') {
+    value = routeValue
+  }
+
+  if (Array.isArray(routeValue) && routeValue.length > 0) {
+    value = String(routeValue[0])
+  }
+
+  if (!value && typeof window !== 'undefined') {
+    const parts = window.location.pathname.split('/').filter(Boolean)
+    const examIndex = parts.indexOf('exam')
+
+    if (examIndex >= 0 && parts[examIndex + 1]) {
+      value = parts[examIndex + 1]
+    }
+  }
+
+  value = decodeURIComponent(value || '').trim()
+
+  if (!value || value === '[courseId]') {
+    return ''
+  }
+
+  return value
 }
 
 function normalizeExam(exam: Exam): Exam {
