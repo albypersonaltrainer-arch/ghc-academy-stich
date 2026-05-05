@@ -21,14 +21,48 @@ body {
   background: var(--ghc-bg);
   color: var(--ghc-text);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  pointer-events: auto;
+}
+
+body {
+  position: relative;
+  isolation: isolate;
 }
 
 * {
   box-sizing: border-box;
 }
 
-button {
+#__next,
+body > div {
+  pointer-events: auto;
+}
+
+main,
+section,
+article,
+div,
+header,
+footer,
+aside,
+nav {
+  pointer-events: auto;
+}
+
+button,
+a,
+input,
+textarea,
+select,
+label {
   font-family: inherit;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+}
+
+button {
   cursor: pointer;
 }
 
@@ -40,6 +74,10 @@ a {
   color: inherit;
 }
 
+iframe {
+  pointer-events: auto;
+}
+
 .ghc-frame {
   width: 100%;
   min-height: 100vh;
@@ -47,6 +85,7 @@ a {
   border: 0;
   display: block;
   background: var(--ghc-bg);
+  pointer-events: auto;
 }
 
 /* ============================= */
@@ -58,6 +97,8 @@ a {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 24px;
+  position: relative;
+  z-index: 5;
 }
 
 .ghc-top-back {
@@ -74,6 +115,9 @@ a {
   font-weight: 900;
   text-decoration: none;
   transition: 180ms ease;
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
 }
 
 .ghc-top-back:hover {
@@ -93,12 +137,18 @@ a {
     radial-gradient(circle at 95% 5%, rgba(0, 255, 65, 0.08), transparent 30%),
     linear-gradient(135deg, #050706 0%, #020302 65%, #000 100%);
   color: var(--ghc-text);
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .ghc-lesson-shell {
   display: grid;
   grid-template-columns: 390px minmax(0, 1fr);
   min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .ghc-sidebar {
@@ -110,6 +160,8 @@ a {
   position: sticky;
   top: 0;
   overflow-y: auto;
+  z-index: 3;
+  pointer-events: auto;
 }
 
 .ghc-kicker {
@@ -136,6 +188,9 @@ a {
   background: var(--ghc-panel);
   border-radius: 30px;
   box-shadow: 0 26px 90px rgba(0, 0, 0, 0.28);
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .ghc-progress-card {
@@ -209,6 +264,9 @@ a {
   display: flex;
   gap: 12px;
   transition: 180ms ease;
+  pointer-events: auto;
+  position: relative;
+  z-index: 5;
 }
 
 .ghc-lesson-item:hover {
@@ -237,11 +295,17 @@ a {
 .ghc-main {
   padding: 44px 56px;
   min-width: 0;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .ghc-main-inner {
   max-width: 1120px;
   margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .ghc-hero {
@@ -253,6 +317,8 @@ a {
   padding: 36px;
   margin-bottom: 34px;
   box-shadow: 0 30px 100px rgba(0, 0, 0, 0.35);
+  position: relative;
+  z-index: 1;
 }
 
 .ghc-title {
@@ -349,6 +415,9 @@ a {
   font-weight: 950;
   box-shadow: 0 0 30px rgba(0, 255, 65, 0.25);
   transition: 180ms ease;
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
 }
 
 .ghc-primary-button:hover {
@@ -365,6 +434,9 @@ a {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 .ghc-nav-card,
@@ -378,6 +450,9 @@ a {
   flex-direction: column;
   justify-content: center;
   gap: 8px;
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
 }
 
 .ghc-nav-card {
@@ -418,6 +493,9 @@ a {
   max-width: 1050px;
   margin: 0 auto;
   padding: 42px 24px 70px;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .ghc-exam-panel {
@@ -456,6 +534,9 @@ a {
   border-radius: 28px;
   padding: 24px;
   margin-bottom: 22px;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 .ghc-question-title {
@@ -467,6 +548,9 @@ a {
 .ghc-options-grid {
   display: grid;
   gap: 12px;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .ghc-option {
@@ -479,6 +563,9 @@ a {
   text-align: left;
   font-size: 15px;
   font-weight: 800;
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
 }
 
 .ghc-option-selected {
@@ -527,6 +614,7 @@ a {
   align-items: center;
   justify-content: center;
   padding: 28px;
+  pointer-events: auto;
 }
 
 .ghc-loading-box,
@@ -535,6 +623,7 @@ a {
   border-radius: 30px;
   padding: 30px;
   text-align: center;
+  pointer-events: auto;
 }
 
 .ghc-loading-box {
