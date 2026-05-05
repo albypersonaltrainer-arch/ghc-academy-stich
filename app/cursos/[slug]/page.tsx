@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -50,21 +50,24 @@ type Module = {
 
 export default function ExamPage() {
   const params = useParams()
-  const searchParams = useSearchParams()
   const router = useRouter()
 
   const courseId = String(params.courseId || '')
-  const moduleId = searchParams.get('moduleId')
+
+  const [moduleId, setModuleId] = useState<string | null>(null)
+  const [urlReady, setUrlReady] = useState(false)
 
   const [user, setUser] = useState<any>(null)
   const [course, setCourse] = useState<Course | null>(null)
   const [module, setModule] = useState<Module | null>(null)
   const [exam, setExam] = useState<Exam | null>(null)
+
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
   const [passed, setPassed] = useState(false)
+
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -73,11 +76,27 @@ export default function ExamPage() {
   const isModuleExam = Boolean(moduleId)
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const foundModuleId = searchParams.get('moduleId')
+
+    setModuleId(foundModuleId)
+    setUrlReady(true)
+  }, [])
+
+  useEffect(() => {
     const loadExam = async () => {
       try {
         setLoading(true)
         setErrorMessage('')
         setSaveMessage('')
+
+        if (!courseId) {
+          setErrorMessage('No se ha encontrado el identificador del curso para cargar el examen.')
+          setLoading(false)
+          return
+        }
 
         const { data: userData } = await supabase.auth.getUser()
         setUser(userData?.user || null)
@@ -89,6 +108,7 @@ export default function ExamPage() {
           .maybeSingle()
 
         if (courseError || !courseData) {
+          console.error(courseError)
           setErrorMessage('No se ha podido cargar el curso asociado al examen.')
           setLoading(false)
           return
@@ -97,13 +117,19 @@ export default function ExamPage() {
         setCourse(courseData as Course)
 
         if (moduleId) {
-          const { data: moduleData } = await supabase
+          const { data: moduleData, error: moduleError } = await supabase
             .from('modules')
             .select('id, title')
             .eq('id', moduleId)
             .maybeSingle()
 
+          if (moduleError) {
+            console.error(moduleError)
+          }
+
           setModule((moduleData as Module) || null)
+        } else {
+          setModule(null)
         }
 
         let examQuery = supabase
@@ -133,7 +159,6 @@ export default function ExamPage() {
           `)
           .eq('course_id', courseId)
           .eq('status', 'published')
-          .limit(1)
 
         if (moduleId) {
           examQuery = examQuery
@@ -145,7 +170,7 @@ export default function ExamPage() {
             .is('module_id', null)
         }
 
-        const { data: examData, error: examError } = await examQuery.maybeSingle()
+        const { data: examRows, error: examError } = await examQuery
 
         if (examError) {
           console.error(examError)
@@ -154,7 +179,9 @@ export default function ExamPage() {
           return
         }
 
-        if (!examData) {
+        const firstExam = Array.isArray(examRows) ? examRows[0] : null
+
+        if (!firstExam) {
           setErrorMessage(
             moduleId
               ? 'Este módulo todavía no tiene un examen publicado.'
@@ -164,7 +191,7 @@ export default function ExamPage() {
           return
         }
 
-        const orderedExam = normalizeExam(examData as Exam)
+        const orderedExam = normalizeExam(firstExam as Exam)
 
         if (!orderedExam.exam_questions.length) {
           setErrorMessage('Este examen no tiene preguntas todavía.')
@@ -181,10 +208,10 @@ export default function ExamPage() {
       }
     }
 
-    if (courseId) {
+    if (urlReady) {
       loadExam()
     }
-  }, [courseId, moduleId])
+  }, [courseId, moduleId, urlReady])
 
   const questions = useMemo(() => {
     return exam?.exam_questions || []
@@ -208,6 +235,7 @@ export default function ExamPage() {
   }
 
   const savePreviewModuleCompletion = (finalScore: number) => {
+    if (typeof window === 'undefined') return
     if (!courseId || !moduleId) return
 
     const storageKey = `ghc_preview_module_completions_${courseId}`
@@ -226,6 +254,7 @@ export default function ExamPage() {
   }
 
   const savePreviewCourseCompletion = (finalScore: number) => {
+    if (typeof window === 'undefined') return
     if (!courseId) return
 
     const storageKey = `ghc_preview_course_completion_${courseId}`
@@ -271,9 +300,7 @@ export default function ExamPage() {
       if (hasPassed && isModuleExam && moduleId) {
         savePreviewModuleCompletion(finalScore)
         setSaving(false)
-        setSaveMessage(
-          'Módulo aprobado. El siguiente bloque ya está disponible en modo preview.'
-        )
+        setSaveMessage('Módulo aprobado. El siguiente bloque ya está disponible en modo preview.')
         return
       }
 
