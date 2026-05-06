@@ -39,7 +39,13 @@ type IconName =
   | 'list'
   | 'bookmark'
   | 'box'
-  | 'home';
+  | 'home'
+  | 'play'
+  | 'audio'
+  | 'pdf'
+  | 'text'
+  | 'target'
+  | 'trophy';
 
 type DashboardCard = {
   course: AnyRecord;
@@ -111,6 +117,7 @@ export default function AlumnoPage() {
   const [levelFilter, setLevelFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortMode, setSortMode] = useState<SortMode>('recent');
+  const [selectedCurriculumCourseId, setSelectedCurriculumCourseId] = useState('');
 
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
@@ -328,6 +335,18 @@ export default function AlumnoPage() {
     );
   }, [activeCourses, completedCourses]);
 
+  const curriculumCourse = useMemo(() => {
+    if (selectedCurriculumCourseId) {
+      const selected = courseCards.find(
+        (card) => String(card.course.id) === String(selectedCurriculumCourseId)
+      );
+
+      if (selected) return selected;
+    }
+
+    return mainCourse || courseCards[0] || null;
+  }, [courseCards, mainCourse, selectedCurriculumCourseId]);
+
   const totalLessons = courseCards.reduce((sum, card) => sum + card.courseLessons.length, 0);
   const completedLessonsInsideVisibleCourses = courseCards.reduce(
     (sum, card) => sum + card.completedLessonCount,
@@ -347,62 +366,34 @@ export default function AlumnoPage() {
   const moduleViews = useMemo<ModuleView[]>(() => {
     if (!mainCourse) return [];
 
-    return mainCourse.courseModules.map((module, index) => {
-      const moduleLessons = mainCourse.courseLessons.filter(
-        (lesson) => String(lesson.module_id) === String(module.id)
-      );
-
-      const completedLessons = moduleLessons.filter((lesson) =>
-        lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
-      ).length;
-
-      const isCompleted = moduleCompletions.some(
-        (completion) => String(completion.module_id) === String(module.id)
-      );
-
-      const previousModule = mainCourse.courseModules[index - 1];
-
-      const isUnlocked =
-        index === 0 ||
-        isCompleted ||
-        moduleCompletions.some(
-          (completion) => String(completion.module_id) === String(previousModule?.id)
-        );
-
-      const isCurrent =
-        Boolean(mainCourse.nextLesson) &&
-        String(mainCourse.nextLesson?.module_id) === String(module.id);
-
-      const firstLesson = moduleLessons[0];
-      const nextLessonInsideModule = moduleLessons.find(
-        (lesson) =>
-          !lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
-      );
-
-      const targetLesson = nextLessonInsideModule || firstLesson;
-      const href =
-        isUnlocked && targetLesson
-          ? `/cursos/${getCourseSlug(mainCourse.course)}/${targetLesson.id}`
-          : `/cursos/${getCourseSlug(mainCourse.course)}`;
-
-      return {
-        module,
-        index,
-        lessons: moduleLessons,
-        completedLessons,
-        progress:
-          moduleLessons.length > 0
-            ? Math.round((completedLessons / moduleLessons.length) * 100)
-            : isCompleted
-              ? 100
-              : 0,
-        isCompleted,
-        isCurrent,
-        isLocked: !isUnlocked,
-        href,
-      };
+    return buildModuleViews({
+      courseCard: mainCourse,
+      lessonProgress,
+      moduleCompletions,
     });
   }, [mainCourse, lessonProgress, moduleCompletions]);
+
+  const curriculumModuleViews = useMemo<ModuleView[]>(() => {
+    if (!curriculumCourse) return [];
+
+    return buildModuleViews({
+      courseCard: curriculumCourse,
+      lessonProgress,
+      moduleCompletions,
+    });
+  }, [curriculumCourse, lessonProgress, moduleCompletions]);
+
+  const curriculumActiveModule =
+    curriculumModuleViews.find((item) => item.isCurrent) ||
+    curriculumModuleViews.find((item) => !item.isCompleted && !item.isLocked) ||
+    curriculumModuleViews[0] ||
+    null;
+
+  const curriculumLessons = curriculumActiveModule?.lessons || [];
+
+  const curriculumCompletedLessons = curriculumLessons.filter((lesson) =>
+    lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+  ).length;
 
   const stats = {
     courses: courses.length,
@@ -685,9 +676,7 @@ export default function AlumnoPage() {
                       <h3 style={styles.notificationTitle}>Notifications</h3>
                     </div>
 
-                    <span style={styles.notificationBadge}>
-                      {unreadNotifications} new
-                    </span>
+                    <span style={styles.notificationBadge}>{unreadNotifications} new</span>
                   </div>
 
                   <div style={styles.notificationList}>
@@ -1058,44 +1047,213 @@ export default function AlumnoPage() {
         )}
 
         {activeTab === 'curriculum' && (
-          <div style={styles.sectionStack}>
-            <Panel title="Curriculum">
-              <div style={styles.curriculumList}>
-                {moduleViews.length === 0 ? (
-                  <EmptyState text="Aún no hay módulos visibles para este curso." />
-                ) : (
-                  moduleViews.map((item) => <CurriculumRow key={item.module.id} item={item} />)
-                )}
+          <div style={styles.curriculumPage}>
+            <section style={styles.curriculumHeader}>
+              <div>
+                <h1 style={styles.pageTitle}>Curriculum</h1>
+                <p style={styles.pageSubtitle}>Your structured learning path to mastery.</p>
               </div>
-            </Panel>
 
-            <Panel title="Lessons">
-              {mainCourse?.courseLessons.length ? (
-                <div style={styles.lessonsGrid}>
-                  {mainCourse.courseLessons.slice(0, 12).map((lesson) => {
-                    const completed = lessonProgress.some(
-                      (progress) => String(progress.lesson_id) === String(lesson.id)
-                    );
+              <div style={styles.currentCourseSelector}>
+                <span>Current Course</span>
+                <select
+                  value={curriculumCourse?.course?.id || ''}
+                  onChange={(event) => setSelectedCurriculumCourseId(event.target.value)}
+                  style={styles.curriculumSelect}
+                >
+                  {courseCards.map((card) => (
+                    <option key={card.course.id} value={card.course.id}>
+                      {card.course.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </section>
 
-                    return (
-                      <Link
-                        key={lesson.id}
-                        href={`/cursos/${getCourseSlug(mainCourse.course)}/${lesson.id}`}
-                        style={styles.lessonCard}
-                      >
-                        <span style={completed ? styles.lessonStatusDone : styles.lessonStatus}>
-                          {completed ? 'Completed' : 'Pending'}
-                        </span>
-                        <strong>{lesson.title || 'Lección'}</strong>
-                        <p>{lesson.content_type || lesson.type || 'Contenido académico'}</p>
-                      </Link>
-                    );
-                  })}
+            <section style={styles.curriculumSummaryGrid}>
+              <CurriculumSummaryCard
+                icon="curriculum"
+                label="Total Modules"
+                value={curriculumCourse?.courseModules.length || 0}
+                helper="Modules"
+              />
+              <CurriculumSummaryCard
+                icon="check"
+                label="Completed Lessons"
+                value={`${curriculumCourse?.completedLessonCount || 0}/${curriculumCourse?.courseLessons.length || 0}`}
+                helper={`${curriculumCourse?.progressPercent || 0}% complete`}
+              />
+              <CurriculumSummaryCard
+                icon="performance"
+                label="Current Stage"
+                value={
+                  curriculumActiveModule
+                    ? `Module ${curriculumActiveModule.index + 1}`
+                    : '—'
+                }
+                helper={
+                  curriculumActiveModule?.isCurrent
+                    ? 'In Progress'
+                    : curriculumActiveModule?.isCompleted
+                      ? 'Completed'
+                      : 'Ready'
+                }
+              />
+            </section>
+
+            <section style={styles.curriculumMainGrid}>
+              <article style={styles.roadmapPanel}>
+                <div style={styles.curriculumPanelHeader}>
+                  <div>
+                    <h2 style={styles.curriculumPanelTitle}>Module Roadmap</h2>
+                    <p style={styles.curriculumPanelSubtitle}>
+                      Track your progress through each module.
+                    </p>
+                  </div>
                 </div>
-              ) : (
-                <EmptyState text="No hay lecciones visibles todavía." />
-              )}
-            </Panel>
+
+                <div style={styles.moduleRoadmapList}>
+                  {curriculumModuleViews.length === 0 ? (
+                    <EmptyState text="Aún no hay módulos visibles para este curso." />
+                  ) : (
+                    curriculumModuleViews.map((item) => (
+                      <RoadmapModuleRow
+                        key={item.module.id}
+                        item={item}
+                        course={curriculumCourse?.course}
+                      />
+                    ))
+                  )}
+                </div>
+
+                <div style={styles.roadmapFooterNote}>
+                  <Icon name="shield" />
+                  <span>Complete modules in order to unlock new content and assessments.</span>
+                </div>
+              </article>
+
+              <article style={styles.lessonsPanel}>
+                <div style={styles.lessonsPanelTop}>
+                  <div>
+                    <h2 style={styles.curriculumPanelTitle}>
+                      {curriculumActiveModule
+                        ? `Module ${curriculumActiveModule.index + 1}: ${
+                            curriculumActiveModule.module.title || 'Current Module'
+                          }`
+                        : 'Module Lessons'}
+                    </h2>
+                    <p style={styles.curriculumPanelSubtitle}>
+                      {curriculumCourse?.course?.subtitle ||
+                        curriculumCourse?.course?.description ||
+                        'Explore the current module and continue your learning path.'}
+                    </p>
+                  </div>
+
+                  <div style={styles.lessonsProgressBox}>
+                    <strong>{curriculumActiveModule?.progress || 0}%</strong>
+                    <span>Complete</span>
+                  </div>
+                </div>
+
+                <div style={styles.lessonsProgressTrack}>
+                  <div
+                    style={{
+                      ...styles.progressFill,
+                      width: `${curriculumActiveModule?.progress || 0}%`,
+                    }}
+                  />
+                </div>
+
+                <div style={styles.lessonTableHeader}>
+                  <span>Lessons</span>
+                  <span>Type</span>
+                  <span>Status</span>
+                </div>
+
+                <div style={styles.moduleLessonList}>
+                  {curriculumLessons.length === 0 ? (
+                    <EmptyState text="Este módulo todavía no tiene lecciones visibles." />
+                  ) : (
+                    curriculumLessons.map((lesson, index) => {
+                      const completed = lessonProgress.some(
+                        (progress) => String(progress.lesson_id) === String(lesson.id)
+                      );
+
+                      const active =
+                        curriculumCourse?.nextLesson &&
+                        String(curriculumCourse.nextLesson.id) === String(lesson.id);
+
+                      const locked =
+                        curriculumActiveModule?.isLocked ||
+                        (!completed && !active && index > curriculumCompletedLessons + 1);
+
+                      return (
+                        <LessonRow
+                          key={lesson.id}
+                          lesson={lesson}
+                          index={index}
+                          completed={completed}
+                          active={Boolean(active)}
+                          locked={Boolean(locked)}
+                          href={
+                            curriculumCourse?.course
+                              ? `/cursos/${getCourseSlug(curriculumCourse.course)}/${lesson.id}`
+                              : '#'
+                          }
+                        />
+                      );
+                    })
+                  )}
+                </div>
+
+                <div style={styles.lessonsFooterStrip}>
+                  <div>
+                    <Icon name="clock" />
+                    <span>Estimated Time</span>
+                    <strong>4–5 Hours</strong>
+                  </div>
+                  <div>
+                    <Icon name="chart" />
+                    <span>Difficulty</span>
+                    <strong>{curriculumCourse?.course?.level || 'Intermediate'}</strong>
+                  </div>
+                  <Link
+                    href={
+                      curriculumCourse?.course
+                        ? `/cursos/${getCourseSlug(curriculumCourse.course)}`
+                        : '/cursos'
+                    }
+                    style={styles.resourcesButton}
+                  >
+                    View Module Resources
+                    <Icon name="arrow" />
+                  </Link>
+                </div>
+              </article>
+            </section>
+
+            <section style={styles.curriculumBanner}>
+              <div style={styles.bannerIcon}>
+                <Icon name="trophy" />
+              </div>
+              <div>
+                <h3>Stay Consistent, Achieve Excellence</h3>
+                <p>Continue making progress each day. Small steps lead to big results.</p>
+              </div>
+              <Link
+                href={
+                  curriculumCourse?.nextLesson
+                    ? `/cursos/${getCourseSlug(curriculumCourse.course)}/${curriculumCourse.nextLesson.id}`
+                    : curriculumCourse?.course
+                      ? `/cursos/${getCourseSlug(curriculumCourse.course)}`
+                      : '/cursos'
+                }
+                style={styles.keepGoingLink}
+              >
+                Keep Going
+                <Icon name="arrow" />
+              </Link>
+            </section>
           </div>
         )}
 
@@ -1176,6 +1334,72 @@ export default function AlumnoPage() {
       </section>
     </main>
   );
+}
+
+function buildModuleViews({
+  courseCard,
+  lessonProgress,
+  moduleCompletions,
+}: {
+  courseCard: DashboardCard;
+  lessonProgress: AnyRecord[];
+  moduleCompletions: AnyRecord[];
+}) {
+  return courseCard.courseModules.map((module, index) => {
+    const moduleLessons = courseCard.courseLessons.filter(
+      (lesson) => String(lesson.module_id) === String(module.id)
+    );
+
+    const completedLessons = moduleLessons.filter((lesson) =>
+      lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+    ).length;
+
+    const isCompleted = moduleCompletions.some(
+      (completion) => String(completion.module_id) === String(module.id)
+    );
+
+    const previousModule = courseCard.courseModules[index - 1];
+
+    const isUnlocked =
+      index === 0 ||
+      isCompleted ||
+      moduleCompletions.some(
+        (completion) => String(completion.module_id) === String(previousModule?.id)
+      );
+
+    const isCurrent =
+      Boolean(courseCard.nextLesson) &&
+      String(courseCard.nextLesson?.module_id) === String(module.id);
+
+    const firstLesson = moduleLessons[0];
+    const nextLessonInsideModule = moduleLessons.find(
+      (lesson) =>
+        !lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+    );
+
+    const targetLesson = nextLessonInsideModule || firstLesson;
+    const href =
+      isUnlocked && targetLesson
+        ? `/cursos/${getCourseSlug(courseCard.course)}/${targetLesson.id}`
+        : `/cursos/${getCourseSlug(courseCard.course)}`;
+
+    return {
+      module,
+      index,
+      lessons: moduleLessons,
+      completedLessons,
+      progress:
+        moduleLessons.length > 0
+          ? Math.round((completedLessons / moduleLessons.length) * 100)
+          : isCompleted
+            ? 100
+            : 0,
+      isCompleted,
+      isCurrent,
+      isLocked: !isUnlocked,
+      href,
+    };
+  });
 }
 
 function Background() {
@@ -1372,6 +1596,177 @@ function PremiumMetric({
       </div>
       <span>{label}</span>
     </div>
+  );
+}
+
+function CurriculumSummaryCard({
+  icon,
+  label,
+  value,
+  helper,
+}: {
+  icon: IconName;
+  label: string;
+  value: string | number;
+  helper: string;
+}) {
+  return (
+    <article style={styles.curriculumSummaryCard}>
+      <span style={styles.curriculumSummaryIcon}>
+        <Icon name={icon} />
+      </span>
+      <div>
+        <p style={styles.curriculumSummaryLabel}>{label}</p>
+        <strong style={styles.curriculumSummaryValue}>{value}</strong>
+        <span style={styles.curriculumSummaryHelper}>{helper}</span>
+      </div>
+    </article>
+  );
+}
+
+function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyRecord }) {
+  const title = item.module.title || `Módulo ${item.index + 1}`;
+  const moduleNumber = item.index + 1;
+
+  if (item.isCurrent) {
+    return (
+      <Link href={item.href} style={styles.roadmapRowActive}>
+        <div style={styles.roadmapTimeline}>
+          <span style={styles.roadmapTimelineDotActive} />
+        </div>
+
+        <div style={styles.roadmapModuleContent}>
+          <div style={styles.roadmapTopLine}>
+            <p style={styles.moduleLabel}>Module {moduleNumber}</p>
+            <span style={styles.inProgressMini}>In Progress</span>
+          </div>
+
+          <h3>{title}</h3>
+          <p>{item.completedLessons} of {item.lessons.length} Lessons Completed</p>
+
+          <div style={styles.curriculumProgressTrack}>
+            <div style={{ ...styles.progressFill, width: `${item.progress}%` }} />
+          </div>
+
+          <div style={styles.roadmapActionRow}>
+            <span>{item.progress}% Complete</span>
+            <span style={styles.roadmapContinuePill}>
+              Continue
+              <Icon name="arrow" />
+            </span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            ...styles.roadmapVisual,
+            backgroundImage: `linear-gradient(90deg, rgba(5,7,6,0.10), rgba(5,7,6,0.76)), url(${getCourseImage(course || {}) || 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80'})`,
+          }}
+        />
+      </Link>
+    );
+  }
+
+  if (item.isLocked) {
+    return (
+      <article style={styles.roadmapRowLocked}>
+        <div style={styles.roadmapTimeline}>
+          <span style={styles.roadmapTimelineDotLocked}>
+            <Icon name="lock" />
+          </span>
+        </div>
+
+        <div style={styles.roadmapModuleContent}>
+          <p style={styles.moduleLabelMuted}>Module {moduleNumber}</p>
+          <h3>{title}</h3>
+          <p>{item.lessons.length} Lessons</p>
+        </div>
+
+        <span style={styles.lockedText}>Locked</span>
+      </article>
+    );
+  }
+
+  return (
+    <Link href={item.href} style={styles.roadmapRow}>
+      <div style={styles.roadmapTimeline}>
+        <span style={item.isCompleted ? styles.roadmapTimelineDotDone : styles.roadmapTimelineDot}>
+          <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
+        </span>
+      </div>
+
+      <div style={styles.roadmapModuleContent}>
+        <p style={styles.moduleLabel}>Module {moduleNumber}</p>
+        <h3>{title}</h3>
+        <p>{item.lessons.length} Lessons</p>
+      </div>
+
+      <div style={styles.roadmapProgressSide}>
+        <strong>{item.isCompleted ? '100%' : `${item.progress}%`}</strong>
+        <span>{item.isCompleted ? 'Completed' : 'Ready'}</span>
+      </div>
+    </Link>
+  );
+}
+
+function LessonRow({
+  lesson,
+  index,
+  completed,
+  active,
+  locked,
+  href,
+}: {
+  lesson: AnyRecord;
+  index: number;
+  completed: boolean;
+  active: boolean;
+  locked: boolean;
+  href: string;
+}) {
+  const contentType = getLessonType(lesson);
+  const icon = getLessonIcon(contentType);
+  const title = lesson.title || `Lesson ${index + 1}`;
+
+  const row = (
+    <article style={active ? styles.lessonRowActive : locked ? styles.lessonRowLocked : styles.lessonRow}>
+      <div style={styles.lessonNameCell}>
+        <span style={completed ? styles.lessonIconDone : active ? styles.lessonIconActive : styles.lessonIcon}>
+          <Icon name={completed ? 'check' : icon} />
+        </span>
+        <div>
+          <strong>{`${index + 1}. ${title}`}</strong>
+          <p>{lesson.description || lesson.subtitle || 'Contenido académico del módulo'}</p>
+        </div>
+      </div>
+
+      <span style={styles.lessonTypePill}>
+        <Icon name={icon} />
+        {contentType}
+      </span>
+
+      <span
+        style={
+          locked
+            ? styles.lessonStatusLocked
+            : completed
+              ? styles.lessonStatusCompleted
+              : active
+                ? styles.lessonStatusActive
+                : styles.lessonStatusPending
+        }
+      >
+        {locked ? 'Locked' : completed ? 'Completed' : active ? 'In Progress' : 'Pending'}
+      </span>
+    </article>
+  );
+
+  if (locked) return row;
+
+  return (
+    <Link href={href} style={styles.lessonRowLink}>
+      {row}
+    </Link>
   );
 }
 
@@ -1854,6 +2249,105 @@ function Icon({ name }: { name: IconName }) {
     );
   }
 
+  if (name === 'play') {
+    return (
+      <svg {...common}>
+        <path
+          d="M8 5.5v13l10-6.5-10-6.5Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
+  if (name === 'audio') {
+    return (
+      <svg {...common}>
+        <path
+          d="M5 10v4h3l4 4V6l-4 4H5Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === 'pdf') {
+    return (
+      <svg {...common}>
+        <path
+          d="M7 4h7l3 3v13H7V4Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M9 14h6M9 17h4"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === 'text') {
+    return (
+      <svg {...common}>
+        <path
+          d="M5 6h14M5 10h14M5 14h10M5 18h7"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === 'target') {
+    return (
+      <svg {...common}>
+        <path
+          d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+        <path
+          d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 12h.01"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === 'trophy') {
+    return (
+      <svg {...common}>
+        <path
+          d="M8 4h8v3a4 4 0 0 1-8 0V4Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M8 6H5a3 3 0 0 0 3 3M16 6h3a3 3 0 0 1-3 3M12 11v5M9 20h6M10 16h4"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg {...common}>
       <path
@@ -1998,6 +2492,26 @@ function getPremiumCourseBackground(course: AnyRecord, index: number) {
   const selected = realImage || fallbacks[index % fallbacks.length];
 
   return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
+}
+
+function getLessonType(lesson: AnyRecord) {
+  const raw = String(
+    lesson.content_type || lesson.type || lesson.kind || lesson.format || 'video'
+  ).toLowerCase();
+
+  if (raw.includes('audio')) return 'Audio';
+  if (raw.includes('pdf')) return 'PDF';
+  if (raw.includes('quiz') || raw.includes('exam') || raw.includes('test')) return 'Quiz';
+  if (raw.includes('text') || raw.includes('texto')) return 'Text';
+  return 'Video';
+}
+
+function getLessonIcon(type: string): IconName {
+  if (type === 'Audio') return 'audio';
+  if (type === 'PDF') return 'pdf';
+  if (type === 'Quiz') return 'exam';
+  if (type === 'Text') return 'text';
+  return 'play';
 }
 
 function cardBackground() {
@@ -2920,6 +3434,15 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 900,
   },
 
+  moduleLabelMuted: {
+    margin: 0,
+    color: soft,
+    textTransform: 'uppercase',
+    letterSpacing: '0.13em',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
   inProgressMini: {
     borderRadius: 999,
     background: rgbaGreen(0.12),
@@ -3502,6 +4025,515 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     fontWeight: 850,
     fontSize: 13,
+  },
+
+  curriculumPage: {
+    display: 'grid',
+    gap: 18,
+  },
+
+  curriculumHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 18,
+    alignItems: 'end',
+  },
+
+  currentCourseSelector: {
+    display: 'grid',
+    gap: 8,
+    minWidth: 320,
+  },
+
+  curriculumSelect: {
+    minHeight: 46,
+    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.035)',
+    color: white,
+    padding: '0 14px',
+    outline: 0,
+    fontWeight: 850,
+  },
+
+  curriculumSummaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 14,
+  },
+
+  curriculumSummaryCard: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 18,
+    display: 'flex',
+    gap: 14,
+    alignItems: 'center',
+  },
+
+  curriculumSummaryIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    display: 'grid',
+    placeItems: 'center',
+    background: rgbaGreen(0.08),
+    border: `1px solid ${rgbaGreen(0.18)}`,
+    color: green,
+    flexShrink: 0,
+  },
+
+  curriculumSummaryLabel: {
+    margin: 0,
+    color: soft,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    fontWeight: 900,
+  },
+
+  curriculumSummaryValue: {
+    display: 'block',
+    marginTop: 6,
+    color: white,
+    fontSize: 28,
+    lineHeight: 1,
+    fontWeight: 950,
+    letterSpacing: '-0.04em',
+  },
+
+  curriculumSummaryHelper: {
+    display: 'block',
+    marginTop: 6,
+    color: green,
+    fontSize: 12,
+    fontWeight: 850,
+  },
+
+  curriculumMainGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 0.95fr) minmax(420px, 1.05fr)',
+    gap: 18,
+  },
+
+  roadmapPanel: {
+    borderRadius: 18,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 20,
+  },
+
+  lessonsPanel: {
+    borderRadius: 18,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 20,
+  },
+
+  curriculumPanelHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 18,
+    alignItems: 'flex-start',
+    marginBottom: 18,
+  },
+
+  curriculumPanelTitle: {
+    margin: 0,
+    color: white,
+    fontSize: 22,
+    lineHeight: 1.05,
+    fontWeight: 950,
+    letterSpacing: '-0.035em',
+  },
+
+  curriculumPanelSubtitle: {
+    margin: '8px 0 0',
+    color: muted,
+    fontSize: 14,
+    lineHeight: 1.6,
+  },
+
+  moduleRoadmapList: {
+    display: 'grid',
+    gap: 10,
+    position: 'relative',
+  },
+
+  roadmapRow: {
+    minHeight: 78,
+    borderRadius: 15,
+    border: '1px solid rgba(255,255,255,0.07)',
+    background: 'rgba(255,255,255,0.026)',
+    display: 'grid',
+    gridTemplateColumns: '32px minmax(0, 1fr) 90px',
+    gap: 12,
+    alignItems: 'center',
+    padding: 14,
+    textDecoration: 'none',
+    color: white,
+  },
+
+  roadmapRowActive: {
+    minHeight: 150,
+    borderRadius: 18,
+    border: `1px solid ${rgbaGreen(0.56)}`,
+    background: `linear-gradient(100deg, ${rgbaGreen(0.11)}, rgba(255,255,255,0.028))`,
+    display: 'grid',
+    gridTemplateColumns: '32px minmax(0, 1fr) 190px',
+    gap: 14,
+    alignItems: 'stretch',
+    padding: 14,
+    textDecoration: 'none',
+    color: white,
+    boxShadow: `0 0 34px ${rgbaGreen(0.065)}`,
+    overflow: 'hidden',
+  },
+
+  roadmapRowLocked: {
+    minHeight: 78,
+    borderRadius: 15,
+    border: '1px solid rgba(255,255,255,0.05)',
+    background: 'rgba(255,255,255,0.016)',
+    display: 'grid',
+    gridTemplateColumns: '32px minmax(0, 1fr) 80px',
+    gap: 12,
+    alignItems: 'center',
+    padding: 14,
+    color: 'rgba(244,246,242,0.42)',
+  },
+
+  roadmapTimeline: {
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  roadmapTimelineDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    border: '1px solid rgba(255,255,255,0.12)',
+    color: muted,
+  },
+
+  roadmapTimelineDotDone: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    border: `1px solid ${rgbaGreen(0.28)}`,
+    background: rgbaGreen(0.08),
+    color: green,
+  },
+
+  roadmapTimelineDotActive: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    background: green,
+    boxShadow: `0 0 22px ${rgbaGreen(0.35)}`,
+  },
+
+  roadmapTimelineDotLocked: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    border: '1px solid rgba(255,255,255,0.08)',
+    color: soft,
+  },
+
+  roadmapModuleContent: {
+    minWidth: 0,
+    display: 'grid',
+    alignContent: 'center',
+    gap: 6,
+  },
+
+  roadmapTopLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+
+  roadmapProgressSide: {
+    display: 'grid',
+    gap: 4,
+    textAlign: 'right',
+    color: muted,
+  },
+
+  roadmapVisual: {
+    borderRadius: 14,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    filter: 'grayscale(1) contrast(1.08) brightness(0.78)',
+    minHeight: 120,
+  },
+
+  roadmapActionRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'center',
+    color: green,
+    fontSize: 12,
+    fontWeight: 900,
+  },
+
+  roadmapContinuePill: {
+    display: 'inline-flex',
+    gap: 8,
+    alignItems: 'center',
+    color: '#061008',
+    background: green,
+    borderRadius: 999,
+    padding: '8px 12px',
+  },
+
+  roadmapFooterNote: {
+    marginTop: 16,
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.028)',
+    color: muted,
+    padding: 14,
+    display: 'flex',
+    gap: 10,
+    alignItems: 'center',
+    fontSize: 13,
+  },
+
+  lessonsPanelTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 18,
+    alignItems: 'flex-start',
+  },
+
+  lessonsProgressBox: {
+    minWidth: 94,
+    borderRadius: 14,
+    border: `1px solid ${rgbaGreen(0.18)}`,
+    background: rgbaGreen(0.06),
+    padding: 12,
+    textAlign: 'center',
+  },
+
+  lessonsProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
+    marginTop: 16,
+  },
+
+  lessonTableHeader: {
+    marginTop: 18,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) 110px 120px',
+    gap: 12,
+    color: soft,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    fontWeight: 900,
+    padding: '0 12px',
+  },
+
+  moduleLessonList: {
+    display: 'grid',
+    gap: 8,
+    marginTop: 8,
+  },
+
+  lessonRowLink: {
+    textDecoration: 'none',
+    color: 'inherit',
+  },
+
+  lessonRow: {
+    minHeight: 66,
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.07)',
+    background: 'rgba(255,255,255,0.026)',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) 110px 120px',
+    gap: 12,
+    alignItems: 'center',
+    padding: 12,
+  },
+
+  lessonRowActive: {
+    minHeight: 66,
+    borderRadius: 14,
+    border: `1px solid ${rgbaGreen(0.50)}`,
+    background: `linear-gradient(90deg, ${rgbaGreen(0.10)}, rgba(255,255,255,0.026))`,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) 110px 120px',
+    gap: 12,
+    alignItems: 'center',
+    padding: 12,
+  },
+
+  lessonRowLocked: {
+    minHeight: 66,
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.05)',
+    background: 'rgba(255,255,255,0.014)',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) 110px 120px',
+    gap: 12,
+    alignItems: 'center',
+    padding: 12,
+    opacity: 0.72,
+  },
+
+  lessonNameCell: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+    minWidth: 0,
+  },
+
+  lessonIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    display: 'grid',
+    placeItems: 'center',
+    border: '1px solid rgba(255,255,255,0.10)',
+    color: muted,
+    flexShrink: 0,
+  },
+
+  lessonIconDone: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    display: 'grid',
+    placeItems: 'center',
+    border: `1px solid ${rgbaGreen(0.26)}`,
+    background: rgbaGreen(0.08),
+    color: green,
+    flexShrink: 0,
+  },
+
+  lessonIconActive: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    display: 'grid',
+    placeItems: 'center',
+    border: `1px solid ${rgbaGreen(0.34)}`,
+    background: rgbaGreen(0.10),
+    color: green,
+    flexShrink: 0,
+  },
+
+  lessonTypePill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    color: muted,
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  lessonStatusCompleted: {
+    justifySelf: 'start',
+    color: green,
+    fontSize: 12,
+    fontWeight: 900,
+  },
+
+  lessonStatusActive: {
+    justifySelf: 'start',
+    color: green,
+    background: rgbaGreen(0.10),
+    border: `1px solid ${rgbaGreen(0.20)}`,
+    borderRadius: 999,
+    padding: '6px 9px',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+
+  lessonStatusPending: {
+    justifySelf: 'start',
+    color: muted,
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  lessonStatusLocked: {
+    justifySelf: 'start',
+    color: soft,
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  lessonsFooterStrip: {
+    marginTop: 16,
+    borderTop: '1px solid rgba(255,255,255,0.08)',
+    paddingTop: 14,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    flexWrap: 'wrap',
+    color: muted,
+    fontSize: 12,
+  },
+
+  resourcesButton: {
+    marginLeft: 'auto',
+    minHeight: 38,
+    borderRadius: 10,
+    background: 'rgba(255,255,255,0.045)',
+    border: '1px solid rgba(255,255,255,0.10)',
+    color: white,
+    textDecoration: 'none',
+    padding: '0 12px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 850,
+  },
+
+  curriculumBanner: {
+    borderRadius: 18,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: `linear-gradient(90deg, ${rgbaGreen(0.10)}, rgba(255,255,255,0.030))`,
+    padding: 18,
+    display: 'grid',
+    gridTemplateColumns: '52px minmax(0, 1fr) auto',
+    gap: 14,
+    alignItems: 'center',
+  },
+
+  bannerIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    background: rgbaGreen(0.10),
+    border: `1px solid ${rgbaGreen(0.22)}`,
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  keepGoingLink: {
+    color: green,
+    textDecoration: 'none',
+    display: 'inline-flex',
+    gap: 8,
+    alignItems: 'center',
+    fontWeight: 900,
   },
 
   sectionStack: {
