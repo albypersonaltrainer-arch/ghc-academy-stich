@@ -540,8 +540,8 @@ export default function AlumnoPage() {
                     }}
                   >
                     <div style={styles.progressRingInner}>
-                      <strong>{globalProgress}%</strong>
-                      <span>Completed</span>
+                      <strong style={styles.progressRingValue}>{globalProgress}%</strong>
+                      <span style={styles.progressRingLabel}>Completed</span>
                     </div>
                   </div>
                 </div>
@@ -2157,371 +2157,6 @@ const styles: Record<string, CSSProperties> = {
     padding: 16,
   },
 
-  pageTitle: {
-    margin: 0,
-    fontSize: 36,
-    lineHeight: 1,
-    letterSpacing: '-0.05em',
-    fontWeight: 900,
-  },
-
-  pageSubtitle: {
-    margin: '12px 0 0',
-    color: muted,
-    fontSize: 15,
-    lineHeight: 1.6,
-  },
-
-  coursesPage: {
-    display: 'grid',
-    gap: 18,
-  },
-
-  coursesHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'end',
-    gap: 18,
-  },
-
-  courseControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    flexWrap: 'wrap',
-    padding: '0 0 6px',
-  },
-
-  searchBox: {
-    width: 320,
-    minHeight: 46,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    padding: '0 15px',
-    color: 'rgba(244,246,242,0.48)',
-    fontSize: 13,
-  },
-
-  filterActive: {
-    minHeight: 46,
-    borderRadius: 10,
-    border: `1px solid ${rgbaGreen(0.32)}`,
-    background: rgbaGreen(0.11),
-    color: green,
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 12,
-    padding: '0 18px',
-    cursor: 'pointer',
-    fontWeight: 850,
-    boxShadow: `0 0 16px ${rgbaGreen(0.08)}`,
-  },
-
-  filterButton: {
-    minHeight: 46,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    color: 'rgba(244,246,242,0.78)',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 12,
-    padding: '0 18px',
-    cursor: 'pointer',
-    fontWeight: 800,
-  },
-
-  controlsSpacer: {
-    flex: 1,
-  },
-
-  sortButton: {
-    minHeight: 46,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    color: 'rgba(244,246,242,0.72)',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 12,
-    padding: '0 18px',
-    cursor: 'pointer',
-    fontWeight: 800,
-  },
-
-  viewToggle: {
-    height: 46,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    display: 'flex',
-    alignItems: 'center',
-    padding: 4,
-    gap: 4,
-  },
-
-  viewButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    border: '0',
-    background: 'transparent',
-    color: 'rgba(244,246,242,0.52)',
-    display: 'grid',
-    placeItems: 'center',
-    cursor: 'pointer',
-  },
-
-  viewButtonActive: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    border: '0',
-    background: rgbaGreen(0.12),
-    color: green,
-    display: 'grid',
-    placeItems: 'center',
-    cursor: 'pointer',
-  },
-
-  courseSection: {
-    display: 'grid',
-    gap: 14,
-  },
-
-  courseSectionTitle: {
-    margin: 0,
-    fontSize: 20,
-    lineHeight: 1,
-    letterSpacing: '-0.03em',
-    fontWeight: 850,
-  },
-
-  premiumCourseGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-    gap: 18,
-    alignItems: 'stretch',
-  },
-
-  premiumCourseList: {
-    display: 'grid',
-    gap: 14,
-  },
-
-  premiumCourseCard: {
-    minHeight: 394,
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background:
-      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
-  },
-
-  premiumCourseCardList: {
-    minHeight: 220,
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background:
-      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
-    overflow: 'hidden',
-    display: 'grid',
-    gridTemplateColumns: '320px minmax(0, 1fr)',
-    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
-  },
-
-  premiumCourseImage: {
-    height: 164,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    position: 'relative',
-    filter: 'grayscale(1) contrast(1.05) brightness(0.82)',
-    flexShrink: 0,
-  },
-
-  premiumCourseImageList: {
-    height: '100%',
-    minHeight: 220,
-  },
-
-  premiumImageOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background: `linear-gradient(180deg, rgba(5,7,6,0.00), rgba(5,7,6,0.86)), radial-gradient(circle at top right, ${rgbaGreen(0.13)}, transparent 34%)`,
-  },
-
-  courseTopBadges: {
-    position: 'absolute',
-    left: 14,
-    top: 14,
-    display: 'flex',
-    gap: 8,
-    zIndex: 2,
-  },
-
-  progressBadge: {
-    borderRadius: 5,
-    border: `1px solid ${rgbaGreen(0.34)}`,
-    background: rgbaGreen(0.12),
-    color: green,
-    padding: '6px 9px',
-    fontSize: 10,
-    lineHeight: 1,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    fontWeight: 900,
-  },
-
-  completedBadge: {
-    borderRadius: 5,
-    border: '1px solid rgba(255,255,255,0.14)',
-    background: 'rgba(255,255,255,0.055)',
-    color: 'rgba(244,246,242,0.74)',
-    padding: '6px 9px',
-    fontSize: 10,
-    lineHeight: 1,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    fontWeight: 900,
-  },
-
-  bookmarkIcon: {
-    position: 'absolute',
-    right: 14,
-    top: 14,
-    color: 'rgba(244,246,242,0.76)',
-    zIndex: 2,
-    width: 24,
-    height: 24,
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  premiumCourseBody: {
-    padding: 16,
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-    minWidth: 0,
-  },
-
-  premiumCourseTitle: {
-    margin: 0,
-    minHeight: 44,
-    color: white,
-    fontSize: 21,
-    lineHeight: 1.08,
-    letterSpacing: '-0.035em',
-    fontWeight: 900,
-  },
-
-  premiumCourseText: {
-    margin: '10px 0 0',
-    minHeight: 52,
-    color: muted,
-    fontSize: 14,
-    lineHeight: 1.55,
-  },
-
-  premiumStatsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 8,
-    marginTop: 'auto',
-    paddingTop: 16,
-  },
-
-  premiumMetric: {
-    minHeight: 60,
-    borderRadius: 9,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(255,255,255,0.032)',
-    padding: '10px 8px',
-    display: 'grid',
-    alignContent: 'center',
-    gap: 4,
-    minWidth: 0,
-  },
-
-  metricTopLine: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    color: 'rgba(244,246,242,0.78)',
-    minWidth: 0,
-  },
-
-  cardProgressArea: {
-    marginTop: 13,
-    display: 'grid',
-    gap: 8,
-  },
-
-  cardProgressText: {
-    color: green,
-    fontSize: 13,
-    fontWeight: 850,
-  },
-
-  premiumActions: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 10,
-    marginTop: 14,
-  },
-
-  courseContinueButton: {
-    minHeight: 42,
-    borderRadius: 9,
-    background: `linear-gradient(135deg, ${green}, #7BEE65)`,
-    color: '#061008',
-    textDecoration: 'none',
-    display: 'inline-flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    fontWeight: 900,
-    fontSize: 13,
-    boxShadow: `0 0 22px ${rgbaGreen(0.16)}`,
-  },
-
-  reviewButton: {
-    minHeight: 42,
-    borderRadius: 9,
-    background: 'rgba(255,255,255,0.050)',
-    color: white,
-    border: '1px solid rgba(255,255,255,0.10)',
-    textDecoration: 'none',
-    display: 'inline-flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    fontWeight: 850,
-    fontSize: 13,
-  },
-
-  courseDetailButton: {
-    minHeight: 42,
-    borderRadius: 9,
-    background: 'rgba(255,255,255,0.040)',
-    color: white,
-    border: '1px solid rgba(255,255,255,0.10)',
-    textDecoration: 'none',
-    display: 'inline-flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    fontWeight: 850,
-    fontSize: 13,
-  },
-
   dashboardGrid: {
     display: 'grid',
     gap: 18,
@@ -2572,6 +2207,26 @@ const styles: Record<string, CSSProperties> = {
     display: 'grid',
     placeItems: 'center',
     textAlign: 'center',
+    alignContent: 'center',
+  },
+
+  progressRingValue: {
+    display: 'block',
+    color: white,
+    fontSize: 48,
+    lineHeight: 0.88,
+    fontWeight: 950,
+    letterSpacing: '-0.06em',
+  },
+
+  progressRingLabel: {
+    display: 'block',
+    color: 'rgba(244,246,242,0.62)',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '0.10em',
+    fontWeight: 850,
+    marginTop: 8,
   },
 
   centerText: {
@@ -3047,6 +2702,371 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 950,
     display: 'grid',
     placeItems: 'center',
+  },
+
+  pageTitle: {
+    margin: 0,
+    fontSize: 36,
+    lineHeight: 1,
+    letterSpacing: '-0.05em',
+    fontWeight: 900,
+  },
+
+  pageSubtitle: {
+    margin: '12px 0 0',
+    color: muted,
+    fontSize: 15,
+    lineHeight: 1.6,
+  },
+
+  coursesPage: {
+    display: 'grid',
+    gap: 18,
+  },
+
+  coursesHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'end',
+    gap: 18,
+  },
+
+  courseControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+    padding: '0 0 6px',
+  },
+
+  searchBox: {
+    width: 320,
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: '0 15px',
+    color: 'rgba(244,246,242,0.48)',
+    fontSize: 13,
+  },
+
+  filterActive: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: `1px solid ${rgbaGreen(0.32)}`,
+    background: rgbaGreen(0.11),
+    color: green,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 18px',
+    cursor: 'pointer',
+    fontWeight: 850,
+    boxShadow: `0 0 16px ${rgbaGreen(0.08)}`,
+  },
+
+  filterButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    color: 'rgba(244,246,242,0.78)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 18px',
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
+
+  controlsSpacer: {
+    flex: 1,
+  },
+
+  sortButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    color: 'rgba(244,246,242,0.72)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 18px',
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
+
+  viewToggle: {
+    height: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    display: 'flex',
+    alignItems: 'center',
+    padding: 4,
+    gap: 4,
+  },
+
+  viewButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    border: '0',
+    background: 'transparent',
+    color: 'rgba(244,246,242,0.52)',
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+  },
+
+  viewButtonActive: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    border: '0',
+    background: rgbaGreen(0.12),
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+  },
+
+  courseSection: {
+    display: 'grid',
+    gap: 14,
+  },
+
+  courseSectionTitle: {
+    margin: 0,
+    fontSize: 20,
+    lineHeight: 1,
+    letterSpacing: '-0.03em',
+    fontWeight: 850,
+  },
+
+  premiumCourseGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: 18,
+    alignItems: 'stretch',
+  },
+
+  premiumCourseList: {
+    display: 'grid',
+    gap: 14,
+  },
+
+  premiumCourseCard: {
+    minHeight: 394,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+  },
+
+  premiumCourseCardList: {
+    minHeight: 220,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
+    overflow: 'hidden',
+    display: 'grid',
+    gridTemplateColumns: '320px minmax(0, 1fr)',
+    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+  },
+
+  premiumCourseImage: {
+    height: 164,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    position: 'relative',
+    filter: 'grayscale(1) contrast(1.05) brightness(0.82)',
+    flexShrink: 0,
+  },
+
+  premiumCourseImageList: {
+    height: '100%',
+    minHeight: 220,
+  },
+
+  premiumImageOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: `linear-gradient(180deg, rgba(5,7,6,0.00), rgba(5,7,6,0.86)), radial-gradient(circle at top right, ${rgbaGreen(0.13)}, transparent 34%)`,
+  },
+
+  courseTopBadges: {
+    position: 'absolute',
+    left: 14,
+    top: 14,
+    display: 'flex',
+    gap: 8,
+    zIndex: 2,
+  },
+
+  progressBadge: {
+    borderRadius: 5,
+    border: `1px solid ${rgbaGreen(0.34)}`,
+    background: rgbaGreen(0.12),
+    color: green,
+    padding: '6px 9px',
+    fontSize: 10,
+    lineHeight: 1,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  completedBadge: {
+    borderRadius: 5,
+    border: '1px solid rgba(255,255,255,0.14)',
+    background: 'rgba(255,255,255,0.055)',
+    color: 'rgba(244,246,242,0.74)',
+    padding: '6px 9px',
+    fontSize: 10,
+    lineHeight: 1,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  bookmarkIcon: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+    color: 'rgba(244,246,242,0.76)',
+    zIndex: 2,
+    width: 24,
+    height: 24,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  premiumCourseBody: {
+    padding: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    minWidth: 0,
+  },
+
+  premiumCourseTitle: {
+    margin: 0,
+    minHeight: 44,
+    color: white,
+    fontSize: 21,
+    lineHeight: 1.08,
+    letterSpacing: '-0.035em',
+    fontWeight: 900,
+  },
+
+  premiumCourseText: {
+    margin: '10px 0 0',
+    minHeight: 52,
+    color: muted,
+    fontSize: 14,
+    lineHeight: 1.55,
+  },
+
+  premiumStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 8,
+    marginTop: 'auto',
+    paddingTop: 16,
+  },
+
+  premiumMetric: {
+    minHeight: 60,
+    borderRadius: 9,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.032)',
+    padding: '10px 8px',
+    display: 'grid',
+    alignContent: 'center',
+    gap: 4,
+    minWidth: 0,
+  },
+
+  metricTopLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    color: 'rgba(244,246,242,0.78)',
+    minWidth: 0,
+  },
+
+  cardProgressArea: {
+    marginTop: 13,
+    display: 'grid',
+    gap: 8,
+  },
+
+  cardProgressText: {
+    color: green,
+    fontSize: 13,
+    fontWeight: 850,
+  },
+
+  premiumActions: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 10,
+    marginTop: 14,
+  },
+
+  courseContinueButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: `linear-gradient(135deg, ${green}, #7BEE65)`,
+    color: '#061008',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 900,
+    fontSize: 13,
+    boxShadow: `0 0 22px ${rgbaGreen(0.16)}`,
+  },
+
+  reviewButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: 'rgba(255,255,255,0.050)',
+    color: white,
+    border: '1px solid rgba(255,255,255,0.10)',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 850,
+    fontSize: 13,
+  },
+
+  courseDetailButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: 'rgba(255,255,255,0.040)',
+    color: white,
+    border: '1px solid rgba(255,255,255,0.10)',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    fontWeight: 850,
+    fontSize: 13,
   },
 
   sectionStack: {
