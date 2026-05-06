@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import GHCLogo from './components/GHCLogo';
 
 const featuredCourses = [
   {
@@ -64,12 +65,8 @@ export default function HomePage() {
     <main className="ghc-home-v2">
       <section className="ghc-home-shell">
         <header className="ghc-home-header">
-          <Link href="/" className="ghc-logo">
-            <span className="ghc-logo-mark" />
-            <span className="ghc-logo-text">
-              <strong>GHC</strong>
-              <span>Academy</span>
-            </span>
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <GHCLogo size="md" showText tagline={false} />
           </Link>
 
           <nav className="ghc-home-nav">
@@ -89,6 +86,10 @@ export default function HomePage() {
 
         <section className="ghc-home-hero">
           <div>
+            <div style={{ marginBottom: 28 }}>
+              <GHCLogo size="lg" showText tagline />
+            </div>
+
             <p className="ghc-home-kicker">Ciencia · Progresión · Rendimiento</p>
 
             <h1>Formación de alto rendimiento desde la ciencia</h1>
@@ -353,13 +354,8 @@ export default function HomePage() {
 
         <footer className="ghc-home-footer">
           <div>
-            <div className="ghc-home-footer-brand">
-              <span className="ghc-home-footer-mark">G</span>
-              <div>
-                <strong>GHC</strong>
-                <br />
-                <span>Academy</span>
-              </div>
+            <div style={{ marginBottom: 18 }}>
+              <GHCLogo size="sm" showText tagline={false} />
             </div>
 
             <p>
