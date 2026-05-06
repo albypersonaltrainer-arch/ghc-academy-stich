@@ -68,12 +68,15 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-const green = '#22D65B';
+const green = '#63E546';
+const greenRgb = '99,229,70';
 const bg = '#050706';
 const white = '#F4F6F2';
 const muted = 'rgba(244,246,242,0.62)';
 const soft = 'rgba(244,246,242,0.42)';
 const gold = '#D6B25E';
+
+const rgbaGreen = (alpha: number) => `rgba(${greenRgb},${alpha})`;
 
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Dashboard', helper: 'Resumen', icon: 'dashboard' },
@@ -760,7 +763,9 @@ export default function AlumnoPage() {
               {activeCourses.length === 0 ? (
                 <EmptyState text="Todavía no tienes cursos activos. Entra al catálogo para iniciar tu formación." />
               ) : (
-                <div style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}>
+                <div
+                  style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}
+                >
                   {activeCourses.map((card, index) => (
                     <PremiumCourseCard
                       key={card.course.id}
@@ -779,7 +784,9 @@ export default function AlumnoPage() {
               {completedCourses.length === 0 ? (
                 <EmptyState text="Cuando completes un curso, aparecerá aquí." />
               ) : (
-                <div style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}>
+                <div
+                  style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}
+                >
                   {completedCourses.map((card, index) => (
                     <PremiumCourseCard
                       key={card.course.id}
@@ -1773,7 +1780,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     top: -220,
     left: -180,
-    background: 'rgba(34,214,91,0.095)',
+    background: rgbaGreen(0.10),
     filter: 'blur(100px)',
   },
 
@@ -1795,7 +1802,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     bottom: -320,
     left: '36%',
-    background: 'rgba(34,214,91,0.045)',
+    background: rgbaGreen(0.05),
     filter: 'blur(120px)',
   },
 
@@ -1825,7 +1832,7 @@ const styles: Record<string, CSSProperties> = {
     height: 4,
     borderRadius: 999,
     background: green,
-    boxShadow: '0 0 28px rgba(34,214,91,0.45)',
+    boxShadow: `0 0 28px ${rgbaGreen(0.45)}`,
     marginBottom: 24,
   },
 
@@ -1893,9 +1900,8 @@ const styles: Record<string, CSSProperties> = {
   },
 
   navActive: {
-    border: '1px solid rgba(34,214,91,0.12)',
-    background:
-      'linear-gradient(90deg, rgba(34,214,91,0.18), rgba(34,214,91,0.035) 70%, transparent)',
+    border: `1px solid ${rgbaGreen(0.12)}`,
+    background: `linear-gradient(90deg, ${rgbaGreen(0.18)}, ${rgbaGreen(0.035)} 70%, transparent)`,
     color: green,
     display: 'flex',
     alignItems: 'center',
@@ -1906,7 +1912,7 @@ const styles: Record<string, CSSProperties> = {
     textAlign: 'left',
     cursor: 'pointer',
     position: 'relative',
-    boxShadow: 'inset 3px 0 0 rgba(34,214,91,0.95)',
+    boxShadow: `inset 3px 0 0 ${rgbaGreen(0.95)}`,
   },
 
   navIcon: {
@@ -1955,8 +1961,8 @@ const styles: Record<string, CSSProperties> = {
     width: 52,
     height: 52,
     borderRadius: 999,
-    background: 'rgba(34,214,91,0.11)',
-    border: '1px solid rgba(34,214,91,0.24)',
+    background: rgbaGreen(0.11),
+    border: `1px solid ${rgbaGreen(0.24)}`,
     color: green,
     display: 'grid',
     placeItems: 'center',
@@ -1988,7 +1994,7 @@ const styles: Record<string, CSSProperties> = {
   proPill: {
     marginLeft: 6,
     color: green,
-    background: 'rgba(34,214,91,0.12)',
+    background: rgbaGreen(0.12),
     borderRadius: 999,
     padding: '2px 7px',
     fontSize: 11,
@@ -2108,6 +2114,7 @@ const styles: Record<string, CSSProperties> = {
     background: green,
     right: 9,
     top: 8,
+    boxShadow: `0 0 12px ${rgbaGreen(0.55)}`,
   },
 
   userMini: {
@@ -2133,8 +2140,8 @@ const styles: Record<string, CSSProperties> = {
     width: 42,
     height: 42,
     borderRadius: 999,
-    border: '1px solid rgba(34,214,91,0.20)',
-    background: 'rgba(34,214,91,0.09)',
+    border: `1px solid ${rgbaGreen(0.20)}`,
+    background: rgbaGreen(0.09),
     color: green,
     display: 'grid',
     placeItems: 'center',
@@ -2144,8 +2151,8 @@ const styles: Record<string, CSSProperties> = {
   notice: {
     marginBottom: 16,
     borderRadius: 16,
-    border: '1px solid rgba(34,214,91,0.20)',
-    background: 'rgba(34,214,91,0.06)',
+    border: `1px solid ${rgbaGreen(0.20)}`,
+    background: rgbaGreen(0.06),
     color: muted,
     padding: 16,
   },
@@ -2203,8 +2210,8 @@ const styles: Record<string, CSSProperties> = {
   filterActive: {
     minHeight: 46,
     borderRadius: 10,
-    border: '1px solid rgba(34,214,91,0.30)',
-    background: 'rgba(34,214,91,0.095)',
+    border: `1px solid ${rgbaGreen(0.32)}`,
+    background: rgbaGreen(0.11),
     color: green,
     display: 'inline-flex',
     alignItems: 'center',
@@ -2212,6 +2219,7 @@ const styles: Record<string, CSSProperties> = {
     padding: '0 18px',
     cursor: 'pointer',
     fontWeight: 850,
+    boxShadow: `0 0 16px ${rgbaGreen(0.08)}`,
   },
 
   filterButton: {
@@ -2274,7 +2282,7 @@ const styles: Record<string, CSSProperties> = {
     height: 36,
     borderRadius: 8,
     border: '0',
-    background: 'rgba(34,214,91,0.12)',
+    background: rgbaGreen(0.12),
     color: green,
     display: 'grid',
     placeItems: 'center',
@@ -2310,7 +2318,8 @@ const styles: Record<string, CSSProperties> = {
     minHeight: 394,
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
@@ -2321,7 +2330,8 @@ const styles: Record<string, CSSProperties> = {
     minHeight: 220,
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
     overflow: 'hidden',
     display: 'grid',
     gridTemplateColumns: '320px minmax(0, 1fr)',
@@ -2345,8 +2355,7 @@ const styles: Record<string, CSSProperties> = {
   premiumImageOverlay: {
     position: 'absolute',
     inset: 0,
-    background:
-      'linear-gradient(180deg, rgba(5,7,6,0.00), rgba(5,7,6,0.86)), radial-gradient(circle at top right, rgba(34,214,91,0.13), transparent 34%)',
+    background: `linear-gradient(180deg, rgba(5,7,6,0.00), rgba(5,7,6,0.86)), radial-gradient(circle at top right, ${rgbaGreen(0.13)}, transparent 34%)`,
   },
 
   courseTopBadges: {
@@ -2360,8 +2369,8 @@ const styles: Record<string, CSSProperties> = {
 
   progressBadge: {
     borderRadius: 5,
-    border: '1px solid rgba(34,214,91,0.30)',
-    background: 'rgba(34,214,91,0.10)',
+    border: `1px solid ${rgbaGreen(0.34)}`,
+    background: rgbaGreen(0.12),
     color: green,
     padding: '6px 9px',
     fontSize: 10,
@@ -2472,7 +2481,7 @@ const styles: Record<string, CSSProperties> = {
   courseContinueButton: {
     minHeight: 42,
     borderRadius: 9,
-    background: 'linear-gradient(135deg, rgba(34,214,91,0.98), rgba(91,222,117,0.82))',
+    background: `linear-gradient(135deg, ${green}, #7BEE65)`,
     color: '#061008',
     textDecoration: 'none',
     display: 'inline-flex',
@@ -2481,6 +2490,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 8,
     fontWeight: 900,
     fontSize: 13,
+    boxShadow: `0 0 22px ${rgbaGreen(0.16)}`,
   },
 
   reviewButton: {
@@ -2550,7 +2560,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     display: 'grid',
     placeItems: 'center',
-    boxShadow: '0 0 42px rgba(34,214,91,0.11)',
+    boxShadow: `0 0 42px ${rgbaGreen(0.12)}`,
   },
 
   progressRingInner: {
@@ -2599,8 +2609,8 @@ const styles: Record<string, CSSProperties> = {
     display: 'grid',
     placeItems: 'center',
     color: green,
-    background: 'rgba(34,214,91,0.08)',
-    border: '1px solid rgba(34,214,91,0.16)',
+    background: rgbaGreen(0.08),
+    border: `1px solid ${rgbaGreen(0.18)}`,
   },
 
   miniStatText: {
@@ -2631,7 +2641,7 @@ const styles: Record<string, CSSProperties> = {
   athleteGlow: {
     position: 'absolute',
     inset: 0,
-    background: 'radial-gradient(circle at 55% 42%, rgba(34,214,91,0.18), transparent 35%)',
+    background: `radial-gradient(circle at 55% 42%, ${rgbaGreen(0.18)}, transparent 35%)`,
   },
 
   athleteLabel: {
@@ -2694,6 +2704,8 @@ const styles: Record<string, CSSProperties> = {
   nextProgressBlock: {
     marginTop: 'auto',
     paddingTop: 26,
+    color: green,
+    fontWeight: 800,
   },
 
   progressTrack: {
@@ -2707,7 +2719,7 @@ const styles: Record<string, CSSProperties> = {
     height: '100%',
     borderRadius: 999,
     background: green,
-    boxShadow: '0 0 24px rgba(34,214,91,0.32)',
+    boxShadow: `0 0 24px ${rgbaGreen(0.34)}`,
   },
 
   continueButton: {
@@ -2717,8 +2729,8 @@ const styles: Record<string, CSSProperties> = {
     gap: 10,
     minHeight: 42,
     borderRadius: 10,
-    border: '1px solid rgba(34,214,91,0.22)',
-    background: 'linear-gradient(135deg, rgba(34,214,91,0.95), rgba(74,222,128,0.78))',
+    border: `1px solid ${rgbaGreen(0.26)}`,
+    background: `linear-gradient(135deg, ${green}, #7BEE65)`,
     color: '#061008',
     textDecoration: 'none',
     fontWeight: 900,
@@ -2726,6 +2738,7 @@ const styles: Record<string, CSSProperties> = {
     padding: '0 18px',
     marginTop: 12,
     width: 'fit-content',
+    boxShadow: `0 0 26px ${rgbaGreen(0.16)}`,
   },
 
   panel: {
@@ -2765,8 +2778,8 @@ const styles: Record<string, CSSProperties> = {
   curriculumRowActive: {
     minHeight: 64,
     borderRadius: 12,
-    border: '1px solid rgba(34,214,91,0.55)',
-    background: 'linear-gradient(90deg, rgba(34,214,91,0.13), rgba(34,214,91,0.035))',
+    border: `1px solid ${rgbaGreen(0.55)}`,
+    background: `linear-gradient(90deg, ${rgbaGreen(0.13)}, ${rgbaGreen(0.04)})`,
     display: 'grid',
     gridTemplateColumns: '42px minmax(0,1fr) auto',
     alignItems: 'center',
@@ -2774,7 +2787,7 @@ const styles: Record<string, CSSProperties> = {
     padding: '12px 14px',
     textDecoration: 'none',
     color: white,
-    boxShadow: 'inset 0 0 0 1px rgba(34,214,91,0.08), 0 0 34px rgba(34,214,91,0.055)',
+    boxShadow: `inset 0 0 0 1px ${rgbaGreen(0.08)}, 0 0 34px ${rgbaGreen(0.06)}`,
   },
 
   curriculumRowLocked: {
@@ -2804,8 +2817,8 @@ const styles: Record<string, CSSProperties> = {
     width: 34,
     height: 34,
     borderRadius: 10,
-    border: '1px solid rgba(34,214,91,0.28)',
-    background: 'rgba(34,214,91,0.08)',
+    border: `1px solid ${rgbaGreen(0.28)}`,
+    background: rgbaGreen(0.08),
     display: 'grid',
     placeItems: 'center',
     color: green,
@@ -2815,8 +2828,8 @@ const styles: Record<string, CSSProperties> = {
     width: 34,
     height: 34,
     borderRadius: 10,
-    border: '1px solid rgba(34,214,91,0.34)',
-    background: 'rgba(34,214,91,0.10)',
+    border: `1px solid ${rgbaGreen(0.34)}`,
+    background: rgbaGreen(0.10),
     display: 'grid',
     placeItems: 'center',
     color: green,
@@ -2853,7 +2866,7 @@ const styles: Record<string, CSSProperties> = {
 
   inProgressMini: {
     borderRadius: 999,
-    background: 'rgba(34,214,91,0.12)',
+    background: rgbaGreen(0.12),
     color: green,
     padding: '3px 8px',
     textTransform: 'uppercase',
@@ -2874,17 +2887,18 @@ const styles: Record<string, CSSProperties> = {
     width: 34,
     height: 34,
     borderRadius: 10,
-    background: 'rgba(34,214,91,0.85)',
+    background: green,
     color: '#061008',
     display: 'grid',
     placeItems: 'center',
+    boxShadow: `0 0 18px ${rgbaGreen(0.16)}`,
   },
 
   checkCircle: {
     width: 26,
     height: 26,
     borderRadius: 999,
-    border: '1px solid rgba(34,214,91,0.30)',
+    border: `1px solid ${rgbaGreen(0.30)}`,
     color: green,
     display: 'grid',
     placeItems: 'center',
@@ -3070,8 +3084,8 @@ const styles: Record<string, CSSProperties> = {
 
   badgeGreen: {
     borderRadius: 999,
-    background: 'rgba(34,214,91,0.12)',
-    border: '1px solid rgba(34,214,91,0.26)',
+    background: rgbaGreen(0.12),
+    border: `1px solid ${rgbaGreen(0.26)}`,
     color: green,
     padding: '6px 9px',
     textTransform: 'uppercase',
@@ -3091,8 +3105,8 @@ const styles: Record<string, CSSProperties> = {
     width: 56,
     height: 56,
     borderRadius: 999,
-    border: '1px solid rgba(34,214,91,0.26)',
-    background: 'rgba(34,214,91,0.08)',
+    border: `1px solid ${rgbaGreen(0.26)}`,
+    background: rgbaGreen(0.08),
     display: 'grid',
     placeItems: 'center',
     color: green,
@@ -3154,8 +3168,8 @@ const styles: Record<string, CSSProperties> = {
     display: 'grid',
     placeItems: 'center',
     color: green,
-    background: 'rgba(34,214,91,0.08)',
-    border: '1px solid rgba(34,214,91,0.18)',
+    background: rgbaGreen(0.08),
+    border: `1px solid ${rgbaGreen(0.18)}`,
     marginBottom: 14,
   },
 
