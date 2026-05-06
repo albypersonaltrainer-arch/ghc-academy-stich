@@ -1865,3 +1865,1808 @@ function Icon({ name }: { name: IconName }) {
     </svg>
   );
 }
+
+function isVisibleCourse(course: AnyRecord) {
+  const status = String(course.status || '').toLowerCase();
+
+  if (!status) return true;
+
+  return ['published', 'publicado', 'active', 'activo', 'preview', 'demo'].includes(status);
+}
+
+function findNextLesson({
+  courseModules,
+  courseLessons,
+  lessonProgress,
+  moduleCompletions,
+}: {
+  courseModules: AnyRecord[];
+  courseLessons: AnyRecord[];
+  lessonProgress: AnyRecord[];
+  moduleCompletions: AnyRecord[];
+}) {
+  const completedLessonIds = new Set(lessonProgress.map((item) => String(item.lesson_id)));
+  const completedModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
+
+  for (let index = 0; index < courseModules.length; index++) {
+    const module = courseModules[index];
+
+    const moduleUnlocked =
+      index === 0 ||
+      completedModuleIds.has(String(module.id)) ||
+      completedModuleIds.has(String(courseModules[index - 1]?.id));
+
+    if (!moduleUnlocked) continue;
+
+    const moduleLessons = courseLessons
+      .filter((lesson) => String(lesson.module_id) === String(module.id))
+      .sort(sortLessons);
+
+    const nextLesson = moduleLessons.find((lesson) => !completedLessonIds.has(String(lesson.id)));
+
+    if (nextLesson) return nextLesson;
+  }
+
+  return courseLessons[0] || null;
+}
+
+function getOrder(item: AnyRecord, fallback: number) {
+  return item.position ?? item.sort_order ?? item.order_index ?? item.order ?? fallback;
+}
+
+function sortModules(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractModuleNumber(a.title);
+  const bNumber = extractModuleNumber(b.title);
+
+  if (aNumber !== bNumber) return aNumber - bNumber;
+
+  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
+}
+
+function sortLessons(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractLessonNumber(a.title);
+  const bNumber = extractLessonNumber(b.title);
+
+  if (aNumber !== bNumber) return aNumber - bNumber;
+
+  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
+}
+
+function extractLessonNumber(title: string = '') {
+  const match = title.match(/lecci[oó]n\s*(\d+)/i);
+  return match ? Number(match[1]) : 999;
+}
+
+function extractModuleNumber(title: string = '') {
+  const match = title.match(/m[oó]dulo\s*(\d+)/i);
+  return match ? Number(match[1]) : 999;
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function shortName(name: string) {
+  return name.split('@')[0].split(' ')[0];
+}
+
+function getCourseSlug(course: AnyRecord) {
+  return String(course?.slug || course?.id || '');
+}
+
+function getCurrentPageLabel(tab: Tab) {
+  if (tab === 'dashboard') return 'Dashboard';
+  if (tab === 'cursos') return 'My Courses';
+  if (tab === 'curriculum') return 'Curriculum';
+  if (tab === 'examenes') return 'Mock Exams';
+  if (tab === 'certificados') return 'Certification';
+  return 'Performance';
+}
+
+function getCourseImage(course: AnyRecord) {
+  return (
+    course?.cover_image ||
+    course?.cover_image_url ||
+    course?.image ||
+    course?.image_url ||
+    course?.thumbnail ||
+    course?.thumbnail_url ||
+    ''
+  );
+}
+
+function getPremiumCourseBackground(course: AnyRecord, index: number) {
+  const realImage = getCourseImage(course);
+
+  const fallbacks = [
+    'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
+  ];
+
+  const selected = realImage || fallbacks[index % fallbacks.length];
+
+  return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
+}
+
+function cardBackground() {
+  return 'linear-gradient(145deg, rgba(255,255,255,0.060), rgba(255,255,255,0.022)), rgba(8,12,10,0.86)';
+}
+
+const styles: Record<string, CSSProperties> = {
+  loadingPage: {
+    minHeight: '100vh',
+    background: bg,
+    color: white,
+    position: 'relative',
+    display: 'grid',
+    placeItems: 'center',
+    overflow: 'hidden',
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+
+  page: {
+    minHeight: '100vh',
+    background: bg,
+    color: white,
+    position: 'relative',
+    overflow: 'hidden',
+    display: 'grid',
+    gridTemplateColumns: '282px minmax(0, 1fr)',
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+
+  background: {
+    position: 'fixed',
+    inset: 0,
+    pointerEvents: 'none',
+    zIndex: 0,
+    overflow: 'hidden',
+  },
+
+  orbOne: {
+    position: 'absolute',
+    width: 520,
+    height: 520,
+    borderRadius: 999,
+    top: -220,
+    left: -180,
+    background: rgbaGreen(0.10),
+    filter: 'blur(100px)',
+  },
+
+  orbTwo: {
+    position: 'absolute',
+    width: 520,
+    height: 520,
+    borderRadius: 999,
+    right: -260,
+    top: 120,
+    background: 'rgba(120,135,130,0.09)',
+    filter: 'blur(110px)',
+  },
+
+  orbThree: {
+    position: 'absolute',
+    width: 620,
+    height: 620,
+    borderRadius: 999,
+    bottom: -320,
+    left: '36%',
+    background: rgbaGreen(0.05),
+    filter: 'blur(120px)',
+  },
+
+  gridTexture: {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage:
+      'linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px)',
+    backgroundSize: '42px 42px',
+    opacity: 0.42,
+    maskImage: 'radial-gradient(circle at center, black 0%, transparent 82%)',
+  },
+
+  loadingCard: {
+    width: 'min(720px, calc(100vw - 44px))',
+    border: '1px solid rgba(255,255,255,0.10)',
+    borderRadius: 34,
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.022))',
+    padding: 36,
+    position: 'relative',
+    zIndex: 2,
+    boxShadow: '0 34px 130px rgba(0,0,0,0.45)',
+  },
+
+  loadingAccent: {
+    width: 68,
+    height: 4,
+    borderRadius: 999,
+    background: green,
+    boxShadow: `0 0 28px ${rgbaGreen(0.45)}`,
+    marginBottom: 24,
+  },
+
+  kicker: {
+    margin: '26px 0 0',
+    color: green,
+    textTransform: 'uppercase',
+    letterSpacing: '0.26em',
+    fontSize: 12,
+    fontWeight: 950,
+  },
+
+  loadingTitle: {
+    margin: '14px 0 0',
+    fontSize: 'clamp(44px, 6vw, 76px)',
+    lineHeight: 0.92,
+    letterSpacing: '-0.065em',
+    fontWeight: 950,
+  },
+
+  loadingText: {
+    color: muted,
+    lineHeight: 1.8,
+    maxWidth: 620,
+    marginTop: 16,
+  },
+
+  sidebar: {
+    position: 'relative',
+    zIndex: 2,
+    minHeight: '100vh',
+    borderRight: '1px solid rgba(255,255,255,0.07)',
+    background: 'linear-gradient(180deg, rgba(6,9,8,0.97), rgba(3,5,4,0.93))',
+    padding: 22,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  },
+
+  logoBlock: {
+    height: 58,
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+
+  nav: {
+    display: 'grid',
+    gap: 6,
+  },
+
+  navButton: {
+    border: '1px solid transparent',
+    background: 'transparent',
+    color: 'rgba(244,246,242,0.62)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    width: '100%',
+    borderRadius: 0,
+    padding: '13px 14px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    position: 'relative',
+  },
+
+  navActive: {
+    border: `1px solid ${rgbaGreen(0.12)}`,
+    background: `linear-gradient(90deg, ${rgbaGreen(0.18)}, ${rgbaGreen(0.035)} 70%, transparent)`,
+    color: green,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    width: '100%',
+    borderRadius: 0,
+    padding: '13px 14px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    position: 'relative',
+    boxShadow: `inset 3px 0 0 ${rgbaGreen(0.95)}`,
+  },
+
+  navIcon: {
+    width: 22,
+    height: 22,
+    display: 'grid',
+    placeItems: 'center',
+    color: 'rgba(244,246,242,0.50)',
+    flexShrink: 0,
+  },
+
+  navIconActive: {
+    width: 22,
+    height: 22,
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+    flexShrink: 0,
+  },
+
+  navText: {
+    display: 'grid',
+    gap: 3,
+  },
+
+  sidebarDivider: {
+    height: 1,
+    background: 'rgba(255,255,255,0.08)',
+    margin: '22px 0',
+  },
+
+  sidebarUserBox: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: 'rgba(255,255,255,0.035)',
+    padding: 18,
+  },
+
+  sidebarUserTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+  },
+
+  avatarLarge: {
+    width: 52,
+    height: 52,
+    borderRadius: 999,
+    background: rgbaGreen(0.11),
+    border: `1px solid ${rgbaGreen(0.24)}`,
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+    fontWeight: 950,
+    fontSize: 17,
+    flexShrink: 0,
+  },
+
+  sidebarUserText: {
+    minWidth: 0,
+  },
+
+  sidebarUserName: {
+    margin: 0,
+    fontWeight: 900,
+    fontSize: 16,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: 150,
+  },
+
+  sidebarUserRole: {
+    margin: '4px 0 0',
+    color: muted,
+    fontSize: 13,
+  },
+
+  proPill: {
+    marginLeft: 6,
+    color: green,
+    background: rgbaGreen(0.12),
+    borderRadius: 999,
+    padding: '2px 7px',
+    fontSize: 11,
+    fontWeight: 800,
+  },
+
+  xpBox: {
+    borderTop: '1px solid rgba(255,255,255,0.08)',
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
+    padding: '16px 0',
+    marginTop: 18,
+  },
+
+  xpRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    color: muted,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+  },
+
+  progressTrackSubtle: {
+    height: 7,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+
+  signOutButton: {
+    marginTop: 18,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 10,
+    background: 'transparent',
+    border: '0',
+    color: 'rgba(244,246,242,0.58)',
+    fontSize: 13,
+    cursor: 'pointer',
+    padding: 0,
+  },
+
+  appShell: {
+    position: 'relative',
+    zIndex: 1,
+    padding: 24,
+    overflow: 'auto',
+    height: '100vh',
+  },
+
+  topbar: {
+    minHeight: 64,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 20,
+    marginBottom: 18,
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    paddingBottom: 12,
+  },
+
+  breadcrumb: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    color: 'rgba(244,246,242,0.72)',
+    fontSize: 13,
+    fontWeight: 800,
+  },
+
+  breadcrumbSeparator: {
+    color: 'rgba(244,246,242,0.34)',
+  },
+
+  topbarRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    position: 'relative',
+  },
+
+  topbarLink: {
+    color: 'rgba(244,246,242,0.65)',
+    textDecoration: 'none',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    fontWeight: 850,
+  },
+
+  topbarLinkStrong: {
+    color: green,
+    textDecoration: 'none',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    fontWeight: 900,
+  },
+
+  notificationArea: {
+    position: 'relative',
+  },
+
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: 'rgba(255,255,255,0.035)',
+    color: 'rgba(244,246,242,0.75)',
+    display: 'grid',
+    placeItems: 'center',
+    position: 'relative',
+    cursor: 'pointer',
+  },
+
+  notificationDot: {
+    position: 'absolute',
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    background: green,
+    right: 9,
+    top: 8,
+    boxShadow: `0 0 12px ${rgbaGreen(0.55)}`,
+  },
+
+  notificationCount: {
+    position: 'absolute',
+    right: -6,
+    top: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 999,
+    background: green,
+    color: '#061008',
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: 10,
+    fontWeight: 950,
+    border: '2px solid #050706',
+  },
+
+  notificationPanel: {
+    position: 'absolute',
+    top: 52,
+    right: 0,
+    width: 360,
+    borderRadius: 20,
+    border: '1px solid rgba(255,255,255,0.12)',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.080), rgba(255,255,255,0.030)), rgba(7,10,9,0.98)',
+    boxShadow: '0 28px 90px rgba(0,0,0,0.48)',
+    padding: 16,
+    zIndex: 40,
+    backdropFilter: 'blur(18px)',
+  },
+
+  notificationHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 16,
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+
+  notificationKicker: {
+    margin: 0,
+    color: green,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.18em',
+    fontWeight: 900,
+  },
+
+  notificationTitle: {
+    margin: '6px 0 0',
+    fontSize: 20,
+    letterSpacing: '-0.03em',
+    fontWeight: 900,
+  },
+
+  notificationBadge: {
+    borderRadius: 999,
+    border: `1px solid ${rgbaGreen(0.24)}`,
+    background: rgbaGreen(0.10),
+    color: green,
+    padding: '6px 9px',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+
+  notificationList: {
+    display: 'grid',
+    gap: 10,
+  },
+
+  notificationLink: {
+    textDecoration: 'none',
+    color: 'inherit',
+  },
+
+  notificationItem: {
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.030)',
+    padding: 12,
+  },
+
+  notificationItemUnread: {
+    borderRadius: 14,
+    border: `1px solid ${rgbaGreen(0.18)}`,
+    background: rgbaGreen(0.055),
+    padding: 12,
+  },
+
+  notificationItemTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'center',
+  },
+
+  notificationType: {
+    color: green,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    fontWeight: 900,
+  },
+
+  notificationTime: {
+    color: soft,
+    fontSize: 11,
+  },
+
+  notificationItemTitle: {
+    margin: '8px 0 0',
+    color: white,
+    fontSize: 14,
+    fontWeight: 900,
+  },
+
+  notificationMessage: {
+    margin: '6px 0 0',
+    color: muted,
+    fontSize: 12,
+    lineHeight: 1.55,
+  },
+
+  notificationFooter: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTop: '1px solid rgba(255,255,255,0.08)',
+    color: soft,
+    fontSize: 11,
+  },
+
+  userMini: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    borderLeft: '1px solid rgba(255,255,255,0.08)',
+    paddingLeft: 16,
+  },
+
+  welcomeText: {
+    margin: 0,
+    color: soft,
+    fontSize: 12,
+  },
+
+  userMiniName: {
+    margin: '2px 0 0',
+    fontWeight: 850,
+  },
+
+  avatarMini: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    border: `1px solid ${rgbaGreen(0.20)}`,
+    background: rgbaGreen(0.09),
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+    fontWeight: 900,
+  },
+
+  notice: {
+    marginBottom: 16,
+    borderRadius: 16,
+    border: `1px solid ${rgbaGreen(0.20)}`,
+    background: rgbaGreen(0.06),
+    color: muted,
+    padding: 16,
+  },
+
+  dashboardGrid: {
+    display: 'grid',
+    gap: 18,
+  },
+
+  topCardsGrid: {
+    display: 'grid',
+    gridTemplateColumns: '350px minmax(0, 1fr)',
+    gap: 18,
+  },
+
+  progressCard: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 22,
+    minHeight: 342,
+  },
+
+  cardTitle: {
+    margin: 0,
+    fontSize: 18,
+    fontWeight: 850,
+    letterSpacing: '-0.02em',
+  },
+
+  progressRingWrap: {
+    display: 'flex',
+    justifyContent: 'center',
+    margin: '20px 0 12px',
+  },
+
+  progressRing: {
+    width: 168,
+    height: 168,
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    boxShadow: `0 0 42px ${rgbaGreen(0.12)}`,
+  },
+
+  progressRingInner: {
+    width: 122,
+    height: 122,
+    borderRadius: 999,
+    background: '#080B0A',
+    border: '1px solid rgba(255,255,255,0.10)',
+    display: 'grid',
+    placeItems: 'center',
+    textAlign: 'center',
+    alignContent: 'center',
+  },
+
+  progressRingValue: {
+    display: 'block',
+    color: white,
+    fontSize: 48,
+    lineHeight: 0.88,
+    fontWeight: 950,
+    letterSpacing: '-0.06em',
+  },
+
+  progressRingLabel: {
+    display: 'block',
+    color: 'rgba(244,246,242,0.62)',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '0.10em',
+    fontWeight: 850,
+    marginTop: 8,
+  },
+
+  centerText: {
+    maxWidth: 270,
+    color: muted,
+    textAlign: 'center',
+    lineHeight: 1.6,
+    margin: '10px auto 18px',
+  },
+
+  progressMiniStats: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 0,
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    overflow: 'hidden',
+    background: 'rgba(0,0,0,0.18)',
+  },
+
+  miniStat: {
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: '28px minmax(0, 1fr)',
+    alignItems: 'center',
+    gap: 10,
+    padding: '13px 12px',
+    color: muted,
+  },
+
+  miniStatIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+    background: rgbaGreen(0.08),
+    border: `1px solid ${rgbaGreen(0.18)}`,
+  },
+
+  miniStatText: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 2,
+  },
+
+  nextModuleCard: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    minHeight: 342,
+    display: 'grid',
+    gridTemplateColumns: '0.72fr 1fr',
+    overflow: 'hidden',
+  },
+
+  athleteVisual: {
+    position: 'relative',
+    background:
+      'linear-gradient(90deg, rgba(5,7,6,0.05), rgba(5,7,6,0.92)), url(https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    filter: 'grayscale(1) contrast(1.08) brightness(0.70)',
+  },
+
+  athleteGlow: {
+    position: 'absolute',
+    inset: 0,
+    background: `radial-gradient(circle at 55% 42%, ${rgbaGreen(0.18)}, transparent 35%)`,
+  },
+
+  athleteLabel: {
+    position: 'absolute',
+    left: 22,
+    bottom: 20,
+    color: 'rgba(244,246,242,0.34)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.18em',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+
+  nextContent: {
+    padding: 28,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+
+  inProgressLabel: {
+    margin: 0,
+    color: green,
+    textTransform: 'uppercase',
+    letterSpacing: '0.16em',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+
+  nextTitle: {
+    margin: '12px 0 0',
+    fontSize: 30,
+    lineHeight: 1.05,
+    letterSpacing: '-0.035em',
+    fontWeight: 900,
+  },
+
+  nextDescription: {
+    margin: '12px 0 0',
+    color: muted,
+    fontSize: 15,
+    lineHeight: 1.65,
+    maxWidth: 540,
+  },
+
+  nextMeta: {
+    display: 'flex',
+    gap: 20,
+    flexWrap: 'wrap',
+    marginTop: 22,
+    color: muted,
+  },
+
+  metaItem: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 13,
+  },
+
+  nextProgressBlock: {
+    marginTop: 'auto',
+    paddingTop: 26,
+    color: green,
+    fontWeight: 800,
+  },
+
+  progressTrack: {
+    height: 8,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
+  },
+
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    background: green,
+    boxShadow: `0 0 24px ${rgbaGreen(0.34)}`,
+  },
+
+  continueButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: 42,
+    borderRadius: 10,
+    border: `1px solid ${rgbaGreen(0.26)}`,
+    background: `linear-gradient(135deg, ${green}, #7BEE65)`,
+    color: '#061008',
+    textDecoration: 'none',
+    fontWeight: 900,
+    fontSize: 13,
+    padding: '0 18px',
+    marginTop: 12,
+    width: 'fit-content',
+    boxShadow: `0 0 26px ${rgbaGreen(0.16)}`,
+  },
+
+  panel: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 20,
+  },
+
+  panelTitle: {
+    margin: '0 0 18px',
+    fontSize: 22,
+    lineHeight: 1,
+    fontWeight: 900,
+    letterSpacing: '-0.035em',
+  },
+
+  curriculumList: {
+    display: 'grid',
+    gap: 8,
+  },
+
+  curriculumRow: {
+    minHeight: 56,
+    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.06)',
+    background: 'rgba(255,255,255,0.026)',
+    display: 'grid',
+    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    alignItems: 'center',
+    gap: 14,
+    padding: '12px 14px',
+    textDecoration: 'none',
+    color: white,
+  },
+
+  curriculumRowActive: {
+    minHeight: 64,
+    borderRadius: 12,
+    border: `1px solid ${rgbaGreen(0.55)}`,
+    background: `linear-gradient(90deg, ${rgbaGreen(0.13)}, ${rgbaGreen(0.04)})`,
+    display: 'grid',
+    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    alignItems: 'center',
+    gap: 14,
+    padding: '12px 14px',
+    textDecoration: 'none',
+    color: white,
+    boxShadow: `inset 0 0 0 1px ${rgbaGreen(0.08)}, 0 0 34px ${rgbaGreen(0.06)}`,
+  },
+
+  curriculumRowLocked: {
+    minHeight: 56,
+    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.05)',
+    background: 'rgba(255,255,255,0.018)',
+    display: 'grid',
+    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    alignItems: 'center',
+    gap: 14,
+    padding: '12px 14px',
+    color: 'rgba(244,246,242,0.42)',
+  },
+
+  curriculumIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    display: 'grid',
+    placeItems: 'center',
+    color: muted,
+  },
+
+  curriculumIconDone: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: `1px solid ${rgbaGreen(0.28)}`,
+    background: rgbaGreen(0.08),
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+  },
+
+  curriculumIconActive: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: `1px solid ${rgbaGreen(0.34)}`,
+    background: rgbaGreen(0.10),
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+  },
+
+  curriculumIconLocked: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.08)',
+    display: 'grid',
+    placeItems: 'center',
+    color: 'rgba(244,246,242,0.35)',
+  },
+
+  curriculumMain: {
+    minWidth: 0,
+  },
+
+  moduleLabelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  moduleLabel: {
+    margin: 0,
+    color: green,
+    textTransform: 'uppercase',
+    letterSpacing: '0.13em',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
+  inProgressMini: {
+    borderRadius: 999,
+    background: rgbaGreen(0.12),
+    color: green,
+    padding: '3px 8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    fontSize: 9,
+    fontWeight: 900,
+  },
+
+  curriculumRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    color: muted,
+    fontSize: 13,
+  },
+
+  arrowBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    background: green,
+    color: '#061008',
+    display: 'grid',
+    placeItems: 'center',
+    boxShadow: `0 0 18px ${rgbaGreen(0.16)}`,
+  },
+
+  checkCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    border: `1px solid ${rgbaGreen(0.30)}`,
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  lockedText: {
+    color: soft,
+    fontSize: 13,
+  },
+
+  curriculumProgressTrack: {
+    height: 5,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+
+  bottomGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 18,
+  },
+
+  examCard: {
+    minHeight: 240,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background:
+      'linear-gradient(90deg, rgba(11,15,13,0.98), rgba(11,15,13,0.86)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    padding: 22,
+    display: 'grid',
+    gridTemplateColumns: '1fr 160px',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+
+  certificationCard: {
+    minHeight: 240,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: 'rgba(11,15,13,0.92)',
+    padding: 22,
+    overflow: 'hidden',
+    position: 'relative',
+    isolation: 'isolate',
+    display: 'flex',
+    alignItems: 'stretch',
+  },
+
+  certificationBgPhoto: {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage:
+      'linear-gradient(90deg, rgba(8,11,10,0.98) 0%, rgba(8,11,10,0.92) 24%, rgba(8,11,10,0.56) 58%, rgba(8,11,10,0.18) 100%), url(https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    filter: 'grayscale(0.15) contrast(1.02) brightness(0.72)',
+    zIndex: 0,
+  },
+
+  certificationBgOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background:
+      'radial-gradient(circle at 82% 40%, rgba(214,178,94,0.10), transparent 26%), linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.10))',
+    zIndex: 1,
+  },
+
+  examContent: {
+    minWidth: 0,
+    position: 'relative',
+    zIndex: 2,
+  },
+
+  certContent: {
+    width: '56%',
+    minWidth: 0,
+    position: 'relative',
+    zIndex: 3,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+
+  certKicker: {
+    margin: '0 0 10px',
+    color: gold,
+    textTransform: 'uppercase',
+    letterSpacing: '0.16em',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
+  largeCardTitle: {
+    margin: 0,
+    fontSize: 26,
+    letterSpacing: '-0.04em',
+    fontWeight: 900,
+  },
+
+  cardDescription: {
+    color: muted,
+    fontSize: 15,
+    lineHeight: 1.7,
+    maxWidth: 450,
+  },
+
+  darkButton: {
+    minHeight: 42,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.045)',
+    color: white,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '0 16px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    marginTop: 10,
+    width: 'fit-content',
+  },
+
+  featureRow: {
+    display: 'flex',
+    gap: 16,
+    flexWrap: 'wrap',
+    marginTop: 26,
+    color: muted,
+    fontSize: 12,
+  },
+
+  feature: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  examVisual: {
+    fontSize: 150,
+    lineHeight: 1,
+    color: 'rgba(244,246,242,0.08)',
+    fontWeight: 950,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  pageTitle: {
+    margin: 0,
+    fontSize: 36,
+    lineHeight: 1,
+    letterSpacing: '-0.05em',
+    fontWeight: 900,
+  },
+
+  pageSubtitle: {
+    margin: '12px 0 0',
+    color: muted,
+    fontSize: 15,
+    lineHeight: 1.6,
+  },
+
+  coursesPage: {
+    display: 'grid',
+    gap: 18,
+  },
+
+  coursesHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'end',
+    gap: 18,
+  },
+
+  courseControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+    padding: '0 0 6px',
+  },
+
+  searchBox: {
+    width: 320,
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 15px',
+    color: 'rgba(244,246,242,0.48)',
+    fontSize: 13,
+  },
+
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    border: 0,
+    outline: 0,
+    background: 'transparent',
+    color: white,
+    height: 44,
+  },
+
+  filterActive: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: `1px solid ${rgbaGreen(0.32)}`,
+    background: rgbaGreen(0.11),
+    color: green,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 18px',
+    cursor: 'pointer',
+    fontWeight: 850,
+    boxShadow: `0 0 16px ${rgbaGreen(0.08)}`,
+  },
+
+  filterButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    color: 'rgba(244,246,242,0.78)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 18px',
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
+
+  selectControl: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    color: 'rgba(244,246,242,0.78)',
+    padding: '0 16px',
+    outline: 0,
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
+
+  sortSelect: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    color: 'rgba(244,246,242,0.78)',
+    padding: '0 16px',
+    outline: 0,
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
+
+  controlsSpacer: {
+    flex: 1,
+  },
+
+  viewToggle: {
+    height: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    display: 'flex',
+    alignItems: 'center',
+    padding: 4,
+    gap: 4,
+  },
+
+  viewButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    border: '0',
+    background: 'transparent',
+    color: 'rgba(244,246,242,0.52)',
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+  },
+
+  viewButtonActive: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    border: '0',
+    background: rgbaGreen(0.12),
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+  },
+
+  courseSection: {
+    display: 'grid',
+    gap: 14,
+  },
+
+  courseSectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 16,
+  },
+
+  courseSectionTitle: {
+    margin: 0,
+    fontSize: 20,
+    lineHeight: 1,
+    letterSpacing: '-0.03em',
+    fontWeight: 850,
+  },
+
+  resultCounter: {
+    color: soft,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    fontWeight: 850,
+  },
+
+  premiumCourseGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: 18,
+    alignItems: 'stretch',
+  },
+
+  premiumCourseList: {
+    display: 'grid',
+    gap: 14,
+  },
+
+  premiumCourseCard: {
+    minHeight: 394,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+  },
+
+  premiumCourseCardList: {
+    minHeight: 220,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
+    overflow: 'hidden',
+    display: 'grid',
+    gridTemplateColumns: '320px minmax(0, 1fr)',
+    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+  },
+
+  premiumCourseImage: {
+    height: 164,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    position: 'relative',
+    filter: 'grayscale(1) contrast(1.05) brightness(0.82)',
+    flexShrink: 0,
+  },
+
+  premiumCourseImageList: {
+    height: '100%',
+    minHeight: 220,
+  },
+
+  premiumImageOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: `linear-gradient(180deg, rgba(5,7,6,0.00), rgba(5,7,6,0.86)), radial-gradient(circle at top right, ${rgbaGreen(0.13)}, transparent 34%)`,
+  },
+
+  courseTopBadges: {
+    position: 'absolute',
+    left: 14,
+    top: 14,
+    display: 'flex',
+    gap: 8,
+    zIndex: 2,
+  },
+
+  progressBadge: {
+    borderRadius: 5,
+    border: `1px solid ${rgbaGreen(0.34)}`,
+    background: rgbaGreen(0.12),
+    color: green,
+    padding: '6px 9px',
+    fontSize: 10,
+    lineHeight: 1,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  completedBadge: {
+    borderRadius: 5,
+    border: '1px solid rgba(255,255,255,0.14)',
+    background: 'rgba(255,255,255,0.055)',
+    color: 'rgba(244,246,242,0.74)',
+    padding: '6px 9px',
+    fontSize: 10,
+    lineHeight: 1,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  bookmarkIcon: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+    color: 'rgba(244,246,242,0.76)',
+    zIndex: 2,
+    width: 24,
+    height: 24,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  premiumCourseBody: {
+    padding: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    minWidth: 0,
+  },
+
+  premiumCourseTitle: {
+    margin: 0,
+    minHeight: 44,
+    color: white,
+    fontSize: 21,
+    lineHeight: 1.08,
+    letterSpacing: '-0.035em',
+    fontWeight: 900,
+  },
+
+  premiumCourseText: {
+    margin: '10px 0 0',
+    minHeight: 52,
+    color: muted,
+    fontSize: 14,
+    lineHeight: 1.55,
+  },
+
+  premiumStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 8,
+    marginTop: 'auto',
+    paddingTop: 16,
+  },
+
+  premiumMetric: {
+    minHeight: 60,
+    borderRadius: 9,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.032)',
+    padding: '10px 8px',
+    display: 'grid',
+    alignContent: 'center',
+    gap: 4,
+    minWidth: 0,
+  },
+
+  metricTopLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    color: 'rgba(244,246,242,0.78)',
+    minWidth: 0,
+  },
+
+  cardProgressArea: {
+    marginTop: 13,
+    display: 'grid',
+    gap: 8,
+  },
+
+  cardProgressText: {
+    color: green,
+    fontSize: 13,
+    fontWeight: 850,
+  },
+
+  premiumActions: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 10,
+    marginTop: 14,
+  },
+
+  courseContinueButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: `linear-gradient(135deg, ${green}, #7BEE65)`,
+    color: '#061008',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 900,
+    fontSize: 13,
+    boxShadow: `0 0 22px ${rgbaGreen(0.16)}`,
+  },
+
+  reviewButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: 'rgba(255,255,255,0.050)',
+    color: white,
+    border: '1px solid rgba(255,255,255,0.10)',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 850,
+    fontSize: 13,
+  },
+
+  courseDetailButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: 'rgba(255,255,255,0.040)',
+    color: white,
+    border: '1px solid rgba(255,255,255,0.10)',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    fontWeight: 850,
+    fontSize: 13,
+  },
+
+  sectionStack: {
+    display: 'grid',
+    gap: 18,
+  },
+
+  courseGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+    gap: 18,
+  },
+
+  courseCardTitle: {
+    margin: 0,
+    fontSize: 24,
+    lineHeight: 1.05,
+    letterSpacing: '-0.035em',
+    fontWeight: 900,
+  },
+
+  courseCardText: {
+    color: muted,
+    lineHeight: 1.65,
+    fontSize: 14,
+    minHeight: 66,
+  },
+
+  courseStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 10,
+    marginTop: 16,
+  },
+
+  badgeGreen: {
+    borderRadius: 999,
+    background: rgbaGreen(0.12),
+    border: `1px solid ${rgbaGreen(0.26)}`,
+    color: green,
+    padding: '6px 9px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.11em',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
+  certificateCard: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 22,
+  },
+
+  certificateIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    border: `1px solid ${rgbaGreen(0.26)}`,
+    background: rgbaGreen(0.08),
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+    marginBottom: 16,
+  },
+
+  lessonsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: 12,
+  },
+
+  lessonCard: {
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.03)',
+    padding: 16,
+    textDecoration: 'none',
+    color: white,
+  },
+
+  lessonStatus: {
+    display: 'inline-flex',
+    marginBottom: 10,
+    color: soft,
+    fontSize: 10,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  lessonStatusDone: {
+    display: 'inline-flex',
+    marginBottom: 10,
+    color: green,
+    fontSize: 10,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  examGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: 14,
+  },
+
+  infoBlock: {
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.03)',
+    padding: 18,
+  },
+
+  infoIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+    background: rgbaGreen(0.08),
+    border: `1px solid ${rgbaGreen(0.18)}`,
+    marginBottom: 14,
+  },
+
+  profileGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+    gap: 12,
+  },
+
+  profileStat: {
+    borderRadius: 9,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(0,0,0,0.20)',
+    padding: '10px 8px',
+    minWidth: 0,
+    display: 'grid',
+    gap: 5,
+    alignContent: 'center',
+  },
+
+  profileStatLabel: {
+    color: 'rgba(244,246,242,0.60)',
+    fontSize: 11,
+    lineHeight: 1.2,
+  },
+
+  profileStatValue: {
+    color: white,
+    fontSize: 16,
+    lineHeight: 1.05,
+    fontWeight: 850,
+    letterSpacing: '-0.01em',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+
+  emptyState: {
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.025)',
+    padding: 18,
+    color: muted,
+  },
+};
