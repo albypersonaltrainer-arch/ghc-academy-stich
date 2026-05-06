@@ -63,7 +63,6 @@ const supabase = createClient(
 
 const green = '#22D65B';
 const bg = '#050706';
-const panel = '#0B0F0D';
 const white = '#F4F6F2';
 const muted = 'rgba(244,246,242,0.62)';
 const soft = 'rgba(244,246,242,0.42)';
@@ -288,6 +287,18 @@ export default function AlumnoPage() {
   const activeCourses = courseCards.filter((card) => !card.completion);
   const completedCourses = courseCards.filter((card) => card.completion);
 
+  const mainCourse = useMemo(() => {
+    const candidates = [...activeCourses, ...completedCourses];
+
+    return (
+      candidates.find((card) => card.nextLesson && card.courseModules.length > 0) ||
+      candidates.find((card) => card.courseModules.length > 0 && card.courseLessons.length > 0) ||
+      candidates.find((card) => card.progressPercent > 0) ||
+      candidates[0] ||
+      null
+    );
+  }, [activeCourses, completedCourses]);
+
   const totalLessons = courseCards.reduce((sum, card) => sum + card.courseLessons.length, 0);
   const completedLessonsInsideVisibleCourses = courseCards.reduce(
     (sum, card) => sum + card.completedLessonCount,
@@ -296,8 +307,6 @@ export default function AlumnoPage() {
 
   const globalProgress =
     totalLessons > 0 ? Math.round((completedLessonsInsideVisibleCourses / totalLessons) * 100) : 0;
-
-  const mainCourse = activeCourses[0] || completedCourses[0] || null;
 
   const currentModule =
     mainCourse && mainCourse.nextLesson
@@ -400,7 +409,7 @@ export default function AlumnoPage() {
   }
 
   return (
-    <main style={styles.page}>
+    <main data-ghc-page="student" style={styles.page}>
       <Background />
       <GlobalCss />
 
@@ -530,8 +539,8 @@ export default function AlumnoPage() {
                 </p>
 
                 <div style={styles.progressMiniStats}>
-                  <MiniStat icon="clock" label="Learning Time" value={`${stats.lessons} Lessons`} />
-                  <MiniStat icon="certificate" label="Earned" value={`${stats.certificates} Badges`} />
+                  <MiniStat icon="clock" label="Lessons completed" value={stats.lessons} />
+                  <MiniStat icon="certificate" label="Certificates earned" value={stats.certificates} />
                 </div>
               </article>
 
@@ -628,14 +637,18 @@ export default function AlumnoPage() {
                   </div>
                 </div>
 
-                <div style={styles.examVisual}>?</div>
+                <div style={styles.examVisual}>
+                  <span>?</span>
+                </div>
               </article>
 
               <article style={styles.certificationCard}>
                 <div style={styles.certContent}>
+                  <p style={styles.certKicker}>Official Credential</p>
                   <h2 style={styles.largeCardTitle}>Certification</h2>
                   <p style={styles.cardDescription}>
-                    Earn your official GHC Academy certificate when your course path is completed.
+                    Earn your official GHC Academy certificate when your learning path is
+                    completed and verified.
                   </p>
 
                   <button
@@ -654,7 +667,11 @@ export default function AlumnoPage() {
                 </div>
 
                 <div style={styles.medalVisual}>
-                  <Icon name="star" />
+                  <div style={styles.medalCircle}>
+                    <Icon name="star" />
+                  </div>
+                  <div style={styles.medalRibbonLeft} />
+                  <div style={styles.medalRibbonRight} />
                 </div>
               </article>
             </section>
@@ -837,13 +854,13 @@ function GlobalCss() {
           -webkit-tap-highlight-color: transparent;
         }
 
-        @media (max-width: 1120px) {
+        @media (max-width: 1180px) {
           main[data-ghc-page="student"] {
-            grid-template-columns: 92px minmax(0, 1fr) !important;
+            grid-template-columns: 104px minmax(0, 1fr) !important;
           }
         }
 
-        @media (max-width: 860px) {
+        @media (max-width: 960px) {
           main[data-ghc-page="student"] {
             grid-template-columns: 1fr !important;
           }
@@ -962,11 +979,22 @@ function CurriculumRow({ item }: { item: ModuleView }) {
   );
 }
 
-function MiniStat({ icon, label, value }: { icon: IconName; label: string; value: string }) {
+function MiniStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: IconName;
+  label: string;
+  value: string | number;
+}) {
   return (
     <div style={styles.miniStat}>
-      <Icon name={icon} />
-      <div>
+      <span style={styles.miniStatIcon}>
+        <Icon name={icon} />
+      </span>
+
+      <div style={styles.miniStatText}>
         <strong>{value}</strong>
         <span>{label}</span>
       </div>
@@ -1365,6 +1393,10 @@ function getCourseImage(course: AnyRecord) {
 
 function getCourseBackground(course: AnyRecord) {
   return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.92)), url(${getCourseImage(course)})`;
+}
+
+function cardBackground() {
+  return 'linear-gradient(145deg, rgba(255,255,255,0.060), rgba(255,255,255,0.022)), rgba(8,12,10,0.86)';
 }
 
 const styles: Record<string, CSSProperties> = {
@@ -1850,18 +1882,38 @@ const styles: Record<string, CSSProperties> = {
   progressMiniStats: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
+    gap: 0,
     border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: 12,
     overflow: 'hidden',
+    background: 'rgba(0,0,0,0.18)',
   },
 
   miniStat: {
-    display: 'flex',
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: '28px minmax(0, 1fr)',
     alignItems: 'center',
-    gap: 11,
-    padding: 14,
+    gap: 10,
+    padding: '13px 12px',
     color: muted,
-    borderRight: '1px solid rgba(255,255,255,0.08)',
+  },
+
+  miniStatIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+    background: 'rgba(34,214,91,0.08)',
+    border: '1px solid rgba(34,214,91,0.16)',
+  },
+
+  miniStatText: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 2,
   },
 
   nextModuleCard: {
@@ -2182,11 +2234,13 @@ const styles: Record<string, CSSProperties> = {
     minHeight: 240,
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
+    background:
+      'radial-gradient(circle at 82% 45%, rgba(255,255,255,0.10), transparent 22%), linear-gradient(145deg, rgba(255,255,255,0.065), rgba(255,255,255,0.020)), rgba(8,12,10,0.90)',
     padding: 22,
     display: 'grid',
-    gridTemplateColumns: '1fr 170px',
+    gridTemplateColumns: '1fr 190px',
     overflow: 'hidden',
+    position: 'relative',
   },
 
   examContent: {
@@ -2195,6 +2249,17 @@ const styles: Record<string, CSSProperties> = {
 
   certContent: {
     minWidth: 0,
+    position: 'relative',
+    zIndex: 1,
+  },
+
+  certKicker: {
+    margin: '0 0 10px',
+    color: green,
+    textTransform: 'uppercase',
+    letterSpacing: '0.16em',
+    fontSize: 10,
+    fontWeight: 900,
   },
 
   largeCardTitle: {
@@ -2251,10 +2316,49 @@ const styles: Record<string, CSSProperties> = {
   },
 
   medalVisual: {
+    position: 'relative',
     display: 'grid',
     placeItems: 'center',
-    color: 'rgba(244,246,242,0.18)',
-    transform: 'scale(4)',
+    minHeight: 190,
+    opacity: 0.72,
+  },
+
+  medalCircle: {
+    width: 118,
+    height: 118,
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    color: 'rgba(244,246,242,0.45)',
+    border: '1px solid rgba(244,246,242,0.22)',
+    background:
+      'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.22), transparent 25%), linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02))',
+    boxShadow: '0 22px 60px rgba(0,0,0,0.35)',
+    zIndex: 2,
+  },
+
+  medalRibbonLeft: {
+    position: 'absolute',
+    width: 48,
+    height: 92,
+    background: 'rgba(244,246,242,0.10)',
+    transform: 'rotate(18deg)',
+    bottom: 8,
+    left: 48,
+    clipPath: 'polygon(0 0, 100% 0, 78% 100%, 48% 78%, 16% 100%)',
+    border: '1px solid rgba(255,255,255,0.08)',
+  },
+
+  medalRibbonRight: {
+    position: 'absolute',
+    width: 48,
+    height: 92,
+    background: 'rgba(244,246,242,0.08)',
+    transform: 'rotate(-18deg)',
+    bottom: 8,
+    right: 48,
+    clipPath: 'polygon(0 0, 100% 0, 84% 100%, 52% 78%, 18% 100%)',
+    border: '1px solid rgba(255,255,255,0.08)',
   },
 
   sectionStack: {
@@ -2464,7 +2568,3 @@ const styles: Record<string, CSSProperties> = {
     color: muted,
   },
 };
-
-function cardBackground() {
-  return 'linear-gradient(145deg, rgba(255,255,255,0.060), rgba(255,255,255,0.022)), rgba(8,12,10,0.86)';
-}
