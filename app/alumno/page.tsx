@@ -8,17 +8,19 @@ import { createClient } from '@supabase/supabase-js';
 import GHCLogo from '../components/GHCLogo';
 
 type AnyRecord = Record<string, any>;
-type DashboardTab = 'overview' | 'courses' | 'progress' | 'certificates' | 'profile';
+type Tab = 'resumen' | 'cursos' | 'progreso' | 'certificados' | 'perfil';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-export default function AlumnoDashboardPage() {
+const green = '#22D65B';
+
+export default function AlumnoPage() {
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('resumen');
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
 
@@ -62,17 +64,16 @@ export default function AlumnoDashboardPage() {
           .select('*');
 
         if (coursesError) {
-          console.error('Error loading courses:', coursesError);
+          console.error(coursesError);
           setSystemMessage('No se pudieron cargar los cursos.');
           setCourses([]);
-          setLoading(false);
           return;
         }
 
         const visibleCourses = Array.isArray(coursesData)
-          ? coursesData.filter(isVisibleCourse).sort((a, b) =>
-              String(a.title || '').localeCompare(String(b.title || ''))
-            )
+          ? coursesData
+              .filter(isVisibleCourse)
+              .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
           : [];
 
         setCourses(visibleCourses);
@@ -135,7 +136,7 @@ export default function AlumnoDashboardPage() {
 
         setCertificates(Array.isArray(certificatesData) ? certificatesData : []);
       } catch (error) {
-        console.error('Error loading student dashboard:', error);
+        console.error(error);
         setSystemMessage('Error cargando el panel del alumno.');
       } finally {
         setLoading(false);
@@ -222,33 +223,19 @@ export default function AlumnoDashboardPage() {
   const activeCourses = courseCards.filter((card) => !card.completion);
   const completedCourses = courseCards.filter((card) => card.completion);
 
-  const stats = useMemo(() => {
-    const totalLessons = courseCards.reduce(
-      (sum, card) => sum + card.courseLessons.length,
-      0
-    );
+  const totalLessons = courseCards.reduce((sum, card) => sum + card.courseLessons.length, 0);
 
-    const globalProgress =
-      totalLessons > 0 ? Math.round((lessonProgress.length / totalLessons) * 100) : 0;
+  const globalProgress =
+    totalLessons > 0 ? Math.round((lessonProgress.length / totalLessons) * 100) : 0;
 
-    return {
-      visibleCourses: courses.length,
-      activeCourses: activeCourses.length,
-      completedCourses: completedCourses.length,
-      completedLessons: lessonProgress.length,
-      completedModules: moduleCompletions.length,
-      certificates: certificates.length,
-      globalProgress,
-    };
-  }, [
-    courses,
-    activeCourses,
-    completedCourses,
-    lessonProgress,
-    moduleCompletions,
-    certificates,
-    courseCards,
-  ]);
+  const stats = {
+    courses: courses.length,
+    lessons: lessonProgress.length,
+    modules: moduleCompletions.length,
+    completedCourses: courseCompletions.length,
+    certificates: certificates.length,
+    globalProgress,
+  };
 
   const mainCourse = activeCourses[0] || completedCourses[0] || null;
 
@@ -263,7 +250,7 @@ export default function AlumnoDashboardPage() {
         <section style={styles.loadingCard}>
           <GHCLogo size="md" showText tagline={false} />
           <h1 style={styles.loadingTitle}>Cargando portal</h1>
-          <p style={styles.mutedText}>Estamos preparando tu dashboard real de alumno.</p>
+          <p style={styles.muted}>Estamos preparando tu dashboard real de alumno.</p>
         </section>
       </main>
     );
@@ -283,35 +270,15 @@ export default function AlumnoDashboardPage() {
               <p style={styles.studentRole}>Alumno GHC Academy</p>
             </div>
           </div>
-        </div>
 
-        <nav style={styles.nav}>
-          <SidebarButton
-            active={activeTab === 'overview'}
-            label="Resumen"
-            onClick={() => setActiveTab('overview')}
-          />
-          <SidebarButton
-            active={activeTab === 'courses'}
-            label="Mis cursos"
-            onClick={() => setActiveTab('courses')}
-          />
-          <SidebarButton
-            active={activeTab === 'progress'}
-            label="Progreso"
-            onClick={() => setActiveTab('progress')}
-          />
-          <SidebarButton
-            active={activeTab === 'certificates'}
-            label="Certificados"
-            onClick={() => setActiveTab('certificates')}
-          />
-          <SidebarButton
-            active={activeTab === 'profile'}
-            label="Perfil"
-            onClick={() => setActiveTab('profile')}
-          />
-        </nav>
+          <nav style={styles.nav}>
+            <TabButton label="Resumen" active={activeTab === 'resumen'} onClick={() => setActiveTab('resumen')} />
+            <TabButton label="Mis cursos" active={activeTab === 'cursos'} onClick={() => setActiveTab('cursos')} />
+            <TabButton label="Progreso" active={activeTab === 'progreso'} onClick={() => setActiveTab('progreso')} />
+            <TabButton label="Certificados" active={activeTab === 'certificados'} onClick={() => setActiveTab('certificados')} />
+            <TabButton label="Perfil" active={activeTab === 'perfil'} onClick={() => setActiveTab('perfil')} />
+          </nav>
+        </div>
 
         <div style={styles.sidebarFooter}>
           <Link href="/cursos" style={styles.sidebarLink}>
@@ -325,66 +292,195 @@ export default function AlumnoDashboardPage() {
       </aside>
 
       <section style={styles.content}>
-        <header style={styles.topHeader}>
+        <header style={styles.header}>
           <div>
             <p style={styles.kicker}>Portal del alumno</p>
-            <h2 style={styles.title}>Bienvenido, {shortName(displayName)}</h2>
-            <p style={styles.mutedText}>
+            <h1 style={styles.title}>Bienvenido, {shortName(displayName)}</h1>
+            <p style={styles.muted}>
               Tu progreso, cursos, módulos aprobados y certificados ya se leen desde Supabase.
             </p>
           </div>
 
-          <div style={styles.headerActions}>
-            <Link href="/cursos" style={styles.secondaryButton}>
-              Explorar cursos
-            </Link>
-          </div>
+          <Link href="/cursos" style={styles.secondaryButton}>
+            Explorar cursos
+          </Link>
         </header>
 
-        {systemMessage && <div style={styles.noticeBox}>{systemMessage}</div>}
+        {systemMessage && <div style={styles.notice}>{systemMessage}</div>}
 
-        {activeTab === 'overview' && (
-          <OverviewTab
-            stats={stats}
-            mainCourse={mainCourse}
-            certificates={certificates}
-          />
+        {activeTab === 'resumen' && (
+          <div style={styles.stack}>
+            <section style={styles.heroGrid}>
+              <article style={styles.progressPanel}>
+                <p style={styles.sectionLabel}>Progreso general</p>
+
+                <div style={styles.ringWrap}>
+                  <div
+                    style={{
+                      ...styles.ring,
+                      background: `conic-gradient(${green} ${globalProgress * 3.6}deg, rgba(255,255,255,0.10) 0deg)`,
+                    }}
+                  >
+                    <div style={styles.ringInner}>
+                      <strong>{globalProgress}%</strong>
+                      <span>Completado</span>
+                    </div>
+                  </div>
+                </div>
+
+                <p style={styles.muted}>
+                  Resumen global de tu progreso real dentro de GHC Academy.
+                </p>
+              </article>
+
+              <article style={styles.nextPanel}>
+                <div style={styles.nextImage} />
+
+                <div style={styles.nextBody}>
+                  <p style={styles.sectionLabel}>Continuar formación</p>
+
+                  {mainCourse ? (
+                    <>
+                      <h2 style={styles.smallTitle}>{mainCourse.course.title}</h2>
+
+                      <p style={styles.muted}>
+                        Progreso: {mainCourse.progressPercent}% · Módulos aprobados:{' '}
+                        {mainCourse.completedModuleCount}/{mainCourse.courseModules.length}
+                      </p>
+
+                      <div style={styles.progressTrack}>
+                        <div style={{ ...styles.progressFill, width: `${mainCourse.progressPercent}%` }} />
+                      </div>
+
+                      <Link
+                        href={
+                          mainCourse.nextLesson
+                            ? `/cursos/${mainCourse.course.slug}/${mainCourse.nextLesson.id}`
+                            : `/cursos/${mainCourse.course.slug}`
+                        }
+                        style={styles.primaryButton}
+                      >
+                        Continuar →
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <h2 style={styles.smallTitle}>Aún no hay cursos activos</h2>
+                      <p style={styles.muted}>Entra al catálogo para iniciar tu itinerario.</p>
+                      <Link href="/cursos" style={styles.primaryButton}>
+                        Ir al catálogo →
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </article>
+            </section>
+
+            <section style={styles.statsGrid}>
+              <Stat label="Cursos visibles" value={stats.courses} />
+              <Stat label="Lecciones completadas" value={stats.lessons} />
+              <Stat label="Módulos aprobados" value={stats.modules} />
+              <Stat label="Certificados" value={stats.certificates} />
+            </section>
+          </div>
         )}
 
-        {activeTab === 'courses' && (
-          <CoursesTab
-            activeCourses={activeCourses}
-            completedCourses={completedCourses}
-          />
+        {activeTab === 'cursos' && (
+          <div style={styles.stack}>
+            <Panel title="Mis cursos" label="Formación activa">
+              {activeCourses.length === 0 ? (
+                <Empty text="Todavía no tienes cursos activos. Entra al catálogo para iniciar tu formación." />
+              ) : (
+                <div style={styles.cardsGrid}>
+                  {activeCourses.map((card) => (
+                    <CourseCard key={card.course.id} card={card} />
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            <Panel title="Cursos completados" label="Historial académico">
+              {completedCourses.length === 0 ? (
+                <Empty text="Cuando completes un curso, aparecerá aquí." />
+              ) : (
+                <div style={styles.cardsGrid}>
+                  {completedCourses.map((card) => (
+                    <CourseCard key={card.course.id} card={card} completed />
+                  ))}
+                </div>
+              )}
+            </Panel>
+          </div>
         )}
 
-        {activeTab === 'progress' && (
-          <ProgressTab
-            stats={stats}
-            courseCards={courseCards}
-            lessonProgress={lessonProgress}
-            moduleCompletions={moduleCompletions}
-          />
+        {activeTab === 'progreso' && (
+          <div style={styles.stack}>
+            <section style={styles.statsGrid}>
+              <Stat label="Progreso global" value={`${stats.globalProgress}%`} />
+              <Stat label="Lecciones completadas" value={stats.lessons} />
+              <Stat label="Módulos aprobados" value={stats.modules} />
+              <Stat label="Cursos completados" value={stats.completedCourses} />
+            </section>
+
+            <Panel title="Progreso académico" label="Detalle por curso">
+              <div style={styles.progressList}>
+                {courseCards.map((card) => (
+                  <article key={card.course.id} style={styles.progressRow}>
+                    <div>
+                      <h3 style={styles.progressCourseTitle}>{card.course.title}</h3>
+                      <p style={styles.muted}>
+                        {card.completedLessonCount}/{card.courseLessons.length} lecciones ·{' '}
+                        {card.completedModuleCount}/{card.courseModules.length} módulos
+                      </p>
+                    </div>
+
+                    <div style={styles.progressRight}>
+                      <strong style={styles.progressPercent}>{card.progressPercent}%</strong>
+                      <div style={styles.progressTrackMini}>
+                        <div style={{ ...styles.progressFill, width: `${card.progressPercent}%` }} />
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </Panel>
+          </div>
         )}
 
-        {activeTab === 'certificates' && (
-          <CertificatesTab certificates={certificates} />
+        {activeTab === 'certificados' && (
+          <Panel title="Mis certificados" label="Credenciales digitales">
+            {certificates.length === 0 ? (
+              <Empty text="Aún no tienes certificados reales emitidos. Completa un curso y emite tu certificado para verlo aquí." />
+            ) : (
+              <div style={styles.cardsGrid}>
+                {certificates.map((certificate) => (
+                  <CertificateCard key={certificate.id} certificate={certificate} />
+                ))}
+              </div>
+            )}
+          </Panel>
         )}
 
-        {activeTab === 'profile' && (
-          <ProfileTab
-            displayName={displayName}
-            user={user}
-            profile={profile}
-            stats={stats}
-          />
+        {activeTab === 'perfil' && (
+          <Panel title={displayName} label="Perfil">
+            <div style={styles.profileGrid}>
+              <InfoBox label="Email" value={user?.email || '—'} />
+              <InfoBox label="Rol" value={profile?.role || 'student'} />
+              <InfoBox label="Cursos completados" value={stats.completedCourses} />
+              <InfoBox label="Certificados" value={stats.certificates} />
+            </div>
+
+            <p style={styles.muted}>
+              Más adelante añadiremos edición de perfil, foto, dispositivos autorizados y preferencias.
+            </p>
+          </Panel>
         )}
       </section>
     </main>
   );
 }
 
-function SidebarButton({
+function TabButton({
   label,
   active,
   onClick,
@@ -394,292 +490,31 @@ function SidebarButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={active ? styles.navButtonActive : styles.navButton}
-    >
+    <button type="button" onClick={onClick} style={active ? styles.navActive : styles.navButton}>
       {label}
     </button>
   );
 }
 
-function OverviewTab({
-  stats,
-  mainCourse,
-  certificates,
+function Panel({
+  label,
+  title,
+  children,
 }: {
-  stats: AnyRecord;
-  mainCourse: AnyRecord | null;
-  certificates: AnyRecord[];
+  label: string;
+  title: string;
+  children: React.ReactNode;
 }) {
-  return (
-    <div style={styles.tabStack}>
-      <section style={styles.heroGrid}>
-        <article style={styles.progressHero}>
-          <p style={styles.sectionLabel}>Progreso general</p>
-
-          <div style={styles.ringShell}>
-            <div
-              style={{
-                ...styles.ring,
-                background: `conic-gradient(#22d65b ${stats.globalProgress * 3.6}deg, rgba(255,255,255,0.10) 0deg)`,
-              }}
-            >
-              <div style={styles.ringInner}>
-                <strong>{stats.globalProgress}%</strong>
-                <span>Completado</span>
-              </div>
-            </div>
-          </div>
-
-          <p style={styles.mutedText}>
-            Resumen global de tu progreso en lecciones completadas dentro de los cursos visibles.
-          </p>
-
-          <div style={styles.microStatsGrid}>
-            <InfoBox label="Lecciones" value={stats.completedLessons} />
-            <InfoBox label="Módulos" value={stats.completedModules} />
-          </div>
-        </article>
-
-        <article style={styles.nextModule}>
-          <div style={styles.nextModuleImage} />
-
-          <div style={styles.nextModuleBody}>
-            <p style={styles.sectionLabel}>Continuar formación</p>
-
-            {mainCourse ? (
-              <>
-                <h3 style={styles.smallTitle}>{mainCourse.course.title}</h3>
-
-                <p style={styles.mutedText}>
-                  Progreso: {mainCourse.progressPercent}% · Módulos aprobados:{' '}
-                  {mainCourse.completedModuleCount}/{mainCourse.courseModules.length}
-                </p>
-
-                <div style={styles.progressTrack}>
-                  <div
-                    style={{
-                      ...styles.progressFill,
-                      width: `${mainCourse.progressPercent}%`,
-                    }}
-                  />
-                </div>
-
-                <Link
-                  href={
-                    mainCourse.nextLesson
-                      ? `/cursos/${mainCourse.course.slug}/${mainCourse.nextLesson.id}`
-                      : `/cursos/${mainCourse.course.slug}`
-                  }
-                  style={styles.primaryButton}
-                >
-                  Continuar →
-                </Link>
-              </>
-            ) : (
-              <>
-                <h3 style={styles.smallTitle}>Aún no hay cursos activos</h3>
-                <p style={styles.mutedText}>Entra al catálogo para iniciar tu itinerario.</p>
-                <Link href="/cursos" style={styles.primaryButton}>
-                  Ir al catálogo →
-                </Link>
-              </>
-            )}
-          </div>
-        </article>
-      </section>
-
-      <section style={styles.statsGrid}>
-        <StatCard label="Cursos visibles" value={stats.visibleCourses} />
-        <StatCard label="Lecciones completadas" value={stats.completedLessons} />
-        <StatCard label="Módulos aprobados" value={stats.completedModules} />
-        <StatCard label="Certificados" value={stats.certificates} />
-      </section>
-
-      <section style={styles.panel}>
-        <div style={styles.sectionHeader}>
-          <div>
-            <p style={styles.sectionLabel}>Últimas credenciales</p>
-            <h3 style={styles.sectionTitle}>Certificados</h3>
-          </div>
-        </div>
-
-        {certificates.length === 0 ? (
-          <EmptyState text="Cuando emitas certificados reales, aparecerán aquí." />
-        ) : (
-          <div style={styles.cardsGrid}>
-            {certificates.slice(0, 3).map((certificate) => (
-              <CertificateCard key={certificate.id} certificate={certificate} />
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function CoursesTab({
-  activeCourses,
-  completedCourses,
-}: {
-  activeCourses: AnyRecord[];
-  completedCourses: AnyRecord[];
-}) {
-  return (
-    <div style={styles.tabStack}>
-      <section style={styles.panel}>
-        <div style={styles.sectionHeader}>
-          <div>
-            <p style={styles.sectionLabel}>Formación activa</p>
-            <h3 style={styles.sectionTitle}>Mis cursos</h3>
-          </div>
-        </div>
-
-        {activeCourses.length === 0 ? (
-          <EmptyState text="Todavía no tienes cursos activos. Entra al catálogo para iniciar tu formación." />
-        ) : (
-          <div style={styles.cardsGrid}>
-            {activeCourses.map((card) => (
-              <CourseCard key={card.course.id} card={card} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section style={styles.panel}>
-        <div style={styles.sectionHeader}>
-          <div>
-            <p style={styles.sectionLabel}>Historial académico</p>
-            <h3 style={styles.sectionTitle}>Cursos completados</h3>
-          </div>
-        </div>
-
-        {completedCourses.length === 0 ? (
-          <EmptyState text="Cuando completes un curso, aparecerá aquí." />
-        ) : (
-          <div style={styles.cardsGrid}>
-            {completedCourses.map((card) => (
-              <CourseCard key={card.course.id} card={card} completed />
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function ProgressTab({
-  stats,
-  courseCards,
-  lessonProgress,
-  moduleCompletions,
-}: {
-  stats: AnyRecord;
-  courseCards: AnyRecord[];
-  lessonProgress: AnyRecord[];
-  moduleCompletions: AnyRecord[];
-}) {
-  return (
-    <div style={styles.tabStack}>
-      <section style={styles.statsGrid}>
-        <StatCard label="Progreso global" value={`${stats.globalProgress}%`} />
-        <StatCard label="Lecciones completadas" value={lessonProgress.length} />
-        <StatCard label="Módulos aprobados" value={moduleCompletions.length} />
-        <StatCard label="Cursos completados" value={stats.completedCourses} />
-      </section>
-
-      <section style={styles.panel}>
-        <div style={styles.sectionHeader}>
-          <div>
-            <p style={styles.sectionLabel}>Detalle por curso</p>
-            <h3 style={styles.sectionTitle}>Progreso académico</h3>
-          </div>
-        </div>
-
-        <div style={styles.progressList}>
-          {courseCards.map((card) => (
-            <article key={card.course.id} style={styles.progressRow}>
-              <div>
-                <h4 style={styles.progressCourseTitle}>{card.course.title}</h4>
-                <p style={styles.mutedText}>
-                  {card.completedLessonCount}/{card.courseLessons.length} lecciones ·{' '}
-                  {card.completedModuleCount}/{card.courseModules.length} módulos
-                </p>
-              </div>
-
-              <div style={styles.progressRight}>
-                <strong style={styles.progressPercent}>{card.progressPercent}%</strong>
-                <div style={styles.progressTrackMini}>
-                  <div style={{ ...styles.progressFill, width: `${card.progressPercent}%` }} />
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function CertificatesTab({ certificates }: { certificates: AnyRecord[] }) {
   return (
     <section style={styles.panel}>
-      <div style={styles.sectionHeader}>
-        <div>
-          <p style={styles.sectionLabel}>Credenciales digitales</p>
-          <h3 style={styles.sectionTitle}>Mis certificados</h3>
-        </div>
-      </div>
-
-      {certificates.length === 0 ? (
-        <EmptyState text="Aún no tienes certificados reales emitidos. Completa un curso y emite tu certificado para verlo aquí." />
-      ) : (
-        <div style={styles.cardsGrid}>
-          {certificates.map((certificate) => (
-            <CertificateCard key={certificate.id} certificate={certificate} />
-          ))}
-        </div>
-      )}
+      <p style={styles.sectionLabel}>{label}</p>
+      <h2 style={styles.sectionTitle}>{title}</h2>
+      {children}
     </section>
   );
 }
 
-function ProfileTab({
-  displayName,
-  user,
-  profile,
-  stats,
-}: {
-  displayName: string;
-  user: any;
-  profile: AnyRecord | null;
-  stats: AnyRecord;
-}) {
-  return (
-    <div style={styles.tabStack}>
-      <section style={styles.panel}>
-        <p style={styles.sectionLabel}>Perfil</p>
-        <h3 style={styles.sectionTitle}>{displayName}</h3>
-
-        <div style={styles.profileGrid}>
-          <InfoBox label="Email" value={user?.email || '—'} />
-          <InfoBox label="Rol" value={profile?.role || 'student'} />
-          <InfoBox label="Cursos completados" value={stats.completedCourses} />
-          <InfoBox label="Certificados" value={stats.certificates} />
-        </div>
-
-        <p style={styles.mutedText}>
-          Más adelante añadiremos edición de perfil, foto, dispositivos autorizados y preferencias
-          del alumno.
-        </p>
-      </section>
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <article style={styles.statCard}>
       <p style={styles.smallLabel}>{label}</p>
@@ -688,13 +523,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function CourseCard({
-  card,
-  completed = false,
-}: {
-  card: AnyRecord;
-  completed?: boolean;
-}) {
+function CourseCard({ card, completed = false }: { card: AnyRecord; completed?: boolean }) {
   const course = card.course;
   const nextLesson = card.nextLesson;
 
@@ -702,7 +531,7 @@ function CourseCard({
     <article style={styles.courseCard}>
       <div style={styles.courseImage} />
 
-      <div style={styles.courseCardBody}>
+      <div style={styles.courseBody}>
         <div style={styles.badgeRow}>
           {course.course_type && <span style={styles.badgeMain}>{course.course_type}</span>}
           {course.level && <span style={styles.badgeSecondary}>{course.level}</span>}
@@ -778,10 +607,10 @@ function InfoBox({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function EmptyState({ text }: { text: string }) {
+function Empty({ text }: { text: string }) {
   return (
     <article style={styles.emptyCard}>
-      <p style={styles.mutedText}>{text}</p>
+      <p style={styles.muted}>{text}</p>
     </article>
   );
 }
@@ -886,6 +715,23 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: 'Arial, Helvetica, sans-serif',
   },
 
+  loadingCard: {
+    maxWidth: '620px',
+    margin: '22vh auto 0',
+    borderRadius: '34px',
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025))',
+    padding: '34px',
+  },
+
+  loadingTitle: {
+    fontSize: 'clamp(38px, 6vw, 68px)',
+    lineHeight: '0.95',
+    fontWeight: 850,
+    letterSpacing: '-0.035em',
+    margin: '24px 0 0',
+  },
+
   sidebar: {
     minHeight: '100vh',
     position: 'sticky',
@@ -919,7 +765,7 @@ const styles: Record<string, CSSProperties> = {
     placeItems: 'center',
     background: 'rgba(34,214,91,0.12)',
     border: '1px solid rgba(34,214,91,0.28)',
-    color: '#22D65B',
+    color: green,
     fontWeight: 950,
   },
 
@@ -957,11 +803,11 @@ const styles: Record<string, CSSProperties> = {
     cursor: 'pointer',
   },
 
-  navButtonActive: {
+  navActive: {
     width: '100%',
     border: '1px solid rgba(34,214,91,0.36)',
     background: 'rgba(34,214,91,0.10)',
-    color: '#22D65B',
+    color: green,
     borderRadius: '15px',
     padding: '14px',
     textAlign: 'left',
@@ -983,7 +829,7 @@ const styles: Record<string, CSSProperties> = {
     textAlign: 'center',
     border: '1px solid rgba(34,214,91,0.26)',
     background: 'rgba(34,214,91,0.08)',
-    color: '#22D65B',
+    color: green,
     borderRadius: '16px',
     padding: '13px',
     fontSize: '12px',
@@ -1026,7 +872,7 @@ const styles: Record<string, CSSProperties> = {
   },
 
   kicker: {
-    color: '#22D65B',
+    color: green,
     fontSize: '12px',
     letterSpacing: '0.30em',
     fontWeight: 900,
@@ -1042,30 +888,13 @@ const styles: Record<string, CSSProperties> = {
     margin: 0,
   },
 
-  loadingTitle: {
-    fontSize: 'clamp(38px, 6vw, 68px)',
-    lineHeight: '0.95',
-    fontWeight: 850,
-    letterSpacing: '-0.035em',
-    margin: '24px 0 0',
-  },
-
-  mutedText: {
+  muted: {
     color: 'rgba(242,244,241,0.66)',
     fontSize: '14px',
     lineHeight: 1.7,
   },
 
-  loadingCard: {
-    maxWidth: '620px',
-    margin: '22vh auto 0',
-    borderRadius: '34px',
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025))',
-    padding: '34px',
-  },
-
-  noticeBox: {
+  notice: {
     padding: '20px',
     borderRadius: '22px',
     border: '1px solid rgba(34,214,91,0.22)',
@@ -1074,7 +903,7 @@ const styles: Record<string, CSSProperties> = {
     background: 'rgba(255,255,255,0.035)',
   },
 
-  tabStack: {
+  stack: {
     display: 'grid',
     gap: '24px',
   },
@@ -1085,14 +914,14 @@ const styles: Record<string, CSSProperties> = {
     gap: '18px',
   },
 
-  progressHero: {
+  progressPanel: {
     borderRadius: '30px',
     border: '1px solid rgba(255,255,255,0.10)',
     background: 'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025))',
     padding: '24px',
   },
 
-  nextModule: {
+  nextPanel: {
     borderRadius: '30px',
     border: '1px solid rgba(255,255,255,0.10)',
     background: 'rgba(255,255,255,0.045)',
@@ -1101,7 +930,7 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
   },
 
-  nextModuleImage: {
+  nextImage: {
     minHeight: 300,
     backgroundImage:
       'linear-gradient(90deg, rgba(5,7,6,0.15), rgba(5,7,6,0.88)), url(https://images.unsplash.com/photo-1605296867304-46d5465a13f1?auto=format&fit=crop&w=1200&q=80)',
@@ -1110,11 +939,19 @@ const styles: Record<string, CSSProperties> = {
     filter: 'grayscale(1) contrast(1.06) brightness(0.72)',
   },
 
-  nextModuleBody: {
+  nextBody: {
     padding: '24px',
   },
 
-  ringShell: {
+  smallTitle: {
+    margin: '0 0 12px',
+    fontSize: '26px',
+    lineHeight: 1.08,
+    fontWeight: 850,
+    letterSpacing: '-0.02em',
+  },
+
+  ringWrap: {
     display: 'flex',
     justifyContent: 'center',
     margin: '22px 0',
@@ -1171,7 +1008,7 @@ const styles: Record<string, CSSProperties> = {
   statValue: {
     display: 'block',
     marginTop: '10px',
-    color: '#22D65B',
+    color: green,
     fontSize: '36px',
     lineHeight: 1,
     fontWeight: 850,
@@ -1194,7 +1031,7 @@ const styles: Record<string, CSSProperties> = {
 
   sectionLabel: {
     margin: 0,
-    color: '#22D65B',
+    color: green,
     fontSize: '12px',
     fontWeight: 900,
     letterSpacing: '0.26em',
@@ -1230,7 +1067,7 @@ const styles: Record<string, CSSProperties> = {
     filter: 'grayscale(1) brightness(0.78)',
   },
 
-  courseCardBody: {
+  courseBody: {
     padding: '22px',
   },
 
@@ -1248,7 +1085,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'grid',
     placeItems: 'center',
     border: '1px solid rgba(255,255,255,0.20)',
-    color: '#22D65B',
+    color: green,
     marginBottom: 16,
   },
 
@@ -1260,7 +1097,7 @@ const styles: Record<string, CSSProperties> = {
   },
 
   badgeMain: {
-    background: '#22D65B',
+    background: green,
     color: '#061008',
     borderRadius: '999px',
     padding: '7px 10px',
@@ -1284,7 +1121,7 @@ const styles: Record<string, CSSProperties> = {
   badgeCompleted: {
     background: 'rgba(34,214,91,0.12)',
     border: '1px solid rgba(34,214,91,0.35)',
-    color: '#22D65B',
+    color: green,
     borderRadius: '999px',
     padding: '7px 10px',
     fontSize: '10px',
@@ -1308,7 +1145,7 @@ const styles: Record<string, CSSProperties> = {
   },
 
   courseSubtitle: {
-    color: '#22D65B',
+    color: green,
     fontSize: '14px',
     fontWeight: 850,
     lineHeight: 1.5,
@@ -1362,7 +1199,7 @@ const styles: Record<string, CSSProperties> = {
   progressFill: {
     height: '100%',
     borderRadius: '999px',
-    background: '#22D65B',
+    background: green,
     boxShadow: '0 0 18px rgba(34,214,91,0.35)',
   },
 
@@ -1378,7 +1215,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: '14px',
-    background: '#22D65B',
+    background: green,
     color: '#061008',
     padding: '14px',
     fontSize: '12px',
@@ -1396,7 +1233,7 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: 'center',
     borderRadius: '14px',
     background: 'rgba(34,214,91,0.09)',
-    color: '#22D65B',
+    color: green,
     border: '1px solid rgba(34,214,91,0.28)',
     padding: '14px',
     fontSize: '12px',
@@ -1409,7 +1246,7 @@ const styles: Record<string, CSSProperties> = {
   },
 
   textLink: {
-    color: '#22D65B',
+    color: green,
     fontSize: '12px',
     fontWeight: 900,
     textTransform: 'uppercase',
@@ -1450,13 +1287,13 @@ const styles: Record<string, CSSProperties> = {
   },
 
   progressPercent: {
-    color: '#22D65B',
+    color: green,
     fontSize: '21px',
     fontWeight: 900,
   },
 
   certificateCode: {
-    color: '#22D65B',
+    color: green,
     fontSize: '13px',
     fontWeight: 850,
     letterSpacing: '0.06em',
@@ -1468,13 +1305,5 @@ const styles: Record<string, CSSProperties> = {
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: '14px',
     margin: '22px 0',
-  },
-
-  smallTitle: {
-    margin: '0 0 12px',
-    fontSize: '26px',
-    lineHeight: 1.08,
-    fontWeight: 850,
-    letterSpacing: '-0.02em',
   },
 };
