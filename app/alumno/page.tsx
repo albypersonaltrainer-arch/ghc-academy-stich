@@ -68,7 +68,7 @@ const muted = 'rgba(244,246,242,0.62)';
 const soft = 'rgba(244,246,242,0.42)';
 const gold = '#D6B25E';
 const goldSoft = 'rgba(214,178,94,0.18)';
-const goldStroke = 'rgba(214,178,94,0.38)';
+const goldStroke = 'rgba(214,178,94,0.42)';
 
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Dashboard', helper: 'Resumen', icon: 'dashboard' },
@@ -148,9 +148,7 @@ export default function AlumnoPage() {
             .select('*')
             .in('course_id', courseIds);
 
-          const finalModules = Array.isArray(modulesData)
-            ? [...modulesData].sort(sortModules)
-            : [];
+          const finalModules = Array.isArray(modulesData) ? [...modulesData].sort(sortModules) : [];
 
           setModules(finalModules);
 
@@ -240,9 +238,7 @@ export default function AlumnoPage() {
       ).length;
 
       const completedModuleCount = courseModules.filter((module) =>
-        moduleCompletions.some(
-          (completion) => String(completion.module_id) === String(module.id)
-        )
+        moduleCompletions.some((completion) => String(completion.module_id) === String(module.id))
       ).length;
 
       const completion = courseCompletions.find(
@@ -654,11 +650,6 @@ export default function AlumnoPage() {
               </article>
 
               <article style={styles.certificationCard}>
-                <div style={styles.certificateBackdropWord}>CERTIFICATE</div>
-                <div style={styles.certificateBackdropSubword}>OFFICIAL TITLE</div>
-                <div style={styles.certificateFineLineTop} />
-                <div style={styles.certificateFineLineBottom} />
-
                 <div style={styles.certContent}>
                   <p style={styles.certKicker}>Official Credential</p>
                   <h2 style={styles.largeCardTitle}>Certification</h2>
@@ -682,12 +673,34 @@ export default function AlumnoPage() {
                   </div>
                 </div>
 
-                <div style={styles.certificateSealWrap}>
-                  <div style={styles.certificateSealGlow} />
-                  <div style={styles.certificateSeal}>
-                    <div style={styles.certificateSealInner}>
-                      <div style={styles.certificateSealInnerRing}>
-                        <Icon name="star" />
+                <div style={styles.certificateVisualWrap}>
+                  <div style={styles.certificateVisualGlow} />
+                  <div style={styles.certificateVisualCard}>
+                    <div style={styles.certificatePaper}>
+                      <div style={styles.certificatePaperTopLine} />
+                      <div style={styles.certificatePaperInner}>
+                        <span style={styles.certificateMiniBrand}>GHC Academy</span>
+                        <span style={styles.certificateWord}>CERTIFICATE</span>
+                        <span style={styles.certificateOfAchievement}>of achievement</span>
+
+                        <div style={styles.certificateFakeTextBlock}>
+                          <span style={styles.certificateFakeLineLong} />
+                          <span style={styles.certificateFakeLineMedium} />
+                          <span style={styles.certificateFakeLineShort} />
+                        </div>
+
+                        <div style={styles.certificateBottomMeta}>
+                          <span style={styles.certificateSignatureLine} />
+                          <span style={styles.certificateSignatureLine} />
+                        </div>
+                      </div>
+
+                      <div style={styles.certificateSeal}>
+                        <div style={styles.certificateSealInner}>
+                          <div style={styles.certificateSealCore}>
+                            <Icon name="star" />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1166,7 +1179,12 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'dashboard') {
     return (
       <svg {...common}>
-        <path d="M4 13h7V4H4v9Zm9 7h7V4h-7v16ZM4 20h7v-5H4v5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path
+          d="M4 13h7V4H4v9Zm9 7h7V4h-7v16ZM4 20h7v-5H4v5Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1174,8 +1192,18 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'courses') {
     return (
       <svg {...common}>
-        <path d="m12 4 8 4-8 4-8-4 8-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M4 12l8 4 8-4M4 16l8 4 8-4" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path
+          d="m12 4 8 4-8 4-8-4 8-4Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M4 12l8 4 8-4M4 16l8 4 8-4"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1183,8 +1211,18 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'curriculum' || name === 'document') {
     return (
       <svg {...common}>
-        <path d="M7 4h7l3 3v13H7V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M14 4v4h4M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path
+          d="M7 4h7l3 3v13H7V4Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M14 4v4h4M9 12h6M9 16h6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
@@ -1192,8 +1230,19 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'exam') {
     return (
       <svg {...common}>
-        <path d="M5 5h14v14H5V5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="m8.5 12 2.1 2.1 4.9-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M5 5h14v14H5V5Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="m8.5 12 2.1 2.1 4.9-5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1202,7 +1251,12 @@ function EmptyState({ text }: { text: string }) {
     return (
       <svg {...common}>
         <path d="M7 4h10v9a5 5 0 0 1-10 0V4Z" stroke="currentColor" strokeWidth="1.8" />
-        <path d="m9 19-1 3 4-2 4 2-1-3" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path
+          d="m9 19-1 3 4-2 4 2-1-3"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1211,7 +1265,13 @@ function EmptyState({ text }: { text: string }) {
     return (
       <svg {...common}>
         <path d="M4 19V5M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M7 15l3-4 3 2 4-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M7 15l3-4 3 2 4-7"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1219,7 +1279,12 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'resources') {
     return (
       <svg {...common}>
-        <path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path
+          d="M5 6h14M5 12h14M5 18h9"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
@@ -1227,8 +1292,17 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'support') {
     return (
       <svg {...common}>
-        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M9.8 9a2.2 2.2 0 1 1 3.5 1.8c-.8.6-1.3 1-1.3 2.2M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path
+          d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+        <path
+          d="M9.8 9a2.2 2.2 0 1 1 3.5 1.8c-.8.6-1.3 1-1.3 2.2M12 16h.01"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
@@ -1236,7 +1310,13 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'logout') {
     return (
       <svg {...common}>
-        <path d="M10 6H6v12h4M14 8l4 4-4 4M18 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M10 6H6v12h4M14 8l4 4-4 4M18 12H9"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1244,7 +1324,11 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'clock') {
     return (
       <svg {...common}>
-        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" />
+        <path
+          d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
         <path d="M12 8v5l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
@@ -1253,8 +1337,18 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'lock') {
     return (
       <svg {...common}>
-        <path d="M8 10V8a4 4 0 1 1 8 0v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M7 10h10v9H7v-9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path
+          d="M8 10V8a4 4 0 1 1 8 0v2"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+        <path
+          d="M7 10h10v9H7v-9Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1262,7 +1356,13 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'check') {
     return (
       <svg {...common}>
-        <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="m5 12 4 4L19 6"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1270,7 +1370,13 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'arrow') {
     return (
       <svg {...common}>
-        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M5 12h14M13 6l6 6-6 6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1278,7 +1384,13 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'bell') {
     return (
       <svg {...common}>
-        <path d="M15 17H9m9-2V9a6 6 0 1 0-12 0v6l-2 2h16l-2-2ZM10 20h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M15 17H9m9-2V9a6 6 0 1 0-12 0v6l-2 2h16l-2-2ZM10 20h4"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1286,7 +1398,12 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'shield') {
     return (
       <svg {...common}>
-        <path d="M12 3.5 19 6v5.4c0 4.3-2.8 8-7 9.1-4.2-1.1-7-4.8-7-9.1V6l7-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path
+          d="M12 3.5 19 6v5.4c0 4.3-2.8 8-7 9.1-4.2-1.1-7-4.8-7-9.1V6l7-2.5Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -1294,14 +1411,24 @@ function EmptyState({ text }: { text: string }) {
   if (name === 'star') {
     return (
       <svg {...common}>
-        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path
+          d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
 
   return (
     <svg {...common}>
-      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -2256,63 +2383,13 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
     background:
-      'linear-gradient(135deg, rgba(14,18,16,0.94), rgba(10,12,10,0.90)), radial-gradient(circle at 78% 50%, rgba(214,178,94,0.12), transparent 26%)',
+      'linear-gradient(135deg, rgba(10,14,13,0.98), rgba(8,10,9,0.92)), radial-gradient(circle at 78% 38%, rgba(214,178,94,0.10), transparent 28%)',
     padding: 22,
     display: 'grid',
-    gridTemplateColumns: '1fr 200px',
+    gridTemplateColumns: '1fr 240px',
     overflow: 'hidden',
     position: 'relative',
     isolation: 'isolate',
-  },
-
-  certificateBackdropWord: {
-    position: 'absolute',
-    inset: '18px auto auto 18px',
-    fontSize: 78,
-    lineHeight: 0.9,
-    fontWeight: 900,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
-    color: 'rgba(244,246,242,0.035)',
-    pointerEvents: 'none',
-    userSelect: 'none',
-    zIndex: 0,
-    whiteSpace: 'nowrap',
-  },
-
-  certificateBackdropSubword: {
-    position: 'absolute',
-    left: 24,
-    bottom: 22,
-    fontSize: 18,
-    lineHeight: 1,
-    fontWeight: 800,
-    letterSpacing: '0.42em',
-    textTransform: 'uppercase',
-    color: 'rgba(214,178,94,0.10)',
-    pointerEvents: 'none',
-    userSelect: 'none',
-    zIndex: 0,
-  },
-
-  certificateFineLineTop: {
-    position: 'absolute',
-    left: 22,
-    right: 22,
-    top: 18,
-    height: 1,
-    background: 'linear-gradient(90deg, transparent, rgba(214,178,94,0.20), transparent)',
-    zIndex: 0,
-  },
-
-  certificateFineLineBottom: {
-    position: 'absolute',
-    left: 22,
-    right: 22,
-    bottom: 18,
-    height: 1,
-    background: 'linear-gradient(90deg, transparent, rgba(214,178,94,0.16), transparent)',
-    zIndex: 0,
   },
 
   examContent: {
@@ -2322,7 +2399,7 @@ const styles: Record<string, CSSProperties> = {
   certContent: {
     minWidth: 0,
     position: 'relative',
-    zIndex: 1,
+    zIndex: 2,
   },
 
   certKicker: {
@@ -2387,7 +2464,7 @@ const styles: Record<string, CSSProperties> = {
     placeItems: 'center',
   },
 
-  certificateSealWrap: {
+  certificateVisualWrap: {
     position: 'relative',
     display: 'grid',
     placeItems: 'center',
@@ -2395,46 +2472,163 @@ const styles: Record<string, CSSProperties> = {
     zIndex: 1,
   },
 
-  certificateSealGlow: {
+  certificateVisualGlow: {
     position: 'absolute',
-    width: 142,
-    height: 142,
+    width: 220,
+    height: 160,
+    borderRadius: 28,
+    background: 'rgba(214,178,94,0.08)',
+    filter: 'blur(30px)',
+    transform: 'rotate(-8deg)',
+  },
+
+  certificateVisualCard: {
+    position: 'relative',
+    width: 220,
+    height: 150,
+    borderRadius: 20,
+    background:
+      'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03)), rgba(16,18,17,0.88)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    display: 'grid',
+    placeItems: 'center',
+    transform: 'rotate(-6deg)',
+    boxShadow: '0 24px 60px rgba(0,0,0,0.40)',
+    overflow: 'visible',
+  },
+
+  certificatePaper: {
+    position: 'relative',
+    width: 184,
+    height: 118,
+    borderRadius: 14,
+    background:
+      'linear-gradient(135deg, #fff6df 0%, #f9ebc5 42%, #f2ddb1 100%)',
+    border: '1px solid rgba(214,178,94,0.28)',
+    boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.28)',
+    overflow: 'hidden',
+  },
+
+  certificatePaperTopLine: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    top: 10,
+    height: 3,
     borderRadius: 999,
-    background: 'rgba(214,178,94,0.12)',
-    filter: 'blur(28px)',
+    background: 'linear-gradient(90deg, rgba(214,178,94,0.10), rgba(214,178,94,0.82), rgba(214,178,94,0.10))',
+  },
+
+  certificatePaperInner: {
+    position: 'absolute',
+    inset: 16,
+    display: 'grid',
+    alignContent: 'start',
+    gap: 4,
+  },
+
+  certificateMiniBrand: {
+    color: 'rgba(90,64,19,0.72)',
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: '0.18em',
+    fontWeight: 800,
+  },
+
+  certificateWord: {
+    color: '#6a4b14',
+    fontSize: 20,
+    lineHeight: 1,
+    letterSpacing: '0.10em',
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+  },
+
+  certificateOfAchievement: {
+    color: 'rgba(106,75,20,0.76)',
+    fontSize: 11,
+    lineHeight: 1,
+    fontStyle: 'italic',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+  },
+
+  certificateFakeTextBlock: {
+    display: 'grid',
+    gap: 4,
+    marginTop: 8,
+  },
+
+  certificateFakeLineLong: {
+    width: '100%',
+    height: 3,
+    borderRadius: 999,
+    background: 'rgba(106,75,20,0.18)',
+  },
+
+  certificateFakeLineMedium: {
+    width: '74%',
+    height: 3,
+    borderRadius: 999,
+    background: 'rgba(106,75,20,0.14)',
+  },
+
+  certificateFakeLineShort: {
+    width: '52%',
+    height: 3,
+    borderRadius: 999,
+    background: 'rgba(106,75,20,0.14)',
+  },
+
+  certificateBottomMeta: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingTop: 12,
+    gap: 10,
+  },
+
+  certificateSignatureLine: {
+    width: 48,
+    height: 2,
+    borderRadius: 999,
+    background: 'rgba(106,75,20,0.24)',
   },
 
   certificateSeal: {
-    width: 132,
-    height: 132,
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    width: 54,
+    height: 54,
     borderRadius: '50%',
-    position: 'relative',
-    background: `radial-gradient(circle at 30% 30%, rgba(255,236,180,0.95), ${gold} 36%, #a97d29 72%, #7a5617 100%)`,
-    boxShadow: '0 18px 42px rgba(0,0,0,0.34), inset 0 2px 10px rgba(255,255,255,0.28)',
+    background: `radial-gradient(circle at 30% 30%, rgba(255,242,201,1), ${gold} 38%, #a67b29 70%, #805a16 100%)`,
+    boxShadow: '0 10px 20px rgba(112,80,22,0.26)',
     clipPath:
       'polygon(50% 0%, 56% 6%, 64% 2%, 69% 9%, 77% 5%, 80% 13%, 88% 12%, 89% 20%, 97% 22%, 95% 30%, 100% 36%, 96% 43%, 100% 50%, 96% 57%, 100% 64%, 95% 70%, 97% 78%, 89% 80%, 88% 88%, 80% 87%, 77% 95%, 69% 91%, 64% 98%, 56% 94%, 50% 100%, 44% 94%, 36% 98%, 31% 91%, 23% 95%, 20% 87%, 12% 88%, 11% 80%, 3% 78%, 5% 70%, 0% 64%, 4% 57%, 0% 50%, 4% 43%, 0% 36%, 5% 30%, 3% 22%, 11% 20%, 12% 12%, 20% 13%, 23% 5%, 31% 9%, 36% 2%, 44% 6%)',
+    display: 'grid',
+    placeItems: 'center',
   },
 
   certificateSealInner: {
-    position: 'absolute',
-    inset: 16,
+    width: 38,
+    height: 38,
     borderRadius: '50%',
     border: `2px solid ${goldStroke}`,
-    background: 'rgba(255,255,255,0.05)',
+    background: goldSoft,
     display: 'grid',
     placeItems: 'center',
   },
 
-  certificateSealInnerRing: {
-    width: 70,
-    height: 70,
+  certificateSealCore: {
+    width: 22,
+    height: 22,
     borderRadius: '50%',
-    border: `2px solid ${goldStroke}`,
-    background: goldSoft,
-    color: '#3f2b08',
+    background: 'rgba(255,255,255,0.14)',
+    color: '#5c3e0d',
     display: 'grid',
     placeItems: 'center',
-    boxShadow: 'inset 0 2px 8px rgba(255,255,255,0.18)',
   },
 
   sectionStack: {
