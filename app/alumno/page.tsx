@@ -15,6 +15,7 @@ type CourseStatusFilter = 'active' | 'completed' | 'all';
 type SortMode = 'recent' | 'title' | 'progress';
 
 type IconName =
+  | 'home'
   | 'dashboard'
   | 'courses'
   | 'curriculum'
@@ -39,12 +40,10 @@ type IconName =
   | 'list'
   | 'bookmark'
   | 'box'
-  | 'home'
   | 'play'
   | 'audio'
   | 'pdf'
   | 'text'
-  | 'target'
   | 'trophy';
 
 type DashboardCard = {
@@ -89,9 +88,10 @@ const supabase = createClient(
 const green = '#63E546';
 const greenRgb = '99,229,70';
 const bg = '#050706';
+const panelBg = 'rgba(10,13,12,0.88)';
 const white = '#F4F6F2';
 const muted = 'rgba(244,246,242,0.62)';
-const soft = 'rgba(244,246,242,0.42)';
+const soft = 'rgba(244,246,242,0.44)';
 const gold = '#D6B25E';
 
 const rgbaGreen = (alpha: number) => `rgba(${greenRgb},${alpha})`;
@@ -265,11 +265,7 @@ export default function AlumnoPage() {
         .sort(sortLessons);
 
       const completedLessonCount = courseLessons.filter((lesson) =>
-        lessonProgress.some(
-          (progress) =>
-            String(progress.lesson_id) === String(lesson.id) &&
-            String(progress.course_id) === String(course.id)
-        )
+        lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
       ).length;
 
       const completedModuleCount = courseModules.filter((module) =>
@@ -321,51 +317,30 @@ export default function AlumnoPage() {
   ]);
 
   const activeCourses = courseCards.filter((card) => !card.completion);
-  const completedCourses = courseCards.filter((card) => card.completion);
+  const completedCourses = courseCards.filter((card) => Boolean(card.completion));
 
   const mainCourse = useMemo(() => {
-    const candidates = [...activeCourses, ...completedCourses];
-
     return (
-      candidates.find((card) => card.nextLesson && card.courseModules.length > 0) ||
-      candidates.find((card) => card.courseModules.length > 0 && card.courseLessons.length > 0) ||
-      candidates.find((card) => card.progressPercent > 0) ||
-      candidates[0] ||
+      activeCourses.find((card) => card.courseModules.length > 0) ||
+      completedCourses.find((card) => card.courseModules.length > 0) ||
+      courseCards[0] ||
       null
     );
-  }, [activeCourses, completedCourses]);
+  }, [activeCourses, completedCourses, courseCards]);
 
   const curriculumCourse = useMemo(() => {
     if (selectedCurriculumCourseId) {
       const selected = courseCards.find(
         (card) => String(card.course.id) === String(selectedCurriculumCourseId)
       );
-
       if (selected) return selected;
     }
 
     return mainCourse || courseCards[0] || null;
   }, [courseCards, mainCourse, selectedCurriculumCourseId]);
 
-  const totalLessons = courseCards.reduce((sum, card) => sum + card.courseLessons.length, 0);
-  const completedLessonsInsideVisibleCourses = courseCards.reduce(
-    (sum, card) => sum + card.completedLessonCount,
-    0
-  );
-
-  const globalProgress =
-    totalLessons > 0 ? Math.round((completedLessonsInsideVisibleCourses / totalLessons) * 100) : 0;
-
-  const currentModule =
-    mainCourse && mainCourse.nextLesson
-      ? mainCourse.courseModules.find(
-          (module) => String(module.id) === String(mainCourse.nextLesson?.module_id)
-        )
-      : mainCourse?.courseModules[0] || null;
-
   const moduleViews = useMemo<ModuleView[]>(() => {
     if (!mainCourse) return [];
-
     return buildModuleViews({
       courseCard: mainCourse,
       lessonProgress,
@@ -373,9 +348,14 @@ export default function AlumnoPage() {
     });
   }, [mainCourse, lessonProgress, moduleCompletions]);
 
+  const currentModuleView =
+    moduleViews.find((item) => item.isCurrent) ||
+    moduleViews.find((item) => !item.isLocked && !item.isCompleted) ||
+    moduleViews[0] ||
+    null;
+
   const curriculumModuleViews = useMemo<ModuleView[]>(() => {
     if (!curriculumCourse) return [];
-
     return buildModuleViews({
       courseCard: curriculumCourse,
       lessonProgress,
@@ -385,19 +365,24 @@ export default function AlumnoPage() {
 
   const curriculumActiveModule =
     curriculumModuleViews.find((item) => item.isCurrent) ||
-    curriculumModuleViews.find((item) => !item.isCompleted && !item.isLocked) ||
+    curriculumModuleViews.find((item) => !item.isLocked && !item.isCompleted) ||
     curriculumModuleViews[0] ||
     null;
 
   const curriculumLessons = curriculumActiveModule?.lessons || [];
 
-  const curriculumCompletedLessons = curriculumLessons.filter((lesson) =>
-    lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
-  ).length;
+  const totalLessons = courseCards.reduce((acc, card) => acc + card.courseLessons.length, 0);
+  const completedLessonsVisible = courseCards.reduce(
+    (acc, card) => acc + card.completedLessonCount,
+    0
+  );
+
+  const globalProgress =
+    totalLessons > 0 ? Math.round((completedLessonsVisible / totalLessons) * 100) : 0;
 
   const stats = {
     courses: courses.length,
-    lessons: completedLessonsInsideVisibleCourses,
+    lessons: completedLessonsVisible,
     modules: moduleCompletions.length,
     completedCourses: courseCompletions.length,
     certificates: certificates.length,
@@ -405,27 +390,31 @@ export default function AlumnoPage() {
   };
 
   const availableLevels = useMemo(() => {
-    const values = courseCards
-      .map((card) => String(card.course.level || '').trim())
-      .filter(Boolean);
-
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+    return Array.from(
+      new Set(
+        courseCards
+          .map((card) => String(card.course.level || '').trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
   }, [courseCards]);
 
   const availableCategories = useMemo(() => {
-    const values = courseCards
-      .map((card) =>
-        String(
-          card.course.category ||
-            card.course.course_type ||
-            card.course.type ||
-            card.course.area ||
-            ''
-        ).trim()
+    return Array.from(
+      new Set(
+        courseCards
+          .map((card) =>
+            String(
+              card.course.category ||
+                card.course.course_type ||
+                card.course.type ||
+                card.course.area ||
+                ''
+            ).trim()
+          )
+          .filter(Boolean)
       )
-      .filter(Boolean);
-
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+    ).sort((a, b) => a.localeCompare(b));
   }, [courseCards]);
 
   const filteredCards = useMemo(() => {
@@ -495,7 +484,7 @@ export default function AlumnoPage() {
 
     return [
       {
-        id: 'progress',
+        id: 'learning',
         title: 'Continúa tu ruta activa',
         message: mainCourse?.course?.title
           ? `Tienes pendiente avanzar en ${mainCourse.course.title}.`
@@ -510,7 +499,7 @@ export default function AlumnoPage() {
         title: certificates.length > 0 ? 'Certificado disponible' : 'Certificación pendiente',
         message:
           certificates.length > 0
-            ? 'Ya tienes al menos un certificado válido disponible.'
+            ? 'Ya tienes al menos un certificado válido emitido.'
             : 'Completa tu curso y examen final para emitir tu certificado.',
         type: 'Certification',
         time: 'Hoy',
@@ -518,18 +507,18 @@ export default function AlumnoPage() {
         href: '/alumno',
       },
       {
-        id: 'new-course',
+        id: 'catalog',
         title: 'Catálogo GHC Academy',
-        message: 'Revisa nuevos cursos y especializaciones disponibles.',
+        message: 'Explora nuevos cursos y especializaciones disponibles.',
         type: 'Courses',
         time: 'Esta semana',
         unread: true,
         href: '/cursos',
       },
       {
-        id: 'payment',
+        id: 'billing',
         title: 'Estado de acceso',
-        message: 'Cuando activemos pagos, aquí aparecerán avisos de renovación o incidencias.',
+        message: 'Más adelante aquí aparecerán avisos de renovaciones o incidencias de pago.',
         type: 'Billing',
         time: 'Próximamente',
         unread: false,
@@ -548,11 +537,11 @@ export default function AlumnoPage() {
     return (
       <main style={styles.loadingPage}>
         <Background />
+        <GlobalCss />
 
         <section style={styles.loadingCard}>
           <div style={styles.loadingAccent} />
           <GHCLogo size="md" showText tagline={false} />
-
           <p style={styles.kicker}>Portal privado</p>
           <h1 style={styles.loadingTitle}>Cargando dashboard</h1>
           <p style={styles.loadingText}>
@@ -624,7 +613,7 @@ export default function AlumnoPage() {
               <strong>{Math.max(1, stats.modules + stats.completedCourses)}</strong>
             </div>
 
-            <div style={styles.progressTrackSubtle}>
+            <div style={styles.progressTrackThin}>
               <div style={{ ...styles.progressFill, width: `${Math.min(100, globalProgress)}%` }} />
             </div>
           </div>
@@ -683,7 +672,6 @@ export default function AlumnoPage() {
                     {notifications.map((notification) => {
                       const content = (
                         <article
-                          key={notification.id}
                           style={
                             notification.unread
                               ? styles.notificationItemUnread
@@ -713,7 +701,7 @@ export default function AlumnoPage() {
                         );
                       }
 
-                      return content;
+                      return <div key={notification.id}>{content}</div>;
                     })}
                   </div>
 
@@ -738,9 +726,9 @@ export default function AlumnoPage() {
 
         {activeTab === 'dashboard' && (
           <div style={styles.dashboardGrid}>
-            <section style={styles.topCardsGrid}>
+            <section style={styles.dashboardTopGrid}>
               <article style={styles.progressCard}>
-                <h2 style={styles.cardTitle}>Overall Progress</h2>
+                <h2 style={styles.sectionTitleSmall}>Overall Progress</h2>
 
                 <div style={styles.progressRingWrap}>
                   <div
@@ -761,38 +749,30 @@ export default function AlumnoPage() {
                 </p>
 
                 <div style={styles.progressMiniStats}>
-                  <MiniStat icon="clock" label="Lessons completed" value={stats.lessons} />
-                  <MiniStat
-                    icon="certificate"
-                    label="Certificates earned"
-                    value={stats.certificates}
-                  />
+                  <MiniStat icon="clock" label="Lessons" value={stats.lessons} />
+                  <MiniStat icon="certificate" label="Certificates" value={stats.certificates} />
                 </div>
               </article>
 
               <article style={styles.nextModuleCard}>
-                <div style={styles.athleteVisual}>
-                  <div style={styles.athleteGlow} />
-                  <div style={styles.athleteLabel}>GHC Performance</div>
-                </div>
+                <div style={styles.heroImage} />
 
                 <div style={styles.nextContent}>
                   <p style={styles.inProgressLabel}>In progress</p>
 
-                  <h2 style={styles.nextTitle}>
-                    {currentModule?.title ||
-                      mainCourse?.nextLesson?.title ||
+                  <h2 style={styles.heroTitle}>
+                    {currentModuleView?.module?.title ||
                       mainCourse?.course?.title ||
                       'Next Module'}
                   </h2>
 
-                  <p style={styles.nextDescription}>
+                  <p style={styles.heroText}>
                     {mainCourse?.course?.subtitle ||
                       mainCourse?.course?.description ||
                       'Explore your next learning step and keep progressing through the academy.'}
                   </p>
 
-                  <div style={styles.nextMeta}>
+                  <div style={styles.metaRow}>
                     <MetaItem icon="clock" text="4–5 Hours" />
                     <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermediate'} />
                     <MetaItem
@@ -801,7 +781,7 @@ export default function AlumnoPage() {
                     />
                   </div>
 
-                  <div style={styles.nextProgressBlock}>
+                  <div style={styles.progressBlock}>
                     <div style={styles.progressTrack}>
                       <div
                         style={{
@@ -810,7 +790,9 @@ export default function AlumnoPage() {
                         }}
                       />
                     </div>
-                    <span>{mainCourse?.progressPercent || 0}% Complete</span>
+                    <span style={styles.progressTextGreen}>
+                      {mainCourse?.progressPercent || 0}% Complete
+                    </span>
                   </div>
 
                   <Link
@@ -821,7 +803,7 @@ export default function AlumnoPage() {
                           ? `/cursos/${getCourseSlug(mainCourse.course)}`
                           : '/cursos'
                     }
-                    style={styles.continueButton}
+                    style={styles.primaryButton}
                   >
                     Continue Learning
                     <Icon name="arrow" />
@@ -831,18 +813,18 @@ export default function AlumnoPage() {
             </section>
 
             <Panel title="Curriculum">
-              <div style={styles.curriculumList}>
+              <div style={styles.curriculumRows}>
                 {moduleViews.length === 0 ? (
                   <EmptyState text="Aún no hay módulos visibles para este curso." />
                 ) : (
                   moduleViews.slice(0, 6).map((item) => (
-                    <CurriculumRow key={item.module.id} item={item} />
+                    <DashboardModuleRow key={item.module.id} item={item} />
                   ))
                 )}
               </div>
             </Panel>
 
-            <section style={styles.bottomGrid}>
+            <section style={styles.dashboardBottomGrid}>
               <article style={styles.examCard}>
                 <div style={styles.examContent}>
                   <h2 style={styles.largeCardTitle}>Mock Exam Simulator</h2>
@@ -853,7 +835,7 @@ export default function AlumnoPage() {
 
                   <button
                     type="button"
-                    style={styles.darkButton}
+                    style={styles.secondaryButton}
                     onClick={() => setActiveTab('examenes')}
                   >
                     Start Simulation
@@ -865,10 +847,6 @@ export default function AlumnoPage() {
                     <Feature icon="clock" text="Timed Sessions" />
                     <Feature icon="shield" text="Detailed Feedback" />
                   </div>
-                </div>
-
-                <div style={styles.examVisual}>
-                  <span>?</span>
                 </div>
               </article>
 
@@ -886,7 +864,7 @@ export default function AlumnoPage() {
 
                   <button
                     type="button"
-                    style={styles.darkButton}
+                    style={styles.secondaryButton}
                     onClick={() => setActiveTab('certificados')}
                   >
                     View Certification
@@ -905,13 +883,11 @@ export default function AlumnoPage() {
 
         {activeTab === 'cursos' && (
           <div style={styles.coursesPage}>
-            <section style={styles.coursesHeader}>
-              <div>
-                <h1 style={styles.pageTitle}>My Courses</h1>
-                <p style={styles.pageSubtitle}>
-                  Continue learning and track your progress across all your courses.
-                </p>
-              </div>
+            <section>
+              <h1 style={styles.pageTitle}>My Courses</h1>
+              <p style={styles.pageSubtitle}>
+                Continue learning and track your progress across all your courses.
+              </p>
             </section>
 
             <section style={styles.courseControls}>
@@ -1010,109 +986,105 @@ export default function AlumnoPage() {
               </div>
             </section>
 
-            <section style={styles.courseSection}>
-              <div style={styles.courseSectionHeader}>
-                <h2 style={styles.courseSectionTitle}>
-                  {courseStatusFilter === 'completed'
-                    ? 'Completed Courses'
-                    : courseStatusFilter === 'all'
-                      ? 'All Courses'
-                      : 'Active Courses'}
-                </h2>
+            <section style={styles.courseSectionHeader}>
+              <h2 style={styles.courseSectionTitle}>
+                {courseStatusFilter === 'completed'
+                  ? 'Completed Courses'
+                  : courseStatusFilter === 'all'
+                    ? 'All Courses'
+                    : 'Active Courses'}
+              </h2>
 
-                <span style={styles.resultCounter}>
-                  {filteredCards.length} result{filteredCards.length === 1 ? '' : 's'}
-                </span>
-              </div>
-
-              {filteredCards.length === 0 ? (
-                <EmptyState text="No hay cursos que coincidan con los filtros seleccionados." />
-              ) : (
-                <div
-                  style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}
-                >
-                  {filteredCards.map((card, index) => (
-                    <PremiumCourseCard
-                      key={card.course.id}
-                      card={card}
-                      index={index}
-                      mode={viewMode}
-                      completed={Boolean(card.completion)}
-                    />
-                  ))}
-                </div>
-              )}
+              <span style={styles.resultCounter}>
+                {filteredCards.length} result{filteredCards.length === 1 ? '' : 's'}
+              </span>
             </section>
+
+            {filteredCards.length === 0 ? (
+              <EmptyState text="No hay cursos que coincidan con los filtros seleccionados." />
+            ) : (
+              <div
+                style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}
+              >
+                {filteredCards.map((card, index) => (
+                  <PremiumCourseCard
+                    key={card.course.id}
+                    card={card}
+                    index={index}
+                    mode={viewMode}
+                    completed={Boolean(card.completion)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'curriculum' && (
           <div style={styles.curriculumPage}>
-            <section style={styles.curriculumHeader}>
+            <section style={styles.curriculumHeaderCompact}>
               <div>
                 <h1 style={styles.pageTitle}>Curriculum</h1>
-                <p style={styles.pageSubtitle}>Your structured learning path to mastery.</p>
+                <p style={styles.pageSubtitleCompact}>Your structured learning path to mastery.</p>
               </div>
 
-              <div style={styles.currentCourseSelector}>
-                <span>Current Course</span>
-                <select
-                  value={curriculumCourse?.course?.id || ''}
-                  onChange={(event) => setSelectedCurriculumCourseId(event.target.value)}
-                  style={styles.curriculumSelect}
-                >
-                  {courseCards.map((card) => (
-                    <option key={card.course.id} value={card.course.id}>
-                      {card.course.title}
-                    </option>
-                  ))}
-                </select>
+              <div style={styles.curriculumHeaderRight}>
+                <div style={styles.currentCourseBox}>
+                  <span style={styles.currentCourseLabel}>Current Course</span>
+                  <select
+                    value={curriculumCourse?.course?.id || ''}
+                    onChange={(event) => setSelectedCurriculumCourseId(event.target.value)}
+                    style={styles.currentCourseSelect}
+                  >
+                    {courseCards.map((card) => (
+                      <option key={card.course.id} value={card.course.id}>
+                        {card.course.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={styles.curriculumMetricsRow}>
+                  <CurriculumMetric
+                    icon="curriculum"
+                    label="Total Modules"
+                    value={curriculumCourse?.courseModules.length || 0}
+                    helper="Modules"
+                  />
+                  <CurriculumMetric
+                    icon="check"
+                    label="Completed Lessons"
+                    value={`${curriculumCourse?.completedLessonCount || 0}/${curriculumCourse?.courseLessons.length || 0}`}
+                    helper={`${curriculumCourse?.progressPercent || 0}% complete`}
+                  />
+                  <CurriculumMetric
+                    icon="performance"
+                    label="Current Stage"
+                    value={
+                      curriculumActiveModule ? `Module ${curriculumActiveModule.index + 1}` : '—'
+                    }
+                    helper={
+                      curriculumActiveModule?.isCurrent
+                        ? 'In Progress'
+                        : curriculumActiveModule?.isCompleted
+                          ? 'Completed'
+                          : 'Ready'
+                    }
+                  />
+                </div>
               </div>
             </section>
 
-            <section style={styles.curriculumSummaryGrid}>
-              <CurriculumSummaryCard
-                icon="curriculum"
-                label="Total Modules"
-                value={curriculumCourse?.courseModules.length || 0}
-                helper="Modules"
-              />
-              <CurriculumSummaryCard
-                icon="check"
-                label="Completed Lessons"
-                value={`${curriculumCourse?.completedLessonCount || 0}/${curriculumCourse?.courseLessons.length || 0}`}
-                helper={`${curriculumCourse?.progressPercent || 0}% complete`}
-              />
-              <CurriculumSummaryCard
-                icon="performance"
-                label="Current Stage"
-                value={
-                  curriculumActiveModule
-                    ? `Module ${curriculumActiveModule.index + 1}`
-                    : '—'
-                }
-                helper={
-                  curriculumActiveModule?.isCurrent
-                    ? 'In Progress'
-                    : curriculumActiveModule?.isCompleted
-                      ? 'Completed'
-                      : 'Ready'
-                }
-              />
-            </section>
-
-            <section style={styles.curriculumMainGrid}>
-              <article style={styles.roadmapPanel}>
-                <div style={styles.curriculumPanelHeader}>
+            <section style={styles.curriculumMainGridCompact}>
+              <article style={styles.roadmapPanelCompact}>
+                <div style={styles.panelHeaderCompact}>
                   <div>
-                    <h2 style={styles.curriculumPanelTitle}>Module Roadmap</h2>
-                    <p style={styles.curriculumPanelSubtitle}>
-                      Track your progress through each module.
-                    </p>
+                    <h2 style={styles.panelHeading}>Module Roadmap</h2>
+                    <p style={styles.panelSubheading}>Track your progress through each module.</p>
                   </div>
                 </div>
 
-                <div style={styles.moduleRoadmapList}>
+                <div style={styles.roadmapListCompact}>
                   {curriculumModuleViews.length === 0 ? (
                     <EmptyState text="Aún no hay módulos visibles para este curso." />
                   ) : (
@@ -1126,36 +1098,39 @@ export default function AlumnoPage() {
                   )}
                 </div>
 
-                <div style={styles.roadmapFooterNote}>
+                <div style={styles.roadmapFooterNoteCompact}>
                   <Icon name="shield" />
-                  <span>Complete modules in order to unlock new content and assessments.</span>
+                  <span>
+                    Complete modules in order to unlock new content and assessments.
+                  </span>
                 </div>
               </article>
 
-              <article style={styles.lessonsPanel}>
-                <div style={styles.lessonsPanelTop}>
+              <article style={styles.moduleDetailPanel}>
+                <div style={styles.moduleDetailTop}>
                   <div>
-                    <h2 style={styles.curriculumPanelTitle}>
+                    <h2 style={styles.panelHeading}>
                       {curriculumActiveModule
                         ? `Module ${curriculumActiveModule.index + 1}: ${
                             curriculumActiveModule.module.title || 'Current Module'
                           }`
                         : 'Module Lessons'}
                     </h2>
-                    <p style={styles.curriculumPanelSubtitle}>
+
+                    <p style={styles.panelSubheading}>
                       {curriculumCourse?.course?.subtitle ||
                         curriculumCourse?.course?.description ||
                         'Explore the current module and continue your learning path.'}
                     </p>
                   </div>
 
-                  <div style={styles.lessonsProgressBox}>
+                  <div style={styles.moduleProgressBadge}>
                     <strong>{curriculumActiveModule?.progress || 0}%</strong>
                     <span>Complete</span>
                   </div>
                 </div>
 
-                <div style={styles.lessonsProgressTrack}>
+                <div style={styles.progressTrackCompact}>
                   <div
                     style={{
                       ...styles.progressFill,
@@ -1164,17 +1139,17 @@ export default function AlumnoPage() {
                   />
                 </div>
 
-                <div style={styles.lessonTableHeader}>
+                <div style={styles.lessonTableHeaderCompact}>
                   <span>Lessons</span>
                   <span>Type</span>
                   <span>Status</span>
                 </div>
 
-                <div style={styles.moduleLessonList}>
+                <div style={styles.lessonRowsCompact}>
                   {curriculumLessons.length === 0 ? (
                     <EmptyState text="Este módulo todavía no tiene lecciones visibles." />
                   ) : (
-                    curriculumLessons.map((lesson, index) => {
+                    curriculumLessons.slice(0, 8).map((lesson, index) => {
                       const completed = lessonProgress.some(
                         (progress) => String(progress.lesson_id) === String(lesson.id)
                       );
@@ -1185,7 +1160,7 @@ export default function AlumnoPage() {
 
                       const locked =
                         curriculumActiveModule?.isLocked ||
-                        (!completed && !active && index > curriculumCompletedLessons + 1);
+                        (!completed && !active && index > curriculumActiveModule.completedLessons);
 
                       return (
                         <LessonRow
@@ -1206,17 +1181,25 @@ export default function AlumnoPage() {
                   )}
                 </div>
 
-                <div style={styles.lessonsFooterStrip}>
-                  <div>
-                    <Icon name="clock" />
-                    <span>Estimated Time</span>
-                    <strong>4–5 Hours</strong>
+                <div style={styles.moduleFooterCompact}>
+                  <div style={styles.moduleFooterMeta}>
+                    <div style={styles.moduleFooterItem}>
+                      <Icon name="clock" />
+                      <div>
+                        <span>Estimated Time</span>
+                        <strong>4–5 Hours</strong>
+                      </div>
+                    </div>
+
+                    <div style={styles.moduleFooterItem}>
+                      <Icon name="chart" />
+                      <div>
+                        <span>Difficulty</span>
+                        <strong>{curriculumCourse?.course?.level || 'Intermediate'}</strong>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Icon name="chart" />
-                    <span>Difficulty</span>
-                    <strong>{curriculumCourse?.course?.level || 'Intermediate'}</strong>
-                  </div>
+
                   <Link
                     href={
                       curriculumCourse?.course
@@ -1232,14 +1215,18 @@ export default function AlumnoPage() {
               </article>
             </section>
 
-            <section style={styles.curriculumBanner}>
+            <article style={styles.curriculumBannerCompact}>
               <div style={styles.bannerIcon}>
                 <Icon name="trophy" />
               </div>
+
               <div>
-                <h3>Stay Consistent, Achieve Excellence</h3>
-                <p>Continue making progress each day. Small steps lead to big results.</p>
+                <h3 style={styles.bannerTitle}>Stay Consistent, Achieve Excellence</h3>
+                <p style={styles.bannerText}>
+                  Continue making progress each day. Small steps lead to big results.
+                </p>
               </div>
+
               <Link
                 href={
                   curriculumCourse?.nextLesson
@@ -1253,14 +1240,14 @@ export default function AlumnoPage() {
                 Keep Going
                 <Icon name="arrow" />
               </Link>
-            </section>
+            </article>
           </div>
         )}
 
         {activeTab === 'examenes' && (
           <div style={styles.sectionStack}>
             <Panel title="Mock Exams">
-              <div style={styles.examGrid}>
+              <div style={styles.infoGrid}>
                 <InfoBlock
                   icon="exam"
                   title="Exámenes por módulo"
@@ -1311,7 +1298,7 @@ export default function AlumnoPage() {
             </Panel>
 
             <Panel title="Security Roadmap">
-              <div style={styles.examGrid}>
+              <div style={styles.infoGrid}>
                 <InfoBlock
                   icon="shield"
                   title="Acceso protegido"
@@ -1360,28 +1347,23 @@ function buildModuleViews({
 
     const previousModule = courseCard.courseModules[index - 1];
 
-    const isUnlocked =
+    const unlockedByPrevious =
       index === 0 ||
-      isCompleted ||
       moduleCompletions.some(
         (completion) => String(completion.module_id) === String(previousModule?.id)
-      );
+      ) ||
+      isCompleted;
 
     const isCurrent =
       Boolean(courseCard.nextLesson) &&
       String(courseCard.nextLesson?.module_id) === String(module.id);
 
-    const firstLesson = moduleLessons[0];
     const nextLessonInsideModule = moduleLessons.find(
       (lesson) =>
         !lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
     );
 
-    const targetLesson = nextLessonInsideModule || firstLesson;
-    const href =
-      isUnlocked && targetLesson
-        ? `/cursos/${getCourseSlug(courseCard.course)}/${targetLesson.id}`
-        : `/cursos/${getCourseSlug(courseCard.course)}`;
+    const targetLesson = nextLessonInsideModule || moduleLessons[0];
 
     return {
       module,
@@ -1396,8 +1378,11 @@ function buildModuleViews({
             : 0,
       isCompleted,
       isCurrent,
-      isLocked: !isUnlocked,
-      href,
+      isLocked: !unlockedByPrevious,
+      href:
+        unlockedByPrevious && targetLesson
+          ? `/cursos/${getCourseSlug(courseCard.course)}/${targetLesson.id}`
+          : `/cursos/${getCourseSlug(courseCard.course)}`,
     };
   });
 }
@@ -1407,7 +1392,6 @@ function Background() {
     <div style={styles.background} aria-hidden="true">
       <div style={styles.orbOne} />
       <div style={styles.orbTwo} />
-      <div style={styles.orbThree} />
       <div style={styles.gridTexture} />
     </div>
   );
@@ -1421,12 +1405,15 @@ function GlobalCss() {
           box-sizing: border-box;
         }
 
-        body {
+        html, body {
+          margin: 0;
+          padding: 0;
           background: ${bg};
         }
 
-        a, button {
-          -webkit-tap-highlight-color: transparent;
+        body {
+          color: ${white};
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         button, input, select {
@@ -1434,7 +1421,7 @@ function GlobalCss() {
         }
 
         input::placeholder {
-          color: rgba(244,246,242,0.38);
+          color: rgba(244,246,242,0.36);
         }
 
         select option {
@@ -1442,14 +1429,14 @@ function GlobalCss() {
           color: #F4F6F2;
         }
 
-        @media (max-width: 1180px) {
-          main[data-ghc-page="student"] {
-            grid-template-columns: 104px minmax(0, 1fr) !important;
+        @media (max-width: 1320px) {
+          [data-ghc-page="student"] {
+            grid-template-columns: 102px minmax(0, 1fr) !important;
           }
         }
 
-        @media (max-width: 960px) {
-          main[data-ghc-page="student"] {
+        @media (max-width: 1180px) {
+          [data-ghc-page="student"] {
             grid-template-columns: 1fr !important;
           }
         }
@@ -1494,355 +1481,6 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function PremiumCourseCard({
-  card,
-  completed = false,
-  index,
-  mode,
-}: {
-  card: DashboardCard;
-  completed?: boolean;
-  index: number;
-  mode: ViewMode;
-}) {
-  const course = card.course;
-  const href = card.nextLesson
-    ? `/cursos/${getCourseSlug(course)}/${card.nextLesson.id}`
-    : `/cursos/${getCourseSlug(course)}`;
-
-  const title = String(course.title || 'Curso GHC Academy');
-  const subtitle =
-    course.subtitle ||
-    course.description ||
-    'Formación premium basada en ciencia, estructura y rendimiento.';
-
-  return (
-    <article style={mode === 'grid' ? styles.premiumCourseCard : styles.premiumCourseCardList}>
-      <div
-        style={{
-          ...styles.premiumCourseImage,
-          ...(mode === 'list' ? styles.premiumCourseImageList : {}),
-          backgroundImage: getPremiumCourseBackground(course, index),
-        }}
-      >
-        <div style={styles.premiumImageOverlay} />
-
-        <div style={styles.courseTopBadges}>
-          <span style={completed ? styles.completedBadge : styles.progressBadge}>
-            {completed ? 'Completed' : 'In progress'}
-          </span>
-        </div>
-
-        <span style={styles.bookmarkIcon}>
-          <Icon name={completed ? 'check' : 'bookmark'} />
-        </span>
-      </div>
-
-      <div style={styles.premiumCourseBody}>
-        <h3 style={styles.premiumCourseTitle}>{title}</h3>
-
-        <p style={styles.premiumCourseText}>{subtitle}</p>
-
-        <div style={styles.premiumStatsGrid}>
-          <PremiumMetric
-            icon="document"
-            value={card.courseLessons.length || card.completedLessonCount || 0}
-            label="Lessons"
-          />
-          <PremiumMetric
-            icon="box"
-            value={card.courseModules.length || card.completedModuleCount || 0}
-            label="Modules"
-          />
-          <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progress" />
-        </div>
-
-        <div style={styles.cardProgressArea}>
-          <div style={styles.progressTrack}>
-            <div style={{ ...styles.progressFill, width: `${card.progressPercent}%` }} />
-          </div>
-          <span style={styles.cardProgressText}>{card.progressPercent}% Complete</span>
-        </div>
-
-        <div style={styles.premiumActions}>
-          <Link href={href} style={completed ? styles.reviewButton : styles.courseContinueButton}>
-            {completed ? 'Review' : 'Continue'}
-            {!completed && <Icon name="arrow" />}
-          </Link>
-
-          <Link href={`/cursos/${getCourseSlug(course)}`} style={styles.courseDetailButton}>
-            Details
-          </Link>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function PremiumMetric({
-  icon,
-  value,
-  label,
-}: {
-  icon: IconName;
-  value: string | number;
-  label: string;
-}) {
-  return (
-    <div style={styles.premiumMetric}>
-      <div style={styles.metricTopLine}>
-        <Icon name={icon} />
-        <strong>{value}</strong>
-      </div>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function CurriculumSummaryCard({
-  icon,
-  label,
-  value,
-  helper,
-}: {
-  icon: IconName;
-  label: string;
-  value: string | number;
-  helper: string;
-}) {
-  return (
-    <article style={styles.curriculumSummaryCard}>
-      <span style={styles.curriculumSummaryIcon}>
-        <Icon name={icon} />
-      </span>
-      <div>
-        <p style={styles.curriculumSummaryLabel}>{label}</p>
-        <strong style={styles.curriculumSummaryValue}>{value}</strong>
-        <span style={styles.curriculumSummaryHelper}>{helper}</span>
-      </div>
-    </article>
-  );
-}
-
-function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyRecord }) {
-  const title = item.module.title || `Módulo ${item.index + 1}`;
-  const moduleNumber = item.index + 1;
-
-  if (item.isCurrent) {
-    return (
-      <Link href={item.href} style={styles.roadmapRowActive}>
-        <div style={styles.roadmapTimeline}>
-          <span style={styles.roadmapTimelineDotActive} />
-        </div>
-
-        <div style={styles.roadmapModuleContent}>
-          <div style={styles.roadmapTopLine}>
-            <p style={styles.moduleLabel}>Module {moduleNumber}</p>
-            <span style={styles.inProgressMini}>In Progress</span>
-          </div>
-
-          <h3>{title}</h3>
-          <p>{item.completedLessons} of {item.lessons.length} Lessons Completed</p>
-
-          <div style={styles.curriculumProgressTrack}>
-            <div style={{ ...styles.progressFill, width: `${item.progress}%` }} />
-          </div>
-
-          <div style={styles.roadmapActionRow}>
-            <span>{item.progress}% Complete</span>
-            <span style={styles.roadmapContinuePill}>
-              Continue
-              <Icon name="arrow" />
-            </span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            ...styles.roadmapVisual,
-            backgroundImage: `linear-gradient(90deg, rgba(5,7,6,0.10), rgba(5,7,6,0.76)), url(${getCourseImage(course || {}) || 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80'})`,
-          }}
-        />
-      </Link>
-    );
-  }
-
-  if (item.isLocked) {
-    return (
-      <article style={styles.roadmapRowLocked}>
-        <div style={styles.roadmapTimeline}>
-          <span style={styles.roadmapTimelineDotLocked}>
-            <Icon name="lock" />
-          </span>
-        </div>
-
-        <div style={styles.roadmapModuleContent}>
-          <p style={styles.moduleLabelMuted}>Module {moduleNumber}</p>
-          <h3>{title}</h3>
-          <p>{item.lessons.length} Lessons</p>
-        </div>
-
-        <span style={styles.lockedText}>Locked</span>
-      </article>
-    );
-  }
-
-  return (
-    <Link href={item.href} style={styles.roadmapRow}>
-      <div style={styles.roadmapTimeline}>
-        <span style={item.isCompleted ? styles.roadmapTimelineDotDone : styles.roadmapTimelineDot}>
-          <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
-        </span>
-      </div>
-
-      <div style={styles.roadmapModuleContent}>
-        <p style={styles.moduleLabel}>Module {moduleNumber}</p>
-        <h3>{title}</h3>
-        <p>{item.lessons.length} Lessons</p>
-      </div>
-
-      <div style={styles.roadmapProgressSide}>
-        <strong>{item.isCompleted ? '100%' : `${item.progress}%`}</strong>
-        <span>{item.isCompleted ? 'Completed' : 'Ready'}</span>
-      </div>
-    </Link>
-  );
-}
-
-function LessonRow({
-  lesson,
-  index,
-  completed,
-  active,
-  locked,
-  href,
-}: {
-  lesson: AnyRecord;
-  index: number;
-  completed: boolean;
-  active: boolean;
-  locked: boolean;
-  href: string;
-}) {
-  const contentType = getLessonType(lesson);
-  const icon = getLessonIcon(contentType);
-  const title = lesson.title || `Lesson ${index + 1}`;
-
-  const row = (
-    <article style={active ? styles.lessonRowActive : locked ? styles.lessonRowLocked : styles.lessonRow}>
-      <div style={styles.lessonNameCell}>
-        <span style={completed ? styles.lessonIconDone : active ? styles.lessonIconActive : styles.lessonIcon}>
-          <Icon name={completed ? 'check' : icon} />
-        </span>
-        <div>
-          <strong>{`${index + 1}. ${title}`}</strong>
-          <p>{lesson.description || lesson.subtitle || 'Contenido académico del módulo'}</p>
-        </div>
-      </div>
-
-      <span style={styles.lessonTypePill}>
-        <Icon name={icon} />
-        {contentType}
-      </span>
-
-      <span
-        style={
-          locked
-            ? styles.lessonStatusLocked
-            : completed
-              ? styles.lessonStatusCompleted
-              : active
-                ? styles.lessonStatusActive
-                : styles.lessonStatusPending
-        }
-      >
-        {locked ? 'Locked' : completed ? 'Completed' : active ? 'In Progress' : 'Pending'}
-      </span>
-    </article>
-  );
-
-  if (locked) return row;
-
-  return (
-    <Link href={href} style={styles.lessonRowLink}>
-      {row}
-    </Link>
-  );
-}
-
-function CurriculumRow({ item }: { item: ModuleView }) {
-  const moduleNumber = item.index + 1;
-
-  if (item.isLocked) {
-    return (
-      <article style={styles.curriculumRowLocked}>
-        <div style={styles.curriculumIconLocked}>
-          <Icon name="lock" />
-        </div>
-
-        <div style={styles.curriculumMain}>
-          <p style={styles.moduleLabel}>Module {moduleNumber}</p>
-          <h3>{item.module.title || `Módulo ${moduleNumber}`}</h3>
-        </div>
-
-        <span style={styles.lockedText}>Locked</span>
-      </article>
-    );
-  }
-
-  if (item.isCurrent) {
-    return (
-      <Link href={item.href} style={styles.curriculumRowActive}>
-        <div style={styles.curriculumIconActive}>
-          <Icon name="performance" />
-        </div>
-
-        <div style={styles.curriculumMain}>
-          <div style={styles.moduleLabelRow}>
-            <p style={styles.moduleLabel}>Module {moduleNumber}</p>
-            <span style={styles.inProgressMini}>In progress</span>
-          </div>
-
-          <h3>{item.module.title || `Módulo ${moduleNumber}`}</h3>
-
-          <div style={styles.curriculumProgressTrack}>
-            <div style={{ ...styles.progressFill, width: `${item.progress}%` }} />
-          </div>
-        </div>
-
-        <div style={styles.curriculumRight}>
-          <strong>{item.progress}% Complete</strong>
-          <span style={styles.arrowBox}>
-            <Icon name="arrow" />
-          </span>
-        </div>
-      </Link>
-    );
-  }
-
-  return (
-    <Link href={item.href} style={styles.curriculumRow}>
-      <div style={item.isCompleted ? styles.curriculumIconDone : styles.curriculumIcon}>
-        <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
-      </div>
-
-      <div style={styles.curriculumMain}>
-        <p style={styles.moduleLabel}>Module {moduleNumber}</p>
-        <h3>{item.module.title || `Módulo ${moduleNumber}`}</h3>
-      </div>
-
-      <div style={styles.curriculumRight}>
-        <strong>{item.isCompleted ? '100% Score' : `${item.progress}%`}</strong>
-        {item.isCompleted && (
-          <span style={styles.checkCircle}>
-            <Icon name="check" />
-          </span>
-        )}
-      </div>
-    </Link>
-  );
-}
-
 function MiniStat({
   icon,
   label,
@@ -1884,6 +1522,336 @@ function Feature({ icon, text }: { icon: IconName; text: string }) {
   );
 }
 
+function DashboardModuleRow({ item }: { item: ModuleView }) {
+  if (item.isLocked) {
+    return (
+      <article style={styles.dashboardModuleRowLocked}>
+        <div style={styles.dashboardModuleIconLocked}>
+          <Icon name="lock" />
+        </div>
+
+        <div style={styles.dashboardModuleBody}>
+          <p style={styles.moduleMiniLabel}>Module {item.index + 1}</p>
+          <h3 style={styles.dashboardModuleTitle}>{item.module.title || `Módulo ${item.index + 1}`}</h3>
+        </div>
+
+        <span style={styles.lockedPill}>Locked</span>
+      </article>
+    );
+  }
+
+  return (
+    <Link href={item.href} style={item.isCurrent ? styles.dashboardModuleRowActive : styles.dashboardModuleRow}>
+      <div style={item.isCompleted ? styles.dashboardModuleIconDone : styles.dashboardModuleIcon}>
+        <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
+      </div>
+
+      <div style={styles.dashboardModuleBody}>
+        <div style={styles.dashboardModuleTop}>
+          <p style={styles.moduleMiniLabel}>Module {item.index + 1}</p>
+          {item.isCurrent && <span style={styles.inProgressMini}>In progress</span>}
+        </div>
+
+        <h3 style={styles.dashboardModuleTitle}>{item.module.title || `Módulo ${item.index + 1}`}</h3>
+
+        {item.isCurrent && (
+          <div style={styles.progressTrackMini}>
+            <div style={{ ...styles.progressFill, width: `${item.progress}%` }} />
+          </div>
+        )}
+      </div>
+
+      <div style={styles.dashboardModuleRight}>
+        <strong>{item.isCompleted ? '100% Score' : `${item.progress}%`}</strong>
+      </div>
+    </Link>
+  );
+}
+
+function PremiumCourseCard({
+  card,
+  completed = false,
+  index,
+  mode,
+}: {
+  card: DashboardCard;
+  completed?: boolean;
+  index: number;
+  mode: ViewMode;
+}) {
+  const course = card.course;
+  const href = card.nextLesson
+    ? `/cursos/${getCourseSlug(course)}/${card.nextLesson.id}`
+    : `/cursos/${getCourseSlug(course)}`;
+
+  return (
+    <article style={mode === 'grid' ? styles.premiumCourseCard : styles.premiumCourseCardList}>
+      <div
+        style={{
+          ...styles.premiumCourseImage,
+          ...(mode === 'list' ? styles.premiumCourseImageList : {}),
+          backgroundImage: getPremiumCourseBackground(course, index),
+        }}
+      >
+        <div style={styles.premiumImageOverlay} />
+
+        <div style={styles.courseTopBadges}>
+          <span style={completed ? styles.completedBadge : styles.progressBadge}>
+            {completed ? 'Completed' : 'In Progress'}
+          </span>
+        </div>
+
+        <span style={styles.bookmarkIcon}>
+          <Icon name={completed ? 'check' : 'bookmark'} />
+        </span>
+      </div>
+
+      <div style={styles.premiumCourseBody}>
+        <h3 style={styles.premiumCourseTitle}>{course.title || 'Curso GHC Academy'}</h3>
+        <p style={styles.premiumCourseText}>
+          {course.subtitle ||
+            course.description ||
+            'Formación premium basada en ciencia, estructura y rendimiento.'}
+        </p>
+
+        <div style={styles.premiumStatsGrid}>
+          <PremiumMetric icon="document" value={card.courseLessons.length} label="Lessons" />
+          <PremiumMetric icon="box" value={card.courseModules.length} label="Modules" />
+          <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progress" />
+        </div>
+
+        <div style={styles.cardProgressArea}>
+          <div style={styles.progressTrack}>
+            <div style={{ ...styles.progressFill, width: `${card.progressPercent}%` }} />
+          </div>
+          <span style={styles.progressTextGreen}>{card.progressPercent}% Complete</span>
+        </div>
+
+        <div style={styles.premiumActions}>
+          <Link href={href} style={completed ? styles.reviewButton : styles.primaryButtonSmall}>
+            {completed ? 'Review' : 'Continue'}
+            {!completed && <Icon name="arrow" />}
+          </Link>
+
+          <Link href={`/cursos/${getCourseSlug(course)}`} style={styles.secondaryButtonSmall}>
+            Details
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function PremiumMetric({
+  icon,
+  value,
+  label,
+}: {
+  icon: IconName;
+  value: string | number;
+  label: string;
+}) {
+  return (
+    <div style={styles.premiumMetric}>
+      <div style={styles.metricTopLine}>
+        <Icon name={icon} />
+        <strong>{value}</strong>
+      </div>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function CurriculumMetric({
+  icon,
+  label,
+  value,
+  helper,
+}: {
+  icon: IconName;
+  label: string;
+  value: string | number;
+  helper: string;
+}) {
+  return (
+    <article style={styles.curriculumMetric}>
+      <span style={styles.curriculumMetricIcon}>
+        <Icon name={icon} />
+      </span>
+
+      <div style={styles.curriculumMetricContent}>
+        <p style={styles.curriculumMetricLabel}>{label}</p>
+        <strong style={styles.curriculumMetricValue}>{value}</strong>
+        <span style={styles.curriculumMetricHelper}>{helper}</span>
+      </div>
+    </article>
+  );
+}
+
+function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyRecord }) {
+  const title = item.module.title || `Module ${item.index + 1}`;
+
+  if (item.isCurrent) {
+    return (
+      <Link href={item.href} style={styles.roadmapCurrentCard}>
+        <div style={styles.roadmapCurrentLine} />
+
+        <div style={styles.roadmapCurrentContent}>
+          <div style={styles.roadmapTopBadges}>
+            <span style={styles.moduleMiniLabel}>Module {item.index + 1}</span>
+            <span style={styles.inProgressMini}>In Progress</span>
+          </div>
+
+          <h3 style={styles.roadmapTitleCurrent}>{title}</h3>
+
+          <p style={styles.roadmapSmallText}>
+            {item.completedLessons} of {item.lessons.length} Lessons Completed
+          </p>
+
+          <div style={styles.progressTrackMini}>
+            <div style={{ ...styles.progressFill, width: `${item.progress}%` }} />
+          </div>
+
+          <div style={styles.roadmapBottomRow}>
+            <span style={styles.progressTextGreen}>{item.progress}% Complete</span>
+
+            <span style={styles.roadmapContinueButton}>
+              Continue
+              <Icon name="arrow" />
+            </span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            ...styles.roadmapCurrentImage,
+            backgroundImage: `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.74)), url(${getCourseImage(
+              course || {}
+            ) || 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80'})`,
+          }}
+        />
+      </Link>
+    );
+  }
+
+  if (item.isLocked) {
+    return (
+      <article style={styles.roadmapRowLocked}>
+        <div style={styles.roadmapDotLocked}>
+          <Icon name="lock" />
+        </div>
+
+        <div style={styles.roadmapBody}>
+          <p style={styles.moduleMiniLabelMuted}>Module {item.index + 1}</p>
+          <h3 style={styles.roadmapTitle}>{title}</h3>
+          <p style={styles.roadmapSmallText}>{item.lessons.length} Lessons</p>
+        </div>
+
+        <span style={styles.lockedPill}>Locked</span>
+      </article>
+    );
+  }
+
+  return (
+    <Link href={item.href} style={styles.roadmapRow}>
+      <div style={item.isCompleted ? styles.roadmapDotDone : styles.roadmapDot}>
+        <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
+      </div>
+
+      <div style={styles.roadmapBody}>
+        <p style={styles.moduleMiniLabel}>Module {item.index + 1}</p>
+        <h3 style={styles.roadmapTitle}>{title}</h3>
+        <p style={styles.roadmapSmallText}>{item.lessons.length} Lessons</p>
+      </div>
+
+      <div style={styles.roadmapSide}>
+        <strong>{item.isCompleted ? '100%' : `${item.progress}%`}</strong>
+        <span>{item.isCompleted ? 'Completed' : 'Ready'}</span>
+      </div>
+    </Link>
+  );
+}
+
+function LessonRow({
+  lesson,
+  index,
+  completed,
+  active,
+  locked,
+  href,
+}: {
+  lesson: AnyRecord;
+  index: number;
+  completed: boolean;
+  active: boolean;
+  locked: boolean;
+  href: string;
+}) {
+  const contentType = getLessonType(lesson);
+  const icon = getLessonIcon(contentType);
+  const title = lesson.title || `Lesson ${index + 1}`;
+
+  const content = (
+    <article
+      style={
+        active
+          ? styles.lessonRowActive
+          : locked
+            ? styles.lessonRowLocked
+            : styles.lessonRow
+      }
+    >
+      <div style={styles.lessonNameCell}>
+        <span
+          style={
+            completed
+              ? styles.lessonIconDone
+              : active
+                ? styles.lessonIconActive
+                : styles.lessonIcon
+          }
+        >
+          <Icon name={completed ? 'check' : icon} />
+        </span>
+
+        <div>
+          <strong style={styles.lessonTitleText}>{`${index + 1}. ${title}`}</strong>
+          <p style={styles.lessonDescriptionText}>
+            {lesson.description || lesson.subtitle || 'Contenido académico del módulo'}
+          </p>
+        </div>
+      </div>
+
+      <span style={styles.lessonTypePill}>
+        <Icon name={icon} />
+        {contentType}
+      </span>
+
+      <span
+        style={
+          locked
+            ? styles.lessonStatusLocked
+            : completed
+              ? styles.lessonStatusCompleted
+              : active
+                ? styles.lessonStatusActive
+                : styles.lessonStatusPending
+        }
+      >
+        {locked ? 'Locked' : completed ? 'Completed' : active ? 'In Progress' : 'Pending'}
+      </span>
+    </article>
+  );
+
+  if (locked) return content;
+
+  return (
+    <Link href={href} style={styles.lessonLink}>
+      {content}
+    </Link>
+  );
+}
+
 function CertificateCard({ certificate }: { certificate: AnyRecord }) {
   return (
     <article style={styles.certificateCard}>
@@ -1891,23 +1859,23 @@ function CertificateCard({ certificate }: { certificate: AnyRecord }) {
         <Icon name="star" />
       </div>
 
-      <span style={styles.badgeGreen}>Valid Certificate</span>
+      <span style={styles.progressBadge}>Valid Certificate</span>
 
-      <h3 style={styles.courseCardTitle}>{certificate.course_title || 'Curso completado'}</h3>
+      <h3 style={styles.certificateTitle}>{certificate.course_title || 'Curso completado'}</h3>
 
-      <div style={styles.courseStatsGrid}>
+      <div style={styles.profileGrid}>
         <ProfileStat label="Score" value={`${certificate.final_score ?? '—'}%`} />
         <ProfileStat label="Status" value="Valid" />
         <ProfileStat label="Code" value={certificate.certificate_code || '—'} />
       </div>
 
       {certificate.verification_slug ? (
-        <Link href={`/certificados/${certificate.verification_slug}`} style={styles.continueButton}>
+        <Link href={`/certificados/${certificate.verification_slug}`} style={styles.primaryButton}>
           View Certificate
           <Icon name="arrow" />
         </Link>
       ) : (
-        <p style={styles.courseCardText}>Certificado registrado sin enlace público.</p>
+        <p style={styles.emptyText}>Certificado registrado sin enlace público.</p>
       )}
     </article>
   );
@@ -1928,8 +1896,8 @@ function InfoBlock({ icon, title, text }: { icon: IconName; title: string; text:
       <span style={styles.infoIcon}>
         <Icon name={icon} />
       </span>
-      <h3>{title}</h3>
-      <p>{text}</p>
+      <h3 style={styles.infoBlockTitle}>{title}</h3>
+      <p style={styles.infoBlockText}>{text}</p>
     </article>
   );
 }
@@ -1937,7 +1905,7 @@ function InfoBlock({ icon, title, text }: { icon: IconName; title: string; text:
 function EmptyState({ text }: { text: string }) {
   return (
     <article style={styles.emptyState}>
-      <p>{text}</p>
+      <p style={styles.emptyText}>{text}</p>
     </article>
   );
 }
@@ -2252,10 +2220,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'play') {
     return (
       <svg {...common}>
-        <path
-          d="M8 5.5v13l10-6.5-10-6.5Z"
-          fill="currentColor"
-        />
+        <path d="M8 5.5v13l10-6.5-10-6.5Z" fill="currentColor" />
       </svg>
     );
   }
@@ -2311,24 +2276,6 @@ function Icon({ name }: { name: IconName }) {
     );
   }
 
-  if (name === 'target') {
-    return (
-      <svg {...common}>
-        <path
-          d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <path
-          d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 12h.01"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-
   if (name === 'trophy') {
     return (
       <svg {...common}>
@@ -2362,9 +2309,7 @@ function Icon({ name }: { name: IconName }) {
 
 function isVisibleCourse(course: AnyRecord) {
   const status = String(course.status || '').toLowerCase();
-
   if (!status) return true;
-
   return ['published', 'publicado', 'active', 'activo', 'preview', 'demo'].includes(status);
 }
 
@@ -2413,7 +2358,6 @@ function sortModules(a: AnyRecord, b: AnyRecord) {
   const bNumber = extractModuleNumber(b.title);
 
   if (aNumber !== bNumber) return aNumber - bNumber;
-
   return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
 }
 
@@ -2422,7 +2366,6 @@ function sortLessons(a: AnyRecord, b: AnyRecord) {
   const bNumber = extractLessonNumber(b.title);
 
   if (aNumber !== bNumber) return aNumber - bNumber;
-
   return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
 }
 
@@ -2490,7 +2433,6 @@ function getPremiumCourseBackground(course: AnyRecord, index: number) {
   ];
 
   const selected = realImage || fallbacks[index % fallbacks.length];
-
   return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
 }
 
@@ -2514,21 +2456,50 @@ function getLessonIcon(type: string): IconName {
   return 'play';
 }
 
-function cardBackground() {
-  return 'linear-gradient(145deg, rgba(255,255,255,0.060), rgba(255,255,255,0.022)), rgba(8,12,10,0.86)';
-}
-
 const styles: Record<string, CSSProperties> = {
   loadingPage: {
     minHeight: '100vh',
-    background: bg,
-    color: white,
     position: 'relative',
     display: 'grid',
     placeItems: 'center',
+    background: bg,
+    color: white,
     overflow: 'hidden',
-    fontFamily:
-      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+
+  loadingCard: {
+    width: 'min(720px, calc(100vw - 40px))',
+    borderRadius: 28,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
+    padding: 34,
+    position: 'relative',
+    zIndex: 2,
+    boxShadow: '0 28px 90px rgba(0,0,0,0.42)',
+  },
+
+  loadingAccent: {
+    width: 66,
+    height: 4,
+    borderRadius: 999,
+    background: green,
+    boxShadow: `0 0 24px ${rgbaGreen(0.45)}`,
+    marginBottom: 22,
+  },
+
+  loadingTitle: {
+    margin: '14px 0 0',
+    fontSize: 'clamp(42px, 6vw, 74px)',
+    lineHeight: 0.92,
+    fontWeight: 950,
+    letterSpacing: '-0.06em',
+  },
+
+  loadingText: {
+    marginTop: 16,
+    color: muted,
+    lineHeight: 1.75,
+    maxWidth: 620,
   },
 
   page: {
@@ -2536,11 +2507,9 @@ const styles: Record<string, CSSProperties> = {
     background: bg,
     color: white,
     position: 'relative',
-    overflow: 'hidden',
     display: 'grid',
-    gridTemplateColumns: '282px minmax(0, 1fr)',
-    fontFamily:
-      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    gridTemplateColumns: '278px minmax(0, 1fr)',
+    overflow: 'visible',
   },
 
   background: {
@@ -2556,8 +2525,8 @@ const styles: Record<string, CSSProperties> = {
     width: 520,
     height: 520,
     borderRadius: 999,
-    top: -220,
-    left: -180,
+    top: -200,
+    left: -160,
     background: rgbaGreen(0.10),
     filter: 'blur(100px)',
   },
@@ -2567,21 +2536,10 @@ const styles: Record<string, CSSProperties> = {
     width: 520,
     height: 520,
     borderRadius: 999,
-    right: -260,
+    right: -250,
     top: 120,
     background: 'rgba(120,135,130,0.09)',
     filter: 'blur(110px)',
-  },
-
-  orbThree: {
-    position: 'absolute',
-    width: 620,
-    height: 620,
-    borderRadius: 999,
-    bottom: -320,
-    left: '36%',
-    background: rgbaGreen(0.05),
-    filter: 'blur(120px)',
   },
 
   gridTexture: {
@@ -2594,67 +2552,24 @@ const styles: Record<string, CSSProperties> = {
     maskImage: 'radial-gradient(circle at center, black 0%, transparent 82%)',
   },
 
-  loadingCard: {
-    width: 'min(720px, calc(100vw - 44px))',
-    border: '1px solid rgba(255,255,255,0.10)',
-    borderRadius: 34,
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.022))',
-    padding: 36,
-    position: 'relative',
-    zIndex: 2,
-    boxShadow: '0 34px 130px rgba(0,0,0,0.45)',
-  },
-
-  loadingAccent: {
-    width: 68,
-    height: 4,
-    borderRadius: 999,
-    background: green,
-    boxShadow: `0 0 28px ${rgbaGreen(0.45)}`,
-    marginBottom: 24,
-  },
-
-  kicker: {
-    margin: '26px 0 0',
-    color: green,
-    textTransform: 'uppercase',
-    letterSpacing: '0.26em',
-    fontSize: 12,
-    fontWeight: 950,
-  },
-
-  loadingTitle: {
-    margin: '14px 0 0',
-    fontSize: 'clamp(44px, 6vw, 76px)',
-    lineHeight: 0.92,
-    letterSpacing: '-0.065em',
-    fontWeight: 950,
-  },
-
-  loadingText: {
-    color: muted,
-    lineHeight: 1.8,
-    maxWidth: 620,
-    marginTop: 16,
-  },
-
   sidebar: {
-    position: 'relative',
+    position: 'sticky',
+    top: 0,
+    height: '100vh',
     zIndex: 2,
-    minHeight: '100vh',
     borderRight: '1px solid rgba(255,255,255,0.07)',
     background: 'linear-gradient(180deg, rgba(6,9,8,0.97), rgba(3,5,4,0.93))',
-    padding: 22,
+    padding: 20,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
   },
 
   logoBlock: {
-    height: 58,
     display: 'flex',
     alignItems: 'center',
-    marginBottom: 24,
+    minHeight: 58,
+    marginBottom: 20,
   },
 
   nav: {
@@ -2670,11 +2585,10 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     gap: 14,
     width: '100%',
-    borderRadius: 0,
-    padding: '13px 14px',
+    padding: '12px 14px',
     textAlign: 'left',
     cursor: 'pointer',
-    position: 'relative',
+    borderRadius: 0,
   },
 
   navActive: {
@@ -2685,11 +2599,10 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     gap: 14,
     width: '100%',
-    borderRadius: 0,
-    padding: '13px 14px',
+    padding: '12px 14px',
     textAlign: 'left',
     cursor: 'pointer',
-    position: 'relative',
+    borderRadius: 0,
     boxShadow: `inset 3px 0 0 ${rgbaGreen(0.95)}`,
   },
 
@@ -2726,7 +2639,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
     background: 'rgba(255,255,255,0.035)',
-    padding: 18,
+    padding: 16,
   },
 
   sidebarUserTop: {
@@ -2760,7 +2673,6 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    maxWidth: 150,
   },
 
   sidebarUserRole: {
@@ -2782,8 +2694,8 @@ const styles: Record<string, CSSProperties> = {
   xpBox: {
     borderTop: '1px solid rgba(255,255,255,0.08)',
     borderBottom: '1px solid rgba(255,255,255,0.08)',
-    padding: '16px 0',
-    marginTop: 18,
+    padding: '14px 0',
+    marginTop: 16,
   },
 
   xpRow: {
@@ -2795,8 +2707,8 @@ const styles: Record<string, CSSProperties> = {
     letterSpacing: '0.08em',
   },
 
-  progressTrackSubtle: {
-    height: 7,
+  progressTrackThin: {
+    height: 6,
     borderRadius: 999,
     background: 'rgba(255,255,255,0.10)',
     overflow: 'hidden',
@@ -2804,12 +2716,12 @@ const styles: Record<string, CSSProperties> = {
   },
 
   signOutButton: {
-    marginTop: 18,
+    marginTop: 16,
     display: 'inline-flex',
     alignItems: 'center',
     gap: 10,
     background: 'transparent',
-    border: '0',
+    border: 0,
     color: 'rgba(244,246,242,0.58)',
     fontSize: 13,
     cursor: 'pointer',
@@ -2819,18 +2731,17 @@ const styles: Record<string, CSSProperties> = {
   appShell: {
     position: 'relative',
     zIndex: 1,
-    padding: 24,
-    overflow: 'auto',
-    height: '100vh',
+    padding: 20,
+    minWidth: 0,
   },
 
   topbar: {
-    minHeight: 64,
+    minHeight: 58,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 20,
-    marginBottom: 18,
+    gap: 18,
+    marginBottom: 16,
     borderBottom: '1px solid rgba(255,255,255,0.06)',
     paddingBottom: 12,
   },
@@ -3074,24 +2985,24 @@ const styles: Record<string, CSSProperties> = {
 
   dashboardGrid: {
     display: 'grid',
-    gap: 18,
+    gap: 16,
   },
 
-  topCardsGrid: {
+  dashboardTopGrid: {
     display: 'grid',
-    gridTemplateColumns: '350px minmax(0, 1fr)',
-    gap: 18,
+    gridTemplateColumns: '340px minmax(0, 1fr)',
+    gap: 16,
   },
 
   progressCard: {
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
-    padding: 22,
-    minHeight: 342,
+    background: panelBg,
+    padding: 20,
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
   },
 
-  cardTitle: {
+  sectionTitleSmall: {
     margin: 0,
     fontSize: 18,
     fontWeight: 850,
@@ -3101,12 +3012,12 @@ const styles: Record<string, CSSProperties> = {
   progressRingWrap: {
     display: 'flex',
     justifyContent: 'center',
-    margin: '20px 0 12px',
+    margin: '18px 0 12px',
   },
 
   progressRing: {
-    width: 168,
-    height: 168,
+    width: 172,
+    height: 172,
     borderRadius: 999,
     display: 'grid',
     placeItems: 'center',
@@ -3114,8 +3025,8 @@ const styles: Record<string, CSSProperties> = {
   },
 
   progressRingInner: {
-    width: 122,
-    height: 122,
+    width: 124,
+    height: 124,
     borderRadius: 999,
     background: '#080B0A',
     border: '1px solid rgba(255,255,255,0.10)',
@@ -3128,7 +3039,7 @@ const styles: Record<string, CSSProperties> = {
   progressRingValue: {
     display: 'block',
     color: white,
-    fontSize: 48,
+    fontSize: 50,
     lineHeight: 0.88,
     fontWeight: 950,
     letterSpacing: '-0.06em',
@@ -3149,7 +3060,7 @@ const styles: Record<string, CSSProperties> = {
     color: muted,
     textAlign: 'center',
     lineHeight: 1.6,
-    margin: '10px auto 18px',
+    margin: '8px auto 16px',
   },
 
   progressMiniStats: {
@@ -3168,7 +3079,7 @@ const styles: Record<string, CSSProperties> = {
     gridTemplateColumns: '28px minmax(0, 1fr)',
     alignItems: 'center',
     gap: 10,
-    padding: '13px 12px',
+    padding: '12px 12px',
     color: muted,
   },
 
@@ -3192,41 +3103,24 @@ const styles: Record<string, CSSProperties> = {
   nextModuleCard: {
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
-    minHeight: 342,
+    background: panelBg,
+    minHeight: 330,
     display: 'grid',
     gridTemplateColumns: '0.72fr 1fr',
     overflow: 'hidden',
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
   },
 
-  athleteVisual: {
-    position: 'relative',
+  heroImage: {
     background:
-      'linear-gradient(90deg, rgba(5,7,6,0.05), rgba(5,7,6,0.92)), url(https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80)',
+      'linear-gradient(90deg, rgba(5,7,6,0.08), rgba(5,7,6,0.92)), url(https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80)',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     filter: 'grayscale(1) contrast(1.08) brightness(0.70)',
   },
 
-  athleteGlow: {
-    position: 'absolute',
-    inset: 0,
-    background: `radial-gradient(circle at 55% 42%, ${rgbaGreen(0.18)}, transparent 35%)`,
-  },
-
-  athleteLabel: {
-    position: 'absolute',
-    left: 22,
-    bottom: 20,
-    color: 'rgba(244,246,242,0.34)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.18em',
-    fontSize: 11,
-    fontWeight: 900,
-  },
-
   nextContent: {
-    padding: 28,
+    padding: 24,
     display: 'flex',
     flexDirection: 'column',
   },
@@ -3240,27 +3134,26 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 900,
   },
 
-  nextTitle: {
-    margin: '12px 0 0',
+  heroTitle: {
+    margin: '10px 0 0',
     fontSize: 30,
     lineHeight: 1.05,
     letterSpacing: '-0.035em',
     fontWeight: 900,
   },
 
-  nextDescription: {
+  heroText: {
     margin: '12px 0 0',
     color: muted,
     fontSize: 15,
     lineHeight: 1.65,
-    maxWidth: 540,
   },
 
-  nextMeta: {
+  metaRow: {
     display: 'flex',
-    gap: 20,
+    gap: 18,
     flexWrap: 'wrap',
-    marginTop: 22,
+    marginTop: 18,
     color: muted,
   },
 
@@ -3271,11 +3164,11 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
   },
 
-  nextProgressBlock: {
+  progressBlock: {
     marginTop: 'auto',
-    paddingTop: 26,
-    color: green,
-    fontWeight: 800,
+    paddingTop: 22,
+    display: 'grid',
+    gap: 8,
   },
 
   progressTrack: {
@@ -3285,6 +3178,22 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
   },
 
+  progressTrackMini: {
+    height: 5,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+
+  progressTrackCompact: {
+    height: 6,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+
   progressFill: {
     height: '100%',
     borderRadius: 999,
@@ -3292,7 +3201,13 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: `0 0 24px ${rgbaGreen(0.34)}`,
   },
 
-  continueButton: {
+  progressTextGreen: {
+    color: green,
+    fontSize: 12,
+    fontWeight: 850,
+  },
+
+  primaryButton: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3306,86 +3221,102 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 900,
     fontSize: 13,
     padding: '0 18px',
-    marginTop: 12,
+    marginTop: 10,
     width: 'fit-content',
     boxShadow: `0 0 26px ${rgbaGreen(0.16)}`,
+  },
+
+  secondaryButton: {
+    minHeight: 42,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.045)',
+    color: white,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '0 16px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    marginTop: 8,
+    width: 'fit-content',
   },
 
   panel: {
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
-    padding: 20,
+    background: panelBg,
+    padding: 18,
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
   },
 
   panelTitle: {
-    margin: '0 0 18px',
+    margin: '0 0 16px',
     fontSize: 22,
     lineHeight: 1,
     fontWeight: 900,
     letterSpacing: '-0.035em',
   },
 
-  curriculumList: {
+  curriculumRows: {
     display: 'grid',
     gap: 8,
   },
 
-  curriculumRow: {
+  dashboardModuleRow: {
     minHeight: 56,
     borderRadius: 12,
-    border: '1px solid rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.07)',
     background: 'rgba(255,255,255,0.026)',
     display: 'grid',
-    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    gridTemplateColumns: '36px minmax(0, 1fr) auto',
+    gap: 12,
     alignItems: 'center',
-    gap: 14,
     padding: '12px 14px',
     textDecoration: 'none',
     color: white,
   },
 
-  curriculumRowActive: {
-    minHeight: 64,
+  dashboardModuleRowActive: {
+    minHeight: 62,
     borderRadius: 12,
-    border: `1px solid ${rgbaGreen(0.55)}`,
-    background: `linear-gradient(90deg, ${rgbaGreen(0.13)}, ${rgbaGreen(0.04)})`,
+    border: `1px solid ${rgbaGreen(0.40)}`,
+    background: `linear-gradient(90deg, ${rgbaGreen(0.12)}, rgba(255,255,255,0.025))`,
     display: 'grid',
-    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    gridTemplateColumns: '36px minmax(0, 1fr) auto',
+    gap: 12,
     alignItems: 'center',
-    gap: 14,
     padding: '12px 14px',
     textDecoration: 'none',
     color: white,
-    boxShadow: `inset 0 0 0 1px ${rgbaGreen(0.08)}, 0 0 34px ${rgbaGreen(0.06)}`,
   },
 
-  curriculumRowLocked: {
+  dashboardModuleRowLocked: {
     minHeight: 56,
     borderRadius: 12,
     border: '1px solid rgba(255,255,255,0.05)',
-    background: 'rgba(255,255,255,0.018)',
+    background: 'rgba(255,255,255,0.016)',
     display: 'grid',
-    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    gridTemplateColumns: '36px minmax(0, 1fr) auto',
+    gap: 12,
     alignItems: 'center',
-    gap: 14,
     padding: '12px 14px',
-    color: 'rgba(244,246,242,0.42)',
+    color: soft,
   },
 
-  curriculumIcon: {
-    width: 34,
-    height: 34,
+  dashboardModuleIcon: {
+    width: 30,
+    height: 30,
     borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.10)',
     display: 'grid',
     placeItems: 'center',
-    color: muted,
+    color: soft,
   },
 
-  curriculumIconDone: {
-    width: 34,
-    height: 34,
+  dashboardModuleIconDone: {
+    width: 30,
+    height: 30,
     borderRadius: 10,
     border: `1px solid ${rgbaGreen(0.28)}`,
     background: rgbaGreen(0.08),
@@ -3394,140 +3325,76 @@ const styles: Record<string, CSSProperties> = {
     color: green,
   },
 
-  curriculumIconActive: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    border: `1px solid ${rgbaGreen(0.34)}`,
-    background: rgbaGreen(0.10),
-    display: 'grid',
-    placeItems: 'center',
-    color: green,
-  },
-
-  curriculumIconLocked: {
-    width: 34,
-    height: 34,
+  dashboardModuleIconLocked: {
+    width: 30,
+    height: 30,
     borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.08)',
     display: 'grid',
     placeItems: 'center',
-    color: 'rgba(244,246,242,0.35)',
+    color: soft,
   },
 
-  curriculumMain: {
+  dashboardModuleBody: {
     minWidth: 0,
   },
 
-  moduleLabelRow: {
+  dashboardModuleTop: {
     display: 'flex',
-    alignItems: 'center',
     gap: 8,
-  },
-
-  moduleLabel: {
-    margin: 0,
-    color: green,
-    textTransform: 'uppercase',
-    letterSpacing: '0.13em',
-    fontSize: 10,
-    fontWeight: 900,
-  },
-
-  moduleLabelMuted: {
-    margin: 0,
-    color: soft,
-    textTransform: 'uppercase',
-    letterSpacing: '0.13em',
-    fontSize: 10,
-    fontWeight: 900,
-  },
-
-  inProgressMini: {
-    borderRadius: 999,
-    background: rgbaGreen(0.12),
-    color: green,
-    padding: '3px 8px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    fontSize: 9,
-    fontWeight: 900,
-  },
-
-  curriculumRight: {
-    display: 'flex',
     alignItems: 'center',
-    gap: 12,
+    flexWrap: 'wrap',
+  },
+
+  dashboardModuleTitle: {
+    margin: '4px 0 0',
+    fontSize: 16,
+    lineHeight: 1.2,
+    fontWeight: 850,
+  },
+
+  dashboardModuleRight: {
     color: muted,
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: 850,
   },
 
-  arrowBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    background: green,
-    color: '#061008',
-    display: 'grid',
-    placeItems: 'center',
-    boxShadow: `0 0 18px ${rgbaGreen(0.16)}`,
-  },
-
-  checkCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 999,
-    border: `1px solid ${rgbaGreen(0.30)}`,
-    color: green,
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  lockedText: {
-    color: soft,
-    fontSize: 13,
-  },
-
-  curriculumProgressTrack: {
-    height: 5,
-    borderRadius: 999,
-    background: 'rgba(255,255,255,0.10)',
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-
-  bottomGrid: {
+  dashboardBottomGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: 18,
+    gap: 16,
   },
 
   examCard: {
-    minHeight: 240,
+    minHeight: 238,
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
     background:
-      'linear-gradient(90deg, rgba(11,15,13,0.98), rgba(11,15,13,0.86)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80)',
+      'linear-gradient(90deg, rgba(11,15,13,0.98), rgba(11,15,13,0.88)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80)',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    padding: 22,
+    padding: 20,
     display: 'grid',
-    gridTemplateColumns: '1fr 160px',
-    overflow: 'hidden',
-    position: 'relative',
+    alignItems: 'center',
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
+  },
+
+  examContent: {
+    minWidth: 0,
   },
 
   certificationCard: {
-    minHeight: 240,
+    minHeight: 238,
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
     background: 'rgba(11,15,13,0.92)',
-    padding: 22,
+    padding: 20,
     overflow: 'hidden',
     position: 'relative',
     isolation: 'isolate',
     display: 'flex',
     alignItems: 'stretch',
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
   },
 
   certificationBgPhoto: {
@@ -3549,14 +3416,8 @@ const styles: Record<string, CSSProperties> = {
     zIndex: 1,
   },
 
-  examContent: {
-    minWidth: 0,
-    position: 'relative',
-    zIndex: 2,
-  },
-
   certContent: {
-    width: '56%',
+    width: '58%',
     minWidth: 0,
     position: 'relative',
     zIndex: 3,
@@ -3588,27 +3449,11 @@ const styles: Record<string, CSSProperties> = {
     maxWidth: 450,
   },
 
-  darkButton: {
-    minHeight: 42,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.12)',
-    background: 'rgba(255,255,255,0.045)',
-    color: white,
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '0 16px',
-    fontWeight: 800,
-    cursor: 'pointer',
-    marginTop: 10,
-    width: 'fit-content',
-  },
-
   featureRow: {
     display: 'flex',
     gap: 16,
     flexWrap: 'wrap',
-    marginTop: 26,
+    marginTop: 22,
     color: muted,
     fontSize: 12,
   },
@@ -3619,40 +3464,31 @@ const styles: Record<string, CSSProperties> = {
     gap: 8,
   },
 
-  examVisual: {
-    fontSize: 150,
-    lineHeight: 1,
-    color: 'rgba(244,246,242,0.08)',
-    fontWeight: 950,
+  coursesPage: {
     display: 'grid',
-    placeItems: 'center',
+    gap: 16,
   },
 
   pageTitle: {
     margin: 0,
-    fontSize: 36,
+    fontSize: 34,
     lineHeight: 1,
     letterSpacing: '-0.05em',
     fontWeight: 900,
   },
 
   pageSubtitle: {
-    margin: '12px 0 0',
+    margin: '10px 0 0',
     color: muted,
     fontSize: 15,
     lineHeight: 1.6,
   },
 
-  coursesPage: {
-    display: 'grid',
-    gap: 18,
-  },
-
-  coursesHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'end',
-    gap: 18,
+  pageSubtitleCompact: {
+    margin: '8px 0 0',
+    color: muted,
+    fontSize: 14,
+    lineHeight: 1.5,
   },
 
   courseControls: {
@@ -3660,12 +3496,11 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     gap: 12,
     flexWrap: 'wrap',
-    padding: '0 0 6px',
   },
 
   searchBox: {
     width: 320,
-    minHeight: 46,
+    minHeight: 44,
     borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.10)',
     background: 'rgba(255,255,255,0.030)',
@@ -3684,57 +3519,54 @@ const styles: Record<string, CSSProperties> = {
     outline: 0,
     background: 'transparent',
     color: white,
-    height: 44,
+    height: 42,
   },
 
   filterActive: {
-    minHeight: 46,
+    minHeight: 44,
     borderRadius: 10,
     border: `1px solid ${rgbaGreen(0.32)}`,
     background: rgbaGreen(0.11),
     color: green,
     display: 'inline-flex',
     alignItems: 'center',
-    gap: 12,
-    padding: '0 18px',
+    padding: '0 16px',
     cursor: 'pointer',
     fontWeight: 850,
-    boxShadow: `0 0 16px ${rgbaGreen(0.08)}`,
   },
 
   filterButton: {
-    minHeight: 46,
+    minHeight: 44,
     borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.10)',
     background: 'rgba(255,255,255,0.030)',
     color: 'rgba(244,246,242,0.78)',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: 12,
-    padding: '0 18px',
+    padding: '0 16px',
     cursor: 'pointer',
     fontWeight: 800,
   },
 
   selectControl: {
-    minHeight: 46,
+    minHeight: 44,
     borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.10)',
     background: 'rgba(255,255,255,0.030)',
     color: 'rgba(244,246,242,0.78)',
-    padding: '0 16px',
+    padding: '0 14px',
     outline: 0,
     cursor: 'pointer',
     fontWeight: 800,
   },
 
   sortSelect: {
-    minHeight: 46,
+    minHeight: 44,
     borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.10)',
     background: 'rgba(255,255,255,0.030)',
     color: 'rgba(244,246,242,0.78)',
-    padding: '0 16px',
+    padding: '0 14px',
     outline: 0,
     cursor: 'pointer',
     fontWeight: 800,
@@ -3745,7 +3577,7 @@ const styles: Record<string, CSSProperties> = {
   },
 
   viewToggle: {
-    height: 46,
+    height: 44,
     borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.10)',
     background: 'rgba(255,255,255,0.030)',
@@ -3756,10 +3588,10 @@ const styles: Record<string, CSSProperties> = {
   },
 
   viewButton: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 8,
-    border: '0',
+    border: 0,
     background: 'transparent',
     color: 'rgba(244,246,242,0.52)',
     display: 'grid',
@@ -3768,20 +3600,15 @@ const styles: Record<string, CSSProperties> = {
   },
 
   viewButtonActive: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 8,
-    border: '0',
+    border: 0,
     background: rgbaGreen(0.12),
     color: green,
     display: 'grid',
     placeItems: 'center',
     cursor: 'pointer',
-  },
-
-  courseSection: {
-    display: 'grid',
-    gap: 14,
   },
 
   courseSectionHeader: {
@@ -3810,7 +3637,7 @@ const styles: Record<string, CSSProperties> = {
   premiumCourseGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-    gap: 18,
+    gap: 16,
     alignItems: 'stretch',
   },
 
@@ -3820,7 +3647,7 @@ const styles: Record<string, CSSProperties> = {
   },
 
   premiumCourseCard: {
-    minHeight: 394,
+    minHeight: 386,
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
     background:
@@ -3828,11 +3655,11 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
   },
 
   premiumCourseCardList: {
-    minHeight: 220,
+    minHeight: 216,
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
     background:
@@ -3840,11 +3667,11 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
     display: 'grid',
     gridTemplateColumns: '320px minmax(0, 1fr)',
-    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
   },
 
   premiumCourseImage: {
-    height: 164,
+    height: 160,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     position: 'relative',
@@ -3854,7 +3681,7 @@ const styles: Record<string, CSSProperties> = {
 
   premiumCourseImageList: {
     height: '100%',
-    minHeight: 220,
+    minHeight: 216,
   },
 
   premiumImageOverlay: {
@@ -3930,7 +3757,7 @@ const styles: Record<string, CSSProperties> = {
 
   premiumCourseText: {
     margin: '10px 0 0',
-    minHeight: 52,
+    minHeight: 50,
     color: muted,
     fontSize: 14,
     lineHeight: 1.55,
@@ -3945,7 +3772,7 @@ const styles: Record<string, CSSProperties> = {
   },
 
   premiumMetric: {
-    minHeight: 60,
+    minHeight: 58,
     borderRadius: 9,
     border: '1px solid rgba(255,255,255,0.08)',
     background: 'rgba(255,255,255,0.032)',
@@ -3965,15 +3792,9 @@ const styles: Record<string, CSSProperties> = {
   },
 
   cardProgressArea: {
-    marginTop: 13,
+    marginTop: 12,
     display: 'grid',
     gap: 8,
-  },
-
-  cardProgressText: {
-    color: green,
-    fontSize: 13,
-    fontWeight: 850,
   },
 
   premiumActions: {
@@ -3983,8 +3804,8 @@ const styles: Record<string, CSSProperties> = {
     marginTop: 14,
   },
 
-  courseContinueButton: {
-    minHeight: 42,
+  primaryButtonSmall: {
+    minHeight: 40,
     borderRadius: 9,
     background: `linear-gradient(135deg, ${green}, #7BEE65)`,
     color: '#061008',
@@ -3998,8 +3819,22 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: `0 0 22px ${rgbaGreen(0.16)}`,
   },
 
+  secondaryButtonSmall: {
+    minHeight: 40,
+    borderRadius: 9,
+    background: 'rgba(255,255,255,0.040)',
+    color: white,
+    border: '1px solid rgba(255,255,255,0.10)',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    fontWeight: 850,
+    fontSize: 13,
+  },
+
   reviewButton: {
-    minHeight: 42,
+    minHeight: 40,
     borderRadius: 9,
     background: 'rgba(255,255,255,0.050)',
     color: white,
@@ -4013,69 +3848,68 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
   },
 
-  courseDetailButton: {
-    minHeight: 42,
-    borderRadius: 9,
-    background: 'rgba(255,255,255,0.040)',
-    color: white,
-    border: '1px solid rgba(255,255,255,0.10)',
-    textDecoration: 'none',
-    display: 'inline-flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    fontWeight: 850,
-    fontSize: 13,
-  },
-
   curriculumPage: {
     display: 'grid',
-    gap: 18,
+    gap: 14,
   },
 
-  curriculumHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 18,
-    alignItems: 'end',
-  },
-
-  currentCourseSelector: {
+  curriculumHeaderCompact: {
     display: 'grid',
-    gap: 8,
-    minWidth: 320,
+    gridTemplateColumns: 'minmax(0, 280px) minmax(0, 1fr)',
+    gap: 16,
+    alignItems: 'start',
   },
 
-  curriculumSelect: {
-    minHeight: 46,
-    borderRadius: 12,
+  curriculumHeaderRight: {
+    display: 'grid',
+    gap: 12,
+  },
+
+  currentCourseBox: {
+    display: 'grid',
+    gap: 6,
+    maxWidth: 340,
+  },
+
+  currentCourseLabel: {
+    color: soft,
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  currentCourseSelect: {
+    minHeight: 42,
+    borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.035)',
+    background: 'rgba(255,255,255,0.032)',
     color: white,
-    padding: '0 14px',
+    padding: '0 12px',
     outline: 0,
-    fontWeight: 850,
+    fontWeight: 800,
   },
 
-  curriculumSummaryGrid: {
+  curriculumMetricsRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 14,
+    gap: 12,
   },
 
-  curriculumSummaryCard: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
-    padding: 18,
-    display: 'flex',
-    gap: 14,
-    alignItems: 'center',
-  },
-
-  curriculumSummaryIcon: {
-    width: 46,
-    height: 46,
+  curriculumMetric: {
+    minHeight: 92,
     borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: panelBg,
+    padding: 14,
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+    boxShadow: '0 16px 50px rgba(0,0,0,0.14)',
+  },
+
+  curriculumMetricIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     display: 'grid',
     placeItems: 'center',
     background: rgbaGreen(0.08),
@@ -4084,357 +3918,423 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
   },
 
-  curriculumSummaryLabel: {
+  curriculumMetricContent: {
+    display: 'grid',
+    gap: 4,
+    minWidth: 0,
+  },
+
+  curriculumMetricLabel: {
     margin: 0,
     color: soft,
-    fontSize: 11,
+    fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: '0.14em',
     fontWeight: 900,
   },
 
-  curriculumSummaryValue: {
-    display: 'block',
-    marginTop: 6,
+  curriculumMetricValue: {
     color: white,
-    fontSize: 28,
+    fontSize: 26,
     lineHeight: 1,
     fontWeight: 950,
     letterSpacing: '-0.04em',
   },
 
-  curriculumSummaryHelper: {
-    display: 'block',
-    marginTop: 6,
+  curriculumMetricHelper: {
     color: green,
     fontSize: 12,
     fontWeight: 850,
   },
 
-  curriculumMainGrid: {
+  curriculumMainGridCompact: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 0.95fr) minmax(420px, 1.05fr)',
-    gap: 18,
+    gridTemplateColumns: '0.93fr 1.07fr',
+    gap: 14,
+    alignItems: 'start',
   },
 
-  roadmapPanel: {
-    borderRadius: 18,
+  roadmapPanelCompact: {
+    borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
-    padding: 20,
+    background: panelBg,
+    padding: 16,
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
   },
 
-  lessonsPanel: {
-    borderRadius: 18,
+  moduleDetailPanel: {
+    borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
-    padding: 20,
+    background: panelBg,
+    padding: 16,
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
   },
 
-  curriculumPanelHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 18,
-    alignItems: 'flex-start',
-    marginBottom: 18,
+  panelHeaderCompact: {
+    marginBottom: 12,
   },
 
-  curriculumPanelTitle: {
+  panelHeading: {
     margin: 0,
-    color: white,
-    fontSize: 22,
-    lineHeight: 1.05,
-    fontWeight: 950,
-    letterSpacing: '-0.035em',
+    fontSize: 18,
+    lineHeight: 1.1,
+    fontWeight: 900,
+    letterSpacing: '-0.03em',
   },
 
-  curriculumPanelSubtitle: {
-    margin: '8px 0 0',
+  panelSubheading: {
+    margin: '6px 0 0',
     color: muted,
-    fontSize: 14,
-    lineHeight: 1.6,
+    fontSize: 13,
+    lineHeight: 1.5,
   },
 
-  moduleRoadmapList: {
+  roadmapListCompact: {
     display: 'grid',
     gap: 10,
-    position: 'relative',
   },
 
   roadmapRow: {
-    minHeight: 78,
-    borderRadius: 15,
+    minHeight: 72,
+    borderRadius: 14,
     border: '1px solid rgba(255,255,255,0.07)',
     background: 'rgba(255,255,255,0.026)',
     display: 'grid',
-    gridTemplateColumns: '32px minmax(0, 1fr) 90px',
+    gridTemplateColumns: '30px minmax(0, 1fr) 74px',
     gap: 12,
     alignItems: 'center',
-    padding: 14,
+    padding: 12,
     textDecoration: 'none',
     color: white,
-  },
-
-  roadmapRowActive: {
-    minHeight: 150,
-    borderRadius: 18,
-    border: `1px solid ${rgbaGreen(0.56)}`,
-    background: `linear-gradient(100deg, ${rgbaGreen(0.11)}, rgba(255,255,255,0.028))`,
-    display: 'grid',
-    gridTemplateColumns: '32px minmax(0, 1fr) 190px',
-    gap: 14,
-    alignItems: 'stretch',
-    padding: 14,
-    textDecoration: 'none',
-    color: white,
-    boxShadow: `0 0 34px ${rgbaGreen(0.065)}`,
-    overflow: 'hidden',
   },
 
   roadmapRowLocked: {
-    minHeight: 78,
-    borderRadius: 15,
+    minHeight: 72,
+    borderRadius: 14,
     border: '1px solid rgba(255,255,255,0.05)',
     background: 'rgba(255,255,255,0.016)',
     display: 'grid',
-    gridTemplateColumns: '32px minmax(0, 1fr) 80px',
+    gridTemplateColumns: '30px minmax(0, 1fr) auto',
     gap: 12,
     alignItems: 'center',
-    padding: 14,
-    color: 'rgba(244,246,242,0.42)',
-  },
-
-  roadmapTimeline: {
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  roadmapTimelineDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    display: 'grid',
-    placeItems: 'center',
-    border: '1px solid rgba(255,255,255,0.12)',
-    color: muted,
-  },
-
-  roadmapTimelineDotDone: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    display: 'grid',
-    placeItems: 'center',
-    border: `1px solid ${rgbaGreen(0.28)}`,
-    background: rgbaGreen(0.08),
-    color: green,
-  },
-
-  roadmapTimelineDotActive: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
-    background: green,
-    boxShadow: `0 0 22px ${rgbaGreen(0.35)}`,
-  },
-
-  roadmapTimelineDotLocked: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    display: 'grid',
-    placeItems: 'center',
-    border: '1px solid rgba(255,255,255,0.08)',
+    padding: 12,
     color: soft,
   },
 
-  roadmapModuleContent: {
-    minWidth: 0,
+  roadmapCurrentCard: {
+    minHeight: 144,
+    borderRadius: 16,
+    border: `1px solid ${rgbaGreen(0.52)}`,
+    background: `linear-gradient(100deg, ${rgbaGreen(0.12)}, rgba(255,255,255,0.028))`,
+    display: 'grid',
+    gridTemplateColumns: '10px minmax(0, 1fr) 146px',
+    gap: 12,
+    alignItems: 'stretch',
+    padding: 12,
+    textDecoration: 'none',
+    color: white,
+    boxShadow: `0 0 30px ${rgbaGreen(0.07)}`,
+    overflow: 'hidden',
+  },
+
+  roadmapCurrentLine: {
+    width: 10,
+    borderRadius: 999,
+    background: `linear-gradient(180deg, ${green}, ${rgbaGreen(0.08)})`,
+    alignSelf: 'stretch',
+  },
+
+  roadmapCurrentContent: {
     display: 'grid',
     alignContent: 'center',
-    gap: 6,
+    gap: 8,
+    minWidth: 0,
   },
 
-  roadmapTopLine: {
+  roadmapTopBadges: {
     display: 'flex',
-    alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
+    alignItems: 'center',
   },
 
-  roadmapProgressSide: {
-    display: 'grid',
-    gap: 4,
-    textAlign: 'right',
+  moduleMiniLabel: {
+    margin: 0,
+    color: green,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    fontWeight: 900,
+  },
+
+  moduleMiniLabelMuted: {
+    margin: 0,
+    color: soft,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    fontWeight: 900,
+  },
+
+  inProgressMini: {
+    borderRadius: 999,
+    background: rgbaGreen(0.12),
+    color: green,
+    padding: '3px 8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    fontSize: 9,
+    fontWeight: 900,
+  },
+
+  roadmapTitle: {
+    margin: 0,
+    fontSize: 18,
+    lineHeight: 1.15,
+    fontWeight: 850,
+    letterSpacing: '-0.025em',
+  },
+
+  roadmapTitleCurrent: {
+    margin: 0,
+    fontSize: 24,
+    lineHeight: 1.02,
+    fontWeight: 900,
+    letterSpacing: '-0.04em',
+    maxWidth: 320,
+  },
+
+  roadmapSmallText: {
+    margin: 0,
     color: muted,
+    fontSize: 12,
+    lineHeight: 1.45,
   },
 
-  roadmapVisual: {
-    borderRadius: 14,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    filter: 'grayscale(1) contrast(1.08) brightness(0.78)',
-    minHeight: 120,
-  },
-
-  roadmapActionRow: {
+  roadmapBottomRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
     alignItems: 'center',
-    color: green,
+  },
+
+  roadmapContinueButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 12px',
+    borderRadius: 999,
+    background: green,
+    color: '#061008',
     fontSize: 12,
     fontWeight: 900,
   },
 
-  roadmapContinuePill: {
-    display: 'inline-flex',
-    gap: 8,
-    alignItems: 'center',
-    color: '#061008',
-    background: green,
-    borderRadius: 999,
-    padding: '8px 12px',
+  roadmapCurrentImage: {
+    borderRadius: 12,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    filter: 'grayscale(1) contrast(1.08) brightness(0.76)',
+    minHeight: 118,
   },
 
-  roadmapFooterNote: {
-    marginTop: 16,
-    borderRadius: 14,
+  roadmapDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    border: '1px solid rgba(255,255,255,0.12)',
+    display: 'grid',
+    placeItems: 'center',
+    color: soft,
+  },
+
+  roadmapDotDone: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    border: `1px solid ${rgbaGreen(0.28)}`,
+    background: rgbaGreen(0.08),
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+  },
+
+  roadmapDotLocked: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    border: '1px solid rgba(255,255,255,0.08)',
+    display: 'grid',
+    placeItems: 'center',
+    color: soft,
+  },
+
+  roadmapBody: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 4,
+  },
+
+  roadmapSide: {
+    display: 'grid',
+    gap: 4,
+    textAlign: 'right',
+    color: muted,
+    fontSize: 12,
+  },
+
+  lockedPill: {
+    color: soft,
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  roadmapFooterNoteCompact: {
+    marginTop: 12,
+    borderRadius: 12,
     border: '1px solid rgba(255,255,255,0.08)',
     background: 'rgba(255,255,255,0.028)',
     color: muted,
-    padding: 14,
+    padding: 12,
     display: 'flex',
     gap: 10,
     alignItems: 'center',
-    fontSize: 13,
+    fontSize: 12,
   },
 
-  lessonsPanelTop: {
+  moduleDetailTop: {
     display: 'flex',
     justifyContent: 'space-between',
-    gap: 18,
+    gap: 14,
     alignItems: 'flex-start',
   },
 
-  lessonsProgressBox: {
-    minWidth: 94,
-    borderRadius: 14,
+  moduleProgressBadge: {
+    minWidth: 84,
+    borderRadius: 12,
     border: `1px solid ${rgbaGreen(0.18)}`,
     background: rgbaGreen(0.06),
-    padding: 12,
+    padding: 10,
     textAlign: 'center',
-  },
-
-  lessonsProgressTrack: {
-    height: 8,
-    borderRadius: 999,
-    background: 'rgba(255,255,255,0.10)',
-    overflow: 'hidden',
-    marginTop: 16,
-  },
-
-  lessonTableHeader: {
-    marginTop: 18,
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) 110px 120px',
+    gap: 2,
+  },
+
+  lessonTableHeaderCompact: {
+    marginTop: 14,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) 100px 110px',
     gap: 12,
     color: soft,
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: '0.14em',
     fontWeight: 900,
-    padding: '0 12px',
+    padding: '0 10px',
   },
 
-  moduleLessonList: {
+  lessonRowsCompact: {
     display: 'grid',
     gap: 8,
     marginTop: 8,
   },
 
-  lessonRowLink: {
+  lessonLink: {
     textDecoration: 'none',
     color: 'inherit',
   },
 
   lessonRow: {
-    minHeight: 66,
-    borderRadius: 14,
+    minHeight: 62,
+    borderRadius: 12,
     border: '1px solid rgba(255,255,255,0.07)',
     background: 'rgba(255,255,255,0.026)',
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) 110px 120px',
+    gridTemplateColumns: 'minmax(0, 1fr) 100px 110px',
     gap: 12,
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
   },
 
   lessonRowActive: {
-    minHeight: 66,
-    borderRadius: 14,
-    border: `1px solid ${rgbaGreen(0.50)}`,
+    minHeight: 62,
+    borderRadius: 12,
+    border: `1px solid ${rgbaGreen(0.48)}`,
     background: `linear-gradient(90deg, ${rgbaGreen(0.10)}, rgba(255,255,255,0.026))`,
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) 110px 120px',
+    gridTemplateColumns: 'minmax(0, 1fr) 100px 110px',
     gap: 12,
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
   },
 
   lessonRowLocked: {
-    minHeight: 66,
-    borderRadius: 14,
+    minHeight: 62,
+    borderRadius: 12,
     border: '1px solid rgba(255,255,255,0.05)',
     background: 'rgba(255,255,255,0.014)',
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) 110px 120px',
+    gridTemplateColumns: 'minmax(0, 1fr) 100px 110px',
     gap: 12,
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     opacity: 0.72,
   },
 
   lessonNameCell: {
     display: 'flex',
-    gap: 12,
+    gap: 10,
     alignItems: 'center',
     minWidth: 0,
   },
 
   lessonIcon: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
     display: 'grid',
     placeItems: 'center',
-    border: '1px solid rgba(255,255,255,0.10)',
-    color: muted,
+    color: soft,
     flexShrink: 0,
   },
 
   lessonIconDone: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: 10,
-    display: 'grid',
-    placeItems: 'center',
     border: `1px solid ${rgbaGreen(0.26)}`,
     background: rgbaGreen(0.08),
+    display: 'grid',
+    placeItems: 'center',
     color: green,
     flexShrink: 0,
   },
 
   lessonIconActive: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: 10,
-    display: 'grid',
-    placeItems: 'center',
     border: `1px solid ${rgbaGreen(0.34)}`,
     background: rgbaGreen(0.10),
+    display: 'grid',
+    placeItems: 'center',
     color: green,
     flexShrink: 0,
+  },
+
+  lessonTitleText: {
+    display: 'block',
+    fontSize: 14,
+    lineHeight: 1.25,
+    fontWeight: 850,
+  },
+
+  lessonDescriptionText: {
+    margin: '4px 0 0',
+    color: muted,
+    fontSize: 12,
+    lineHeight: 1.4,
   },
 
   lessonTypePill: {
@@ -4478,20 +4378,30 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 800,
   },
 
-  lessonsFooterStrip: {
-    marginTop: 16,
+  moduleFooterCompact: {
+    marginTop: 12,
+    paddingTop: 12,
     borderTop: '1px solid rgba(255,255,255,0.08)',
-    paddingTop: 14,
     display: 'flex',
+    justifyContent: 'space-between',
+    gap: 14,
     alignItems: 'center',
-    gap: 16,
+  },
+
+  moduleFooterMeta: {
+    display: 'flex',
+    gap: 18,
     flexWrap: 'wrap',
+  },
+
+  moduleFooterItem: {
+    display: 'flex',
+    gap: 10,
+    alignItems: 'center',
     color: muted,
-    fontSize: 12,
   },
 
   resourcesButton: {
-    marginLeft: 'auto',
     minHeight: 38,
     borderRadius: 10,
     background: 'rgba(255,255,255,0.045)',
@@ -4505,26 +4415,41 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 850,
   },
 
-  curriculumBanner: {
-    borderRadius: 18,
+  curriculumBannerCompact: {
+    borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background: `linear-gradient(90deg, ${rgbaGreen(0.10)}, rgba(255,255,255,0.030))`,
-    padding: 18,
+    background: `linear-gradient(90deg, ${rgbaGreen(0.10)}, rgba(255,255,255,0.028))`,
+    padding: 14,
     display: 'grid',
-    gridTemplateColumns: '52px minmax(0, 1fr) auto',
+    gridTemplateColumns: '48px minmax(0, 1fr) auto',
     gap: 14,
     alignItems: 'center',
+    boxShadow: '0 16px 50px rgba(0,0,0,0.14)',
   },
 
   bannerIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     background: rgbaGreen(0.10),
     border: `1px solid ${rgbaGreen(0.22)}`,
     color: green,
     display: 'grid',
     placeItems: 'center',
+  },
+
+  bannerTitle: {
+    margin: 0,
+    fontSize: 16,
+    fontWeight: 900,
+    letterSpacing: '-0.02em',
+  },
+
+  bannerText: {
+    margin: '6px 0 0',
+    color: muted,
+    fontSize: 13,
+    lineHeight: 1.45,
   },
 
   keepGoingLink: {
@@ -4534,108 +4459,15 @@ const styles: Record<string, CSSProperties> = {
     gap: 8,
     alignItems: 'center',
     fontWeight: 900,
+    fontSize: 13,
   },
 
   sectionStack: {
     display: 'grid',
-    gap: 18,
+    gap: 16,
   },
 
-  courseGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
-    gap: 18,
-  },
-
-  courseCardTitle: {
-    margin: 0,
-    fontSize: 24,
-    lineHeight: 1.05,
-    letterSpacing: '-0.035em',
-    fontWeight: 900,
-  },
-
-  courseCardText: {
-    color: muted,
-    lineHeight: 1.65,
-    fontSize: 14,
-    minHeight: 66,
-  },
-
-  courseStatsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 10,
-    marginTop: 16,
-  },
-
-  badgeGreen: {
-    borderRadius: 999,
-    background: rgbaGreen(0.12),
-    border: `1px solid ${rgbaGreen(0.26)}`,
-    color: green,
-    padding: '6px 9px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.11em',
-    fontSize: 10,
-    fontWeight: 900,
-  },
-
-  certificateCard: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
-    padding: 22,
-  },
-
-  certificateIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 999,
-    border: `1px solid ${rgbaGreen(0.26)}`,
-    background: rgbaGreen(0.08),
-    display: 'grid',
-    placeItems: 'center',
-    color: green,
-    marginBottom: 16,
-  },
-
-  lessonsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: 12,
-  },
-
-  lessonCard: {
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(255,255,255,0.03)',
-    padding: 16,
-    textDecoration: 'none',
-    color: white,
-  },
-
-  lessonStatus: {
-    display: 'inline-flex',
-    marginBottom: 10,
-    color: soft,
-    fontSize: 10,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    fontWeight: 900,
-  },
-
-  lessonStatusDone: {
-    display: 'inline-flex',
-    marginBottom: 10,
-    color: green,
-    fontSize: 10,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    fontWeight: 900,
-  },
-
-  examGrid: {
+  infoGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
     gap: 14,
@@ -4660,6 +4492,54 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: 14,
   },
 
+  infoBlockTitle: {
+    margin: 0,
+    fontSize: 18,
+    lineHeight: 1.2,
+    fontWeight: 850,
+  },
+
+  infoBlockText: {
+    margin: '8px 0 0',
+    color: muted,
+    lineHeight: 1.65,
+    fontSize: 14,
+  },
+
+  courseGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+    gap: 16,
+  },
+
+  certificateCard: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: panelBg,
+    padding: 20,
+    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
+  },
+
+  certificateIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 999,
+    border: `1px solid ${rgbaGreen(0.26)}`,
+    background: rgbaGreen(0.08),
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+    marginBottom: 14,
+  },
+
+  certificateTitle: {
+    margin: '14px 0 16px',
+    fontSize: 24,
+    lineHeight: 1.05,
+    fontWeight: 900,
+    letterSpacing: '-0.035em',
+  },
+
   profileGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
@@ -4667,14 +4547,13 @@ const styles: Record<string, CSSProperties> = {
   },
 
   profileStat: {
-    borderRadius: 9,
+    borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.08)',
     background: 'rgba(0,0,0,0.20)',
-    padding: '10px 8px',
+    padding: '10px 10px',
     minWidth: 0,
     display: 'grid',
     gap: 5,
-    alignContent: 'center',
   },
 
   profileStatLabel: {
@@ -4700,5 +4579,11 @@ const styles: Record<string, CSSProperties> = {
     background: 'rgba(255,255,255,0.025)',
     padding: 18,
     color: muted,
+  },
+
+  emptyText: {
+    margin: 0,
+    color: muted,
+    lineHeight: 1.6,
   },
 };
