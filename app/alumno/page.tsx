@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -13,42 +12,6 @@ type Tab = 'dashboard' | 'cursos' | 'curriculum' | 'examenes' | 'certificados' |
 type ViewMode = 'grid' | 'list';
 type CourseStatusFilter = 'active' | 'completed' | 'all';
 type SortMode = 'recent' | 'title' | 'progress';
-
-type IconName =
-  | 'home'
-  | 'dashboard'
-  | 'courses'
-  | 'curriculum'
-  | 'exam'
-  | 'certificate'
-  | 'performance'
-  | 'resources'
-  | 'support'
-  | 'logout'
-  | 'clock'
-  | 'chart'
-  | 'document'
-  | 'lock'
-  | 'check'
-  | 'arrow'
-  | 'bell'
-  | 'shield'
-  | 'star'
-  | 'user'
-  | 'search'
-  | 'grid'
-  | 'list'
-  | 'bookmark'
-  | 'box'
-  | 'play'
-  | 'audio'
-  | 'pdf'
-  | 'text'
-  | 'trophy'
-  | 'target'
-  | 'chat'
-  | 'flame'
-  | 'external';
 
 type DashboardCard = {
   course: AnyRecord;
@@ -90,17 +53,6 @@ const supabase = createClient(
 );
 
 const green = '#63E546';
-const greenRgb = '99,229,70';
-const bg = '#050706';
-const panelBg = 'rgba(10,13,12,0.88)';
-const white = '#F4F6F2';
-const muted = 'rgba(244,246,242,0.62)';
-const soft = 'rgba(244,246,242,0.44)';
-const gold = '#D6B25E';
-const danger = '#FF5757';
-const warning = '#F7C948';
-
-const rgbaGreen = (alpha: number) => `rgba(${greenRgb},${alpha})`;
 
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Dashboard', helper: 'Resumen', icon: 'dashboard' },
@@ -110,6 +62,42 @@ const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'certificados', label: 'Certification', helper: 'Credenciales', icon: 'certificate' },
   { id: 'perfil', label: 'Performance', helper: 'Perfil', icon: 'performance' },
 ];
+
+type IconName =
+  | 'home'
+  | 'dashboard'
+  | 'courses'
+  | 'curriculum'
+  | 'exam'
+  | 'certificate'
+  | 'performance'
+  | 'resources'
+  | 'support'
+  | 'logout'
+  | 'clock'
+  | 'chart'
+  | 'document'
+  | 'lock'
+  | 'check'
+  | 'arrow'
+  | 'bell'
+  | 'shield'
+  | 'star'
+  | 'user'
+  | 'search'
+  | 'grid'
+  | 'list'
+  | 'bookmark'
+  | 'box'
+  | 'play'
+  | 'audio'
+  | 'pdf'
+  | 'text'
+  | 'trophy'
+  | 'target'
+  | 'chat'
+  | 'flame'
+  | 'external';
 
 export default function AlumnoPage() {
   const router = useRouter();
@@ -541,35 +529,32 @@ export default function AlumnoPage() {
 
   if (loading) {
     return (
-      <main style={styles.loadingPage}>
+      <main className="page loading-page">
+        <GlobalStyles />
         <Background />
-        <GlobalCss />
-
-        <section style={styles.loadingCard}>
-          <div style={styles.loadingAccent} />
+        <section className="loading-card">
+          <div className="loading-accent" />
           <GHCLogo size="md" showText tagline={false} />
-          <p style={styles.kicker}>Portal privado</p>
-          <h1 style={styles.loadingTitle}>Cargando dashboard</h1>
-          <p style={styles.loadingText}>
-            Preparando cursos, módulos, progreso, certificados y perfil real del alumno.
-          </p>
+          <p className="kicker">Portal privado</p>
+          <h1>Cargando dashboard</h1>
+          <p>Preparando cursos, módulos, progreso, certificados y perfil real del alumno.</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main data-ghc-page="student" style={styles.page}>
+    <main data-ghc-page="student" className="page">
+      <GlobalStyles />
       <Background />
-      <GlobalCss />
 
-      <aside style={styles.sidebar}>
+      <aside className="sidebar">
         <div>
-          <div style={styles.logoBlock}>
+          <div className="logo-block">
             <GHCLogo size="md" showText tagline={false} />
           </div>
 
-          <nav style={styles.nav}>
+          <nav className="nav">
             {tabs.map((tab) => (
               <NavButton
                 key={tab.id}
@@ -582,7 +567,7 @@ export default function AlumnoPage() {
             ))}
           </nav>
 
-          <div style={styles.sidebarDivider} />
+          <div className="sidebar-divider" />
 
           <NavButton
             icon="resources"
@@ -601,96 +586,94 @@ export default function AlumnoPage() {
           />
         </div>
 
-        <div style={styles.sidebarUserBox}>
-          <div style={styles.sidebarUserTop}>
-            <div style={styles.avatarLarge}>{getInitials(displayName)}</div>
+        <div className="sidebar-user-box">
+          <div className="sidebar-user-top">
+            <div className="avatar-large">{getInitials(displayName)}</div>
 
-            <div style={styles.sidebarUserText}>
-              <p style={styles.sidebarUserName}>{shortName(displayName)}</p>
-              <p style={styles.sidebarUserRole}>
-                Student <span style={styles.proPill}>Pro</span>
+            <div className="sidebar-user-text">
+              <p className="sidebar-user-name">{shortName(displayName)}</p>
+              <p className="sidebar-user-role">
+                Student <span className="pro-pill">Pro</span>
               </p>
             </div>
           </div>
 
-          <div style={styles.xpBox}>
-            <div style={styles.xpRow}>
+          <div className="xp-box">
+            <div className="xp-row">
               <span>XP Level</span>
               <strong>{Math.max(1, stats.modules + stats.completedCourses)}</strong>
             </div>
 
-            <div style={styles.progressTrackThin}>
-              <div style={{ ...styles.progressFill, width: `${Math.min(100, globalProgress)}%` }} />
+            <div className="progress-track-thin">
+              <div className="progress-fill" style={{ width: `${Math.min(100, globalProgress)}%` }} />
             </div>
           </div>
 
-          <button type="button" onClick={handleLogout} style={styles.signOutButton}>
+          <button type="button" onClick={handleLogout} className="sign-out-button">
             <Icon name="logout" />
             Sign Out
           </button>
         </div>
       </aside>
 
-      <section style={styles.appShell}>
-        <header style={styles.topbar}>
-          <div style={styles.breadcrumb}>
+      <section className="app-shell">
+        <header className="topbar">
+          <div className="breadcrumb">
             <Icon name="home" />
             <span>Dashboard</span>
-            <span style={styles.breadcrumbSeparator}>›</span>
+            <span className="breadcrumb-separator">›</span>
             <span>{getCurrentPageLabel(activeTab)}</span>
           </div>
 
-          <div style={styles.topbarRight}>
-            <Link href="/" style={styles.topbarLink}>
+          <div className="topbar-right">
+            <Link href="/" className="topbar-link">
               Inicio
             </Link>
 
-            <Link href="/cursos" style={styles.topbarLinkStrong}>
+            <Link href="/cursos" className="topbar-link-strong">
               Explorar cursos
             </Link>
 
-            <div style={styles.notificationArea}>
+            <div className="notification-area">
               <button
                 type="button"
-                style={styles.notificationButton}
+                className="notification-button"
                 aria-label="Notificaciones"
                 onClick={() => setNotificationsOpen((value) => !value)}
               >
                 <Icon name="bell" />
-                {unreadNotifications > 0 && <span style={styles.notificationDot} />}
+                {unreadNotifications > 0 && <span className="notification-dot" />}
                 {unreadNotifications > 0 && (
-                  <span style={styles.notificationCount}>{unreadNotifications}</span>
+                  <span className="notification-count">{unreadNotifications}</span>
                 )}
               </button>
 
               {notificationsOpen && (
-                <div style={styles.notificationPanel}>
-                  <div style={styles.notificationHeader}>
+                <div className="notification-panel">
+                  <div className="notification-header">
                     <div>
-                      <p style={styles.notificationKicker}>Student alerts</p>
-                      <h3 style={styles.notificationTitle}>Notifications</h3>
+                      <p>Student alerts</p>
+                      <h3>Notifications</h3>
                     </div>
 
-                    <span style={styles.notificationBadge}>{unreadNotifications} new</span>
+                    <span>{unreadNotifications} new</span>
                   </div>
 
-                  <div style={styles.notificationList}>
+                  <div className="notification-list">
                     {notifications.map((notification) => {
                       const content = (
                         <article
-                          style={
-                            notification.unread
-                              ? styles.notificationItemUnread
-                              : styles.notificationItem
+                          className={
+                            notification.unread ? 'notification-item unread' : 'notification-item'
                           }
                         >
-                          <div style={styles.notificationItemTop}>
-                            <span style={styles.notificationType}>{notification.type}</span>
-                            <span style={styles.notificationTime}>{notification.time}</span>
+                          <div className="notification-item-top">
+                            <span>{notification.type}</span>
+                            <small>{notification.time}</small>
                           </div>
 
-                          <h4 style={styles.notificationItemTitle}>{notification.title}</h4>
-                          <p style={styles.notificationMessage}>{notification.message}</p>
+                          <h4>{notification.title}</h4>
+                          <p>{notification.message}</p>
                         </article>
                       );
 
@@ -699,7 +682,7 @@ export default function AlumnoPage() {
                           <Link
                             key={notification.id}
                             href={notification.href}
-                            style={styles.notificationLink}
+                            className="notification-link"
                             onClick={() => setNotificationsOpen(false)}
                           >
                             {content}
@@ -711,24 +694,24 @@ export default function AlumnoPage() {
                     })}
                   </div>
 
-                  <div style={styles.notificationFooter}>
-                    <span>Supabase notifications ready for phase 2</span>
+                  <div className="notification-footer">
+                    Supabase notifications ready for phase 2
                   </div>
                 </div>
               )}
             </div>
 
-            <div style={styles.userMini}>
+            <div className="user-mini">
               <div>
-                <p style={styles.welcomeText}>Welcome back,</p>
-                <p style={styles.userMiniName}>{shortName(displayName)}</p>
+                <p>Welcome back,</p>
+                <strong>{shortName(displayName)}</strong>
               </div>
-              <div style={styles.avatarMini}>{getInitials(displayName)}</div>
+              <div className="avatar-mini">{getInitials(displayName)}</div>
             </div>
           </div>
         </header>
 
-        {systemMessage && <div style={styles.notice}>{systemMessage}</div>}
+        {systemMessage && <div className="notice">{systemMessage}</div>}
 
         {activeTab === 'dashboard' && (
           <DashboardView
@@ -776,9 +759,7 @@ export default function AlumnoPage() {
 
         {activeTab === 'examenes' && <MockExamsView />}
 
-        {activeTab === 'certificados' && (
-          <CertificationTab certificates={certificates} />
-        )}
+        {activeTab === 'certificados' && <CertificationTab certificates={certificates} />}
 
         {activeTab === 'perfil' && (
           <PerformanceTab displayName={displayName} user={user} profile={profile} stats={stats} />
@@ -797,83 +778,65 @@ function DashboardView({
   setActiveTab,
 }: {
   globalProgress: number;
-  stats: {
-    courses: number;
-    lessons: number;
-    modules: number;
-    completedCourses: number;
-    certificates: number;
-    globalProgress: number;
-  };
+  stats: AnyRecord;
   mainCourse: DashboardCard | null;
   currentModuleView: ModuleView | null;
   moduleViews: ModuleView[];
   setActiveTab: (tab: Tab) => void;
 }) {
   return (
-    <div style={styles.dashboardGrid}>
-      <section style={styles.dashboardTopGrid}>
-        <article style={styles.progressCard}>
-          <h2 style={styles.sectionTitleSmall}>Overall Progress</h2>
+    <div className="dashboard-grid">
+      <section className="dashboard-top-grid">
+        <article className="progress-card">
+          <h2>Overall Progress</h2>
 
-          <div style={styles.progressRingWrap}>
+          <div className="progress-ring-wrap">
             <div
+              className="progress-ring"
               style={{
-                ...styles.progressRing,
                 background: `conic-gradient(${green} ${globalProgress * 3.6}deg, rgba(255,255,255,0.095) 0deg)`,
               }}
             >
-              <div style={styles.progressRingInner}>
-                <strong style={styles.progressRingValue}>{globalProgress}%</strong>
-                <span style={styles.progressRingLabel}>Completed</span>
+              <div className="progress-ring-inner">
+                <strong>{globalProgress}%</strong>
+                <span>Completed</span>
               </div>
             </div>
           </div>
 
-          <p style={styles.centerText}>
-            Excellent work. Keep building expertise and elevating performance.
-          </p>
+          <p className="center-text">Excellent work. Keep building expertise and elevating performance.</p>
 
-          <div style={styles.progressMiniStats}>
+          <div className="progress-mini-stats">
             <MiniStat icon="clock" label="Lessons" value={stats.lessons} />
             <MiniStat icon="certificate" label="Certificates" value={stats.certificates} />
           </div>
         </article>
 
-        <article style={styles.nextModuleCard}>
-          <div style={styles.heroImage} />
+        <article className="next-module-card">
+          <div className="hero-image" />
 
-          <div style={styles.nextContent}>
-            <p style={styles.inProgressLabel}>In progress</p>
+          <div className="next-content">
+            <p className="in-progress-label">In progress</p>
 
-            <h2 style={styles.heroTitle}>
-              {currentModuleView?.module?.title || mainCourse?.course?.title || 'Next Module'}
-            </h2>
+            <h2>{currentModuleView?.module?.title || mainCourse?.course?.title || 'Next Module'}</h2>
 
-            <p style={styles.heroText}>
+            <p>
               {mainCourse?.course?.subtitle ||
                 mainCourse?.course?.description ||
                 'Explore your next learning step and keep progressing through the academy.'}
             </p>
 
-            <div style={styles.metaRow}>
+            <div className="meta-row">
               <MetaItem icon="clock" text="4–5 Hours" />
               <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermediate'} />
               <MetaItem icon="document" text={`${mainCourse?.courseLessons.length || 0} Lessons`} />
             </div>
 
-            <div style={styles.progressBlock}>
-              <div style={styles.progressTrack}>
-                <div
-                  style={{
-                    ...styles.progressFill,
-                    width: `${mainCourse?.progressPercent || 0}%`,
-                  }}
-                />
+            <div className="progress-block">
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${mainCourse?.progressPercent || 0}%` }} />
               </div>
-              <span style={styles.progressTextGreen}>
-                {mainCourse?.progressPercent || 0}% Complete
-              </span>
+              <span>{mainCourse?.progressPercent || 0}% Complete</span>
             </div>
 
             <Link
@@ -884,7 +847,7 @@ function DashboardView({
                     ? `/cursos/${getCourseSlug(mainCourse.course)}`
                     : '/cursos'
               }
-              style={styles.primaryButton}
+              className="primary-button"
             >
               Continue Learning
               <Icon name="arrow" />
@@ -894,7 +857,7 @@ function DashboardView({
       </section>
 
       <Panel title="Curriculum">
-        <div style={styles.curriculumRows}>
+        <div className="curriculum-rows">
           {moduleViews.length === 0 ? (
             <EmptyState text="Aún no hay módulos visibles para este curso." />
           ) : (
@@ -905,64 +868,35 @@ function DashboardView({
         </div>
       </Panel>
 
-      <section style={styles.dashboardBottomGrid}>
-        <article style={styles.examCard}>
-          <div style={styles.examContent}>
-            <h2 style={styles.largeCardTitle}>Mock Exam Simulator</h2>
-            <p style={styles.cardDescription}>
-              Test your knowledge under real conditions before earning your final certification.
-            </p>
-
-            <button
-              type="button"
-              style={styles.secondaryButton}
-              onClick={() => setActiveTab('examenes')}
-            >
+      <section className="dashboard-bottom-grid">
+        <article className="exam-card">
+          <div>
+            <h2>Mock Exam Simulator</h2>
+            <p>Test your knowledge under real conditions before earning your final certification.</p>
+            <button type="button" className="secondary-button" onClick={() => setActiveTab('examenes')}>
               Start Simulation
               <Icon name="arrow" />
             </button>
-
-            <div style={styles.featureRow}>
-              <Feature icon="check" text="Real Exam Conditions" />
-              <Feature icon="clock" text="Timed Sessions" />
-              <Feature icon="shield" text="Detailed Feedback" />
-            </div>
           </div>
         </article>
 
-        <article style={styles.certificationCard}>
-          <div style={styles.certificationBgPhoto} />
-          <div style={styles.certificationBgOverlay} />
-
-          <div style={styles.certContent}>
-            <p style={styles.certKicker}>Official Credential</p>
-            <h2 style={styles.largeCardTitle}>Certification</h2>
-            <p style={styles.cardDescription}>
-              Earn your official GHC Academy certificate when your learning path is completed and
-              verified.
-            </p>
-
-            <button
-              type="button"
-              style={styles.secondaryButton}
-              onClick={() => setActiveTab('certificados')}
-            >
+        <article className="certification-card">
+          <div className="certification-bg-photo" />
+          <div className="certification-bg-overlay" />
+          <div className="cert-content">
+            <p>Official Credential</p>
+            <h2>Certification</h2>
+            <p>Earn your official GHC Academy certificate when your learning path is completed and verified.</p>
+            <button type="button" className="secondary-button" onClick={() => setActiveTab('certificados')}>
               View Certification
               <Icon name="arrow" />
             </button>
-
-            <div style={styles.featureRow}>
-              <Feature icon="shield" text="Trusted by Professionals" />
-              <Feature icon="certificate" text="Industry Recognized" />
-            </div>
           </div>
         </article>
       </section>
     </div>
   );
-}
-
-function CoursesView({
+}function CoursesView({
   searchTerm,
   setSearchTerm,
   courseStatusFilter,
@@ -996,28 +930,27 @@ function CoursesView({
   filteredCards: DashboardCard[];
 }) {
   return (
-    <div style={styles.coursesPage}>
+    <div className="courses-page">
       <section>
-        <h1 style={styles.pageTitle}>My Courses</h1>
-        <p style={styles.pageSubtitle}>
+        <h1 className="page-title">My Courses</h1>
+        <p className="page-subtitle">
           Continue learning and track your progress across all your courses.
         </p>
       </section>
 
-      <section style={styles.courseControls}>
-        <label style={styles.searchBox}>
+      <section className="course-controls">
+        <label className="search-box">
           <Icon name="search" />
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search courses..."
-            style={styles.searchInput}
           />
         </label>
 
         <button
           type="button"
-          style={courseStatusFilter === 'active' ? styles.filterActive : styles.filterButton}
+          className={courseStatusFilter === 'active' ? 'filter-active' : 'filter-button'}
           onClick={() => setCourseStatusFilter('active')}
         >
           Active
@@ -1025,7 +958,7 @@ function CoursesView({
 
         <button
           type="button"
-          style={courseStatusFilter === 'completed' ? styles.filterActive : styles.filterButton}
+          className={courseStatusFilter === 'completed' ? 'filter-active' : 'filter-button'}
           onClick={() => setCourseStatusFilter('completed')}
         >
           Completed
@@ -1033,7 +966,7 @@ function CoursesView({
 
         <button
           type="button"
-          style={courseStatusFilter === 'all' ? styles.filterActive : styles.filterButton}
+          className={courseStatusFilter === 'all' ? 'filter-active' : 'filter-button'}
           onClick={() => setCourseStatusFilter('all')}
         >
           All
@@ -1042,7 +975,7 @@ function CoursesView({
         <select
           value={levelFilter}
           onChange={(event) => setLevelFilter(event.target.value)}
-          style={styles.selectControl}
+          className="select-control"
         >
           <option value="all">Level</option>
           {availableLevels.map((level) => (
@@ -1055,7 +988,7 @@ function CoursesView({
         <select
           value={categoryFilter}
           onChange={(event) => setCategoryFilter(event.target.value)}
-          style={styles.selectControl}
+          className="select-control"
         >
           <option value="all">Category</option>
           {availableCategories.map((category) => (
@@ -1065,22 +998,22 @@ function CoursesView({
           ))}
         </select>
 
-        <div style={styles.controlsSpacer} />
+        <div className="controls-spacer" />
 
         <select
           value={sortMode}
           onChange={(event) => setSortMode(event.target.value as SortMode)}
-          style={styles.sortSelect}
+          className="sort-select"
         >
           <option value="recent">Sort by: Recent</option>
           <option value="title">Sort by: Title</option>
           <option value="progress">Sort by: Progress</option>
         </select>
 
-        <div style={styles.viewToggle}>
+        <div className="view-toggle">
           <button
             type="button"
-            style={viewMode === 'grid' ? styles.viewButtonActive : styles.viewButton}
+            className={viewMode === 'grid' ? 'view-button-active' : 'view-button'}
             onClick={() => setViewMode('grid')}
             aria-label="Ver en cuadrícula"
           >
@@ -1089,7 +1022,7 @@ function CoursesView({
 
           <button
             type="button"
-            style={viewMode === 'list' ? styles.viewButtonActive : styles.viewButton}
+            className={viewMode === 'list' ? 'view-button-active' : 'view-button'}
             onClick={() => setViewMode('list')}
             aria-label="Ver en lista"
           >
@@ -1098,9 +1031,16 @@ function CoursesView({
         </div>
       </section>
 
-      <section style={styles.courseSectionHeader}>
-        <h2 style={styles.courseSectionTitle}>Courses</h2>
-        <span style={styles.resultCounter}>
+      <section className="course-section-header">
+        <h2>
+          {courseStatusFilter === 'completed'
+            ? 'Completed Courses'
+            : courseStatusFilter === 'all'
+              ? 'All Courses'
+              : 'Active Courses'}
+        </h2>
+
+        <span>
           {filteredCards.length} result{filteredCards.length === 1 ? '' : 's'}
         </span>
       </section>
@@ -1108,7 +1048,7 @@ function CoursesView({
       {filteredCards.length === 0 ? (
         <EmptyState text="No hay cursos que coincidan con los filtros seleccionados." />
       ) : (
-        <div style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}>
+        <div className={viewMode === 'grid' ? 'premium-course-grid' : 'premium-course-list'}>
           {filteredCards.map((card, index) => (
             <PremiumCourseCard
               key={card.course.id}
@@ -1122,7 +1062,9 @@ function CoursesView({
       )}
     </div>
   );
-}function CurriculumView({
+}
+
+function CurriculumView({
   courseCards,
   curriculumCourse,
   curriculumModuleViews,
@@ -1142,20 +1084,19 @@ function CoursesView({
   setSelectedCurriculumCourseId: (value: string) => void;
 }) {
   return (
-    <div style={styles.curriculumPage}>
-      <section style={styles.curriculumHeaderCompact}>
+    <div className="curriculum-page">
+      <section className="curriculum-header-compact">
         <div>
-          <h1 style={styles.pageTitle}>Curriculum</h1>
-          <p style={styles.pageSubtitleCompact}>Your structured learning path to mastery.</p>
+          <h1 className="page-title">Curriculum</h1>
+          <p className="page-subtitle">Your structured learning path to mastery.</p>
         </div>
 
-        <div style={styles.curriculumHeaderRight}>
-          <div style={styles.currentCourseBox}>
-            <span style={styles.currentCourseLabel}>Current Course</span>
+        <div className="curriculum-header-right">
+          <div className="current-course-box">
+            <span>Current Course</span>
             <select
               value={selectedCurriculumCourseId || curriculumCourse?.course?.id || ''}
               onChange={(event) => setSelectedCurriculumCourseId(event.target.value)}
-              style={styles.currentCourseSelect}
             >
               {courseCards.map((card) => (
                 <option key={card.course.id} value={card.course.id}>
@@ -1165,7 +1106,7 @@ function CoursesView({
             </select>
           </div>
 
-          <div style={styles.curriculumMetricsRow}>
+          <div className="curriculum-metrics-row">
             <CurriculumMetric
               icon="curriculum"
               label="Total Modules"
@@ -1196,14 +1137,14 @@ function CoursesView({
         </div>
       </section>
 
-      <section style={styles.curriculumMainGridCompact}>
-        <article style={styles.roadmapPanelCompact}>
-          <div style={styles.panelHeaderCompact}>
-            <h2 style={styles.panelHeading}>Module Roadmap</h2>
-            <p style={styles.panelSubheading}>Track your progress through each module.</p>
+      <section className="curriculum-main-grid-compact">
+        <article className="roadmap-panel-compact">
+          <div className="panel-header-compact">
+            <h2>Module Roadmap</h2>
+            <p>Track your progress through each module.</p>
           </div>
 
-          <div style={styles.roadmapListCompact}>
+          <div className="roadmap-list-compact">
             {curriculumModuleViews.length === 0 ? (
               <EmptyState text="Aún no hay módulos visibles para este curso." />
             ) : (
@@ -1217,16 +1158,16 @@ function CoursesView({
             )}
           </div>
 
-          <div style={styles.roadmapFooterNoteCompact}>
+          <div className="roadmap-footer-note-compact">
             <Icon name="shield" />
             <span>Complete modules in order to unlock new content and assessments.</span>
           </div>
         </article>
 
-        <article style={styles.moduleDetailPanel}>
-          <div style={styles.moduleDetailTop}>
+        <article className="module-detail-panel">
+          <div className="module-detail-top">
             <div>
-              <h2 style={styles.panelHeading}>
+              <h2>
                 {curriculumActiveModule
                   ? `Module ${curriculumActiveModule.index + 1}: ${
                       curriculumActiveModule.module.title || 'Current Module'
@@ -1234,35 +1175,35 @@ function CoursesView({
                   : 'Module Lessons'}
               </h2>
 
-              <p style={styles.panelSubheading}>
+              <p>
                 {curriculumCourse?.course?.subtitle ||
                   curriculumCourse?.course?.description ||
                   'Explore the current module and continue your learning path.'}
               </p>
             </div>
 
-            <div style={styles.moduleProgressBadge}>
+            <div className="module-progress-badge">
               <strong>{curriculumActiveModule?.progress || 0}%</strong>
               <span>Complete</span>
             </div>
           </div>
 
-          <div style={styles.progressTrackCompact}>
+          <div className="progress-track-compact">
             <div
+              className="progress-fill"
               style={{
-                ...styles.progressFill,
                 width: `${curriculumActiveModule?.progress || 0}%`,
               }}
             />
           </div>
 
-          <div style={styles.lessonTableHeaderCompact}>
+          <div className="lesson-table-header-compact">
             <span>Lessons</span>
             <span>Type</span>
             <span>Status</span>
           </div>
 
-          <div style={styles.lessonRowsCompact}>
+          <div className="lesson-rows-compact">
             {curriculumLessons.length === 0 ? (
               <EmptyState text="Este módulo todavía no tiene lecciones visibles." />
             ) : (
@@ -1298,9 +1239,9 @@ function CoursesView({
             )}
           </div>
 
-          <div style={styles.moduleFooterCompact}>
-            <div style={styles.moduleFooterMeta}>
-              <div style={styles.moduleFooterItem}>
+          <div className="module-footer-compact">
+            <div className="module-footer-meta">
+              <div className="module-footer-item">
                 <Icon name="clock" />
                 <div>
                   <span>Estimated Time</span>
@@ -1308,7 +1249,7 @@ function CoursesView({
                 </div>
               </div>
 
-              <div style={styles.moduleFooterItem}>
+              <div className="module-footer-item">
                 <Icon name="chart" />
                 <div>
                   <span>Difficulty</span>
@@ -1323,7 +1264,7 @@ function CoursesView({
                   ? `/cursos/${getCourseSlug(curriculumCourse.course)}`
                   : '/cursos'
               }
-              style={styles.resourcesButton}
+              className="resources-button"
             >
               View Module Resources
               <Icon name="arrow" />
@@ -1332,16 +1273,14 @@ function CoursesView({
         </article>
       </section>
 
-      <article style={styles.curriculumBannerCompact}>
-        <div style={styles.bannerIcon}>
+      <article className="curriculum-banner-compact">
+        <div className="banner-icon">
           <Icon name="trophy" />
         </div>
 
         <div>
-          <h3 style={styles.bannerTitle}>Stay Consistent, Achieve Excellence</h3>
-          <p style={styles.bannerText}>
-            Continue making progress each day. Small steps lead to big results.
-          </p>
+          <h3>Stay Consistent, Achieve Excellence</h3>
+          <p>Continue making progress each day. Small steps lead to big results.</p>
         </div>
 
         <Link
@@ -1352,7 +1291,7 @@ function CoursesView({
                 ? `/cursos/${getCourseSlug(curriculumCourse.course)}`
                 : '/cursos'
           }
-          style={styles.keepGoingLink}
+          className="keep-going-link"
         >
           Keep Going
           <Icon name="arrow" />
@@ -1397,39 +1336,47 @@ function MockExamsView() {
   const moduleExams = [
     { title: 'Neuromuscular Adaptations', meta: '3 / 3 Exams', score: 75, color: green },
     { title: 'Energy Systems', meta: '2 / 2 Exams', score: 72, color: green },
-    { title: 'Biomechanics Fundamentals', meta: '2 / 2 Exams', score: 65, color: warning },
-    { title: 'Hypertrophy Mechanics', meta: '0 / 1 Exams', score: 0, color: danger },
+    { title: 'Biomechanics Fundamentals', meta: '2 / 2 Exams', score: 65, color: '#F7C948' },
+    { title: 'Hypertrophy Mechanics', meta: '0 / 1 Exams', score: 0, color: '#FF5757' },
   ];
 
   return (
-    <div style={styles.mockPage}>
-      <section style={styles.mockHeader}>
-        <div style={styles.mockTitleBlock}>
-          <span style={styles.mockTargetIcon}>
+    <div className="mock-page">
+      <section className="mock-header">
+        <div className="mock-title-block">
+          <span className="mock-target-icon">
             <Icon name="target" />
           </span>
           <div>
-            <h1 style={styles.mockTitle}>Mock Exams</h1>
-            <p style={styles.mockSubtitle}>
+            <h1>Mock Exams</h1>
+            <p>
               Simulate real certification conditions and evaluate your readiness with advanced
               performance analytics.
             </p>
           </div>
         </div>
 
-        <div style={styles.mockFeatureStrip}>
+        <div className="mock-feature-strip">
           <MockFeature icon="clock" title="Timed Sessions" text="Real exam time limits" />
-          <MockFeature icon="chat" title="Instant Feedback" text="Detailed explanations and solutions" />
-          <MockFeature icon="shield" title="Certification Prep" text="Aligned with GHC standards" />
+          <MockFeature
+            icon="chat"
+            title="Instant Feedback"
+            text="Detailed explanations and solutions"
+          />
+          <MockFeature
+            icon="shield"
+            title="Certification Prep"
+            text="Aligned with GHC standards"
+          />
         </div>
       </section>
 
-      <section style={styles.mockHeroGrid}>
-        <article style={styles.examSimulatorCard}>
-          <div style={styles.examSimulatorContent}>
-            <div style={styles.examTitleRow}>
+      <section className="mock-hero-grid">
+        <article className="exam-simulator-card">
+          <div className="exam-simulator-content">
+            <div className="exam-title-row">
               <h2>Exam Simulator</h2>
-              <span style={styles.featuredBadge}>Featured</span>
+              <span>Featured</span>
             </div>
 
             <p>
@@ -1437,31 +1384,31 @@ function MockExamsView() {
               tests your knowledge under pressure.
             </p>
 
-            <div style={styles.examMetaGrid}>
+            <div className="exam-meta-grid">
               <MockMeta icon="lock" label="Mode" value="Timed Simulation" />
               <MockMeta icon="clock" label="Duration" value="2 Hours" />
               <MockMeta icon="document" label="Questions" value="90 Questions" />
               <MockMeta icon="target" label="Passing Score" value="70%" />
             </div>
 
-            <div style={styles.examActionRow}>
-              <button type="button" style={styles.mockPrimaryButton}>
+            <div className="exam-action-row">
+              <button type="button" className="mock-primary-button">
                 Start Simulation
                 <Icon name="arrow" />
               </button>
 
-              <button type="button" style={styles.mockGhostButton}>
+              <button type="button" className="mock-ghost-button">
                 View Exam Details
                 <Icon name="arrow" />
               </button>
             </div>
           </div>
 
-          <div style={styles.examLaptopVisual}>
-            <div style={styles.examLaptopScreen}>
+          <div className="exam-laptop-visual">
+            <div className="exam-laptop-screen">
               <span>Mock Exam</span>
               <strong>02:00:00</strong>
-              <div style={styles.examLaptopRows}>
+              <div className="exam-laptop-rows">
                 <i />
                 <i />
                 <i />
@@ -1471,13 +1418,13 @@ function MockExamsView() {
           </div>
         </article>
 
-        <article style={styles.examRulesCard}>
-          <div style={styles.examRulesTitle}>
+        <article className="exam-rules-card">
+          <div className="exam-rules-title">
             <Icon name="document" />
             <h2>Exam Rules</h2>
           </div>
 
-          <div style={styles.ruleList}>
+          <div className="rule-list">
             {[
               'Real exam timing and conditions',
               'No pause once the exam begins',
@@ -1486,40 +1433,40 @@ function MockExamsView() {
               'Results available immediately',
               'Review explanations after completion',
             ].map((rule) => (
-              <div key={rule} style={styles.ruleItem}>
+              <div key={rule} className="rule-item">
                 <Icon name="check" />
                 <span>{rule}</span>
               </div>
             ))}
           </div>
 
-          <button type="button" style={styles.mockSecondaryButton}>
+          <button type="button" className="mock-secondary-button">
             View Full Rules
             <Icon name="arrow" />
           </button>
         </article>
       </section>
 
-      <section style={styles.mockMiddleGrid}>
-        <article style={styles.latestResultsCard}>
-          <div style={styles.mockCardHeader}>
+      <section className="mock-middle-grid">
+        <article className="latest-results-card">
+          <div className="mock-card-header">
             <h2>Latest Results</h2>
             <button type="button">View All Results</button>
           </div>
 
-          <div style={styles.resultsList}>
+          <div className="results-list">
             {results.map((result) => (
-              <div key={result.title} style={styles.resultRow}>
-                <span style={result.ok ? styles.resultIconOk : styles.resultIconFail}>
+              <div key={result.title} className="result-row">
+                <span className={result.ok ? 'result-icon-ok' : 'result-icon-fail'}>
                   <Icon name="document" />
                 </span>
 
-                <div style={styles.resultInfo}>
+                <div className="result-info">
                   <strong>{result.title}</strong>
                   <p>{result.date}</p>
                 </div>
 
-                <div style={result.ok ? styles.resultScoreOk : styles.resultScoreFail}>
+                <div className={result.ok ? 'result-score-ok' : 'result-score-fail'}>
                   <strong>{result.score}</strong>
                   <span>{result.status}</span>
                 </div>
@@ -1530,50 +1477,48 @@ function MockExamsView() {
           </div>
         </article>
 
-        <article style={styles.readinessCard}>
-          <div style={styles.mockCardHeader}>
+        <article className="readiness-card">
+          <div className="mock-card-header">
             <h2>Readiness Score</h2>
             <button type="button">View Details</button>
           </div>
 
-          <div style={styles.readinessRingWrap}>
+          <div className="readiness-ring-wrap">
             <div
+              className="readiness-ring"
               style={{
-                ...styles.readinessRing,
                 background: `conic-gradient(${green} ${78 * 3.6}deg, rgba(255,255,255,0.10) 0deg)`,
               }}
             >
-              <div style={styles.readinessRingInner}>
+              <div className="readiness-ring-inner">
                 <strong>78%</strong>
                 <span>Ready</span>
               </div>
             </div>
           </div>
 
-          <p style={styles.readinessText}>
-            You're well prepared! Keep practicing to boost your confidence.
-          </p>
+          <p>You're well prepared! Keep practicing to boost your confidence.</p>
 
-          <div style={styles.readinessFooter}>
+          <div className="readiness-footer">
             <span>Target Score: 70%</span>
             <strong>Above Target</strong>
           </div>
         </article>
 
-        <article style={styles.moduleExamsCard}>
-          <div style={styles.mockCardHeader}>
+        <article className="module-exams-card">
+          <div className="mock-card-header">
             <h2>Module Exams</h2>
             <button type="button">View All Modules</button>
           </div>
 
-          <div style={styles.moduleExamList}>
+          <div className="module-exam-list">
             {moduleExams.map((item) => (
-              <div key={item.title} style={styles.moduleExamRow}>
+              <div key={item.title} className="module-exam-row">
                 <Icon name="document" />
                 <div>
                   <strong>{item.title}</strong>
                   <span>{item.meta}</span>
-                  <div style={styles.moduleExamProgress}>
+                  <div className="module-exam-progress">
                     <div
                       style={{
                         width: `${item.score}%`,
@@ -1592,27 +1537,27 @@ function MockExamsView() {
         </article>
       </section>
 
-      <section style={styles.analyticsCard}>
+      <section className="analytics-card">
         <h2>Performance Analytics</h2>
 
-        <div style={styles.analyticsGrid}>
-          <div style={styles.averageScoreCard}>
+        <div className="analytics-grid">
+          <div className="average-score-card">
             <span>Average Score</span>
             <strong>70%</strong>
             <p>Across 7 Attempts</p>
             <em>▲ 12% vs last month</em>
-            <div style={styles.sparkline} />
+            <div className="sparkline" />
           </div>
 
-          <div style={styles.scoreTrendCard}>
-            <div style={styles.scoreTrendTooltip}>
+          <div className="score-trend-card">
+            <div className="score-trend-tooltip">
               <span>May 12, 2025</span>
               <strong>85%</strong>
             </div>
 
             <h3>Score Trend</h3>
-            <div style={styles.scoreTrendGrid}>
-              <svg viewBox="0 0 520 170" style={styles.trendSvg} aria-hidden="true">
+            <div className="score-trend-grid">
+              <svg viewBox="0 0 520 170" className="trend-svg" aria-hidden="true">
                 <path
                   d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48"
                   fill="none"
@@ -1625,19 +1570,15 @@ function MockExamsView() {
                   d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48 L500 160 L20 160 Z"
                   fill="rgba(99,229,70,0.10)"
                 />
-                {[20, 85, 150, 215, 280, 345, 410, 500].map((x, idx) => {
-                  const y = [120, 88, 100, 72, 80, 62, 70, 48][idx];
-                  return <circle key={x} cx={x} cy={y} r="5" fill={green} />;
-                })}
               </svg>
             </div>
           </div>
 
-          <div style={styles.focusAreaCard}>
+          <div className="focus-area-card">
             <h3>Strengths & Focus Areas</h3>
 
-            <div style={styles.focusItem}>
-              <span style={styles.focusIconGreen}>
+            <div className="focus-item">
+              <span className="focus-icon-green">
                 <Icon name="flame" />
               </span>
               <div>
@@ -1646,8 +1587,8 @@ function MockExamsView() {
               </div>
             </div>
 
-            <div style={styles.focusItem}>
-              <span style={styles.focusIconGold}>
+            <div className="focus-item">
+              <span className="focus-icon-gold">
                 <Icon name="target" />
               </span>
               <div>
@@ -1664,12 +1605,12 @@ function MockExamsView() {
 
 function CertificationTab({ certificates }: { certificates: AnyRecord[] }) {
   return (
-    <div style={styles.sectionStack}>
+    <div className="section-stack">
       <Panel title="Certification">
         {certificates.length === 0 ? (
           <EmptyState text="Aún no tienes certificados reales emitidos. Completa un curso y emite tu certificado para verlo aquí." />
         ) : (
-          <div style={styles.courseGrid}>
+          <div className="course-grid">
             {certificates.map((certificate) => (
               <CertificateCard key={certificate.id} certificate={certificate} />
             ))}
@@ -1692,9 +1633,9 @@ function PerformanceTab({
   stats: AnyRecord;
 }) {
   return (
-    <div style={styles.sectionStack}>
+    <div className="section-stack">
       <Panel title="Performance Profile">
-        <div style={styles.profileGrid}>
+        <div className="profile-grid">
           <ProfileStat label="Alumno" value={displayName} />
           <ProfileStat label="Email" value={user?.email || '—'} />
           <ProfileStat label="Rol" value={profile?.role || 'student'} />
@@ -1705,7 +1646,7 @@ function PerformanceTab({
       </Panel>
 
       <Panel title="Security Roadmap">
-        <div style={styles.infoGrid}>
+        <div className="info-grid">
           <InfoBlock
             icon="shield"
             title="Acceso protegido"
@@ -1725,11 +1666,9 @@ function PerformanceTab({
       </Panel>
     </div>
   );
-}
-
-function MockFeature({ icon, title, text }: { icon: IconName; title: string; text: string }) {
+}function MockFeature({ icon, title, text }: { icon: IconName; title: string; text: string }) {
   return (
-    <article style={styles.mockFeature}>
+    <article className="mock-feature">
       <span>
         <Icon name={icon} />
       </span>
@@ -1743,7 +1682,7 @@ function MockFeature({ icon, title, text }: { icon: IconName; title: string; tex
 
 function MockMeta({ icon, label, value }: { icon: IconName; label: string; value: string }) {
   return (
-    <div style={styles.mockMetaItem}>
+    <div className="mock-meta-item">
       <Icon name={icon} />
       <div>
         <span>{label}</span>
@@ -1751,7 +1690,55 @@ function MockMeta({ icon, label, value }: { icon: IconName; label: string; value
       </div>
     </div>
   );
-}function PremiumCourseCard({
+}
+
+function DashboardModuleRow({ item }: { item: ModuleView }) {
+  if (item.isLocked) {
+    return (
+      <article className="dashboard-module-row locked">
+        <div className="dashboard-module-icon locked">
+          <Icon name="lock" />
+        </div>
+
+        <div className="dashboard-module-body">
+          <p className="module-mini-label muted">Module {item.index + 1}</p>
+          <h3>{item.module.title || `Módulo ${item.index + 1}`}</h3>
+        </div>
+
+        <span className="locked-pill">Locked</span>
+      </article>
+    );
+  }
+
+  return (
+    <Link href={item.href} className={item.isCurrent ? 'dashboard-module-row active' : 'dashboard-module-row'}>
+      <div className={item.isCompleted ? 'dashboard-module-icon done' : 'dashboard-module-icon'}>
+        <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
+      </div>
+
+      <div className="dashboard-module-body">
+        <div className="dashboard-module-top">
+          <p className="module-mini-label">Module {item.index + 1}</p>
+          {item.isCurrent && <span className="in-progress-mini">In progress</span>}
+        </div>
+
+        <h3>{item.module.title || `Módulo ${item.index + 1}`}</h3>
+
+        {item.isCurrent && (
+          <div className="progress-track-mini">
+            <div className="progress-fill" style={{ width: `${item.progress}%` }} />
+          </div>
+        )}
+      </div>
+
+      <div className="dashboard-module-right">
+        <strong>{item.isCompleted ? '100% Score' : `${item.progress}%`}</strong>
+      </div>
+    </Link>
+  );
+}
+
+function PremiumCourseCard({
   card,
   completed = false,
   index,
@@ -1768,55 +1755,54 @@ function MockMeta({ icon, label, value }: { icon: IconName; label: string; value
     : `/cursos/${getCourseSlug(course)}`;
 
   return (
-    <article style={mode === 'grid' ? styles.premiumCourseCard : styles.premiumCourseCardList}>
+    <article className={mode === 'grid' ? 'premium-course-card' : 'premium-course-card-list'}>
       <div
+        className={mode === 'grid' ? 'premium-course-image' : 'premium-course-image list'}
         style={{
-          ...styles.premiumCourseImage,
-          ...(mode === 'list' ? styles.premiumCourseImageList : {}),
           backgroundImage: getPremiumCourseBackground(course, index),
         }}
       >
-        <div style={styles.premiumImageOverlay} />
+        <div className="premium-image-overlay" />
 
-        <div style={styles.courseTopBadges}>
-          <span style={completed ? styles.completedBadge : styles.progressBadge}>
+        <div className="course-top-badges">
+          <span className={completed ? 'completed-badge' : 'progress-badge'}>
             {completed ? 'Completed' : 'In Progress'}
           </span>
         </div>
 
-        <span style={styles.bookmarkIcon}>
+        <span className="bookmark-icon">
           <Icon name={completed ? 'check' : 'bookmark'} />
         </span>
       </div>
 
-      <div style={styles.premiumCourseBody}>
-        <h3 style={styles.premiumCourseTitle}>{course.title || 'Curso GHC Academy'}</h3>
-        <p style={styles.premiumCourseText}>
+      <div className="premium-course-body">
+        <h3>{course.title || 'Curso GHC Academy'}</h3>
+        <p>
           {course.subtitle ||
             course.description ||
             'Formación premium basada en ciencia, estructura y rendimiento.'}
         </p>
 
-        <div style={styles.premiumStatsGrid}>
+        <div className="premium-stats-grid">
           <PremiumMetric icon="document" value={card.courseLessons.length} label="Lessons" />
           <PremiumMetric icon="box" value={card.courseModules.length} label="Modules" />
           <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progress" />
         </div>
 
-        <div style={styles.cardProgressArea}>
-          <div style={styles.progressTrack}>
-            <div style={{ ...styles.progressFill, width: `${card.progressPercent}%` }} />
+        <div className="card-progress-area">
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${card.progressPercent}%` }} />
           </div>
-          <span style={styles.progressTextGreen}>{card.progressPercent}% Complete</span>
+          <span className="progress-text-green">{card.progressPercent}% Complete</span>
         </div>
 
-        <div style={styles.premiumActions}>
-          <Link href={href} style={completed ? styles.reviewButton : styles.primaryButtonSmall}>
+        <div className="premium-actions">
+          <Link href={href} className={completed ? 'review-button' : 'primary-button-small'}>
             {completed ? 'Review' : 'Continue'}
             {!completed && <Icon name="arrow" />}
           </Link>
 
-          <Link href={`/cursos/${getCourseSlug(course)}`} style={styles.secondaryButtonSmall}>
+          <Link href={`/cursos/${getCourseSlug(course)}`} className="secondary-button-small">
             Details
           </Link>
         </div>
@@ -1835,8 +1821,8 @@ function PremiumMetric({
   label: string;
 }) {
   return (
-    <div style={styles.premiumMetric}>
-      <div style={styles.metricTopLine}>
+    <div className="premium-metric">
+      <div>
         <Icon name={icon} />
         <strong>{value}</strong>
       </div>
@@ -1857,15 +1843,15 @@ function CurriculumMetric({
   helper: string;
 }) {
   return (
-    <article style={styles.curriculumMetric}>
-      <span style={styles.curriculumMetricIcon}>
+    <article className="curriculum-metric">
+      <span>
         <Icon name={icon} />
       </span>
 
-      <div style={styles.curriculumMetricContent}>
-        <p style={styles.curriculumMetricLabel}>{label}</p>
-        <strong style={styles.curriculumMetricValue}>{value}</strong>
-        <span style={styles.curriculumMetricHelper}>{helper}</span>
+      <div>
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <em>{helper}</em>
       </div>
     </article>
   );
@@ -1876,29 +1862,29 @@ function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyReco
 
   if (item.isCurrent) {
     return (
-      <Link href={item.href} style={styles.roadmapCurrentCard}>
-        <div style={styles.roadmapCurrentLine} />
+      <Link href={item.href} className="roadmap-current-card">
+        <div className="roadmap-current-line" />
 
-        <div style={styles.roadmapCurrentContent}>
-          <div style={styles.roadmapTopBadges}>
-            <span style={styles.moduleMiniLabel}>Module {item.index + 1}</span>
-            <span style={styles.inProgressMini}>In Progress</span>
+        <div className="roadmap-current-content">
+          <div className="roadmap-top-badges">
+            <span className="module-mini-label">Module {item.index + 1}</span>
+            <span className="in-progress-mini">In Progress</span>
           </div>
 
-          <h3 style={styles.roadmapTitleCurrent}>{title}</h3>
+          <h3>{title}</h3>
 
-          <p style={styles.roadmapSmallText}>
+          <p>
             {item.completedLessons} of {item.lessons.length} Lessons Completed
           </p>
 
-          <div style={styles.progressTrackMini}>
-            <div style={{ ...styles.progressFill, width: `${item.progress}%` }} />
+          <div className="progress-track-mini">
+            <div className="progress-fill" style={{ width: `${item.progress}%` }} />
           </div>
 
-          <div style={styles.roadmapBottomRow}>
-            <span style={styles.progressTextGreen}>{item.progress}% Complete</span>
+          <div className="roadmap-bottom-row">
+            <span>{item.progress}% Complete</span>
 
-            <span style={styles.roadmapContinueButton}>
+            <span>
               Continue
               <Icon name="arrow" />
             </span>
@@ -1906,11 +1892,12 @@ function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyReco
         </div>
 
         <div
+          className="roadmap-current-image"
           style={{
-            ...styles.roadmapCurrentImage,
-            backgroundImage: `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.74)), url(${getCourseImage(
-              course || {}
-            ) || 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80'})`,
+            backgroundImage: `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.74)), url(${
+              getCourseImage(course || {}) ||
+              'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80'
+            })`,
           }}
         />
       </Link>
@@ -1919,35 +1906,35 @@ function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyReco
 
   if (item.isLocked) {
     return (
-      <article style={styles.roadmapRowLocked}>
-        <div style={styles.roadmapDotLocked}>
+      <article className="roadmap-row locked">
+        <div className="roadmap-dot locked">
           <Icon name="lock" />
         </div>
 
-        <div style={styles.roadmapBody}>
-          <p style={styles.moduleMiniLabelMuted}>Module {item.index + 1}</p>
-          <h3 style={styles.roadmapTitle}>{title}</h3>
-          <p style={styles.roadmapSmallText}>{item.lessons.length} Lessons</p>
+        <div className="roadmap-body">
+          <p className="module-mini-label muted">Module {item.index + 1}</p>
+          <h3>{title}</h3>
+          <p>{item.lessons.length} Lessons</p>
         </div>
 
-        <span style={styles.lockedPill}>Locked</span>
+        <span className="locked-pill">Locked</span>
       </article>
     );
   }
 
   return (
-    <Link href={item.href} style={styles.roadmapRow}>
-      <div style={item.isCompleted ? styles.roadmapDotDone : styles.roadmapDot}>
+    <Link href={item.href} className="roadmap-row">
+      <div className={item.isCompleted ? 'roadmap-dot done' : 'roadmap-dot'}>
         <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
       </div>
 
-      <div style={styles.roadmapBody}>
-        <p style={styles.moduleMiniLabel}>Module {item.index + 1}</p>
-        <h3 style={styles.roadmapTitle}>{title}</h3>
-        <p style={styles.roadmapSmallText}>{item.lessons.length} Lessons</p>
+      <div className="roadmap-body">
+        <p className="module-mini-label">Module {item.index + 1}</p>
+        <h3>{title}</h3>
+        <p>{item.lessons.length} Lessons</p>
       </div>
 
-      <div style={styles.roadmapSide}>
+      <div className="roadmap-side">
         <strong>{item.isCompleted ? '100%' : `${item.progress}%`}</strong>
         <span>{item.isCompleted ? 'Completed' : 'Ready'}</span>
       </div>
@@ -1975,50 +1962,32 @@ function LessonRow({
   const title = lesson.title || `Lesson ${index + 1}`;
 
   const content = (
-    <article
-      style={
-        active
-          ? styles.lessonRowActive
-          : locked
-            ? styles.lessonRowLocked
-            : styles.lessonRow
-      }
-    >
-      <div style={styles.lessonNameCell}>
-        <span
-          style={
-            completed
-              ? styles.lessonIconDone
-              : active
-                ? styles.lessonIconActive
-                : styles.lessonIcon
-          }
-        >
+    <article className={active ? 'lesson-row active' : locked ? 'lesson-row locked' : 'lesson-row'}>
+      <div className="lesson-name-cell">
+        <span className={completed ? 'lesson-icon done' : active ? 'lesson-icon active' : 'lesson-icon'}>
           <Icon name={completed ? 'check' : icon} />
         </span>
 
         <div>
-          <strong style={styles.lessonTitleText}>{`${index + 1}. ${title}`}</strong>
-          <p style={styles.lessonDescriptionText}>
-            {lesson.description || lesson.subtitle || 'Contenido académico del módulo'}
-          </p>
+          <strong>{`${index + 1}. ${title}`}</strong>
+          <p>{lesson.description || lesson.subtitle || 'Contenido académico del módulo'}</p>
         </div>
       </div>
 
-      <span style={styles.lessonTypePill}>
+      <span className="lesson-type-pill">
         <Icon name={icon} />
         {contentType}
       </span>
 
       <span
-        style={
+        className={
           locked
-            ? styles.lessonStatusLocked
+            ? 'lesson-status locked'
             : completed
-              ? styles.lessonStatusCompleted
+              ? 'lesson-status completed'
               : active
-                ? styles.lessonStatusActive
-                : styles.lessonStatusPending
+                ? 'lesson-status active'
+                : 'lesson-status pending'
         }
       >
         {locked ? 'Locked' : completed ? 'Completed' : active ? 'In Progress' : 'Pending'}
@@ -2029,7 +1998,7 @@ function LessonRow({
   if (locked) return content;
 
   return (
-    <Link href={href} style={styles.lessonLink}>
+    <Link href={href} className="lesson-link">
       {content}
     </Link>
   );
@@ -2037,28 +2006,28 @@ function LessonRow({
 
 function CertificateCard({ certificate }: { certificate: AnyRecord }) {
   return (
-    <article style={styles.certificateCard}>
-      <div style={styles.certificateIcon}>
+    <article className="certificate-card">
+      <div className="certificate-icon">
         <Icon name="star" />
       </div>
 
-      <span style={styles.progressBadge}>Valid Certificate</span>
+      <span className="progress-badge">Valid Certificate</span>
 
-      <h3 style={styles.certificateTitle}>{certificate.course_title || 'Curso completado'}</h3>
+      <h3>{certificate.course_title || 'Curso completado'}</h3>
 
-      <div style={styles.profileGrid}>
+      <div className="profile-grid">
         <ProfileStat label="Score" value={`${certificate.final_score ?? '—'}%`} />
         <ProfileStat label="Status" value="Valid" />
         <ProfileStat label="Code" value={certificate.certificate_code || '—'} />
       </div>
 
       {certificate.verification_slug ? (
-        <Link href={`/certificados/${certificate.verification_slug}`} style={styles.primaryButton}>
+        <Link href={`/certificados/${certificate.verification_slug}`} className="primary-button">
           View Certificate
           <Icon name="arrow" />
         </Link>
       ) : (
-        <p style={styles.emptyText}>Certificado registrado sin enlace público.</p>
+        <p className="empty-text">Certificado registrado sin enlace público.</p>
       )}
     </article>
   );
@@ -2066,29 +2035,29 @@ function CertificateCard({ certificate }: { certificate: AnyRecord }) {
 
 function ProfileStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div style={styles.profileStat}>
-      <span style={styles.profileStatLabel}>{label}</span>
-      <strong style={styles.profileStatValue}>{value}</strong>
+    <div className="profile-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
 
 function InfoBlock({ icon, title, text }: { icon: IconName; title: string; text: string }) {
   return (
-    <article style={styles.infoBlock}>
-      <span style={styles.infoIcon}>
+    <article className="info-block">
+      <span>
         <Icon name={icon} />
       </span>
-      <h3 style={styles.infoBlockTitle}>{title}</h3>
-      <p style={styles.infoBlockText}>{text}</p>
+      <h3>{title}</h3>
+      <p>{text}</p>
     </article>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <article style={styles.emptyState}>
-      <p style={styles.emptyText}>{text}</p>
+    <article className="empty-state">
+      <p>{text}</p>
     </article>
   );
 }
@@ -2106,12 +2075,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'home') {
     return (
       <svg {...common}>
-        <path
-          d="m4 11 8-7 8 7v9h-5v-6H9v6H4v-9Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="m4 11 8-7 8 7v9h-5v-6H9v6H4v-9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2119,12 +2083,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'dashboard') {
     return (
       <svg {...common}>
-        <path
-          d="M4 13h7V4H4v9Zm9 7h7V4h-7v16ZM4 20h7v-5H4v5Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="M4 13h7V4H4v9Zm9 7h7V4h-7v16ZM4 20h7v-5H4v5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2132,18 +2091,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'courses' || name === 'box') {
     return (
       <svg {...common}>
-        <path
-          d="m12 4 8 4-8 4-8-4 8-4Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M4 12l8 4 8-4M4 16l8 4 8-4"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="m12 4 8 4-8 4-8-4 8-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M4 12l8 4 8-4M4 16l8 4 8-4" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2151,18 +2100,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'curriculum' || name === 'document') {
     return (
       <svg {...common}>
-        <path
-          d="M7 4h7l3 3v13H7V4Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M14 4v4h4M9 12h6M9 16h6"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M7 4h7l3 3v13H7V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M14 4v4h4M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2170,19 +2109,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'exam') {
     return (
       <svg {...common}>
-        <path
-          d="M5 5h14v14H5V5Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="m8.5 12 2.1 2.1 4.9-5"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M5 5h14v14H5V5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="m8.5 12 2.1 2.1 4.9-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2191,12 +2119,7 @@ function Icon({ name }: { name: IconName }) {
     return (
       <svg {...common}>
         <path d="M7 4h10v9a5 5 0 0 1-10 0V4Z" stroke="currentColor" strokeWidth="1.8" />
-        <path
-          d="m9 19-1 3 4-2 4 2-1-3"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="m9 19-1 3 4-2 4 2-1-3" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2205,13 +2128,7 @@ function Icon({ name }: { name: IconName }) {
     return (
       <svg {...common}>
         <path d="M4 19V5M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path
-          d="M7 15l3-4 3 2 4-7"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M7 15l3-4 3 2 4-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2219,12 +2136,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'resources' || name === 'list') {
     return (
       <svg {...common}>
-        <path
-          d="M5 6h14M5 12h14M5 18h9"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2232,12 +2144,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'grid') {
     return (
       <svg {...common}>
-        <path
-          d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2245,17 +2152,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'support') {
     return (
       <svg {...common}>
-        <path
-          d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <path
-          d="M9.8 9a2.2 2.2 0 1 1 3.5 1.8c-.8.6-1.3 1-1.3 2.2M12 16h.01"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M9.8 9a2.2 2.2 0 1 1 3.5 1.8c-.8.6-1.3 1-1.3 2.2M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2263,13 +2161,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'logout') {
     return (
       <svg {...common}>
-        <path
-          d="M10 6H6v12h4M14 8l4 4-4 4M18 12H9"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M10 6H6v12h4M14 8l4 4-4 4M18 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2277,11 +2169,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'clock') {
     return (
       <svg {...common}>
-        <path
-          d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
+        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" />
         <path d="M12 8v5l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
@@ -2290,18 +2178,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'lock') {
     return (
       <svg {...common}>
-        <path
-          d="M8 10V8a4 4 0 1 1 8 0v2"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-        <path
-          d="M7 10h10v9H7v-9Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="M8 10V8a4 4 0 1 1 8 0v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M7 10h10v9H7v-9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2309,13 +2187,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'check') {
     return (
       <svg {...common}>
-        <path
-          d="m5 12 4 4L19 6"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2323,13 +2195,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'arrow') {
     return (
       <svg {...common}>
-        <path
-          d="M5 12h14M13 6l6 6-6 6"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2337,13 +2203,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'bell') {
     return (
       <svg {...common}>
-        <path
-          d="M15 17H9m9-2V9a6 6 0 1 0-12 0v6l-2 2h16l-2-2ZM10 20h4"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M15 17H9m9-2V9a6 6 0 1 0-12 0v6l-2 2h16l-2-2ZM10 20h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2351,12 +2211,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'shield') {
     return (
       <svg {...common}>
-        <path
-          d="M12 3.5 19 6v5.4c0 4.3-2.8 8-7 9.1-4.2-1.1-7-4.8-7-9.1V6l7-2.5Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="M12 3.5 19 6v5.4c0 4.3-2.8 8-7 9.1-4.2-1.1-7-4.8-7-9.1V6l7-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2364,12 +2219,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'star') {
     return (
       <svg {...common}>
-        <path
-          d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2377,12 +2227,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'bookmark') {
     return (
       <svg {...common}>
-        <path
-          d="M7 4h10v16l-5-3-5 3V4Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="M7 4h10v16l-5-3-5 3V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2390,12 +2235,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'search') {
     return (
       <svg {...common}>
-        <path
-          d="m20 20-4-4M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="m20 20-4-4M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2411,18 +2251,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'audio') {
     return (
       <svg {...common}>
-        <path
-          d="M5 10v4h3l4 4V6l-4 4H5Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M5 10v4h3l4 4V6l-4 4H5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2430,18 +2260,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'pdf') {
     return (
       <svg {...common}>
-        <path
-          d="M7 4h7l3 3v13H7V4Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M9 14h6M9 17h4"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M7 4h7l3 3v13H7V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M9 14h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2449,12 +2269,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'text') {
     return (
       <svg {...common}>
-        <path
-          d="M5 6h14M5 10h14M5 14h10M5 18h7"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M5 6h14M5 10h14M5 14h10M5 18h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2462,18 +2277,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'trophy') {
     return (
       <svg {...common}>
-        <path
-          d="M8 4h8v3a4 4 0 0 1-8 0V4Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M8 6H5a3 3 0 0 0 3 3M16 6h3a3 3 0 0 1-3 3M12 11v5M9 20h6M10 16h4"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M8 4h8v3a4 4 0 0 1-8 0V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M8 6H5a3 3 0 0 0 3 3M16 6h3a3 3 0 0 1-3 3M12 11v5M9 20h6M10 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2481,17 +2286,8 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'target') {
     return (
       <svg {...common}>
-        <path
-          d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <path
-          d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 12h.01"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 12h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -2499,18 +2295,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'chat') {
     return (
       <svg {...common}>
-        <path
-          d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v6A2.5 2.5 0 0 1 17.5 15H9l-5 4V6.5Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M8 9.5h.01M12 9.5h.01M16 9.5h.01"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-        />
+        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v6A2.5 2.5 0 0 1 17.5 15H9l-5 4V6.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2518,12 +2303,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'flame') {
     return (
       <svg {...common}>
-        <path
-          d="M12 21c3.4-1.2 5.5-3.6 5.5-7 0-3-1.6-5.2-4.8-8.6-.1 2.7-1.1 4-2.6 5.3-.2-1.6-1-2.9-2.1-4C6.6 9 5.5 11 5.5 14c0 3.4 2.1 5.8 6.5 7Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
+        <path d="M12 21c3.4-1.2 5.5-3.6 5.5-7 0-3-1.6-5.2-4.8-8.6-.1 2.7-1.1 4-2.6 5.3-.2-1.6-1-2.9-2.1-4C6.6 9 5.5 11 5.5 14c0 3.4 2.1 5.8 6.5 7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -2531,25 +2311,14 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'external') {
     return (
       <svg {...common}>
-        <path
-          d="M14 4h6v6M20 4l-8 8M10 6H6v12h12v-4"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M14 4h6v6M20 4l-8 8M10 6H6v12h12v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
 
   return (
     <svg {...common}>
-      <path
-        d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -2703,1531 +2472,2661 @@ function getLessonIcon(type: string): IconName {
   return 'play';
 }
 
-const styles: Record<string, CSSProperties> = {
-  loadingPage: {
-    minHeight: '100vh',
-    position: 'relative',
-    display: 'grid',
-    placeItems: 'center',
-    background: bg,
-    color: white,
-    overflow: 'hidden',
-  },
-
-  loadingCard: {
-    width: 'min(720px, calc(100vw - 40px))',
-    borderRadius: 28,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
-    padding: 34,
-    position: 'relative',
-    zIndex: 2,
-    boxShadow: '0 28px 90px rgba(0,0,0,0.42)',
-  },
-
-  loadingAccent: {
-    width: 66,
-    height: 4,
-    borderRadius: 999,
-    background: green,
-    boxShadow: `0 0 24px ${rgbaGreen(0.45)}`,
-    marginBottom: 22,
-  },
-
-  kicker: {
-    margin: '26px 0 0',
-    color: green,
-    textTransform: 'uppercase',
-    letterSpacing: '0.26em',
-    fontSize: 12,
-    fontWeight: 950,
-  },
-
-  loadingTitle: {
-    margin: '14px 0 0',
-    fontSize: 'clamp(42px, 6vw, 74px)',
-    lineHeight: 0.92,
-    fontWeight: 950,
-    letterSpacing: '-0.06em',
-  },
-
-  loadingText: {
-    marginTop: 16,
-    color: muted,
-    lineHeight: 1.75,
-    maxWidth: 620,
-  },
-
-  page: {
-    minHeight: '100vh',
-    background: bg,
-    color: white,
-    position: 'relative',
-    display: 'grid',
-    gridTemplateColumns: '278px minmax(0, 1fr)',
-    overflow: 'visible',
-  },
-
-  background: {
-    position: 'fixed',
-    inset: 0,
-    pointerEvents: 'none',
-    zIndex: 0,
-    overflow: 'hidden',
-  },
-
-  orbOne: {
-    position: 'absolute',
-    width: 520,
-    height: 520,
-    borderRadius: 999,
-    top: -200,
-    left: -160,
-    background: rgbaGreen(0.10),
-    filter: 'blur(100px)',
-  },
-
-  orbTwo: {
-    position: 'absolute',
-    width: 520,
-    height: 520,
-    borderRadius: 999,
-    right: -250,
-    top: 120,
-    background: 'rgba(120,135,130,0.09)',
-    filter: 'blur(110px)',
-  },
-
-  gridTexture: {
-    position: 'absolute',
-    inset: 0,
-    backgroundImage:
-      'linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px)',
-    backgroundSize: '42px 42px',
-    opacity: 0.42,
-    maskImage: 'radial-gradient(circle at center, black 0%, transparent 82%)',
-  },
-
-  sidebar: {
-    position: 'sticky',
-    top: 0,
-    height: '100vh',
-    zIndex: 2,
-    borderRight: '1px solid rgba(255,255,255,0.07)',
-    background: 'linear-gradient(180deg, rgba(6,9,8,0.97), rgba(3,5,4,0.93))',
-    padding: 20,
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-  },
-
-  logoBlock: {
-    display: 'flex',
-    alignItems: 'center',
-    minHeight: 58,
-    marginBottom: 20,
-  },
-
-  nav: {
-    display: 'grid',
-    gap: 6,
-  },
-
-  navButton: {
-    border: '1px solid transparent',
-    background: 'transparent',
-    color: 'rgba(244,246,242,0.62)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-    width: '100%',
-    padding: '12px 14px',
-    textAlign: 'left',
-    cursor: 'pointer',
-    borderRadius: 0,
-  },
-
-  navActive: {
-    border: `1px solid ${rgbaGreen(0.12)}`,
-    background: `linear-gradient(90deg, ${rgbaGreen(0.18)}, ${rgbaGreen(0.035)} 70%, transparent)`,
-    color: green,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-    width: '100%',
-    padding: '12px 14px',
-    textAlign: 'left',
-    cursor: 'pointer',
-    borderRadius: 0,
-    boxShadow: `inset 3px 0 0 ${rgbaGreen(0.95)}`,
-  },
-
-  navIcon: {
-    width: 22,
-    height: 22,
-    display: 'grid',
-    placeItems: 'center',
-    color: 'rgba(244,246,242,0.50)',
-    flexShrink: 0,
-  },
-
-  navIconActive: {
-    width: 22,
-    height: 22,
-    display: 'grid',
-    placeItems: 'center',
-    color: green,
-    flexShrink: 0,
-  },
-
-  navText: {
-    display: 'grid',
-    gap: 3,
-  },
-
-  sidebarDivider: {
-    height: 1,
-    background: 'rgba(255,255,255,0.08)',
-    margin: '22px 0',
-  },
-
-  sidebarUserBox: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: 'rgba(255,255,255,0.035)',
-    padding: 16,
-  },
-
-  sidebarUserTop: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-  },
-
-  avatarLarge: {
-    width: 52,
-    height: 52,
-    borderRadius: 999,
-    background: rgbaGreen(0.11),
-    border: `1px solid ${rgbaGreen(0.24)}`,
-    color: green,
-    display: 'grid',
-    placeItems: 'center',
-    fontWeight: 950,
-    fontSize: 17,
-    flexShrink: 0,
-  },
-
-  sidebarUserText: {
-    minWidth: 0,
-  },
-
-  sidebarUserName: {
-    margin: 0,
-    fontWeight: 900,
-    fontSize: 16,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  },
-
-  sidebarUserRole: {
-    margin: '4px 0 0',
-    color: muted,
-    fontSize: 13,
-  },
-
-  proPill: {
-    marginLeft: 6,
-    color: green,
-    background: rgbaGreen(0.12),
-    borderRadius: 999,
-    padding: '2px 7px',
-    fontSize: 11,
-    fontWeight: 800,
-  },
-
-  xpBox: {
-    borderTop: '1px solid rgba(255,255,255,0.08)',
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
-    padding: '14px 0',
-    marginTop: 16,
-  },
-
-  xpRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    color: muted,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-  },
-
-  progressTrackThin: {
-    height: 6,
-    borderRadius: 999,
-    background: 'rgba(255,255,255,0.10)',
-    overflow: 'hidden',
-    marginTop: 12,
-  },
-
-  signOutButton: {
-    marginTop: 16,
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 10,
-    background: 'transparent',
-    border: 0,
-    color: 'rgba(244,246,242,0.58)',
-    fontSize: 13,
-    cursor: 'pointer',
-    padding: 0,
-  },
-
-  appShell: {
-    position: 'relative',
-    zIndex: 1,
-    padding: 20,
-    minWidth: 0,
-  },
-
-  topbar: {
-    minHeight: 58,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 18,
-    marginBottom: 16,
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
-    paddingBottom: 12,
-  },
-
-  breadcrumb: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    color: 'rgba(244,246,242,0.72)',
-    fontSize: 13,
-    fontWeight: 800,
-  },
-
-  breadcrumbSeparator: {
-    color: 'rgba(244,246,242,0.34)',
-  },
-
-  topbarRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-    position: 'relative',
-  },
-
-  topbarLink: {
-    color: 'rgba(244,246,242,0.65)',
-    textDecoration: 'none',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    fontWeight: 850,
-  },
-
-  topbarLinkStrong: {
-    color: green,
-    textDecoration: 'none',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    fontWeight: 900,
-  },
-
-  notificationArea: {
-    position: 'relative',
-  },
-
-  notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: 'rgba(255,255,255,0.035)',
-    color: 'rgba(244,246,242,0.75)',
-    display: 'grid',
-    placeItems: 'center',
-    position: 'relative',
-    cursor: 'pointer',
-  },
-
-  notificationDot: {
-    position: 'absolute',
-    width: 7,
-    height: 7,
-    borderRadius: 999,
-    background: green,
-    right: 9,
-    top: 8,
-    boxShadow: `0 0 12px ${rgbaGreen(0.55)}`,
-  },
-
-  notificationCount: {
-    position: 'absolute',
-    right: -6,
-    top: -6,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 999,
-    background: green,
-    color: '#061008',
-    display: 'grid',
-    placeItems: 'center',
-    fontSize: 10,
-    fontWeight: 950,
-    border: '2px solid #050706',
-  },
-
-  notificationPanel: {
-    position: 'absolute',
-    top: 52,
-    right: 0,
-    width: 360,
-    borderRadius: 20,
-    border: '1px solid rgba(255,255,255,0.12)',
-    background:
-      'linear-gradient(145deg, rgba(255,255,255,0.080), rgba(255,255,255,0.030)), rgba(7,10,9,0.98)',
-    boxShadow: '0 28px 90px rgba(0,0,0,0.48)',
-    padding: 16,
-    zIndex: 40,
-    backdropFilter: 'blur(18px)',
-  },
-
-  notificationHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 16,
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-
-  notificationKicker: {
-    margin: 0,
-    color: green,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.18em',
-    fontWeight: 900,
-  },
-
-  notificationTitle: {
-    margin: '6px 0 0',
-    fontSize: 20,
-    letterSpacing: '-0.03em',
-    fontWeight: 900,
-  },
-
-  notificationBadge: {
-    borderRadius: 999,
-    border: `1px solid ${rgbaGreen(0.24)}`,
-    background: rgbaGreen(0.10),
-    color: green,
-    padding: '6px 9px',
-    fontSize: 11,
-    fontWeight: 900,
-  },
-
-  notificationList: {
-    display: 'grid',
-    gap: 10,
-  },
-
-  notificationLink: {
-    textDecoration: 'none',
-    color: 'inherit',
-  },
-
-  notificationItem: {
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(255,255,255,0.030)',
-    padding: 12,
-  },
-
-  notificationItemUnread: {
-    borderRadius: 14,
-    border: `1px solid ${rgbaGreen(0.18)}`,
-    background: rgbaGreen(0.055),
-    padding: 12,
-  },
-
-  notificationItemTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 12,
-    alignItems: 'center',
-  },
-
-  notificationType: {
-    color: green,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.14em',
-    fontWeight: 900,
-  },
-
-  notificationTime: {
-    color: soft,
-    fontSize: 11,
-  },
-
-  notificationItemTitle: {
-    margin: '8px 0 0',
-    color: white,
-    fontSize: 14,
-    fontWeight: 900,
-  },
-
-  notificationMessage: {
-    margin: '6px 0 0',
-    color: muted,
-    fontSize: 12,
-    lineHeight: 1.55,
-  },
-
-  notificationFooter: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTop: '1px solid rgba(255,255,255,0.08)',
-    color: soft,
-    fontSize: 11,
-  },
-
-  userMini: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    borderLeft: '1px solid rgba(255,255,255,0.08)',
-    paddingLeft: 16,
-  },
-
-  welcomeText: {
-    margin: 0,
-    color: soft,
-    fontSize: 12,
-  },
-
-  userMiniName: {
-    margin: '2px 0 0',
-    fontWeight: 850,
-  },
-
-  avatarMini: {
-    width: 42,
-    height: 42,
-    borderRadius: 999,
-    border: `1px solid ${rgbaGreen(0.20)}`,
-    background: rgbaGreen(0.09),
-    color: green,
-    display: 'grid',
-    placeItems: 'center',
-    fontWeight: 900,
-  },
-
-  notice: {
-    marginBottom: 16,
-    borderRadius: 16,
-    border: `1px solid ${rgbaGreen(0.20)}`,
-    background: rgbaGreen(0.06),
-    color: muted,
-    padding: 16,
-  },
-
-  mockPage: {
-    display: 'grid',
-    gap: 14,
-  },
-
-  mockHeader: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 0.85fr) minmax(520px, 1fr)',
-    gap: 16,
-    alignItems: 'center',
-  },
-
-  mockTitleBlock: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 14,
-  },
-
-  mockTargetIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    color: green,
-    display: 'grid',
-    placeItems: 'center',
-    background: rgbaGreen(0.08),
-    border: `1px solid ${rgbaGreen(0.20)}`,
-    flexShrink: 0,
-  },
-
-  mockTitle: {
-    margin: 0,
-    fontSize: 38,
-    lineHeight: 0.95,
-    fontWeight: 950,
-    letterSpacing: '-0.055em',
-  },
-
-  mockSubtitle: {
-    margin: '10px 0 0',
-    color: muted,
-    lineHeight: 1.6,
-    fontSize: 15,
-    maxWidth: 620,
-  },
-
-  mockFeatureStrip: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 10,
-  },
-
-  mockFeature: {
-    minHeight: 78,
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: panelBg,
-    display: 'flex',
-    gap: 12,
-    alignItems: 'center',
-    padding: 14,
-  },
-
-  mockHeroGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 0.85fr)',
-    gap: 14,
-  },
-
-  examSimulatorCard: {
-    minHeight: 260,
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background:
-      'linear-gradient(90deg, rgba(11,15,13,0.98), rgba(11,15,13,0.86)), radial-gradient(circle at 75% 50%, rgba(255,255,255,0.06), transparent 26%)',
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 0.9fr) minmax(360px, 0.85fr)',
-    overflow: 'hidden',
-    padding: 20,
-  },
-
-  examSimulatorContent: {
-    display: 'grid',
-    alignContent: 'center',
-    gap: 16,
-    minWidth: 0,
-  },
-
-  examTitleRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-  },
-
-  featuredBadge: {
-    color: green,
-    background: rgbaGreen(0.12),
-    border: `1px solid ${rgbaGreen(0.24)}`,
-    borderRadius: 999,
-    padding: '5px 8px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    fontSize: 10,
-    fontWeight: 900,
-  },
-
-  examMetaGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-    gap: 10,
-  },
-
-  mockMetaItem: {
-    display: 'flex',
-    gap: 8,
-    color: muted,
-    alignItems: 'center',
-    minWidth: 0,
-  },
-
-  examActionRow: {
-    display: 'flex',
-    gap: 16,
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-
-  mockPrimaryButton: {
-    minHeight: 46,
-    border: 0,
-    borderRadius: 10,
-    background: `linear-gradient(135deg, ${green}, #7BEE65)`,
-    color: '#061008',
-    padding: '0 20px',
-    display: 'inline-flex',
-    gap: 10,
-    alignItems: 'center',
-    fontWeight: 900,
-    cursor: 'pointer',
-  },
-
-  mockGhostButton: {
-    minHeight: 46,
-    border: 0,
-    background: 'transparent',
-    color: white,
-    padding: 0,
-    display: 'inline-flex',
-    gap: 8,
-    alignItems: 'center',
-    cursor: 'pointer',
-    fontWeight: 850,
-  },
-
-  examLaptopVisual: {
-    position: 'relative',
-    minHeight: 220,
-    background:
-      'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.00)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80)',
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    borderRadius: 14,
-    filter: 'grayscale(1) contrast(1.08) brightness(0.72)',
-  },
-
-  examLaptopScreen: {
-    position: 'absolute',
-    right: 32,
-    top: 32,
-    width: 180,
-    height: 116,
-    borderRadius: 8,
-    border: '1px solid rgba(255,255,255,0.20)',
-    background: 'rgba(0,0,0,0.64)',
-    padding: 12,
-    color: white,
-    transform: 'perspective(700px) rotateY(-12deg) rotateX(4deg)',
-    display: 'grid',
-    gap: 6,
-  },
-
-  examLaptopRows: {
-    display: 'grid',
-    gap: 5,
-  },
-
-  examRulesCard: {
-    minHeight: 260,
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: panelBg,
-    padding: 20,
-    display: 'grid',
-    alignContent: 'space-between',
-  },
-
-  examRulesTitle: {
-    display: 'flex',
-    gap: 12,
-    alignItems: 'center',
-  },
-
-  ruleList: {
-    display: 'grid',
-    gap: 10,
-    margin: '16px 0',
-  },
-
-  ruleItem: {
-    display: 'flex',
-    gap: 10,
-    alignItems: 'center',
-    color: muted,
-    fontSize: 14,
-  },
-
-  mockSecondaryButton: {
-    minHeight: 40,
-    width: 'fit-content',
-    borderRadius: 9,
-    border: '1px solid rgba(255,255,255,0.12)',
-    background: 'rgba(255,255,255,0.045)',
-    color: white,
-    padding: '0 16px',
-    display: 'inline-flex',
-    gap: 8,
-    alignItems: 'center',
-    cursor: 'pointer',
-    fontWeight: 850,
-  },
-
-  mockMiddleGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.05fr) minmax(300px, 0.85fr) minmax(0, 1fr)',
-    gap: 14,
-  },
-
-  latestResultsCard: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: panelBg,
-    padding: 18,
-  },
-
-  readinessCard: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: panelBg,
-    padding: 18,
-    display: 'grid',
-  },
-
-  moduleExamsCard: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: panelBg,
-    padding: 18,
-  },
-
-  mockCardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 14,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
-  resultsList: {
-    display: 'grid',
-    gap: 8,
-  },
-
-  resultRow: {
-    minHeight: 56,
-    display: 'grid',
-    gridTemplateColumns: '34px minmax(0, 1fr) 64px 20px',
-    gap: 10,
-    alignItems: 'center',
-    borderBottom: '1px solid rgba(255,255,255,0.055)',
-    padding: '6px 0',
-  },
-
-  resultIconOk: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    display: 'grid',
-    placeItems: 'center',
-    color: green,
-    background: rgbaGreen(0.08),
-  },
-
-  resultIconFail: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    display: 'grid',
-    placeItems: 'center',
-    color: danger,
-    background: 'rgba(255,87,87,0.08)',
-  },
-
-  resultInfo: {
-    minWidth: 0,
-  },
-
-  resultScoreOk: {
-    color: green,
-    display: 'grid',
-    textAlign: 'right',
-    fontWeight: 900,
-  },
-
-  resultScoreFail: {
-    color: danger,
-    display: 'grid',
-    textAlign: 'right',
-    fontWeight: 900,
-  },
-
-  readinessRingWrap: {
-    display: 'grid',
-    placeItems: 'center',
-    marginTop: 8,
-  },
-
-  readinessRing: {
-    width: 156,
-    height: 156,
-    borderRadius: 999,
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  readinessRingInner: {
-    width: 112,
-    height: 112,
-    borderRadius: 999,
-    background: '#080B0A',
-    display: 'grid',
-    placeItems: 'center',
-    alignContent: 'center',
-    textAlign: 'center',
-  },
-
-  readinessText: {
-    margin: '12px auto',
-    maxWidth: 250,
-    color: muted,
-    textAlign: 'center',
-    lineHeight: 1.5,
-  },
-
-  readinessFooter: {
-    marginTop: 'auto',
-    display: 'flex',
-    justifyContent: 'space-between',
-    color: muted,
-    fontSize: 12,
-  },
-
-  moduleExamList: {
-    display: 'grid',
-    gap: 12,
-  },
-
-  moduleExamRow: {
-    display: 'grid',
-    gridTemplateColumns: '30px minmax(0,1fr) 42px 18px',
-    gap: 10,
-    alignItems: 'center',
-    color: muted,
-  },
-
-  moduleExamProgress: {
-    height: 5,
-    borderRadius: 999,
-    background: 'rgba(255,255,255,0.10)',
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-
-  analyticsCard: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: panelBg,
-    padding: 18,
-  },
-
-  analyticsGrid: {
-    display: 'grid',
-    gridTemplateColumns: '300px minmax(0, 1fr) 310px',
-    gap: 14,
-    marginTop: 12,
-  },
-
-  averageScoreCard: {
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.07)',
-    background: 'rgba(255,255,255,0.024)',
-    padding: 16,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-
-  sparkline: {
-    position: 'absolute',
-    right: 16,
-    bottom: 20,
-    width: 140,
-    height: 58,
-    background: `linear-gradient(180deg, ${rgbaGreen(0.36)}, transparent)`,
-    clipPath:
-      'polygon(0 90%, 10% 72%, 22% 76%, 34% 54%, 45% 58%, 55% 38%, 66% 44%, 76% 24%, 88% 20%, 100% 10%, 100% 100%, 0 100%)',
-    opacity: 0.8,
-  },
-
-  scoreTrendCard: {
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.07)',
-    background: 'rgba(255,255,255,0.024)',
-    padding: 16,
-    position: 'relative',
-    minHeight: 170,
-  },
-
-  scoreTrendTooltip: {
-    position: 'absolute',
-    right: 44,
-    top: 14,
-    borderRadius: 9,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(0,0,0,0.38)',
-    padding: '8px 12px',
-    display: 'grid',
-    gap: 2,
-    color: green,
-    fontWeight: 900,
-  },
-
-  scoreTrendGrid: {
-    height: 170,
-  },
-
-  trendSvg: {
-    width: '100%',
-    height: 170,
-  },
-
-  focusAreaCard: {
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.07)',
-    background: 'rgba(255,255,255,0.024)',
-    padding: 16,
-  },
-
-  focusItem: {
-    display: 'flex',
-    gap: 12,
-    marginTop: 16,
-    color: muted,
-  },
-
-  focusIconGreen: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    background: rgbaGreen(0.10),
-    color: green,
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  focusIconGold: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    background: 'rgba(247,201,72,0.10)',
-    color: warning,
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  pageTitle: {
-    margin: 0,
-    fontSize: 34,
-    lineHeight: 1,
-    letterSpacing: '-0.05em',
-    fontWeight: 900,
-  },
-
-  pageSubtitle: {
-    margin: '10px 0 0',
-    color: muted,
-    fontSize: 15,
-    lineHeight: 1.6,
-  },
-
-  pageSubtitleCompact: {
-    margin: '8px 0 0',
-    color: muted,
-    fontSize: 14,
-    lineHeight: 1.5,
-  },
-
-  coursesPage: {
-    display: 'grid',
-    gap: 16,
-  },
-
-  courseControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    flexWrap: 'wrap',
-  },
-
-  searchBox: {
-    width: 320,
-    minHeight: 44,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    padding: '0 15px',
-    color: 'rgba(244,246,242,0.48)',
-    fontSize: 13,
-  },
-
-  searchInput: {
-    flex: 1,
-    minWidth: 0,
-    border: 0,
-    outline: 0,
-    background: 'transparent',
-    color: white,
-    height: 42,
-  },
-
-  filterActive: {
-    minHeight: 44,
-    borderRadius: 10,
-    border: `1px solid ${rgbaGreen(0.32)}`,
-    background: rgbaGreen(0.11),
-    color: green,
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '0 16px',
-    cursor: 'pointer',
-    fontWeight: 850,
-  },
-
-  filterButton: {
-    minHeight: 44,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    color: 'rgba(244,246,242,0.78)',
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '0 16px',
-    cursor: 'pointer',
-    fontWeight: 800,
-  },
-
-  selectControl: {
-    minHeight: 44,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    color: 'rgba(244,246,242,0.78)',
-    padding: '0 14px',
-    outline: 0,
-    cursor: 'pointer',
-    fontWeight: 800,
-  },
-
-  sortSelect: {
-    minHeight: 44,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    color: 'rgba(244,246,242,0.78)',
-    padding: '0 14px',
-    outline: 0,
-    cursor: 'pointer',
-    fontWeight: 800,
-  },
-
-  controlsSpacer: {
-    flex: 1,
-  },
-
-  viewToggle: {
-    height: 44,
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.030)',
-    display: 'flex',
-    alignItems: 'center',
-    padding: 4,
-    gap: 4,
-  },
-
-  viewButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    border: 0,
-    background: 'transparent',
-    color: 'rgba(244,246,242,0.52)',
-    display: 'grid',
-    placeItems: 'center',
-    cursor: 'pointer',
-  },
-
-  viewButtonActive: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    border: 0,
-    background: rgbaGreen(0.12),
-    color: green,
-    display: 'grid',
-    placeItems: 'center',
-    cursor: 'pointer',
-  },
-
-  courseSectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 16,
-  },
-
-  courseSectionTitle: {
-    margin: 0,
-    fontSize: 20,
-    lineHeight: 1,
-    letterSpacing: '-0.03em',
-    fontWeight: 850,
-  },
-
-  resultCounter: {
-    color: soft,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    fontWeight: 850,
-  },
-
-  premiumCourseGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-    gap: 16,
-    alignItems: 'stretch',
-  },
-
-  premiumCourseList: {
-    display: 'grid',
-    gap: 14,
-  },
-
-  premiumCourseCard: {
-    minHeight: 386,
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background:
-      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
-  },
-
-  premiumCourseCardList: {
-    minHeight: 216,
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background:
-      'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
-    overflow: 'hidden',
-    display: 'grid',
-    gridTemplateColumns: '320px minmax(0, 1fr)',
-    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
-  },
-
-  premiumCourseImage: {
-    height: 160,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    position: 'relative',
-    filter: 'grayscale(1) contrast(1.05) brightness(0.82)',
-    flexShrink: 0,
-  },
-
-  premiumCourseImageList: {
-    height: '100%',
-    minHeight: 216,
-  },
-
-  premiumImageOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background: `linear-gradient(180deg, rgba(5,7,6,0.00), rgba(5,7,6,0.86)), radial-gradient(circle at top right, ${rgbaGreen(0.13)}, transparent 34%)`,
-  },
-
-  courseTopBadges: {
-    position: 'absolute',
-    left: 14,
-    top: 14,
-    display: 'flex',
-    gap: 8,
-    zIndex: 2,
-  },
-
-  progressBadge: {
-    borderRadius: 5,
-    border: `1px solid ${rgbaGreen(0.34)}`,
-    background: rgbaGreen(0.12),
-    color: green,
-    padding: '6px 9px',
-    fontSize: 10,
-    lineHeight: 1,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    fontWeight: 900,
-  },
-
-  completedBadge: {
-    borderRadius: 5,
-    border: '1px solid rgba(255,255,255,0.14)',
-    background: 'rgba(255,255,255,0.055)',
-    color: 'rgba(244,246,242,0.74)',
-    padding: '6px 9px',
-    fontSize: 10,
-    lineHeight: 1,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    fontWeight: 900,
-  },
-
-  bookmarkIcon: {
-    position: 'absolute',
-    right: 14,
-    top: 14,
-    color: 'rgba(244,246,242,0.76)',
-    zIndex: 2,
-    width: 24,
-    height: 24,
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  premiumCourseBody: {
-    padding: 16,
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-    minWidth: 0,
-  },
-
-  premiumCourseTitle: {
-    margin: 0,
-    minHeight: 44,
-    color: white,
-    fontSize: 21,
-    lineHeight: 1.08,
-    letterSpacing: '-0.035em',
-    fontWeight: 900,
-  },
-
-  premiumCourseText: {
-    margin: '10px 0 0',
-    minHeight: 50,
-    color: muted,
-    fontSize: 14,
-    lineHeight: 1.55,
-  },
-
-  premiumStatsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 8,
-    marginTop: 'auto',
-    paddingTop: 16,
-  },
-
-  premiumMetric: {
-    minHeight: 58,
-    borderRadius: 9,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(255,255,255,0.032)',
-    padding: '10px 8px',
-    display: 'grid',
-    alignContent: 'center',
-    gap: 4,
-    minWidth: 0,
-  },
-
-  metricTopLine: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    color: 'rgba(244,246,242,0.78)',
-    minWidth: 0,
-  },
-
-  cardProgressArea: {
-    marginTop: 12,
-    display: 'grid',
-    gap: 8,
-  },
-
-  premiumActions: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 10,
-    marginTop: 14,
-  },
-
-  primaryButtonSmall: {
-    minHeight: 40,
-    borderRadius: 9,
-    background: `linear-gradient(135deg, ${green}, #7BEE65)`,
-    color: '#061008',
-    textDecoration: 'none',
-    display: 'inline-flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    fontWeight: 900,
-    fontSize: 13,
-    boxShadow: `0 0 22px ${rgbaGreen(0.16)}`,
-  },
-
-  secondaryButtonSmall: {
-    minHeight: 40,
-    borderRadius: 9,
-    background: 'rgba(255,255,255,0.040)',
-    color: white,
-    border: '1px solid rgba(255,255,255,0.10)',
-    textDecoration: 'none',
-    display: 'inline-flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    fontWeight: 850,
-    fontSize: 13,
-  },
-
-  reviewButton: {
-    minHeight: 40,
-    borderRadius: 9,
-    background: 'rgba(255,255,255,0.050)',
-    color: white,
-    border: '1px solid rgba(255,255,255,0.10)',
-    textDecoration: 'none',
-    display: 'inline-flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    fontWeight: 850,
-    fontSize: 13,
-  },
-
-  sectionStack: {
-    display: 'grid',
-    gap: 16,
-  },
-
-  courseGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
-    gap: 16,
-  },
-
-  certificateCard: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: panelBg,
-    padding: 20,
-    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
-  },
-
-  certificateIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 999,
-    border: `1px solid ${rgbaGreen(0.26)}`,
-    background: rgbaGreen(0.08),
-    display: 'grid',
-    placeItems: 'center',
-    color: green,
-    marginBottom: 14,
-  },
-
-  certificateTitle: {
-    margin: '14px 0 16px',
-    fontSize: 24,
-    lineHeight: 1.05,
-    fontWeight: 900,
-    letterSpacing: '-0.035em',
-  },
-
-  profileGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-    gap: 12,
-  },
-
-  profileStat: {
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(0,0,0,0.20)',
-    padding: '10px 10px',
-    minWidth: 0,
-    display: 'grid',
-    gap: 5,
-  },
-
-  profileStatLabel: {
-    color: 'rgba(244,246,242,0.60)',
-    fontSize: 11,
-    lineHeight: 1.2,
-  },
-
-  profileStatValue: {
-    color: white,
-    fontSize: 16,
-    lineHeight: 1.05,
-    fontWeight: 850,
-    letterSpacing: '-0.01em',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  },
-
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: 14,
-  },
-
-  infoBlock: {
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(255,255,255,0.03)',
-    padding: 18,
-  },
-
-  infoIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    display: 'grid',
-    placeItems: 'center',
-    color: green,
-    background: rgbaGreen(0.08),
-    border: `1px solid ${rgbaGreen(0.18)}`,
-    marginBottom: 14,
-  },
-
-  infoBlockTitle: {
-    margin: 0,
-    fontSize: 18,
-    lineHeight: 1.2,
-    fontWeight: 850,
-  },
-
-  infoBlockText: {
-    margin: '8px 0 0',
-    color: muted,
-    lineHeight: 1.65,
-    fontSize: 14,
-  },
-
-  emptyState: {
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(255,255,255,0.025)',
-    padding: 18,
-    color: muted,
-  },
-
-  emptyText: {
-    margin: 0,
-    color: muted,
-    lineHeight: 1.6,
-  },
-};
+function GlobalStyles() {
+  return (
+    <style jsx global>{`
+      :root {
+        --green: #63e546;
+        --green-rgb: 99, 229, 70;
+        --bg: #050706;
+        --panel: rgba(10, 13, 12, 0.88);
+        --white: #f4f6f2;
+        --muted: rgba(244, 246, 242, 0.62);
+        --soft: rgba(244, 246, 242, 0.44);
+        --gold: #d6b25e;
+        --danger: #ff5757;
+        --warning: #f7c948;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+      }
+
+      body {
+        color: var(--white);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      input::placeholder {
+        color: rgba(244, 246, 242, 0.36);
+      }
+
+      select option {
+        background: #080b0a;
+        color: #f4f6f2;
+      }
+
+      .page {
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--white);
+        position: relative;
+        display: grid;
+        grid-template-columns: 278px minmax(0, 1fr);
+        overflow: visible;
+      }
+
+      .loading-page {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      .loading-card {
+        width: min(720px, calc(100vw - 40px));
+        border-radius: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+        padding: 34px;
+        position: relative;
+        z-index: 2;
+        box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+      }
+
+      .loading-card h1 {
+        margin: 14px 0 0;
+        font-size: clamp(42px, 6vw, 74px);
+        line-height: 0.92;
+        font-weight: 950;
+        letter-spacing: -0.06em;
+      }
+
+      .loading-card p {
+        margin-top: 16px;
+        color: var(--muted);
+        line-height: 1.75;
+        max-width: 620px;
+      }
+
+      .loading-accent {
+        width: 66px;
+        height: 4px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 24px rgba(var(--green-rgb), 0.45);
+        margin-bottom: 22px;
+      }
+
+      .kicker {
+        margin: 26px 0 0;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: 0.26em;
+        font-size: 12px;
+        font-weight: 950;
+      }
+
+      .background {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+      }
+
+      .orb-one {
+        position: absolute;
+        width: 520px;
+        height: 520px;
+        border-radius: 999px;
+        top: -200px;
+        left: -160px;
+        background: rgba(var(--green-rgb), 0.1);
+        filter: blur(100px);
+      }
+
+      .orb-two {
+        position: absolute;
+        width: 520px;
+        height: 520px;
+        border-radius: 999px;
+        right: -250px;
+        top: 120px;
+        background: rgba(120, 135, 130, 0.09);
+        filter: blur(110px);
+      }
+
+      .grid-texture {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+        background-size: 42px 42px;
+        opacity: 0.42;
+        mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        z-index: 2;
+        border-right: 1px solid rgba(255, 255, 255, 0.07);
+        background: linear-gradient(180deg, rgba(6, 9, 8, 0.97), rgba(3, 5, 4, 0.93));
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .logo-block {
+        display: flex;
+        align-items: center;
+        min-height: 58px;
+        margin-bottom: 20px;
+      }
+
+      .nav {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav-button,
+      .nav-active {
+        border: 1px solid transparent;
+        background: transparent;
+        color: rgba(244, 246, 242, 0.62);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        padding: 12px 14px;
+        text-align: left;
+        cursor: pointer;
+        border-radius: 0;
+      }
+
+      .nav-active {
+        border: 1px solid rgba(var(--green-rgb), 0.12);
+        background: linear-gradient(90deg, rgba(var(--green-rgb), 0.18), rgba(var(--green-rgb), 0.035) 70%, transparent);
+        color: var(--green);
+        box-shadow: inset 3px 0 0 rgba(var(--green-rgb), 0.95);
+      }
+
+      .nav-icon,
+      .nav-icon-active {
+        width: 22px;
+        height: 22px;
+        display: grid;
+        place-items: center;
+        color: rgba(244, 246, 242, 0.5);
+        flex-shrink: 0;
+      }
+
+      .nav-icon-active {
+        color: var(--green);
+      }
+
+      .nav-text {
+        display: grid;
+        gap: 3px;
+      }
+
+      .nav-text strong {
+        font-size: 13px;
+      }
+
+      .nav-text small {
+        color: var(--soft);
+      }
+
+      .sidebar-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.08);
+        margin: 22px 0;
+      }
+
+      .sidebar-user-box {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: rgba(255, 255, 255, 0.035);
+        padding: 16px;
+      }
+
+      .sidebar-user-top {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .avatar-large {
+        width: 52px;
+        height: 52px;
+        border-radius: 999px;
+        background: rgba(var(--green-rgb), 0.11);
+        border: 1px solid rgba(var(--green-rgb), 0.24);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        font-weight: 950;
+        font-size: 17px;
+        flex-shrink: 0;
+      }
+
+      .sidebar-user-text {
+        min-width: 0;
+      }
+
+      .sidebar-user-name {
+        margin: 0;
+        font-weight: 900;
+        font-size: 16px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .sidebar-user-role {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .pro-pill {
+        margin-left: 6px;
+        color: var(--green);
+        background: rgba(var(--green-rgb), 0.12);
+        border-radius: 999px;
+        padding: 2px 7px;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .xp-box {
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 14px 0;
+        margin-top: 16px;
+      }
+
+      .xp-row {
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .progress-track-thin,
+      .progress-track,
+      .progress-track-mini,
+      .progress-track-compact {
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+      }
+
+      .progress-track-thin {
+        height: 6px;
+        margin-top: 12px;
+      }
+
+      .progress-track {
+        height: 8px;
+      }
+
+      .progress-track-mini {
+        height: 5px;
+        margin-top: 8px;
+      }
+
+      .progress-track-compact {
+        height: 6px;
+        margin-top: 12px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 24px rgba(var(--green-rgb), 0.34);
+      }
+
+      .sign-out-button {
+        margin-top: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: transparent;
+        border: 0;
+        color: rgba(244, 246, 242, 0.58);
+        font-size: 13px;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .app-shell {
+        position: relative;
+        z-index: 1;
+        padding: 20px;
+        min-width: 0;
+      }
+
+      .topbar {
+        min-height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding-bottom: 12px;
+      }
+
+      .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(244, 246, 242, 0.72);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .breadcrumb-separator {
+        color: rgba(244, 246, 242, 0.34);
+      }
+
+      .topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        position: relative;
+      }
+
+      .topbar-link,
+      .topbar-link-strong {
+        text-decoration: none;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 850;
+      }
+
+      .topbar-link {
+        color: rgba(244, 246, 242, 0.65);
+      }
+
+      .topbar-link-strong {
+        color: var(--green);
+        font-weight: 900;
+      }
+
+      .notification-area {
+        position: relative;
+      }
+
+      .notification-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: rgba(255, 255, 255, 0.035);
+        color: rgba(244, 246, 242, 0.75);
+        display: grid;
+        place-items: center;
+        position: relative;
+        cursor: pointer;
+      }
+
+      .notification-dot {
+        position: absolute;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--green);
+        right: 9px;
+        top: 8px;
+        box-shadow: 0 0 12px rgba(var(--green-rgb), 0.55);
+      }
+
+      .notification-count {
+        position: absolute;
+        right: -6px;
+        top: -6px;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: var(--green);
+        color: #061008;
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 950;
+        border: 2px solid #050706;
+      }
+
+      .notification-panel {
+        position: absolute;
+        top: 52px;
+        right: 0;
+        width: 360px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)), rgba(7, 10, 9, 0.98);
+        box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+        padding: 16px;
+        z-index: 40;
+        backdrop-filter: blur(18px);
+      }
+
+      .notification-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+        margin-bottom: 14px;
+      }
+
+      .notification-header p {
+        margin: 0;
+        color: var(--green);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-weight: 900;
+      }
+
+      .notification-header h3 {
+        margin: 6px 0 0;
+        font-size: 20px;
+        letter-spacing: -0.03em;
+        font-weight: 900;
+      }
+
+      .notification-header > span {
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), 0.24);
+        background: rgba(var(--green-rgb), 0.1);
+        color: var(--green);
+        padding: 6px 9px;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .notification-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .notification-link {
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .notification-item {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        padding: 12px;
+      }
+
+      .notification-item.unread {
+        border: 1px solid rgba(var(--green-rgb), 0.18);
+        background: rgba(var(--green-rgb), 0.055);
+      }
+
+      .notification-item-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .notification-item-top span {
+        color: var(--green);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-weight: 900;
+      }
+
+      .notification-item-top small {
+        color: var(--soft);
+      }
+
+      .notification-item h4 {
+        margin: 8px 0 0;
+        color: var(--white);
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .notification-item p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .notification-footer {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--soft);
+        font-size: 11px;
+      }
+
+      .user-mini {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
+        padding-left: 16px;
+      }
+
+      .user-mini p {
+        margin: 0;
+        color: var(--soft);
+        font-size: 12px;
+      }
+
+      .avatar-mini {
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), 0.2);
+        background: rgba(var(--green-rgb), 0.09);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+      }
+
+      .notice {
+        margin-bottom: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(var(--green-rgb), 0.2);
+        background: rgba(var(--green-rgb), 0.06);
+        color: var(--muted);
+        padding: 16px;
+      }
+
+      .section-stack,
+      .courses-page,
+      .dashboard-grid,
+      .curriculum-page,
+      .mock-page {
+        display: grid;
+        gap: 16px;
+      }
+
+      .page-title {
+        margin: 0;
+        font-size: 34px;
+        line-height: 1;
+        letter-spacing: -0.05em;
+        font-weight: 900;
+      }
+
+      .page-subtitle {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      .dashboard-top-grid {
+        display: grid;
+        grid-template-columns: 340px minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .progress-card,
+      .next-module-card,
+      .panel,
+      .exam-card,
+      .certification-card,
+      .roadmap-panel-compact,
+      .module-detail-panel,
+      .mock-feature,
+      .exam-simulator-card,
+      .exam-rules-card,
+      .latest-results-card,
+      .readiness-card,
+      .module-exams-card,
+      .analytics-card,
+      .premium-course-card,
+      .premium-course-card-list,
+      .certificate-card {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: var(--panel);
+        box-shadow: 0 20px 70px rgba(0, 0, 0, 0.16);
+      }
+
+      .progress-card {
+        padding: 20px;
+      }
+
+      .progress-card h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 850;
+        letter-spacing: -0.02em;
+      }
+
+      .progress-ring-wrap {
+        display: flex;
+        justify-content: center;
+        margin: 18px 0 12px;
+      }
+
+      .progress-ring {
+        width: 172px;
+        height: 172px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 0 42px rgba(var(--green-rgb), 0.12);
+      }
+
+      .progress-ring-inner {
+        width: 124px;
+        height: 124px;
+        border-radius: 999px;
+        background: #080b0a;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: grid;
+        place-items: center;
+        text-align: center;
+        align-content: center;
+      }
+
+      .progress-ring-inner strong {
+        display: block;
+        color: var(--white);
+        font-size: 50px;
+        line-height: 0.88;
+        font-weight: 950;
+        letter-spacing: -0.06em;
+      }
+
+      .progress-ring-inner span {
+        display: block;
+        color: rgba(244, 246, 242, 0.62);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 850;
+        margin-top: 8px;
+      }
+
+      .center-text {
+        max-width: 270px;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.6;
+        margin: 8px auto 16px;
+      }
+
+      .progress-mini-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.18);
+      }
+
+      .mini-stat {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        color: var(--muted);
+      }
+
+      .mini-stat > span {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        background: rgba(var(--green-rgb), 0.08);
+        border: 1px solid rgba(var(--green-rgb), 0.18);
+      }
+
+      .mini-stat div {
+        display: grid;
+        gap: 2px;
+      }
+
+      .next-module-card {
+        min-height: 330px;
+        display: grid;
+        grid-template-columns: 0.72fr 1fr;
+        overflow: hidden;
+      }
+
+      .hero-image {
+        background: linear-gradient(90deg, rgba(5, 7, 6, 0.08), rgba(5, 7, 6, 0.92)),
+          url(https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80);
+        background-size: cover;
+        background-position: center;
+        filter: grayscale(1) contrast(1.08) brightness(0.7);
+      }
+
+      .next-content {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .in-progress-label,
+      .cert-content > p:first-child {
+        margin: 0;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .next-content h2,
+      .large-card-title,
+      .exam-card h2,
+      .cert-content h2 {
+        margin: 10px 0 0;
+        font-size: 30px;
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+        font-weight: 900;
+      }
+
+      .next-content p,
+      .card-description,
+      .exam-card p,
+      .cert-content p {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.65;
+      }
+
+      .meta-row {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+        color: var(--muted);
+      }
+
+      .meta-item,
+      .feature {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+      }
+
+      .progress-block {
+        margin-top: auto;
+        padding-top: 22px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .progress-text-green {
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .primary-button,
+      .primary-button-small,
+      .mock-primary-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(var(--green-rgb), 0.26);
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        text-decoration: none;
+        font-weight: 900;
+        font-size: 13px;
+        box-shadow: 0 0 26px rgba(var(--green-rgb), 0.16);
+        cursor: pointer;
+      }
+
+      .primary-button {
+        min-height: 42px;
+        padding: 0 18px;
+        margin-top: 10px;
+        width: fit-content;
+      }
+
+      .primary-button-small {
+        min-height: 40px;
+      }
+
+      .secondary-button,
+      .secondary-button-small,
+      .mock-secondary-button,
+      .mock-ghost-button {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.045);
+        color: var(--white);
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .secondary-button {
+        min-height: 42px;
+        padding: 0 16px;
+        margin-top: 8px;
+        width: fit-content;
+      }
+
+      .secondary-button-small {
+        min-height: 40px;
+        justify-content: center;
+      }
+
+      .mock-ghost-button {
+        min-height: 46px;
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      .panel > h2 {
+        margin: 0 0 16px;
+        font-size: 22px;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: -0.035em;
+      }
+
+      .curriculum-rows {
+        display: grid;
+        gap: 8px;
+      }
+
+      .dashboard-module-row {
+        min-height: 56px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.026);
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        text-decoration: none;
+        color: var(--white);
+      }
+
+      .dashboard-module-row.active {
+        min-height: 62px;
+        border: 1px solid rgba(var(--green-rgb), 0.4);
+        background: linear-gradient(90deg, rgba(var(--green-rgb), 0.12), rgba(255, 255, 255, 0.025));
+      }
+
+      .dashboard-module-row.locked {
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.016);
+        color: var(--soft);
+      }
+
+      .dashboard-module-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: grid;
+        place-items: center;
+        color: var(--soft);
+      }
+
+      .dashboard-module-icon.done {
+        border: 1px solid rgba(var(--green-rgb), 0.28);
+        background: rgba(var(--green-rgb), 0.08);
+        color: var(--green);
+      }
+
+      .dashboard-module-icon.locked {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .dashboard-module-body {
+        min-width: 0;
+      }
+
+      .dashboard-module-top {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .module-mini-label {
+        margin: 0;
+        color: var(--green);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 900;
+      }
+
+      .module-mini-label.muted {
+        color: var(--soft);
+      }
+
+      .dashboard-module-body h3,
+      .roadmap-body h3 {
+        margin: 4px 0 0;
+        font-size: 16px;
+        line-height: 1.2;
+        font-weight: 850;
+      }
+
+      .dashboard-module-right {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .in-progress-mini {
+        border-radius: 999px;
+        background: rgba(var(--green-rgb), 0.12);
+        color: var(--green);
+        padding: 3px 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 9px;
+        font-weight: 900;
+      }
+
+      .locked-pill {
+        color: var(--soft);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .dashboard-bottom-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .exam-card {
+        min-height: 238px;
+        background: linear-gradient(90deg, rgba(11, 15, 13, 0.98), rgba(11, 15, 13, 0.88)),
+          url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80);
+        background-size: cover;
+        background-position: center;
+        padding: 20px;
+        display: grid;
+        align-items: center;
+      }
+
+      .certification-card {
+        min-height: 238px;
+        padding: 20px;
+        overflow: hidden;
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        align-items: stretch;
+      }
+
+      .certification-bg-photo {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(90deg, rgba(8, 11, 10, 0.98) 0%, rgba(8, 11, 10, 0.92) 24%, rgba(8, 11, 10, 0.56) 58%, rgba(8, 11, 10, 0.18) 100%),
+          url(https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80);
+        background-size: cover;
+        background-position: center;
+        filter: grayscale(0.15) contrast(1.02) brightness(0.72);
+        z-index: 0;
+      }
+
+      .certification-bg-overlay {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 82% 40%, rgba(214, 178, 94, 0.1), transparent 26%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.1));
+        z-index: 1;
+      }
+
+      .cert-content {
+        width: 58%;
+        min-width: 0;
+        position: relative;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .feature-row {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .courses-page {
+        display: grid;
+        gap: 16px;
+      }
+
+      .page-title {
+        margin: 0;
+        font-size: 34px;
+        line-height: 1;
+        letter-spacing: -0.05em;
+        font-weight: 900;
+      }
+
+      .page-subtitle {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      .course-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .search-box {
+        width: 320px;
+        min-height: 44px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.03);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 15px;
+        color: rgba(244, 246, 242, 0.48);
+        font-size: 13px;
+      }
+
+      .search-box input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--white);
+        height: 42px;
+      }
+
+      .filter-active,
+      .filter-button,
+      .select-control,
+      .sort-select {
+        min-height: 44px;
+        border-radius: 10px;
+        padding: 0 16px;
+        cursor: pointer;
+        font-weight: 800;
+      }
+
+      .filter-active {
+        border: 1px solid rgba(var(--green-rgb), 0.32);
+        background: rgba(var(--green-rgb), 0.11);
+        color: var(--green);
+      }
+
+      .filter-button,
+      .select-control,
+      .sort-select {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(244, 246, 242, 0.78);
+      }
+
+      .controls-spacer {
+        flex: 1;
+      }
+
+      .view-toggle {
+        height: 44px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.03);
+        display: flex;
+        align-items: center;
+        padding: 4px;
+        gap: 4px;
+      }
+
+      .view-button,
+      .view-button-active {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 0;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+
+      .view-button {
+        background: transparent;
+        color: rgba(244, 246, 242, 0.52);
+      }
+
+      .view-button-active {
+        background: rgba(var(--green-rgb), 0.12);
+        color: var(--green);
+      }
+
+      .course-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .course-section-header h2 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        font-weight: 850;
+      }
+
+      .course-section-header span {
+        color: var(--soft);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 850;
+      }
+
+      .premium-course-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        align-items: stretch;
+      }
+
+      .premium-course-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .premium-course-card {
+        min-height: 386px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .premium-course-card-list {
+        min-height: 216px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr);
+      }
+
+      .premium-course-image {
+        height: 160px;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+        filter: grayscale(1) contrast(1.05) brightness(0.82);
+        flex-shrink: 0;
+      }
+
+      .premium-course-image.list {
+        height: 100%;
+        min-height: 216px;
+      }
+
+      .premium-image-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(5, 7, 6, 0), rgba(5, 7, 6, 0.86)),
+          radial-gradient(circle at top right, rgba(var(--green-rgb), 0.13), transparent 34%);
+      }
+
+      .course-top-badges {
+        position: absolute;
+        left: 14px;
+        top: 14px;
+        display: flex;
+        gap: 8px;
+        z-index: 2;
+      }
+
+      .progress-badge,
+      .completed-badge {
+        border-radius: 5px;
+        padding: 6px 9px;
+        font-size: 10px;
+        line-height: 1;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 900;
+      }
+
+      .progress-badge {
+        border: 1px solid rgba(var(--green-rgb), 0.34);
+        background: rgba(var(--green-rgb), 0.12);
+        color: var(--green);
+      }
+
+      .completed-badge {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.055);
+        color: rgba(244, 246, 242, 0.74);
+      }
+
+      .bookmark-icon {
+        position: absolute;
+        right: 14px;
+        top: 14px;
+        color: rgba(244, 246, 242, 0.76);
+        z-index: 2;
+        width: 24px;
+        height: 24px;
+        display: grid;
+        place-items: center;
+      }
+
+      .premium-course-body {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .premium-course-body h3 {
+        margin: 0;
+        min-height: 44px;
+        color: var(--white);
+        font-size: 21px;
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+        font-weight: 900;
+      }
+
+      .premium-course-body p {
+        margin: 10px 0 0;
+        min-height: 50px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .premium-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 16px;
+      }
+
+      .premium-metric {
+        min-height: 58px;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.032);
+        padding: 10px 8px;
+        display: grid;
+        align-content: center;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .premium-metric div {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(244, 246, 242, 0.78);
+        min-width: 0;
+      }
+
+      .card-progress-area {
+        margin-top: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .premium-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .primary-button-small,
+      .secondary-button-small,
+      .review-button {
+        min-height: 40px;
+        border-radius: 9px;
+        text-decoration: none;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        font-weight: 850;
+        font-size: 13px;
+      }
+
+      .primary-button-small {
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        font-weight: 900;
+        box-shadow: 0 0 22px rgba(var(--green-rgb), 0.16);
+      }
+
+      .secondary-button-small,
+      .review-button {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--white);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .curriculum-page {
+        display: grid;
+        gap: 14px;
+      }
+
+      .curriculum-header-compact {
+        display: grid;
+        grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .curriculum-header-right {
+        display: grid;
+        gap: 12px;
+      }
+
+      .current-course-box {
+        display: grid;
+        gap: 6px;
+        max-width: 340px;
+      }
+
+      .current-course-box span {
+        color: var(--soft);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .current-course-box select {
+        min-height: 42px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.032);
+        color: var(--white);
+        padding: 0 12px;
+        outline: 0;
+        font-weight: 800;
+      }
+
+      .curriculum-metrics-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .curriculum-metric {
+        min-height: 92px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--panel);
+        padding: 14px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        box-shadow: 0 16px 50px rgba(0, 0, 0, 0.14);
+      }
+
+      .curriculum-metric > span {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: rgba(var(--green-rgb), 0.08);
+        border: 1px solid rgba(var(--green-rgb), 0.18);
+        color: var(--green);
+        flex-shrink: 0;
+      }
+
+      .curriculum-metric div {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .curriculum-metric p {
+        margin: 0;
+        color: var(--soft);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-weight: 900;
+      }
+
+      .curriculum-metric strong {
+        color: var(--white);
+        font-size: 26px;
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: -0.04em;
+      }
+
+      .curriculum-metric em {
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 850;
+        font-style: normal;
+      }
+
+      .curriculum-main-grid-compact {
+        display: grid;
+        grid-template-columns: 0.93fr 1.07fr;
+        gap: 14px;
+        align-items: start;
+      }
+
+      .roadmap-panel-compact,
+      .module-detail-panel {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: var(--panel);
+        padding: 16px;
+        box-shadow: 0 20px 70px rgba(0, 0, 0, 0.16);
+      }
+
+      .panel-header-compact {
+        margin-bottom: 12px;
+      }
+
+      .panel-header-compact h2,
+      .module-detail-top h2 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.1;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+      }
+
+      .panel-header-compact p,
+      .module-detail-top p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .roadmap-list-compact {
+        display: grid;
+        gap: 10px;
+      }
+
+      .roadmap-row,
+      .roadmap-row.locked {
+        min-height: 72px;
+        border-radius: 14px;
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr) 74px;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        text-decoration: none;
+        color: var(--white);
+      }
+
+      .roadmap-row {
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.026);
+      }
+
+      .roadmap-row.locked {
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.016);
+        color: var(--soft);
+      }
+
+      .roadmap-current-card {
+        min-height: 144px;
+        border-radius: 16px;
+        border: 1px solid rgba(var(--green-rgb), 0.52);
+        background: linear-gradient(100deg, rgba(var(--green-rgb), 0.12), rgba(255, 255, 255, 0.028));
+        display: grid;
+        grid-template-columns: 10px minmax(0, 1fr) 146px;
+        gap: 12px;
+        align-items: stretch;
+        padding: 12px;
+        text-decoration: none;
+        color: var(--white);
+        box-shadow: 0 0 30px rgba(var(--green-rgb), 0.07);
+        overflow: hidden;
+      }
+
+      .roadmap-current-line {
+        width: 10px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, var(--green), rgba(var(--green-rgb), 0.08));
+      }
+
+      .roadmap-current-content {
+        display: grid;
+        align-content: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .roadmap-top-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .roadmap-current-content h3 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 1.02;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        max-width: 320px;
+      }
+
+      .roadmap-current-content p,
+      .roadmap-body p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .roadmap-bottom-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .roadmap-bottom-row > span:first-child,
+      .progress-text-green {
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .roadmap-bottom-row > span:last-child {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--green);
+        color: #061008;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .roadmap-current-image {
+        border-radius: 12px;
+        background-size: cover;
+        background-position: center;
+        filter: grayscale(1) contrast(1.08) brightness(0.76);
+        min-height: 118px;
+      }
+
+      .roadmap-dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        display: grid;
+        place-items: center;
+        color: var(--soft);
+      }
+
+      .roadmap-dot.done {
+        border: 1px solid rgba(var(--green-rgb), 0.28);
+        background: rgba(var(--green-rgb), 0.08);
+        color: var(--green);
+      }
+
+      .roadmap-dot.locked {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .roadmap-body {
+        min-width: 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .roadmap-body h3 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.15;
+        font-weight: 850;
+        letter-spacing: -0.025em;
+      }
+
+      .roadmap-side {
+        display: grid;
+        gap: 4px;
+        text-align: right;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .module-mini-label {
+        margin: 0;
+        color: var(--green);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 900;
+      }
+
+      .module-mini-label.muted {
+        color: var(--soft);
+      }
+
+      .in-progress-mini {
+        border-radius: 999px;
+        background: rgba(var(--green-rgb), 0.12);
+        color: var(--green);
+        padding: 3px 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 9px;
+        font-weight: 900;
+      }
+
+      .locked-pill {
+        color: var(--soft);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .roadmap-footer-note-compact {
+        margin-top: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.028);
+        color: var(--muted);
+        padding: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        font-size: 12px;
+      }
+
+      .module-detail-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+      }
+
+      .module-progress-badge {
+        min-width: 84px;
+        border-radius: 12px;
+        border: 1px solid rgba(var(--green-rgb), 0.18);
+        background: rgba(var(--green-rgb), 0.06);
+        padding: 10px;
+        text-align: center;
+        display: grid;
+        gap: 2px;
+      }
+
+      .lesson-table-header-compact {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 100px 110px;
+        gap: 12px;
+        color: var(--soft);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-weight: 900;
+        padding: 0 10px;
+      }
+
+      .lesson-rows-compact {
+        display: grid;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .lesson-link {
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .lesson-row {
+        min-height: 62px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.026);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 100px 110px;
+        gap: 12px;
+        align-items: center;
+        padding: 10px;
+      }
+
+      .lesson-row.active {
+        border: 1px solid rgba(var(--green-rgb), 0.48);
+        background: linear-gradient(90deg, rgba(var(--green-rgb), 0.1), rgba(255, 255, 255, 0.026));
+      }
+
+      .lesson-row.locked {
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.014);
+        opacity: 0.72;
+      }
+
+      .lesson-name-cell {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+      }
+
+      .lesson-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: grid;
+        place-items: center;
+        color: var(--soft);
+        flex-shrink: 0;
+      }
+
+      .lesson-icon.done {
+        border: 1px solid rgba(var(--green-rgb), 0.26);
+        background: rgba(var(--green-rgb), 0.08);
+        color: var(--green);
+      }
+
+      .lesson-icon.active {
+        border: 1px solid rgba(var(--green-rgb), 0.34);
+        background: rgba(var(--green-rgb), 0.1);
+        color: var(--green);
+      }
+
+      .lesson-name-cell strong {
+        display: block;
+        font-size: 14px;
+        line-height: 1.25;
+        font-weight: 850;
+      }
+
+      .lesson-name-cell p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .lesson-type-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .lesson-status {
+        justify-self: start;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .lesson-status.completed {
+        color: var(--green);
+        font-weight: 900;
+      }
+
+      .lesson-status.active {
+        color: var(--green);
+        background: rgba(var(--green-rgb), 0.1);
+        border: 1px solid rgba(var(--green-rgb), 0.2);
+        border-radius: 999px;
+        padding: 6px 9px;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .lesson-status.pending {
+        color: var(--muted);
+      }
+
+      .lesson-status.locked {
+        color: var(--soft);
+      }
+
+      .module-footer-compact {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: center;
+      }
+
+      .module-footer-meta {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .module-footer-item {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: var(--muted);
+      }
+
+      .module-footer-item div {
+        display: grid;
+        gap: 2px;
+      }
+
+      .resources-button {
+        min-height: 38px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.045);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--white);
+        text-decoration: none;
+        padding: 0 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 850;
+      }
+
+      .curriculum-banner-compact {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: linear-gradient(90deg, rgba(var(--green-rgb), 0.1), rgba(255, 255, 255, 0.028));
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        box-shadow: 0 16px 50px rgba(0, 0, 0, 0.14);
+      }
+
+      .banner-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: rgba(var(--green-rgb), 0.1);
+        border: 1px solid rgba(var(--green-rgb), 0.22);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+      }
+
+      .curriculum-banner-compact h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+      }
+
+      .curriculum-banner-compact p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .keep-going-link {
+        color: var(--green);
+        text-decoration: none;
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        font-weight: 900;
+        font-size: 13px;
+      }
+
+      .mock-page {
+        display: grid;
+        gap: 14px;
+      }
+
+      .mock-header {
+        display: grid;
+        grid-template-columns: minmax(0, 0.85fr) minmax(520px, 1fr);
+        gap: 16px;
+        align-items: center;
+      }
+
+      .mock-title-block {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+      }
+
+      .mock-target-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 999px;
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        background: rgba(var(--green-rgb), 0.08);
+        border: 1px solid rgba(var(--green-rgb), 0.2);
+        flex-shrink: 0;
+      }
+
+      .mock-title-block h1 {
+        margin: 0;
+        font-size: 38px;
+        line-height: 0.95;
+        font-weight: 950;
+        letter-spacing: -0.055em;
+      }
+
+      .mock-title-block p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 15px;
+        max-width: 620px;
+      }
+
+      .mock-feature-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .mock-feature {
+        min-height: 78px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 14px;
+      }
+
+      .mock-feature > span {
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        background: rgba(var(--green-rgb), 0.08);
+        border: 1px solid rgba(var(--green-rgb), 0.16);
+        flex-shrink: 0;
+      }
+
+      .mock-feature p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .mock-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+        gap: 14px;
+      }
+
+      .exam-simulator-card {
+        min-height: 260px;
+        background: linear-gradient(90deg, rgba(11, 15, 13, 0.98), rgba(11, 15, 13, 0.86)),
+          radial-gradient(circle at 75% 50%, rgba(255, 255, 255, 0.06), transparent 26%);
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(360px, 0.85fr);
+        overflow: hidden;
+        padding: 20px;
+      }
+
+      .exam-simulator-content {
+        display: grid;
+        align-content: center;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .exam-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .exam-title-row h2,
+      .exam-rules-title h2,
+      .mock-card-header h2,
+      .analytics-card > h2 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: -0.035em;
+      }
+
+      .exam-title-row span {
+        color: var(--green);
+        background: rgba(var(--green-rgb), 0.12);
+        border: 1px solid rgba(var(--green-rgb), 0.24);
+        border-radius: 999px;
+        padding: 5px 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 10px;
+        font-weight: 900;
+      }
+
+      .exam-simulator-content > p {
+        color: var(--muted);
+        line-height: 1.6;
+        max-width: 560px;
+      }
+
+      .exam-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .mock-meta-item {
+        display: flex;
+        gap: 8px;
+        color: var(--muted);
+        align-items: center;
+        min-width: 0;
+      }
+
+      .mock-meta-item div {
+        display: grid;
+        gap: 3px;
+      }
+
+      .mock-meta-item strong {
+        color: var(--white);
+      }
+
+      .exam-action-row {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .mock-primary-button {
+        min-height: 46px;
+        border: 0;
+        padding: 0 20px;
+      }
+
+      .exam-laptop-visual {
+        position: relative;
+        min-height: 220px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+          url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80);
+        background-size: cover;
+        background-position: center;
+        border-radius: 14px;
+        filter: grayscale(1) contrast(1.08) brightness(0.72);
+      }
+
+      .exam-laptop-screen {
+        position: absolute;
+        right: 32px;
+        top: 32px;
+        width: 180px;
+        height: 116px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.64);
+        padding: 12px;
+        color: var(--white);
+        transform: perspective(700px) rotateY(-12deg) rotateX(4deg);
+        display: grid;
+        gap: 6px;
+      }
+
+      .exam-laptop-rows {
+        display: grid;
+        gap: 5px;
+      }
+
+      .exam-laptop-rows i {
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      .exam-rules-card {
+        min-height: 260px;
+        padding: 20px;
+        display: grid;
+        align-content: space-between;
+      }
+
+      .exam-rules-title {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .rule-list {
+        display: grid;
+        gap: 10px;
+        margin: 16px 0;
+      }
+
+      .rule-item {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .mock-secondary-button {
+        min-height: 40px;
+        width: fit-content;
+        padding: 0 16px;
+      }
+
+      .mock-middle-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.85fr) minmax(0, 1fr);
+        gap: 14px;
+      }
+
+      .latest-results-card,
+      .readiness-card,
+      .module-exams-card,
+      .analytics-card {
+        padding: 18px;
+      }
+
+      .readiness-card {
+        display: grid;
+      }
+
+      .mock-card-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .mock-card-header button {
+        border: 0;
+        background: transparent;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 850;
+        cursor: pointer;
+      }
+
+      .results-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .result-row {
+        min-height: 56px;
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) 64px 20px;
+        gap: 10px;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+        padding: 6px 0;
+      }
+
+      .result-icon-ok,
+      .result-icon-fail {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+      }
+
+      .result-icon-ok {
+        color: var(--green);
+        background: rgba(var(--green-rgb), 0.08);
+      }
+
+      .result-icon-fail {
+        color: var(--danger);
+        background: rgba(255, 87, 87, 0.08);
+      }
+
+      .result-info {
+        min-width: 0;
+      }
+
+      .result-info p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .result-score-ok,
+      .result-score-fail {
+        display: grid;
+        text-align: right;
+        font-weight: 900;
+      }
+
+      .result-score-ok {
+        color: var(--green);
+      }
+
+      .result-score-fail {
+        color: var(--danger);
+      }
+
+      .readiness-ring-wrap {
+        display: grid;
+        place-items: center;
+        margin-top: 8px;
+      }
+
+      .readiness-ring {
+        width: 156px;
+        height: 156px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+      }
+
+      .readiness-ring-inner {
+        width: 112px;
+        height: 112px;
+        border-radius: 999px;
+        background: #080b0a;
+        display: grid;
+        place-items: center;
+        align-content: center;
+        text-align: center;
+      }
+
+      .readiness-ring-inner strong {
+        font-size: 38px;
+        line-height: 0.9;
+        letter-spacing: -0.05em;
+      }
+
+      .readiness-ring-inner span {
+        color: var(--green);
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        margin-top: 8px;
+        font-weight: 900;
+      }
+
+      .readiness-card > p {
+        margin: 12px auto;
+        max-width: 250px;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.5;
+      }
+
+      .readiness-footer {
+        margin-top: auto;
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .readiness-footer strong {
+        color: var(--green);
+      }
+
+      .module-exam-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .module-exam-row {
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr) 42px 18px;
+        gap: 10px;
+        align-items: center;
+        color: var(--muted);
+      }
+
+      .module-exam-row > div {
+        min-width: 0;
+      }
+
+      .module-exam-row span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 3px;
+      }
+
+      .module-exam-progress {
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+        margin-top: 8px;
+      }
+
+      .analytics-card > h2 {
+        margin: 0;
+      }
+
+      .analytics-grid {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr) 310px;
+        gap: 14px;
+        margin-top: 12px;
+      }
+
+      .average-score-card,
+      .score-trend-card,
+      .focus-area-card {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.024);
+        padding: 16px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .average-score-card > strong {
+        display: block;
+        font-size: 46px;
+        line-height: 1;
+        letter-spacing: -0.05em;
+        margin-top: 10px;
+      }
+
+      .average-score-card p {
+        color: var(--muted);
+      }
+
+      .average-score-card em {
+        color: var(--green);
+        font-style: normal;
+        font-weight: 850;
+      }
+
+      .sparkline {
+        position: absolute;
+        right: 16px;
+        bottom: 20px;
+        width: 140px;
+        height: 58px;
+        background: linear-gradient(180deg, rgba(var(--green-rgb), 0.36), transparent);
+        clip-path: polygon(0 90%, 10% 72%, 22% 76%, 34% 54%, 45% 58%, 55% 38%, 66% 44%, 76% 24%, 88% 20%, 100% 10%, 100% 100%, 0 100%);
+        opacity: 0.8;
+      }
+
+      .score-trend-tooltip {
+        position: absolute;
+        right: 44px;
+        top: 14px;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.38);
+        padding: 8px 12px;
+        display: grid;
+        gap: 2px;
+        color: var(--green);
+        font-weight: 900;
+      }
+
+      .score-trend-grid {
+        height: 170px;
+      }
+
+      .trend-svg {
+        width: 100%;
+        height: 170px;
+      }
+
+      .focus-area-card h3,
+      .score-trend-card h3 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+
+      .focus-item {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+        color: var(--muted);
+      }
+
+      .focus-icon-green,
+      .focus-icon-gold {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+
+      .focus-icon-green {
+        background: rgba(var(--green-rgb), 0.1);
+        color: var(--green);
+      }
+
+      .focus-icon-gold {
+        background: rgba(247, 201, 72, 0.1);
+        color: var(--warning);
+      }
+
+      .profile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 12px;
+      }
+
+      .profile-stat {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(0, 0, 0, 0.2);
+        padding: 10px;
+        min-width: 0;
+        display: grid;
+        gap: 5px;
+      }
+
+      .profile-stat span {
+        color: rgba(244, 246, 242, 0.6);
+        font-size: 11px;
+        line-height: 1.2;
+      }
+
+      .profile-stat strong {
+        color: var(--white);
+        font-size: 16px;
+        line-height: 1.05;
+        font-weight: 850;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .info-grid,
+      .course-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+      }
+
+      .info-block {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        padding: 18px;
+      }
+
+      .info-block > span {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        background: rgba(var(--green-rgb), 0.08);
+        border: 1px solid rgba(var(--green-rgb), 0.18);
+        margin-bottom: 14px;
+      }
+
+      .info-block h3 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.2;
+        font-weight: 850;
+      }
+
+      .info-block p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.65;
+        font-size: 14px;
+      }
+
+      .certificate-card {
+        padding: 20px;
+      }
+
+      .certificate-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), 0.26);
+        background: rgba(var(--green-rgb), 0.08);
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        margin-bottom: 14px;
+      }
+
+      .certificate-card h3 {
+        margin: 14px 0 16px;
+        font-size: 24px;
+        line-height: 1.05;
+        font-weight: 900;
+        letter-spacing: -0.035em;
+      }
+
+      .empty-state {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.025);
+        padding: 18px;
+        color: var(--muted);
+      }
+
+      .empty-state p,
+      .empty-text {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      @media (max-width: 1320px) {
+        [data-ghc-page='student'] {
+          grid-template-columns: 102px minmax(0, 1fr);
+        }
+
+        .nav-text,
+        .sidebar-user-text,
+        .xp-box {
+          display: none;
+        }
+      }
+
+      @media (max-width: 1180px) {
+        [data-ghc-page='student'] {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: relative;
+          height: auto;
+        }
+
+        .mock-header,
+        .mock-hero-grid,
+        .mock-middle-grid,
+        .analytics-grid,
+        .dashboard-top-grid,
+        .dashboard-bottom-grid,
+        .curriculum-main-grid-compact,
+        .curriculum-header-compact {
+          grid-template-columns: 1fr;
+        }
+      }
+    `}</style>
+  );
+}
