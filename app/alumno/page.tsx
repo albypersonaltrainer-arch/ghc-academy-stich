@@ -8,7 +8,29 @@ import { createClient } from '@supabase/supabase-js';
 import GHCLogo from '../components/GHCLogo';
 
 type AnyRecord = Record<string, any>;
-type Tab = 'resumen' | 'cursos' | 'progreso' | 'certificados' | 'perfil';
+
+type Tab = 'dashboard' | 'cursos' | 'curriculum' | 'examenes' | 'certificados' | 'perfil';
+
+type IconName =
+  | 'dashboard'
+  | 'courses'
+  | 'curriculum'
+  | 'exam'
+  | 'certificate'
+  | 'performance'
+  | 'resources'
+  | 'support'
+  | 'logout'
+  | 'clock'
+  | 'chart'
+  | 'document'
+  | 'lock'
+  | 'check'
+  | 'arrow'
+  | 'bell'
+  | 'shield'
+  | 'star'
+  | 'user';
 
 type DashboardCard = {
   course: AnyRecord;
@@ -22,29 +44,43 @@ type DashboardCard = {
   nextLesson: AnyRecord | null;
 };
 
+type ModuleView = {
+  module: AnyRecord;
+  index: number;
+  lessons: AnyRecord[];
+  completedLessons: number;
+  progress: number;
+  isCompleted: boolean;
+  isCurrent: boolean;
+  isLocked: boolean;
+  href: string;
+};
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
 const green = '#22D65B';
-const white = '#F2F4F1';
-const steel = '#A7B0AB';
 const bg = '#050706';
-const graphite = '#0B0E0D';
+const panel = '#0B0F0D';
+const white = '#F4F6F2';
+const muted = 'rgba(244,246,242,0.62)';
+const soft = 'rgba(244,246,242,0.42)';
 
-const tabs: { id: Tab; label: string; helper: string }[] = [
-  { id: 'resumen', label: 'Resumen', helper: 'Vista general' },
-  { id: 'cursos', label: 'Mis cursos', helper: 'Formación activa' },
-  { id: 'progreso', label: 'Progreso', helper: 'Datos reales' },
-  { id: 'certificados', label: 'Certificados', helper: 'Credenciales' },
-  { id: 'perfil', label: 'Perfil', helper: 'Cuenta y acceso' },
+const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
+  { id: 'dashboard', label: 'Dashboard', helper: 'Resumen', icon: 'dashboard' },
+  { id: 'cursos', label: 'My Courses', helper: 'Cursos activos', icon: 'courses' },
+  { id: 'curriculum', label: 'Curriculum', helper: 'Módulos', icon: 'curriculum' },
+  { id: 'examenes', label: 'Mock Exams', helper: 'Evaluación', icon: 'exam' },
+  { id: 'certificados', label: 'Certification', helper: 'Credenciales', icon: 'certificate' },
+  { id: 'perfil', label: 'Performance', helper: 'Perfil', icon: 'performance' },
 ];
 
 export default function AlumnoPage() {
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<Tab>('resumen');
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
 
@@ -261,6 +297,75 @@ export default function AlumnoPage() {
   const globalProgress =
     totalLessons > 0 ? Math.round((completedLessonsInsideVisibleCourses / totalLessons) * 100) : 0;
 
+  const mainCourse = activeCourses[0] || completedCourses[0] || null;
+
+  const currentModule =
+    mainCourse && mainCourse.nextLesson
+      ? mainCourse.courseModules.find(
+          (module) => String(module.id) === String(mainCourse.nextLesson?.module_id)
+        )
+      : mainCourse?.courseModules[0] || null;
+
+  const moduleViews = useMemo<ModuleView[]>(() => {
+    if (!mainCourse) return [];
+
+    return mainCourse.courseModules.map((module, index) => {
+      const moduleLessons = mainCourse.courseLessons.filter(
+        (lesson) => String(lesson.module_id) === String(module.id)
+      );
+
+      const completedLessons = moduleLessons.filter((lesson) =>
+        lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+      ).length;
+
+      const isCompleted = moduleCompletions.some(
+        (completion) => String(completion.module_id) === String(module.id)
+      );
+
+      const previousModule = mainCourse.courseModules[index - 1];
+
+      const isUnlocked =
+        index === 0 ||
+        isCompleted ||
+        moduleCompletions.some(
+          (completion) => String(completion.module_id) === String(previousModule?.id)
+        );
+
+      const isCurrent =
+        Boolean(mainCourse.nextLesson) &&
+        String(mainCourse.nextLesson?.module_id) === String(module.id);
+
+      const firstLesson = moduleLessons[0];
+      const nextLessonInsideModule = moduleLessons.find(
+        (lesson) =>
+          !lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+      );
+
+      const targetLesson = nextLessonInsideModule || firstLesson;
+      const href =
+        isUnlocked && targetLesson
+          ? `/cursos/${getCourseSlug(mainCourse.course)}/${targetLesson.id}`
+          : `/cursos/${getCourseSlug(mainCourse.course)}`;
+
+      return {
+        module,
+        index,
+        lessons: moduleLessons,
+        completedLessons,
+        progress:
+          moduleLessons.length > 0
+            ? Math.round((completedLessons / moduleLessons.length) * 100)
+            : isCompleted
+              ? 100
+              : 0,
+        isCompleted,
+        isCurrent,
+        isLocked: !isUnlocked,
+        href,
+      };
+    });
+  }, [mainCourse, lessonProgress, moduleCompletions]);
+
   const stats = {
     courses: courses.length,
     lessons: completedLessonsInsideVisibleCourses,
@@ -270,8 +375,6 @@ export default function AlumnoPage() {
     globalProgress,
   };
 
-  const mainCourse = activeCourses[0] || completedCourses[0] || null;
-
   async function handleLogout() {
     await supabase.auth.signOut();
     router.replace('/acceso');
@@ -279,19 +382,18 @@ export default function AlumnoPage() {
 
   if (loading) {
     return (
-      <main style={styles.page}>
-        <AmbientBackground />
+      <main style={styles.loadingPage}>
+        <Background />
 
-        <section style={styles.loadingWrap}>
-          <div style={styles.loadingGlass}>
-            <div style={styles.loadingTopLine} />
-            <GHCLogo size="md" showText tagline={false} />
-            <p style={styles.kicker}>Portal privado</p>
-            <h1 style={styles.loadingTitle}>Cargando tu dashboard</h1>
-            <p style={styles.loadingText}>
-              Estamos preparando cursos, módulos, progreso, certificados y perfil real del alumno.
-            </p>
-          </div>
+        <section style={styles.loadingCard}>
+          <div style={styles.loadingAccent} />
+          <GHCLogo size="md" showText tagline={false} />
+
+          <p style={styles.kicker}>Portal privado</p>
+          <h1 style={styles.loadingTitle}>Cargando dashboard</h1>
+          <p style={styles.loadingText}>
+            Preparando cursos, módulos, progreso, certificados y perfil real del alumno.
+          </p>
         </section>
       </main>
     );
@@ -299,42 +401,20 @@ export default function AlumnoPage() {
 
   return (
     <main style={styles.page}>
-      <AmbientBackground />
+      <Background />
+      <GlobalCss />
 
       <aside style={styles.sidebar}>
         <div>
-          <div style={styles.sidebarTop}>
+          <div style={styles.logoBlock}>
             <GHCLogo size="md" showText tagline={false} />
-          </div>
-
-          <div style={styles.studentCard}>
-            <div style={styles.avatar}>{getInitials(displayName)}</div>
-
-            <div style={styles.studentText}>
-              <p style={styles.studentName}>{displayName}</p>
-              <p style={styles.studentRole}>Alumno GHC Academy</p>
-            </div>
-          </div>
-
-          <div style={styles.sidebarProgressCard}>
-            <div style={styles.sidebarProgressTop}>
-              <span style={styles.sidebarProgressLabel}>Progreso global</span>
-              <strong style={styles.sidebarProgressValue}>{globalProgress}%</strong>
-            </div>
-
-            <div style={styles.progressTrackSoft}>
-              <div style={{ ...styles.progressFill, width: `${globalProgress}%` }} />
-            </div>
-
-            <p style={styles.sidebarSmallText}>
-              Datos calculados con lecciones, módulos y cursos reales del alumno.
-            </p>
           </div>
 
           <nav style={styles.nav}>
             {tabs.map((tab) => (
-              <SidebarTab
+              <NavButton
                 key={tab.id}
+                icon={tab.icon}
                 label={tab.label}
                 helper={tab.helper}
                 active={activeTab === tab.id}
@@ -342,263 +422,252 @@ export default function AlumnoPage() {
               />
             ))}
           </nav>
+
+          <div style={styles.sidebarDivider} />
+
+          <NavButton
+            icon="resources"
+            label="Resources"
+            helper="Materiales"
+            active={false}
+            onClick={() => setActiveTab('curriculum')}
+          />
+
+          <NavButton
+            icon="support"
+            label="Support"
+            helper="Ayuda"
+            active={false}
+            onClick={() => setActiveTab('perfil')}
+          />
         </div>
 
-        <div style={styles.sidebarFooter}>
-          <Link href="/cursos" style={styles.sidebarPrimaryLink}>
-            Catálogo
-          </Link>
+        <div style={styles.sidebarUserBox}>
+          <div style={styles.sidebarUserTop}>
+            <div style={styles.avatarLarge}>{getInitials(displayName)}</div>
 
-          <button onClick={handleLogout} style={styles.sidebarDangerButton}>
-            Cerrar sesión
+            <div style={styles.sidebarUserText}>
+              <p style={styles.sidebarUserName}>{shortName(displayName)}</p>
+              <p style={styles.sidebarUserRole}>
+                Student <span style={styles.proPill}>Pro</span>
+              </p>
+            </div>
+          </div>
+
+          <div style={styles.xpBox}>
+            <div style={styles.xpRow}>
+              <span>XP Level</span>
+              <strong>{Math.max(1, stats.modules + stats.completedCourses)}</strong>
+            </div>
+
+            <div style={styles.progressTrackSubtle}>
+              <div style={{ ...styles.progressFill, width: `${Math.min(100, globalProgress)}%` }} />
+            </div>
+          </div>
+
+          <button type="button" onClick={handleLogout} style={styles.signOutButton}>
+            <Icon name="logout" />
+            Sign Out
           </button>
         </div>
       </aside>
 
-      <section style={styles.content}>
-        <header style={styles.header}>
-          <div style={styles.headerCopy}>
-            <p style={styles.kicker}>Dashboard del alumno</p>
-            <h1 style={styles.title}>Bienvenido, {shortName(displayName)}</h1>
-            <p style={styles.subtitle}>
-              Área premium conectada a Supabase para visualizar cursos, progreso académico,
-              módulos aprobados, certificados emitidos y estado del perfil.
-            </p>
+      <section style={styles.appShell}>
+        <header style={styles.topbar}>
+          <div>
+            <p style={styles.topbarEyebrow}>GHC Academy · Student Command Center</p>
+            <h1 style={styles.topbarTitle}>Dashboard</h1>
           </div>
 
-          <div style={styles.headerActions}>
-            <Link href="/" style={styles.ghostButton}>
+          <div style={styles.topbarRight}>
+            <Link href="/" style={styles.topbarLink}>
               Inicio
             </Link>
 
-            <Link href="/cursos" style={styles.secondaryButton}>
+            <Link href="/cursos" style={styles.topbarLinkStrong}>
               Explorar cursos
             </Link>
+
+            <button type="button" style={styles.notificationButton} aria-label="Notificaciones">
+              <Icon name="bell" />
+              <span style={styles.notificationDot} />
+            </button>
+
+            <div style={styles.userMini}>
+              <div>
+                <p style={styles.welcomeText}>Welcome back,</p>
+                <p style={styles.userMiniName}>{shortName(displayName)}</p>
+              </div>
+              <div style={styles.avatarMini}>{getInitials(displayName)}</div>
+            </div>
           </div>
         </header>
 
-        <div style={styles.topTabBar}>
-          {tabs.map((tab) => (
-            <TopTab
-              key={tab.id}
-              label={tab.label}
-              active={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-            />
-          ))}
-        </div>
-
         {systemMessage && <div style={styles.notice}>{systemMessage}</div>}
 
-        {activeTab === 'resumen' && (
-          <div style={styles.stack}>
-            <section style={styles.summaryGrid}>
-              <article
-                style={{
-                  ...styles.spotlightCard,
-                  ...(mainCourse ? getSpotlightBackground(mainCourse.course) : {}),
-                }}
-              >
-                <div style={styles.spotlightOverlay} />
+        {activeTab === 'dashboard' && (
+          <div style={styles.dashboardGrid}>
+            <section style={styles.topCardsGrid}>
+              <article style={styles.progressCard}>
+                <h2 style={styles.cardTitle}>Overall Progress</h2>
 
-                <div style={styles.spotlightContent}>
-                  <div style={styles.spotlightBadgeRow}>
-                    <span style={styles.spotlightMiniBadge}>GHC Academy</span>
-                    <span style={styles.spotlightMiniGhost}>Resumen premium</span>
+                <div style={styles.progressRingWrap}>
+                  <div
+                    style={{
+                      ...styles.progressRing,
+                      background: `conic-gradient(${green} ${globalProgress * 3.6}deg, rgba(255,255,255,0.095) 0deg)`,
+                    }}
+                  >
+                    <div style={styles.progressRingInner}>
+                      <strong>{globalProgress}%</strong>
+                      <span>Completed</span>
+                    </div>
                   </div>
+                </div>
 
-                  {mainCourse ? (
-                    <>
-                      <p style={styles.spotlightKicker}>Continuar aprendizaje</p>
-                      <h2 style={styles.spotlightTitle}>{mainCourse.course.title}</h2>
+                <p style={styles.centerText}>
+                  Excellent work. Keep building expertise and elevating performance.
+                </p>
 
-                      <p style={styles.spotlightText}>
-                        {mainCourse.course.subtitle ||
-                          'Sigue avanzando dentro de tu ruta de formación científica aplicada al rendimiento.'}
-                      </p>
-
-                      <div style={styles.spotlightMetaRow}>
-                        <MetricChip
-                          label="Progreso"
-                          value={`${mainCourse.progressPercent}%`}
-                        />
-                        <MetricChip
-                          label="Módulos"
-                          value={`${mainCourse.completedModuleCount}/${mainCourse.courseModules.length}`}
-                        />
-                        <MetricChip
-                          label="Lecciones"
-                          value={`${mainCourse.completedLessonCount}/${mainCourse.courseLessons.length}`}
-                        />
-                      </div>
-
-                      <div style={styles.spotlightProgressWrap}>
-                        <div style={styles.progressTrackStrong}>
-                          <div
-                            style={{
-                              ...styles.progressFill,
-                              width: `${mainCourse.progressPercent}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div style={styles.spotlightActions}>
-                        <Link
-                          href={
-                            mainCourse.nextLesson
-                              ? `/cursos/${mainCourse.course.slug}/${mainCourse.nextLesson.id}`
-                              : `/cursos/${mainCourse.course.slug}`
-                          }
-                          style={styles.primaryButton}
-                        >
-                          Continuar →
-                        </Link>
-
-                        <Link
-                          href={`/cursos/${mainCourse.course.slug}`}
-                          style={styles.inlineLinkLight}
-                        >
-                          Ver detalle
-                        </Link>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p style={styles.spotlightKicker}>Sin cursos activos</p>
-                      <h2 style={styles.spotlightTitle}>Todavía no has iniciado tu ruta</h2>
-                      <p style={styles.spotlightText}>
-                        Accede al catálogo para comenzar tu formación en GHC Academy.
-                      </p>
-
-                      <div style={styles.spotlightActions}>
-                        <Link href="/cursos" style={styles.primaryButton}>
-                          Ir al catálogo →
-                        </Link>
-                      </div>
-                    </>
-                  )}
+                <div style={styles.progressMiniStats}>
+                  <MiniStat icon="clock" label="Learning Time" value={`${stats.lessons} Lessons`} />
+                  <MiniStat icon="certificate" label="Earned" value={`${stats.certificates} Badges`} />
                 </div>
               </article>
 
-              <div style={styles.sideColumn}>
-                <article style={styles.performanceCard}>
-                  <div style={styles.cardHeaderRow}>
-                    <div>
-                      <p style={styles.sectionLabel}>Performance</p>
-                      <h3 style={styles.cardTitle}>Progreso académico</h3>
-                    </div>
-                    <span style={styles.livePill}>Datos reales</span>
-                  </div>
+              <article style={styles.nextModuleCard}>
+                <div style={styles.athleteVisual}>
+                  <div style={styles.athleteGlow} />
+                  <div style={styles.athleteLabel}>GHC Performance</div>
+                </div>
 
-                  <div style={styles.ringWrap}>
-                    <div
-                      style={{
-                        ...styles.ring,
-                        background: `conic-gradient(${green} ${globalProgress * 3.6}deg, rgba(255,255,255,0.10) 0deg)`,
-                      }}
-                    >
-                      <div style={styles.ringInner}>
-                        <strong style={styles.ringNumber}>{globalProgress}%</strong>
-                        <span style={styles.ringLabel}>Completado</span>
-                      </div>
-                    </div>
-                  </div>
+                <div style={styles.nextContent}>
+                  <p style={styles.inProgressLabel}>In progress</p>
 
-                  <div style={styles.quickStatsGrid}>
-                    <QuickStat label="Cursos" value={stats.courses} />
-                    <QuickStat label="Módulos" value={stats.modules} />
-                    <QuickStat label="Lecciones" value={stats.lessons} />
-                    <QuickStat label="Certificados" value={stats.certificates} />
-                  </div>
-                </article>
+                  <h2 style={styles.nextTitle}>
+                    {currentModule?.title ||
+                      mainCourse?.nextLesson?.title ||
+                      mainCourse?.course?.title ||
+                      'Next Module'}
+                  </h2>
 
-                <article style={styles.miniInsightCard}>
-                  <p style={styles.sectionLabel}>Insight</p>
-                  <h3 style={styles.cardTitle}>Ruta sugerida</h3>
-                  <p style={styles.cardText}>
-                    Mantén la progresión por módulos y exámenes para consolidar aprendizaje y
-                    desbloquear certificados con trazabilidad real.
+                  <p style={styles.nextDescription}>
+                    {mainCourse?.course?.subtitle ||
+                      mainCourse?.course?.description ||
+                      'Explore your next learning step and keep progressing through the academy.'}
                   </p>
 
-                  <div style={styles.insightDivider} />
+                  <div style={styles.nextMeta}>
+                    <MetaItem icon="clock" text="4–5 Hours" />
+                    <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermediate'} />
+                    <MetaItem
+                      icon="document"
+                      text={`${mainCourse?.courseLessons.length || 0} Lessons`}
+                    />
+                  </div>
 
-                  <p style={styles.cardMiniNote}>
-                    Preparado para futura IA 24/7, recomendaciones y exámenes generados con IA en
-                    modo borrador para revisión del admin.
-                  </p>
-                </article>
-              </div>
-            </section>
+                  <div style={styles.nextProgressBlock}>
+                    <div style={styles.progressTrack}>
+                      <div
+                        style={{
+                          ...styles.progressFill,
+                          width: `${mainCourse?.progressPercent || 0}%`,
+                        }}
+                      />
+                    </div>
+                    <span>{mainCourse?.progressPercent || 0}% Complete</span>
+                  </div>
 
-            <section style={styles.statsGrid}>
-              <StatCard label="Cursos visibles" value={stats.courses} helper="Catálogo activo" />
-              <StatCard
-                label="Lecciones completadas"
-                value={stats.lessons}
-                helper="Progreso trazable"
-              />
-              <StatCard
-                label="Módulos aprobados"
-                value={stats.modules}
-                helper="Desbloqueos reales"
-              />
-              <StatCard
-                label="Certificados"
-                value={stats.certificates}
-                helper="Credenciales válidas"
-              />
-            </section>
-
-            <section style={styles.lowerGrid}>
-              <Panel title="Actividad académica" label="Siguiente foco">
-                <div style={styles.activityList}>
-                  <ActivityItem
-                    title={
+                  <Link
+                    href={
                       mainCourse?.nextLesson
-                        ? `Próxima lección: ${mainCourse.nextLesson.title || 'Lección'}`
-                        : 'No hay siguiente lección disponible'
+                        ? `/cursos/${getCourseSlug(mainCourse.course)}/${mainCourse.nextLesson.id}`
+                        : mainCourse
+                          ? `/cursos/${getCourseSlug(mainCourse.course)}`
+                          : '/cursos'
                     }
-                    text="Continúa exactamente desde el siguiente punto disponible dentro del itinerario desbloqueado."
-                  />
-                  <ActivityItem
-                    title="Progreso real por usuario"
-                    text="El sistema toma datos de lesson_progress, module_completions y course_completions."
-                  />
-                  <ActivityItem
-                    title="Certificados en Supabase"
-                    text="Los certificados válidos emitidos se muestran automáticamente cuando existen."
-                  />
+                    style={styles.continueButton}
+                  >
+                    Continue Learning
+                    <Icon name="arrow" />
+                  </Link>
                 </div>
-              </Panel>
+              </article>
+            </section>
 
-              <Panel title="Estado de la cuenta" label="Perfil alumno">
-                <div style={styles.infoGridTwo}>
-                  <InfoCard label="Alumno" value={displayName} />
-                  <InfoCard label="Email" value={user?.email || '—'} />
-                  <InfoCard label="Rol" value={profile?.role || 'student'} />
-                  <InfoCard label="Cursos completados" value={stats.completedCourses} />
-                </div>
+            <Panel title="Curriculum">
+              <div style={styles.curriculumList}>
+                {moduleViews.length === 0 ? (
+                  <EmptyState text="Aún no hay módulos visibles para este curso." />
+                ) : (
+                  moduleViews.slice(0, 6).map((item) => (
+                    <CurriculumRow key={item.module.id} item={item} />
+                  ))
+                )}
+              </div>
+            </Panel>
 
-                <div style={styles.noteCard}>
-                  <p style={styles.noteTitle}>Fase futura</p>
-                  <p style={styles.cardText}>
-                    Este dashboard queda preparado para seguridad avanzada, control de dispositivos,
-                    edición de perfil y capa de asistencia inteligente.
+            <section style={styles.bottomGrid}>
+              <article style={styles.examCard}>
+                <div style={styles.examContent}>
+                  <h2 style={styles.largeCardTitle}>Mock Exam Simulator</h2>
+                  <p style={styles.cardDescription}>
+                    Test your knowledge under real conditions before earning your final
+                    certification.
                   </p>
+
+                  <button type="button" style={styles.darkButton} onClick={() => setActiveTab('examenes')}>
+                    Start Simulation
+                    <Icon name="arrow" />
+                  </button>
+
+                  <div style={styles.featureRow}>
+                    <Feature icon="check" text="Real Exam Conditions" />
+                    <Feature icon="clock" text="Timed Sessions" />
+                    <Feature icon="shield" text="Detailed Feedback" />
+                  </div>
                 </div>
-              </Panel>
+
+                <div style={styles.examVisual}>?</div>
+              </article>
+
+              <article style={styles.certificationCard}>
+                <div style={styles.certContent}>
+                  <h2 style={styles.largeCardTitle}>Certification</h2>
+                  <p style={styles.cardDescription}>
+                    Earn your official GHC Academy certificate when your course path is completed.
+                  </p>
+
+                  <button
+                    type="button"
+                    style={styles.darkButton}
+                    onClick={() => setActiveTab('certificados')}
+                  >
+                    View Certification
+                    <Icon name="arrow" />
+                  </button>
+
+                  <div style={styles.featureRow}>
+                    <Feature icon="shield" text="Trusted by Professionals" />
+                    <Feature icon="certificate" text="Industry Recognized" />
+                  </div>
+                </div>
+
+                <div style={styles.medalVisual}>
+                  <Icon name="star" />
+                </div>
+              </article>
             </section>
           </div>
         )}
 
         {activeTab === 'cursos' && (
-          <div style={styles.stack}>
-            <Panel title="Mis cursos" label="Formación activa">
+          <div style={styles.sectionStack}>
+            <Panel title="My Courses">
               {activeCourses.length === 0 ? (
                 <EmptyState text="Todavía no tienes cursos activos. Entra al catálogo para iniciar tu formación." />
               ) : (
-                <div style={styles.cardsGrid}>
+                <div style={styles.courseGrid}>
                   {activeCourses.map((card) => (
                     <CourseCard key={card.course.id} card={card} />
                   ))}
@@ -606,11 +675,11 @@ export default function AlumnoPage() {
               )}
             </Panel>
 
-            <Panel title="Cursos completados" label="Historial académico">
+            <Panel title="Completed Courses">
               {completedCourses.length === 0 ? (
                 <EmptyState text="Cuando completes un curso, aparecerá aquí." />
               ) : (
-                <div style={styles.cardsGrid}>
+                <div style={styles.courseGrid}>
                   {completedCourses.map((card) => (
                     <CourseCard key={card.course.id} card={card} completed />
                   ))}
@@ -620,52 +689,79 @@ export default function AlumnoPage() {
           </div>
         )}
 
-        {activeTab === 'progreso' && (
-          <div style={styles.stack}>
-            <section style={styles.statsGrid}>
-              <StatCard
-                label="Progreso global"
-                value={`${stats.globalProgress}%`}
-                helper="Total visible"
-              />
-              <StatCard
-                label="Lecciones completadas"
-                value={stats.lessons}
-                helper="Historial válido"
-              />
-              <StatCard
-                label="Módulos aprobados"
-                value={stats.modules}
-                helper="Evaluación real"
-              />
-              <StatCard
-                label="Cursos completados"
-                value={stats.completedCourses}
-                helper="Ruta cerrada"
-              />
-            </section>
+        {activeTab === 'curriculum' && (
+          <div style={styles.sectionStack}>
+            <Panel title="Curriculum">
+              <div style={styles.curriculumList}>
+                {moduleViews.length === 0 ? (
+                  <EmptyState text="Aún no hay módulos visibles para este curso." />
+                ) : (
+                  moduleViews.map((item) => <CurriculumRow key={item.module.id} item={item} />)
+                )}
+              </div>
+            </Panel>
 
-            <Panel title="Progreso por curso" label="Detalle académico">
-              {courseCards.length === 0 ? (
-                <EmptyState text="Aún no hay cursos visibles para calcular progreso." />
-              ) : (
-                <div style={styles.progressList}>
-                  {courseCards.map((card) => (
-                    <ProgressRow key={card.course.id} card={card} />
-                  ))}
+            <Panel title="Lessons">
+              {mainCourse?.courseLessons.length ? (
+                <div style={styles.lessonsGrid}>
+                  {mainCourse.courseLessons.slice(0, 12).map((lesson) => {
+                    const completed = lessonProgress.some(
+                      (progress) => String(progress.lesson_id) === String(lesson.id)
+                    );
+
+                    return (
+                      <Link
+                        key={lesson.id}
+                        href={`/cursos/${getCourseSlug(mainCourse.course)}/${lesson.id}`}
+                        style={styles.lessonCard}
+                      >
+                        <span style={completed ? styles.lessonStatusDone : styles.lessonStatus}>
+                          {completed ? 'Completed' : 'Pending'}
+                        </span>
+                        <strong>{lesson.title || 'Lección'}</strong>
+                        <p>{lesson.content_type || lesson.type || 'Contenido académico'}</p>
+                      </Link>
+                    );
+                  })}
                 </div>
+              ) : (
+                <EmptyState text="No hay lecciones visibles todavía." />
               )}
             </Panel>
           </div>
         )}
 
+        {activeTab === 'examenes' && (
+          <div style={styles.sectionStack}>
+            <Panel title="Mock Exams">
+              <div style={styles.examGrid}>
+                <InfoBlock
+                  icon="exam"
+                  title="Exámenes por módulo"
+                  text="Los exámenes de desbloqueo se integran con el avance real por módulos."
+                />
+                <InfoBlock
+                  icon="shield"
+                  title="Control académico"
+                  text="El alumno avanza cuando demuestra comprensión suficiente del bloque."
+                />
+                <InfoBlock
+                  icon="chart"
+                  title="Preparado para IA"
+                  text="Más adelante la IA podrá generar exámenes en borrador para revisión del admin."
+                />
+              </div>
+            </Panel>
+          </div>
+        )}
+
         {activeTab === 'certificados' && (
-          <div style={styles.stack}>
-            <Panel title="Mis certificados" label="Credenciales digitales">
+          <div style={styles.sectionStack}>
+            <Panel title="Certification">
               {certificates.length === 0 ? (
                 <EmptyState text="Aún no tienes certificados reales emitidos. Completa un curso y emite tu certificado para verlo aquí." />
               ) : (
-                <div style={styles.cardsGrid}>
+                <div style={styles.courseGrid}>
                   {certificates.map((certificate) => (
                     <CertificateCard key={certificate.id} certificate={certificate} />
                   ))}
@@ -676,37 +772,35 @@ export default function AlumnoPage() {
         )}
 
         {activeTab === 'perfil' && (
-          <div style={styles.stack}>
-            <Panel title={displayName} label="Perfil">
+          <div style={styles.sectionStack}>
+            <Panel title="Performance Profile">
               <div style={styles.profileGrid}>
-                <InfoCard label="Email" value={user?.email || '—'} />
-                <InfoCard label="Rol" value={profile?.role || 'student'} />
-                <InfoCard label="Cursos completados" value={stats.completedCourses} />
-                <InfoCard label="Certificados" value={stats.certificates} />
+                <ProfileStat label="Alumno" value={displayName} />
+                <ProfileStat label="Email" value={user?.email || '—'} />
+                <ProfileStat label="Rol" value={profile?.role || 'student'} />
+                <ProfileStat label="Cursos completados" value={stats.completedCourses} />
+                <ProfileStat label="Certificados" value={stats.certificates} />
+                <ProfileStat label="Progreso global" value={`${stats.globalProgress}%`} />
               </div>
+            </Panel>
 
-              <div style={styles.profileBigCard}>
-                <div style={styles.profileBigHeader}>
-                  <div>
-                    <p style={styles.sectionLabel}>Seguridad y evolución</p>
-                    <h3 style={styles.cardTitle}>Cuenta preparada para crecer</h3>
-                  </div>
-                </div>
-
-                <div style={styles.activityList}>
-                  <ActivityItem
-                    title="Autenticación real"
-                    text="Acceso protegido con Supabase Auth y ruta /alumno protegida."
-                  />
-                  <ActivityItem
-                    title="Escalabilidad"
-                    text="Base lista para ampliar control de dispositivos, actividad reciente y preferencias."
-                  />
-                  <ActivityItem
-                    title="IA futura"
-                    text="Preparado para tutoría IA, recomendaciones y generación asistida de exámenes."
-                  />
-                </div>
+            <Panel title="Security Roadmap">
+              <div style={styles.examGrid}>
+                <InfoBlock
+                  icon="shield"
+                  title="Acceso protegido"
+                  text="Ruta /alumno protegida mediante Supabase Auth."
+                />
+                <InfoBlock
+                  icon="user"
+                  title="Dispositivos"
+                  text="Preparado para añadir control de sesiones y dispositivos autorizados."
+                />
+                <InfoBlock
+                  icon="performance"
+                  title="IA 24/7"
+                  text="Base preparada para tutoría inteligente y recomendaciones personalizadas."
+                />
               </div>
             </Panel>
           </div>
@@ -716,23 +810,57 @@ export default function AlumnoPage() {
   );
 }
 
-function AmbientBackground() {
+function Background() {
   return (
-    <div style={styles.bgLayer} aria-hidden="true">
-      <div style={styles.bgOrbA} />
-      <div style={styles.bgOrbB} />
-      <div style={styles.bgOrbC} />
-      <div style={styles.bgGrid} />
+    <div style={styles.background} aria-hidden="true">
+      <div style={styles.orbOne} />
+      <div style={styles.orbTwo} />
+      <div style={styles.orbThree} />
+      <div style={styles.gridTexture} />
     </div>
   );
 }
 
-function SidebarTab({
+function GlobalCss() {
+  return (
+    <style>
+      {`
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          background: ${bg};
+        }
+
+        a, button {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        @media (max-width: 1120px) {
+          main[data-ghc-page="student"] {
+            grid-template-columns: 92px minmax(0, 1fr) !important;
+          }
+        }
+
+        @media (max-width: 860px) {
+          main[data-ghc-page="student"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}
+    </style>
+  );
+}
+
+function NavButton({
+  icon,
   label,
   helper,
   active,
   onClick,
 }: {
+  icon: IconName;
   label: string;
   helper: string;
   active: boolean;
@@ -740,117 +868,156 @@ function SidebarTab({
 }) {
   return (
     <button type="button" onClick={onClick} style={active ? styles.navActive : styles.navButton}>
-      <span style={styles.navLabel}>{label}</span>
-      <span style={styles.navHelper}>{helper}</span>
+      <span style={active ? styles.navIconActive : styles.navIcon}>
+        <Icon name={icon} />
+      </span>
+
+      <span style={styles.navText}>
+        <strong>{label}</strong>
+        <small>{helper}</small>
+      </span>
     </button>
   );
 }
 
-function TopTab({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" onClick={onClick} style={active ? styles.topTabActive : styles.topTab}>
-      {label}
-    </button>
-  );
-}
-
-function Panel({
-  label,
-  title,
-  children,
-}: {
-  label: string;
-  title: string;
-  children: ReactNode;
-}) {
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section style={styles.panel}>
-      <div style={styles.panelHeader}>
-        <div>
-          <p style={styles.sectionLabel}>{label}</p>
-          <h2 style={styles.sectionTitle}>{title}</h2>
-        </div>
-      </div>
-
+      <h2 style={styles.panelTitle}>{title}</h2>
       {children}
     </section>
   );
 }
 
-function MetricChip({ label, value }: { label: string; value: string | number }) {
+function CurriculumRow({ item }: { item: ModuleView }) {
+  const moduleNumber = item.index + 1;
+
+  if (item.isLocked) {
+    return (
+      <article style={styles.curriculumRowLocked}>
+        <div style={styles.curriculumIconLocked}>
+          <Icon name="lock" />
+        </div>
+
+        <div style={styles.curriculumMain}>
+          <p style={styles.moduleLabel}>Module {moduleNumber}</p>
+          <h3>{item.module.title || `Módulo ${moduleNumber}`}</h3>
+        </div>
+
+        <span style={styles.lockedText}>Locked</span>
+      </article>
+    );
+  }
+
+  if (item.isCurrent) {
+    return (
+      <Link href={item.href} style={styles.curriculumRowActive}>
+        <div style={styles.curriculumIconActive}>
+          <Icon name="performance" />
+        </div>
+
+        <div style={styles.curriculumMain}>
+          <div style={styles.moduleLabelRow}>
+            <p style={styles.moduleLabel}>Module {moduleNumber}</p>
+            <span style={styles.inProgressMini}>In progress</span>
+          </div>
+
+          <h3>{item.module.title || `Módulo ${moduleNumber}`}</h3>
+
+          <div style={styles.curriculumProgressTrack}>
+            <div style={{ ...styles.progressFill, width: `${item.progress}%` }} />
+          </div>
+        </div>
+
+        <div style={styles.curriculumRight}>
+          <strong>{item.progress}% Complete</strong>
+          <span style={styles.arrowBox}>
+            <Icon name="arrow" />
+          </span>
+        </div>
+      </Link>
+    );
+  }
+
   return (
-    <div style={styles.metricChip}>
-      <span style={styles.metricChipLabel}>{label}</span>
-      <strong style={styles.metricChipValue}>{value}</strong>
+    <Link href={item.href} style={styles.curriculumRow}>
+      <div style={item.isCompleted ? styles.curriculumIconDone : styles.curriculumIcon}>
+        <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
+      </div>
+
+      <div style={styles.curriculumMain}>
+        <p style={styles.moduleLabel}>Module {moduleNumber}</p>
+        <h3>{item.module.title || `Módulo ${moduleNumber}`}</h3>
+      </div>
+
+      <div style={styles.curriculumRight}>
+        <strong>{item.isCompleted ? '100% Score' : `${item.progress}%`}</strong>
+        {item.isCompleted && (
+          <span style={styles.checkCircle}>
+            <Icon name="check" />
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function MiniStat({ icon, label, value }: { icon: IconName; label: string; value: string }) {
+  return (
+    <div style={styles.miniStat}>
+      <Icon name={icon} />
+      <div>
+        <strong>{value}</strong>
+        <span>{label}</span>
+      </div>
     </div>
   );
 }
 
-function QuickStat({ label, value }: { label: string; value: string | number }) {
+function MetaItem({ icon, text }: { icon: IconName; text: string }) {
   return (
-    <div style={styles.quickStat}>
-      <span style={styles.quickStatLabel}>{label}</span>
-      <strong style={styles.quickStatValue}>{value}</strong>
-    </div>
+    <span style={styles.metaItem}>
+      <Icon name={icon} />
+      {text}
+    </span>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string | number;
-  helper: string;
-}) {
+function Feature({ icon, text }: { icon: IconName; text: string }) {
   return (
-    <article style={styles.statCard}>
-      <p style={styles.smallLabel}>{label}</p>
-      <strong style={styles.statValue}>{value}</strong>
-      <p style={styles.statHelper}>{helper}</p>
-    </article>
+    <span style={styles.feature}>
+      <Icon name={icon} />
+      {text}
+    </span>
   );
 }
 
 function CourseCard({ card, completed = false }: { card: DashboardCard; completed?: boolean }) {
-  const course = card.course;
-  const nextLesson = card.nextLesson;
-
   return (
     <article style={styles.courseCard}>
-      <div style={{ ...styles.courseImage, ...getCourseImageStyle(course) }}>
+      <div style={{ ...styles.courseImage, backgroundImage: getCourseBackground(card.course) }}>
         <div style={styles.courseImageOverlay} />
       </div>
 
-      <div style={styles.courseBody}>
+      <div style={styles.courseCardBody}>
         <div style={styles.badgeRow}>
-          {course.course_type && <span style={styles.badgeMain}>{course.course_type}</span>}
-          {course.level && <span style={styles.badgeSecondary}>{course.level}</span>}
-          {completed && <span style={styles.badgeCompleted}>Completado</span>}
-          {card.certificate && <span style={styles.badgeSoft}>Certificado</span>}
+          <span style={styles.badgeGreen}>{completed ? 'Completed' : 'In progress'}</span>
+          {card.course.level && <span style={styles.badgeDark}>{card.course.level}</span>}
+          {card.certificate && <span style={styles.badgeDark}>Certified</span>}
         </div>
 
-        <h3 style={styles.courseTitle}>{course.title}</h3>
+        <h3 style={styles.courseCardTitle}>{card.course.title}</h3>
 
-        {course.subtitle && <p style={styles.courseSubtitle}>{course.subtitle}</p>}
-
-        <p style={styles.courseText}>
-          {course.description || 'Formación premium basada en ciencia, estructura y rendimiento.'}
+        <p style={styles.courseCardText}>
+          {card.course.subtitle ||
+            card.course.description ||
+            'Formación premium basada en ciencia, estructura y rendimiento.'}
         </p>
 
-        <div style={styles.infoGridThree}>
-          <InfoMini label="Lecciones" value={`${card.completedLessonCount}/${card.courseLessons.length}`} />
-          <InfoMini label="Módulos" value={`${card.completedModuleCount}/${card.courseModules.length}`} />
-          <InfoMini label="Progreso" value={`${card.progressPercent}%`} />
+        <div style={styles.courseStatsGrid}>
+          <ProfileStat label="Lessons" value={`${card.completedLessonCount}/${card.courseLessons.length}`} />
+          <ProfileStat label="Modules" value={`${card.completedModuleCount}/${card.courseModules.length}`} />
+          <ProfileStat label="Progress" value={`${card.progressPercent}%`} />
         </div>
 
         <div style={styles.progressTrack}>
@@ -858,46 +1025,22 @@ function CourseCard({ card, completed = false }: { card: DashboardCard; complete
         </div>
 
         <div style={styles.cardActions}>
-          {nextLesson ? (
-            <Link href={`/cursos/${course.slug}/${nextLesson.id}`} style={styles.primaryButton}>
-              Continuar →
-            </Link>
-          ) : (
-            <Link href={`/cursos/${course.slug}`} style={styles.primaryButton}>
-              Ver curso →
-            </Link>
-          )}
+          <Link
+            href={
+              card.nextLesson
+                ? `/cursos/${getCourseSlug(card.course)}/${card.nextLesson.id}`
+                : `/cursos/${getCourseSlug(card.course)}`
+            }
+            style={styles.continueButton}
+          >
+            Continue
+            <Icon name="arrow" />
+          </Link>
 
-          <Link href={`/cursos/${course.slug}`} style={styles.inlineLink}>
-            Detalle
+          <Link href={`/cursos/${getCourseSlug(card.course)}`} style={styles.textLink}>
+            Detail
           </Link>
         </div>
-      </div>
-    </article>
-  );
-}
-
-function ProgressRow({ card }: { card: DashboardCard }) {
-  return (
-    <article style={styles.progressRow}>
-      <div style={styles.progressLeft}>
-        <div style={styles.progressRowTop}>
-          <h3 style={styles.progressCourseTitle}>{card.course.title}</h3>
-          <span style={styles.progressPercent}>{card.progressPercent}%</span>
-        </div>
-
-        <p style={styles.cardText}>
-          {card.completedLessonCount}/{card.courseLessons.length} lecciones ·{' '}
-          {card.completedModuleCount}/{card.courseModules.length} módulos
-        </p>
-
-        <div style={styles.progressTrack}>
-          <div style={{ ...styles.progressFill, width: `${card.progressPercent}%` }} />
-        </div>
-      </div>
-
-      <div style={styles.progressRightBox}>
-        <InfoMini label="Estado" value={card.completion ? 'Completado' : 'Activo'} />
       </div>
     </article>
   );
@@ -906,71 +1049,211 @@ function ProgressRow({ card }: { card: DashboardCard }) {
 function CertificateCard({ certificate }: { certificate: AnyRecord }) {
   return (
     <article style={styles.certificateCard}>
-      <div style={styles.certificateTop}>
-        <div style={styles.certificateIcon}>★</div>
-        <span style={styles.badgeSoft}>Certificado válido</span>
+      <div style={styles.certificateIcon}>
+        <Icon name="star" />
       </div>
 
-      <h3 style={styles.certificateTitle}>
-        {certificate.course_title || 'Curso completado'}
-      </h3>
+      <span style={styles.badgeGreen}>Valid Certificate</span>
 
-      <div style={styles.infoGridThree}>
-        <InfoMini label="Nota final" value={`${certificate.final_score ?? '—'}%`} />
-        <InfoMini label="Estado" value="Válido" />
-        <InfoMini label="Código" value={certificate.certificate_code || '—'} />
+      <h3 style={styles.courseCardTitle}>{certificate.course_title || 'Curso completado'}</h3>
+
+      <div style={styles.courseStatsGrid}>
+        <ProfileStat label="Score" value={`${certificate.final_score ?? '—'}%`} />
+        <ProfileStat label="Status" value="Valid" />
+        <ProfileStat label="Code" value={certificate.certificate_code || '—'} />
       </div>
-
-      {certificate.certificate_code && (
-        <p style={styles.certificateCode}>{certificate.certificate_code}</p>
-      )}
 
       {certificate.verification_slug ? (
-        <Link href={`/certificados/${certificate.verification_slug}`} style={styles.primaryButton}>
-          Ver certificado →
+        <Link href={`/certificados/${certificate.verification_slug}`} style={styles.continueButton}>
+          View Certificate
+          <Icon name="arrow" />
         </Link>
       ) : (
-        <p style={styles.cardText}>Certificado registrado sin enlace público de verificación.</p>
+        <p style={styles.courseCardText}>Certificado registrado sin enlace público.</p>
       )}
     </article>
   );
 }
 
-function ActivityItem({ title, text }: { title: string; text: string }) {
+function ProfileStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <article style={styles.activityItem}>
-      <div style={styles.activityDot} />
-      <div>
-        <h3 style={styles.activityTitle}>{title}</h3>
-        <p style={styles.cardText}>{text}</p>
-      </div>
-    </article>
-  );
-}
-
-function InfoCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <article style={styles.infoCard}>
-      <p style={styles.smallLabel}>{label}</p>
-      <strong style={styles.infoCardValue}>{value}</strong>
-    </article>
-  );
-}
-
-function InfoMini({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div style={styles.infoMini}>
-      <p style={styles.smallLabel}>{label}</p>
-      <p style={styles.infoMiniValue}>{value}</p>
+    <div style={styles.profileStat}>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
+  );
+}
+
+function InfoBlock({ icon, title, text }: { icon: IconName; title: string; text: string }) {
+  return (
+    <article style={styles.infoBlock}>
+      <span style={styles.infoIcon}>
+        <Icon name={icon} />
+      </span>
+      <h3>{title}</h3>
+      <p>{text}</p>
+    </article>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <article style={styles.emptyCard}>
-      <p style={styles.cardText}>{text}</p>
+    <article style={styles.emptyState}>
+      <p>{text}</p>
     </article>
+  );
+}
+
+function Icon({ name }: { name: IconName }) {
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    xmlns: 'http://www.w3.org/2000/svg',
+    'aria-hidden': true,
+  };
+
+  if (name === 'dashboard') {
+    return (
+      <svg {...common}>
+        <path d="M4 13h7V4H4v9Zm9 7h7V4h-7v16ZM4 20h7v-5H4v5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'courses') {
+    return (
+      <svg {...common}>
+        <path d="m12 4 8 4-8 4-8-4 8-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M4 12l8 4 8-4M4 16l8 4 8-4" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'curriculum' || name === 'document') {
+    return (
+      <svg {...common}>
+        <path d="M7 4h7l3 3v13H7V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M14 4v4h4M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'exam') {
+    return (
+      <svg {...common}>
+        <path d="M5 5h14v14H5V5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="m8.5 12 2.1 2.1 4.9-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'certificate') {
+    return (
+      <svg {...common}>
+        <path d="M7 4h10v9a5 5 0 0 1-10 0V4Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="m9 19-1 3 4-2 4 2-1-3" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'performance' || name === 'chart') {
+    return (
+      <svg {...common}>
+        <path d="M4 19V5M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M7 15l3-4 3 2 4-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'resources') {
+    return (
+      <svg {...common}>
+        <path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'support') {
+    return (
+      <svg {...common}>
+        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M9.8 9a2.2 2.2 0 1 1 3.5 1.8c-.8.6-1.3 1-1.3 2.2M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'logout') {
+    return (
+      <svg {...common}>
+        <path d="M10 6H6v12h4M14 8l4 4-4 4M18 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'clock') {
+    return (
+      <svg {...common}>
+        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M12 8v5l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'lock') {
+    return (
+      <svg {...common}>
+        <path d="M8 10V8a4 4 0 1 1 8 0v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M7 10h10v9H7v-9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'check') {
+    return (
+      <svg {...common}>
+        <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'arrow') {
+    return (
+      <svg {...common}>
+        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'bell') {
+    return (
+      <svg {...common}>
+        <path d="M15 17H9m9-2V9a6 6 0 1 0-12 0v6l-2 2h16l-2-2ZM10 20h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'shield') {
+    return (
+      <svg {...common}>
+        <path d="M12 3.5 19 6v5.4c0 4.3-2.8 8-7 9.1-4.2-1.1-7-4.8-7-9.1V6l7-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'star') {
+    return (
+      <svg {...common}>
+        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common}>
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -1064,46 +1347,52 @@ function shortName(name: string) {
   return name.split('@')[0].split(' ')[0];
 }
 
-function getImageFromCourse(course: AnyRecord) {
+function getCourseSlug(course: AnyRecord) {
+  return String(course?.slug || course?.id || '');
+}
+
+function getCourseImage(course: AnyRecord) {
   return (
-    course.cover_image ||
-    course.cover_image_url ||
-    course.image ||
-    course.image_url ||
-    course.thumbnail ||
-    course.thumbnail_url ||
+    course?.cover_image ||
+    course?.cover_image_url ||
+    course?.image ||
+    course?.image_url ||
+    course?.thumbnail ||
+    course?.thumbnail_url ||
     'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1600&q=80'
   );
 }
 
-function getCourseImageStyle(course: AnyRecord): CSSProperties {
-  return {
-    backgroundImage: `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.92)), url(${getImageFromCourse(
-      course
-    )})`,
-  };
-}
-
-function getSpotlightBackground(course: AnyRecord): CSSProperties {
-  return {
-    backgroundImage: `url(${getImageFromCourse(course)})`,
-  };
+function getCourseBackground(course: AnyRecord) {
+  return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.92)), url(${getCourseImage(course)})`;
 }
 
 const styles: Record<string, CSSProperties> = {
-  page: {
+  loadingPage: {
     minHeight: '100vh',
-    display: 'grid',
-    gridTemplateColumns: '300px minmax(0, 1fr)',
     background: bg,
     color: white,
+    position: 'relative',
+    display: 'grid',
+    placeItems: 'center',
+    overflow: 'hidden',
     fontFamily:
       'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    position: 'relative',
-    overflow: 'hidden',
   },
 
-  bgLayer: {
+  page: {
+    minHeight: '100vh',
+    background: bg,
+    color: white,
+    position: 'relative',
+    overflow: 'hidden',
+    display: 'grid',
+    gridTemplateColumns: '282px minmax(0, 1fr)',
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+
+  background: {
     position: 'fixed',
     inset: 0,
     pointerEvents: 'none',
@@ -1111,1164 +1400,1071 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
   },
 
-  bgOrbA: {
+  orbOne: {
     position: 'absolute',
     width: 520,
     height: 520,
     borderRadius: 999,
-    top: -180,
+    top: -220,
     left: -180,
-    background: 'rgba(34,214,91,0.10)',
-    filter: 'blur(90px)',
+    background: 'rgba(34,214,91,0.095)',
+    filter: 'blur(100px)',
   },
 
-  bgOrbB: {
-    position: 'absolute',
-    width: 460,
-    height: 460,
-    borderRadius: 999,
-    top: 180,
-    right: -180,
-    background: 'rgba(130,145,140,0.08)',
-    filter: 'blur(90px)',
-  },
-
-  bgOrbC: {
+  orbTwo: {
     position: 'absolute',
     width: 520,
     height: 520,
     borderRadius: 999,
-    bottom: -240,
-    left: '28%',
-    background: 'rgba(34,214,91,0.06)',
+    right: -260,
+    top: 120,
+    background: 'rgba(120,135,130,0.09)',
     filter: 'blur(110px)',
   },
 
-  bgGrid: {
+  orbThree: {
+    position: 'absolute',
+    width: 620,
+    height: 620,
+    borderRadius: 999,
+    bottom: -320,
+    left: '36%',
+    background: 'rgba(34,214,91,0.045)',
+    filter: 'blur(120px)',
+  },
+
+  gridTexture: {
     position: 'absolute',
     inset: 0,
     backgroundImage:
       'linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px)',
     backgroundSize: '42px 42px',
-    opacity: 0.35,
+    opacity: 0.42,
+    maskImage: 'radial-gradient(circle at center, black 0%, transparent 82%)',
   },
 
-  loadingWrap: {
-    position: 'relative',
-    zIndex: 1,
-    minHeight: '100vh',
-    display: 'grid',
-    placeItems: 'center',
-    gridColumn: '1 / -1',
-    padding: 24,
-  },
-
-  loadingGlass: {
-    width: 'min(720px, calc(100vw - 48px))',
-    borderRadius: 36,
+  loadingCard: {
+    width: 'min(720px, calc(100vw - 44px))',
     border: '1px solid rgba(255,255,255,0.10)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
-    backdropFilter: 'blur(20px)',
-    boxShadow: '0 30px 120px rgba(0,0,0,0.40)',
+    borderRadius: 34,
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.022))',
     padding: 36,
+    position: 'relative',
+    zIndex: 2,
+    boxShadow: '0 34px 130px rgba(0,0,0,0.45)',
   },
 
-  loadingTopLine: {
-    width: 64,
+  loadingAccent: {
+    width: 68,
     height: 4,
     borderRadius: 999,
     background: green,
-    boxShadow: '0 0 30px rgba(34,214,91,0.45)',
+    boxShadow: '0 0 28px rgba(34,214,91,0.45)',
     marginBottom: 24,
   },
 
-  loadingTitle: {
-    margin: '16px 0 0',
-    fontSize: 'clamp(42px, 6vw, 74px)',
-    lineHeight: 0.95,
+  kicker: {
+    margin: '26px 0 0',
+    color: green,
+    textTransform: 'uppercase',
+    letterSpacing: '0.26em',
+    fontSize: 12,
     fontWeight: 950,
-    letterSpacing: '-0.06em',
+  },
+
+  loadingTitle: {
+    margin: '14px 0 0',
+    fontSize: 'clamp(44px, 6vw, 76px)',
+    lineHeight: 0.92,
+    letterSpacing: '-0.065em',
+    fontWeight: 950,
   },
 
   loadingText: {
-    marginTop: 16,
-    color: 'rgba(242,244,241,0.66)',
+    color: muted,
     lineHeight: 1.8,
-    fontSize: 15,
     maxWidth: 620,
+    marginTop: 16,
   },
 
   sidebar: {
-    minHeight: '100vh',
-    position: 'sticky',
-    top: 0,
-    alignSelf: 'start',
+    position: 'relative',
     zIndex: 2,
-    padding: 24,
+    minHeight: '100vh',
+    borderRight: '1px solid rgba(255,255,255,0.07)',
+    background: 'linear-gradient(180deg, rgba(6,9,8,0.97), rgba(3,5,4,0.93))',
+    padding: 22,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
-    borderRight: '1px solid rgba(255,255,255,0.07)',
-    background:
-      'linear-gradient(180deg, rgba(8,11,10,0.96), rgba(5,7,6,0.88))',
-    backdropFilter: 'blur(18px)',
   },
 
-  sidebarTop: {
-    minHeight: 42,
+  logoBlock: {
+    height: 58,
     display: 'flex',
     alignItems: 'center',
-  },
-
-  studentCard: {
-    marginTop: 24,
-    borderRadius: 24,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))',
-    padding: 16,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    boxShadow: '0 20px 70px rgba(0,0,0,0.22)',
-  },
-
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 999,
-    display: 'grid',
-    placeItems: 'center',
-    background: 'rgba(34,214,91,0.12)',
-    border: '1px solid rgba(34,214,91,0.28)',
-    color: green,
-    fontWeight: 950,
-    fontSize: 15,
-    boxShadow: '0 0 24px rgba(34,214,91,0.12)',
-    flexShrink: 0,
-  },
-
-  studentText: {
-    minWidth: 0,
-  },
-
-  studentName: {
-    margin: 0,
-    fontSize: 13,
-    fontWeight: 900,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: 180,
-  },
-
-  studentRole: {
-    margin: '4px 0 0',
-    color: 'rgba(242,244,241,0.50)',
-    fontSize: 12,
-  },
-
-  sidebarProgressCard: {
-    marginTop: 16,
-    borderRadius: 22,
-    border: '1px solid rgba(34,214,91,0.15)',
-    background: 'rgba(34,214,91,0.05)',
-    padding: 16,
-  },
-
-  sidebarProgressTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    gap: 12,
-  },
-
-  sidebarProgressLabel: {
-    color: 'rgba(242,244,241,0.52)',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.16em',
-    fontWeight: 900,
-  },
-
-  sidebarProgressValue: {
-    color: green,
-    fontSize: 28,
-    lineHeight: 1,
-    fontWeight: 950,
-    letterSpacing: '-0.04em',
-  },
-
-  sidebarSmallText: {
-    marginTop: 12,
-    color: 'rgba(242,244,241,0.52)',
-    fontSize: 12,
-    lineHeight: 1.7,
+    marginBottom: 24,
   },
 
   nav: {
     display: 'grid',
-    gap: 10,
-    marginTop: 26,
+    gap: 6,
   },
 
   navButton: {
+    border: '1px solid transparent',
+    background: 'transparent',
+    color: 'rgba(244,246,242,0.62)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
     width: '100%',
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(255,255,255,0.03)',
-    color: 'rgba(242,244,241,0.72)',
-    borderRadius: 18,
-    padding: '14px 15px',
+    borderRadius: 0,
+    padding: '13px 14px',
     textAlign: 'left',
     cursor: 'pointer',
+    position: 'relative',
   },
 
   navActive: {
-    width: '100%',
-    border: '1px solid rgba(34,214,91,0.28)',
+    border: '1px solid rgba(34,214,91,0.12)',
     background:
-      'linear-gradient(135deg, rgba(34,214,91,0.15), rgba(34,214,91,0.06))',
+      'linear-gradient(90deg, rgba(34,214,91,0.18), rgba(34,214,91,0.035) 70%, transparent)',
     color: green,
-    borderRadius: 18,
-    padding: '14px 15px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    width: '100%',
+    borderRadius: 0,
+    padding: '13px 14px',
     textAlign: 'left',
     cursor: 'pointer',
-    boxShadow: '0 0 28px rgba(34,214,91,0.08)',
-  },
-
-  navLabel: {
-    display: 'block',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: '0.13em',
-    fontWeight: 950,
-  },
-
-  navHelper: {
-    display: 'block',
-    marginTop: 4,
-    fontSize: 11,
-    color: 'rgba(242,244,241,0.44)',
-    fontWeight: 600,
-  },
-
-  sidebarFooter: {
-    display: 'grid',
-    gap: 12,
-  },
-
-  sidebarPrimaryLink: {
-    display: 'block',
-    textDecoration: 'none',
-    textAlign: 'center',
-    border: '1px solid rgba(34,214,91,0.28)',
-    background: 'rgba(34,214,91,0.08)',
-    color: green,
-    borderRadius: 16,
-    padding: 14,
-    fontSize: 12,
-    fontWeight: 950,
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-  },
-
-  sidebarDangerButton: {
-    border: '1px solid rgba(255,80,80,0.34)',
-    background: 'rgba(255,80,80,0.10)',
-    color: '#ff9f9f',
-    borderRadius: 16,
-    padding: 14,
-    fontSize: 12,
-    fontWeight: 950,
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-  },
-
-  content: {
     position: 'relative',
-    zIndex: 1,
-    minWidth: 0,
-    padding: 30,
-    overflow: 'auto',
+    boxShadow: 'inset 3px 0 0 rgba(34,214,91,0.95)',
   },
 
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 24,
-    marginBottom: 22,
-  },
-
-  headerCopy: {
-    maxWidth: 860,
-  },
-
-  headerActions: {
-    display: 'flex',
-    gap: 12,
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+  navIcon: {
+    width: 22,
+    height: 22,
+    display: 'grid',
+    placeItems: 'center',
+    color: 'rgba(244,246,242,0.50)',
     flexShrink: 0,
   },
 
-  kicker: {
-    margin: '0 0 12px',
+  navIconActive: {
+    width: 22,
+    height: 22,
+    display: 'grid',
+    placeItems: 'center',
     color: green,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: '0.28em',
-    fontWeight: 950,
+    flexShrink: 0,
   },
 
-  title: {
-    margin: 0,
-    fontSize: 'clamp(44px, 5.2vw, 78px)',
-    lineHeight: 0.92,
-    fontWeight: 950,
-    letterSpacing: '-0.065em',
+  navText: {
+    display: 'grid',
+    gap: 3,
   },
 
-  subtitle: {
-    marginTop: 16,
-    maxWidth: 760,
-    color: 'rgba(242,244,241,0.66)',
-    fontSize: 15,
-    lineHeight: 1.8,
+  sidebarDivider: {
+    height: 1,
+    background: 'rgba(255,255,255,0.08)',
+    margin: '22px 0',
   },
 
-  topTabBar: {
-    display: 'flex',
-    gap: 10,
-    flexWrap: 'wrap',
-    marginBottom: 24,
-  },
-
-  topTab: {
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.03)',
-    color: 'rgba(242,244,241,0.72)',
-    borderRadius: 999,
-    padding: '11px 16px',
-    fontSize: 12,
-    fontWeight: 900,
-    letterSpacing: '0.10em',
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-  },
-
-  topTabActive: {
-    border: '1px solid rgba(34,214,91,0.28)',
-    background: 'rgba(34,214,91,0.10)',
-    color: green,
-    borderRadius: 999,
-    padding: '11px 16px',
-    fontSize: 12,
-    fontWeight: 950,
-    letterSpacing: '0.10em',
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-    boxShadow: '0 0 24px rgba(34,214,91,0.08)',
-  },
-
-  notice: {
-    padding: '18px 20px',
-    borderRadius: 22,
-    border: '1px solid rgba(34,214,91,0.22)',
-    color: 'rgba(242,244,241,0.72)',
-    marginBottom: 20,
+  sidebarUserBox: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
     background: 'rgba(255,255,255,0.035)',
-    backdropFilter: 'blur(16px)',
+    padding: 18,
   },
 
-  stack: {
+  sidebarUserTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+  },
+
+  avatarLarge: {
+    width: 52,
+    height: 52,
+    borderRadius: 999,
+    background: 'rgba(34,214,91,0.11)',
+    border: '1px solid rgba(34,214,91,0.24)',
+    color: green,
     display: 'grid',
-    gap: 22,
+    placeItems: 'center',
+    fontWeight: 950,
+    fontSize: 17,
+    flexShrink: 0,
   },
 
-  summaryGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.6fr) minmax(320px, 0.9fr)',
-    gap: 18,
+  sidebarUserText: {
+    minWidth: 0,
   },
 
-  spotlightCard: {
-    position: 'relative',
-    minHeight: 460,
-    borderRadius: 34,
+  sidebarUserName: {
+    margin: 0,
+    fontWeight: 900,
+    fontSize: 16,
+    whiteSpace: 'nowrap',
     overflow: 'hidden',
-    border: '1px solid rgba(255,255,255,0.10)',
-    backgroundColor: graphite,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    boxShadow: '0 28px 120px rgba(0,0,0,0.30)',
+    textOverflow: 'ellipsis',
+    maxWidth: 150,
   },
 
-  spotlightOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background:
-      'linear-gradient(90deg, rgba(5,7,6,0.10), rgba(5,7,6,0.72) 42%, rgba(5,7,6,0.95) 100%), linear-gradient(180deg, rgba(34,214,91,0.10), transparent 42%)',
+  sidebarUserRole: {
+    margin: '4px 0 0',
+    color: muted,
+    fontSize: 13,
   },
 
-  spotlightContent: {
+  proPill: {
+    marginLeft: 6,
+    color: green,
+    background: 'rgba(34,214,91,0.12)',
+    borderRadius: 999,
+    padding: '2px 7px',
+    fontSize: 11,
+    fontWeight: 800,
+  },
+
+  xpBox: {
+    borderTop: '1px solid rgba(255,255,255,0.08)',
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
+    padding: '16px 0',
+    marginTop: 18,
+  },
+
+  xpRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    color: muted,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+  },
+
+  progressTrackSubtle: {
+    height: 7,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+
+  signOutButton: {
+    marginTop: 18,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 10,
+    background: 'transparent',
+    border: '0',
+    color: 'rgba(244,246,242,0.58)',
+    fontSize: 13,
+    cursor: 'pointer',
+    padding: 0,
+  },
+
+  appShell: {
     position: 'relative',
     zIndex: 1,
-    height: '100%',
+    padding: 24,
+    overflow: 'auto',
+    height: '100vh',
+  },
+
+  topbar: {
+    height: 64,
     display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'flex-end',
-    padding: 28,
-  },
-
-  spotlightBadgeRow: {
-    display: 'flex',
-    gap: 8,
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-
-  spotlightMiniBadge: {
-    borderRadius: 999,
-    background: green,
-    color: '#061008',
-    padding: '7px 10px',
-    fontSize: 10,
-    fontWeight: 950,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-  },
-
-  spotlightMiniGhost: {
-    borderRadius: 999,
-    border: '1px solid rgba(255,255,255,0.18)',
-    background: 'rgba(255,255,255,0.08)',
-    color: white,
-    padding: '7px 10px',
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-  },
-
-  spotlightKicker: {
-    margin: 0,
-    color: green,
-    fontSize: 12,
-    letterSpacing: '0.26em',
-    textTransform: 'uppercase',
-    fontWeight: 950,
-  },
-
-  spotlightTitle: {
-    margin: '12px 0 0',
-    fontSize: 'clamp(34px, 4vw, 58px)',
-    lineHeight: 0.95,
-    fontWeight: 950,
-    letterSpacing: '-0.05em',
-    maxWidth: 780,
-  },
-
-  spotlightText: {
-    marginTop: 14,
-    maxWidth: 760,
-    color: 'rgba(242,244,241,0.78)',
-    fontSize: 15,
-    lineHeight: 1.8,
-  },
-
-  spotlightMetaRow: {
-    display: 'flex',
-    gap: 10,
-    flexWrap: 'wrap',
-    marginTop: 20,
-  },
-
-  metricChip: {
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.12)',
-    background: 'rgba(0,0,0,0.28)',
-    padding: '12px 14px',
-    minWidth: 118,
-  },
-
-  metricChipLabel: {
-    display: 'block',
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.16em',
-    color: 'rgba(242,244,241,0.48)',
-    fontWeight: 900,
-  },
-
-  metricChipValue: {
-    display: 'block',
-    marginTop: 7,
-    color: white,
-    fontWeight: 950,
-    fontSize: 18,
-    letterSpacing: '-0.02em',
-  },
-
-  spotlightProgressWrap: {
-    marginTop: 18,
-    maxWidth: 720,
-  },
-
-  progressTrackStrong: {
-    height: 12,
-    borderRadius: 999,
-    overflow: 'hidden',
-    background: 'rgba(255,255,255,0.12)',
-  },
-
-  spotlightActions: {
-    display: 'flex',
-    gap: 14,
-    flexWrap: 'wrap',
     alignItems: 'center',
-    marginTop: 22,
-  },
-
-  sideColumn: {
-    display: 'grid',
-    gap: 18,
-  },
-
-  performanceCard: {
-    borderRadius: 30,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
-    padding: 22,
-    boxShadow: '0 24px 100px rgba(0,0,0,0.22)',
-    backdropFilter: 'blur(18px)',
-  },
-
-  cardHeaderRow: {
-    display: 'flex',
     justifyContent: 'space-between',
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-
-  livePill: {
-    borderRadius: 999,
-    border: '1px solid rgba(34,214,91,0.28)',
-    background: 'rgba(34,214,91,0.08)',
-    color: green,
-    padding: '7px 10px',
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    fontWeight: 950,
-    whiteSpace: 'nowrap',
-  },
-
-  cardTitle: {
-    margin: '8px 0 0',
-    fontSize: 24,
-    lineHeight: 1.02,
-    fontWeight: 950,
-    letterSpacing: '-0.03em',
-  },
-
-  cardText: {
-    marginTop: 10,
-    color: 'rgba(242,244,241,0.64)',
-    fontSize: 14,
-    lineHeight: 1.75,
-  },
-
-  miniInsightCard: {
-    borderRadius: 30,
-    border: '1px solid rgba(255,255,255,0.10)',
-    background: 'rgba(255,255,255,0.04)',
-    padding: 22,
-    boxShadow: '0 24px 100px rgba(0,0,0,0.18)',
-  },
-
-  insightDivider: {
-    height: 1,
-    background: 'rgba(255,255,255,0.10)',
-    margin: '18px 0',
-  },
-
-  cardMiniNote: {
-    margin: 0,
-    color: steel,
-    fontSize: 13,
-    lineHeight: 1.75,
-  },
-
-  ringWrap: {
-    display: 'flex',
-    justifyContent: 'center',
-    margin: '20px 0 18px',
-  },
-
-  ring: {
-    width: 176,
-    height: 176,
-    borderRadius: 999,
-    display: 'grid',
-    placeItems: 'center',
-    boxShadow: '0 0 32px rgba(34,214,91,0.10)',
-  },
-
-  ringInner: {
-    width: 132,
-    height: 132,
-    borderRadius: 999,
-    display: 'grid',
-    placeItems: 'center',
-    background: '#080B0A',
-    border: '1px solid rgba(255,255,255,0.10)',
-    textAlign: 'center',
-  },
-
-  ringNumber: {
-    display: 'block',
-    fontSize: 36,
-    fontWeight: 950,
-    lineHeight: 1,
-    letterSpacing: '-0.04em',
-  },
-
-  ringLabel: {
-    display: 'block',
-    marginTop: -24,
-    color: 'rgba(242,244,241,0.48)',
-    fontSize: 12,
-  },
-
-  quickStatsGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 10,
-  },
-
-  quickStat: {
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(0,0,0,0.24)',
-    padding: 12,
-  },
-
-  quickStatLabel: {
-    display: 'block',
-    color: 'rgba(242,244,241,0.46)',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    fontWeight: 900,
-  },
-
-  quickStatValue: {
-    display: 'block',
-    marginTop: 8,
-    color: white,
-    fontWeight: 950,
-    fontSize: 24,
-    lineHeight: 1,
-  },
-
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-    gap: 16,
-  },
-
-  statCard: {
-    borderRadius: 26,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-    padding: 20,
-    boxShadow: '0 20px 70px rgba(0,0,0,0.16)',
-  },
-
-  smallLabel: {
-    margin: 0,
-    color: 'rgba(242,244,241,0.44)',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.18em',
-    fontWeight: 900,
-  },
-
-  statValue: {
-    display: 'block',
-    marginTop: 12,
-    color: green,
-    fontSize: 38,
-    lineHeight: 1,
-    fontWeight: 950,
-    letterSpacing: '-0.04em',
-  },
-
-  statHelper: {
-    marginTop: 10,
-    color: 'rgba(242,244,241,0.54)',
-    fontSize: 13,
-    lineHeight: 1.6,
-  },
-
-  lowerGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 18,
-  },
-
-  panel: {
-    borderRadius: 30,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-    padding: 22,
-    boxShadow: '0 24px 90px rgba(0,0,0,0.18)',
-  },
-
-  panelHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    gap: 18,
+    gap: 20,
     marginBottom: 18,
   },
 
-  sectionLabel: {
+  topbarEyebrow: {
     margin: 0,
-    color: green,
-    fontSize: 12,
-    fontWeight: 950,
-    letterSpacing: '0.24em',
+    color: soft,
     textTransform: 'uppercase',
+    letterSpacing: '0.16em',
+    fontSize: 11,
+    fontWeight: 800,
   },
 
-  sectionTitle: {
-    margin: '8px 0 0',
-    fontSize: 30,
-    lineHeight: 1,
-    fontWeight: 950,
-    letterSpacing: '-0.04em',
-  },
-
-  activityList: {
-    display: 'grid',
-    gap: 14,
-  },
-
-  activityItem: {
-    display: 'grid',
-    gridTemplateColumns: '12px 1fr',
-    gap: 14,
-    alignItems: 'start',
-    borderRadius: 20,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(0,0,0,0.22)',
-    padding: 16,
-  },
-
-  activityDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    background: green,
-    boxShadow: '0 0 18px rgba(34,214,91,0.38)',
-    marginTop: 6,
-  },
-
-  activityTitle: {
-    margin: 0,
-    fontSize: 17,
-    fontWeight: 950,
-    letterSpacing: '-0.02em',
-  },
-
-  infoGridTwo: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 12,
-  },
-
-  infoGridThree: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 10,
-    marginTop: 18,
-  },
-
-  infoCard: {
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(0,0,0,0.22)',
-    padding: 14,
-  },
-
-  infoCardValue: {
-    display: 'block',
-    marginTop: 8,
+  topbarTitle: {
+    margin: '4px 0 0',
     color: white,
-    fontWeight: 900,
-    lineHeight: 1.5,
-    wordBreak: 'break-word',
-  },
-
-  noteCard: {
-    marginTop: 18,
-    borderRadius: 22,
-    border: '1px solid rgba(34,214,91,0.16)',
-    background: 'rgba(34,214,91,0.05)',
-    padding: 16,
-  },
-
-  noteTitle: {
-    margin: 0,
-    color: white,
-    fontSize: 16,
-    fontWeight: 950,
-  },
-
-  cardsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: 18,
-  },
-
-  courseCard: {
-    borderRadius: 28,
-    overflow: 'hidden',
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: 'rgba(255,255,255,0.04)',
-    boxShadow: '0 24px 90px rgba(0,0,0,0.18)',
-  },
-
-  courseImage: {
-    height: 170,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    position: 'relative',
-  },
-
-  courseImageOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background:
-      'linear-gradient(180deg, rgba(5,7,6,0.06), rgba(5,7,6,0.88)), radial-gradient(circle at top right, rgba(34,214,91,0.18), transparent 34%)',
-  },
-
-  courseBody: {
-    padding: 22,
-  },
-
-  badgeRow: {
-    display: 'flex',
-    gap: 8,
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-
-  badgeMain: {
-    background: green,
-    color: '#061008',
-    borderRadius: 999,
-    padding: '7px 10px',
-    fontSize: 10,
-    fontWeight: 950,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-  },
-
-  badgeSecondary: {
-    border: '1px solid rgba(255,255,255,0.13)',
-    color: 'rgba(242,244,241,0.72)',
-    borderRadius: 999,
-    padding: '7px 10px',
-    fontSize: 10,
-    fontWeight: 900,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-  },
-
-  badgeCompleted: {
-    background: 'rgba(34,214,91,0.12)',
-    border: '1px solid rgba(34,214,91,0.32)',
-    color: green,
-    borderRadius: 999,
-    padding: '7px 10px',
-    fontSize: 10,
-    fontWeight: 900,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-  },
-
-  badgeSoft: {
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    color: white,
-    borderRadius: 999,
-    padding: '7px 10px',
-    fontSize: 10,
-    fontWeight: 900,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-  },
-
-  courseTitle: {
-    margin: 0,
     fontSize: 26,
-    lineHeight: 1.04,
-    fontWeight: 950,
+    lineHeight: 1,
+    fontWeight: 900,
     letterSpacing: '-0.03em',
   },
 
-  courseSubtitle: {
-    margin: '10px 0 0',
-    color: green,
-    fontSize: 14,
+  topbarRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+  },
+
+  topbarLink: {
+    color: 'rgba(244,246,242,0.65)',
+    textDecoration: 'none',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
     fontWeight: 850,
-    lineHeight: 1.6,
   },
 
-  courseText: {
-    marginTop: 12,
-    color: 'rgba(242,244,241,0.64)',
-    fontSize: 14,
-    lineHeight: 1.75,
-    minHeight: 74,
-  },
-
-  infoMini: {
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(0,0,0,0.22)',
-    padding: 12,
-  },
-
-  infoMiniValue: {
-    margin: '7px 0 0',
-    color: white,
+  topbarLinkStrong: {
+    color: green,
+    textDecoration: 'none',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
     fontWeight: 900,
-    lineHeight: 1.35,
-    wordBreak: 'break-word',
+  },
+
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: 'rgba(255,255,255,0.035)',
+    color: 'rgba(244,246,242,0.75)',
+    display: 'grid',
+    placeItems: 'center',
+    position: 'relative',
+  },
+
+  notificationDot: {
+    position: 'absolute',
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    background: green,
+    right: 9,
+    top: 8,
+  },
+
+  userMini: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    borderLeft: '1px solid rgba(255,255,255,0.08)',
+    paddingLeft: 16,
+  },
+
+  welcomeText: {
+    margin: 0,
+    color: soft,
+    fontSize: 12,
+  },
+
+  userMiniName: {
+    margin: '2px 0 0',
+    fontWeight: 850,
+  },
+
+  avatarMini: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    border: '1px solid rgba(34,214,91,0.20)',
+    background: 'rgba(34,214,91,0.09)',
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+    fontWeight: 900,
+  },
+
+  notice: {
+    marginBottom: 16,
+    borderRadius: 16,
+    border: '1px solid rgba(34,214,91,0.20)',
+    background: 'rgba(34,214,91,0.06)',
+    color: muted,
+    padding: 16,
+  },
+
+  dashboardGrid: {
+    display: 'grid',
+    gap: 18,
+  },
+
+  topCardsGrid: {
+    display: 'grid',
+    gridTemplateColumns: '350px minmax(0, 1fr)',
+    gap: 18,
+  },
+
+  progressCard: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 22,
+    minHeight: 342,
+  },
+
+  cardTitle: {
+    margin: 0,
+    fontSize: 18,
+    fontWeight: 850,
+    letterSpacing: '-0.02em',
+  },
+
+  progressRingWrap: {
+    display: 'flex',
+    justifyContent: 'center',
+    margin: '20px 0 12px',
+  },
+
+  progressRing: {
+    width: 168,
+    height: 168,
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    boxShadow: '0 0 42px rgba(34,214,91,0.11)',
+  },
+
+  progressRingInner: {
+    width: 122,
+    height: 122,
+    borderRadius: 999,
+    background: '#080B0A',
+    border: '1px solid rgba(255,255,255,0.10)',
+    display: 'grid',
+    placeItems: 'center',
+    textAlign: 'center',
+  },
+
+  centerText: {
+    maxWidth: 270,
+    color: muted,
+    textAlign: 'center',
+    lineHeight: 1.6,
+    margin: '10px auto 18px',
+  },
+
+  progressMiniStats: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+
+  miniStat: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 11,
+    padding: 14,
+    color: muted,
+    borderRight: '1px solid rgba(255,255,255,0.08)',
+  },
+
+  nextModuleCard: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    minHeight: 342,
+    display: 'grid',
+    gridTemplateColumns: '0.72fr 1fr',
+    overflow: 'hidden',
+  },
+
+  athleteVisual: {
+    position: 'relative',
+    background:
+      'linear-gradient(90deg, rgba(5,7,6,0.05), rgba(5,7,6,0.92)), url(https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    filter: 'grayscale(1) contrast(1.08) brightness(0.70)',
+  },
+
+  athleteGlow: {
+    position: 'absolute',
+    inset: 0,
+    background: 'radial-gradient(circle at 55% 42%, rgba(34,214,91,0.18), transparent 35%)',
+  },
+
+  athleteLabel: {
+    position: 'absolute',
+    left: 22,
+    bottom: 20,
+    color: 'rgba(244,246,242,0.34)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.18em',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+
+  nextContent: {
+    padding: 28,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+
+  inProgressLabel: {
+    margin: 0,
+    color: green,
+    textTransform: 'uppercase',
+    letterSpacing: '0.16em',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+
+  nextTitle: {
+    margin: '12px 0 0',
+    fontSize: 30,
+    lineHeight: 1.05,
+    letterSpacing: '-0.035em',
+    fontWeight: 900,
+  },
+
+  nextDescription: {
+    margin: '12px 0 0',
+    color: muted,
+    fontSize: 15,
+    lineHeight: 1.65,
+    maxWidth: 540,
+  },
+
+  nextMeta: {
+    display: 'flex',
+    gap: 20,
+    flexWrap: 'wrap',
+    marginTop: 22,
+    color: muted,
+  },
+
+  metaItem: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 13,
+  },
+
+  nextProgressBlock: {
+    marginTop: 'auto',
+    paddingTop: 26,
   },
 
   progressTrack: {
-    height: 10,
+    height: 8,
     borderRadius: 999,
-    overflow: 'hidden',
     background: 'rgba(255,255,255,0.10)',
-    marginTop: 18,
-  },
-
-  progressTrackSoft: {
-    height: 9,
-    borderRadius: 999,
     overflow: 'hidden',
-    background: 'rgba(255,255,255,0.10)',
-    marginTop: 12,
   },
 
   progressFill: {
     height: '100%',
     borderRadius: 999,
     background: green,
-    boxShadow: '0 0 18px rgba(34,214,91,0.35)',
+    boxShadow: '0 0 24px rgba(34,214,91,0.32)',
+  },
+
+  continueButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: 42,
+    borderRadius: 10,
+    border: '1px solid rgba(34,214,91,0.22)',
+    background: 'linear-gradient(135deg, rgba(34,214,91,0.95), rgba(74,222,128,0.78))',
+    color: '#061008',
+    textDecoration: 'none',
+    fontWeight: 900,
+    fontSize: 13,
+    padding: '0 18px',
+    marginTop: 12,
+    width: 'fit-content',
+  },
+
+  panel: {
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 20,
+  },
+
+  panelTitle: {
+    margin: '0 0 18px',
+    fontSize: 22,
+    lineHeight: 1,
+    fontWeight: 900,
+    letterSpacing: '-0.035em',
+  },
+
+  curriculumList: {
+    display: 'grid',
+    gap: 8,
+  },
+
+  curriculumRow: {
+    minHeight: 56,
+    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.06)',
+    background: 'rgba(255,255,255,0.026)',
+    display: 'grid',
+    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    alignItems: 'center',
+    gap: 14,
+    padding: '12px 14px',
+    textDecoration: 'none',
+    color: white,
+  },
+
+  curriculumRowActive: {
+    minHeight: 64,
+    borderRadius: 12,
+    border: '1px solid rgba(34,214,91,0.55)',
+    background: 'linear-gradient(90deg, rgba(34,214,91,0.13), rgba(34,214,91,0.035))',
+    display: 'grid',
+    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    alignItems: 'center',
+    gap: 14,
+    padding: '12px 14px',
+    textDecoration: 'none',
+    color: white,
+    boxShadow: 'inset 0 0 0 1px rgba(34,214,91,0.08), 0 0 34px rgba(34,214,91,0.055)',
+  },
+
+  curriculumRowLocked: {
+    minHeight: 56,
+    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.05)',
+    background: 'rgba(255,255,255,0.018)',
+    display: 'grid',
+    gridTemplateColumns: '42px minmax(0,1fr) auto',
+    alignItems: 'center',
+    gap: 14,
+    padding: '12px 14px',
+    color: 'rgba(244,246,242,0.42)',
+  },
+
+  curriculumIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    display: 'grid',
+    placeItems: 'center',
+    color: muted,
+  },
+
+  curriculumIconDone: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: '1px solid rgba(34,214,91,0.28)',
+    background: 'rgba(34,214,91,0.08)',
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+  },
+
+  curriculumIconActive: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: '1px solid rgba(34,214,91,0.34)',
+    background: 'rgba(34,214,91,0.10)',
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+  },
+
+  curriculumIconLocked: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.08)',
+    display: 'grid',
+    placeItems: 'center',
+    color: 'rgba(244,246,242,0.35)',
+  },
+
+  curriculumMain: {
+    minWidth: 0,
+  },
+
+  moduleLabelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  moduleLabel: {
+    margin: 0,
+    color: green,
+    textTransform: 'uppercase',
+    letterSpacing: '0.13em',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
+  inProgressMini: {
+    borderRadius: 999,
+    background: 'rgba(34,214,91,0.12)',
+    color: green,
+    padding: '3px 8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    fontSize: 9,
+    fontWeight: 900,
+  },
+
+  curriculumRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    color: muted,
+    fontSize: 13,
+  },
+
+  arrowBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    background: 'rgba(34,214,91,0.85)',
+    color: '#061008',
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  checkCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    border: '1px solid rgba(34,214,91,0.30)',
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  lockedText: {
+    color: soft,
+    fontSize: 13,
+  },
+
+  curriculumProgressTrack: {
+    height: 5,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+
+  bottomGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 18,
+  },
+
+  examCard: {
+    minHeight: 240,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background:
+      'linear-gradient(90deg, rgba(11,15,13,0.98), rgba(11,15,13,0.86)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    padding: 22,
+    display: 'grid',
+    gridTemplateColumns: '1fr 160px',
+    overflow: 'hidden',
+  },
+
+  certificationCard: {
+    minHeight: 240,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+    padding: 22,
+    display: 'grid',
+    gridTemplateColumns: '1fr 170px',
+    overflow: 'hidden',
+  },
+
+  examContent: {
+    minWidth: 0,
+  },
+
+  certContent: {
+    minWidth: 0,
+  },
+
+  largeCardTitle: {
+    margin: 0,
+    fontSize: 26,
+    letterSpacing: '-0.04em',
+    fontWeight: 900,
+  },
+
+  cardDescription: {
+    color: muted,
+    fontSize: 15,
+    lineHeight: 1.7,
+    maxWidth: 450,
+  },
+
+  darkButton: {
+    minHeight: 42,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.045)',
+    color: white,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '0 16px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    marginTop: 10,
+  },
+
+  featureRow: {
+    display: 'flex',
+    gap: 16,
+    flexWrap: 'wrap',
+    marginTop: 26,
+    color: muted,
+    fontSize: 12,
+  },
+
+  feature: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  examVisual: {
+    fontSize: 150,
+    lineHeight: 1,
+    color: 'rgba(244,246,242,0.08)',
+    fontWeight: 950,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  medalVisual: {
+    display: 'grid',
+    placeItems: 'center',
+    color: 'rgba(244,246,242,0.18)',
+    transform: 'scale(4)',
+  },
+
+  sectionStack: {
+    display: 'grid',
+    gap: 18,
+  },
+
+  courseGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+    gap: 18,
+  },
+
+  courseCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
+  },
+
+  courseImage: {
+    height: 174,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    position: 'relative',
+    filter: 'grayscale(1) contrast(1.04) brightness(0.82)',
+  },
+
+  courseImageOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background:
+      'linear-gradient(180deg, rgba(5,7,6,0.05), rgba(5,7,6,0.88)), radial-gradient(circle at top right, rgba(34,214,91,0.16), transparent 34%)',
+  },
+
+  courseCardBody: {
+    padding: 20,
+  },
+
+  badgeRow: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginBottom: 14,
+  },
+
+  badgeGreen: {
+    borderRadius: 999,
+    background: 'rgba(34,214,91,0.12)',
+    border: '1px solid rgba(34,214,91,0.26)',
+    color: green,
+    padding: '6px 9px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.11em',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
+  badgeDark: {
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.045)',
+    border: '1px solid rgba(255,255,255,0.09)',
+    color: muted,
+    padding: '6px 9px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.11em',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
+  courseCardTitle: {
+    margin: 0,
+    fontSize: 24,
+    lineHeight: 1.05,
+    letterSpacing: '-0.035em',
+    fontWeight: 900,
+  },
+
+  courseCardText: {
+    color: muted,
+    lineHeight: 1.65,
+    fontSize: 14,
+    minHeight: 66,
+  },
+
+  courseStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 10,
+    marginTop: 16,
   },
 
   cardActions: {
-    display: 'grid',
-    gridTemplateColumns: '1fr auto',
-    gap: 12,
-    alignItems: 'center',
-    marginTop: 18,
-  },
-
-  primaryButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textDecoration: 'none',
-    borderRadius: 15,
-    background: green,
-    color: '#061008',
-    padding: '14px 16px',
-    fontSize: 12,
-    fontWeight: 950,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    boxShadow: '0 0 28px rgba(34,214,91,0.18)',
-    textAlign: 'center',
-  },
-
-  secondaryButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textDecoration: 'none',
-    borderRadius: 15,
-    background: 'rgba(34,214,91,0.08)',
-    color: green,
-    border: '1px solid rgba(34,214,91,0.28)',
-    padding: '14px 16px',
-    fontSize: 12,
-    fontWeight: 950,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    textAlign: 'center',
-  },
-
-  ghostButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textDecoration: 'none',
-    borderRadius: 15,
-    background: 'rgba(255,255,255,0.04)',
-    color: 'rgba(242,244,241,0.76)',
-    border: '1px solid rgba(255,255,255,0.10)',
-    padding: '14px 16px',
-    fontSize: 12,
-    fontWeight: 950,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    textAlign: 'center',
-  },
-
-  inlineLink: {
-    color: green,
-    textDecoration: 'none',
-    fontSize: 12,
-    fontWeight: 950,
-    letterSpacing: '0.10em',
-    textTransform: 'uppercase',
-  },
-
-  inlineLinkLight: {
-    color: white,
-    textDecoration: 'none',
-    fontSize: 12,
-    fontWeight: 950,
-    letterSpacing: '0.10em',
-    textTransform: 'uppercase',
-  },
-
-  progressList: {
-    display: 'grid',
-    gap: 14,
-  },
-
-  progressRow: {
-    borderRadius: 22,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(0,0,0,0.22)',
-    padding: 16,
-    display: 'grid',
-    gridTemplateColumns: '1fr 180px',
-    gap: 16,
-    alignItems: 'center',
-  },
-
-  progressLeft: {
-    minWidth: 0,
-  },
-
-  progressRowTop: {
     display: 'flex',
-    justifyContent: 'space-between',
-    gap: 12,
     alignItems: 'center',
-    flexWrap: 'wrap',
+    gap: 14,
+    marginTop: 16,
   },
 
-  progressCourseTitle: {
-    margin: 0,
-    fontSize: 18,
-    fontWeight: 950,
-    letterSpacing: '-0.02em',
-  },
-
-  progressPercent: {
+  textLink: {
     color: green,
-    fontSize: 18,
-    fontWeight: 950,
-  },
-
-  progressRightBox: {
-    minWidth: 0,
+    textDecoration: 'none',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    fontSize: 12,
+    fontWeight: 900,
   },
 
   certificateCard: {
-    borderRadius: 28,
-    border: '1px solid rgba(255,255,255,0.14)',
-    background: 'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(34,214,91,0.04))',
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: cardBackground(),
     padding: 22,
-    boxShadow: '0 24px 90px rgba(0,0,0,0.18)',
-  },
-
-  certificateTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
   },
 
   certificateIcon: {
     width: 56,
     height: 56,
     borderRadius: 999,
+    border: '1px solid rgba(34,214,91,0.26)',
+    background: 'rgba(34,214,91,0.08)',
     display: 'grid',
     placeItems: 'center',
-    background: 'rgba(34,214,91,0.08)',
-    border: '1px solid rgba(34,214,91,0.26)',
     color: green,
-    fontSize: 18,
-    boxShadow: '0 0 26px rgba(34,214,91,0.12)',
-    flexShrink: 0,
+    marginBottom: 16,
   },
 
-  certificateTitle: {
-    margin: '8px 0 0',
-    fontSize: 26,
-    lineHeight: 1.04,
-    fontWeight: 950,
-    letterSpacing: '-0.03em',
+  lessonsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: 12,
   },
 
-  certificateCode: {
-    marginTop: 16,
-    color: green,
-    fontSize: 13,
-    fontWeight: 900,
-    letterSpacing: '0.06em',
-    overflowWrap: 'anywhere',
-  },
-
-  emptyCard: {
-    borderRadius: 24,
+  lessonCard: {
+    borderRadius: 14,
     border: '1px solid rgba(255,255,255,0.08)',
     background: 'rgba(255,255,255,0.03)',
-    padding: 22,
+    padding: 16,
+    textDecoration: 'none',
+    color: white,
+  },
+
+  lessonStatus: {
+    display: 'inline-flex',
+    marginBottom: 10,
+    color: soft,
+    fontSize: 10,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  lessonStatusDone: {
+    display: 'inline-flex',
+    marginBottom: 10,
+    color: green,
+    fontSize: 10,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  examGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: 14,
+  },
+
+  infoBlock: {
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.03)',
+    padding: 18,
+  },
+
+  infoIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    display: 'grid',
+    placeItems: 'center',
+    color: green,
+    background: 'rgba(34,214,91,0.08)',
+    border: '1px solid rgba(34,214,91,0.18)',
+    marginBottom: 14,
   },
 
   profileGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-    gap: 14,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+    gap: 12,
   },
 
-  profileBigCard: {
-    marginTop: 18,
-    borderRadius: 26,
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: 'rgba(255,255,255,0.04)',
-    padding: 20,
+  profileStat: {
+    borderRadius: 13,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(0,0,0,0.20)',
+    padding: 13,
+    minWidth: 0,
   },
 
-  profileBigHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 16,
-    alignItems: 'flex-start',
-    marginBottom: 16,
+  emptyState: {
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.025)',
+    padding: 18,
+    color: muted,
   },
 };
+
+function cardBackground() {
+  return 'linear-gradient(145deg, rgba(255,255,255,0.060), rgba(255,255,255,0.022)), rgba(8,12,10,0.86)';
+}
