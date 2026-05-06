@@ -149,7 +149,6 @@ export default function AlumnoPage() {
             .in('course_id', courseIds);
 
           const finalModules = Array.isArray(modulesData) ? [...modulesData].sort(sortModules) : [];
-
           setModules(finalModules);
 
           const moduleIds = finalModules.map((module) => module.id).filter(Boolean);
@@ -650,6 +649,42 @@ export default function AlumnoPage() {
               </article>
 
               <article style={styles.certificationCard}>
+                <div style={styles.certificationBgPhoto} />
+                <div style={styles.certificationBgOverlay} />
+
+                <div style={styles.certificateScene}>
+                  <div style={styles.certificateSceneShadow} />
+                  <div style={styles.certificatePaper}>
+                    <div style={styles.certificatePaperShine} />
+                    <div style={styles.certificatePaperTopLine} />
+
+                    <div style={styles.certificatePaperInner}>
+                      <span style={styles.certificateMiniBrand}>GHC Academy</span>
+                      <span style={styles.certificateWord}>CERTIFICATE</span>
+                      <span style={styles.certificateOfAchievement}>of achievement</span>
+
+                      <div style={styles.certificateFakeTextBlock}>
+                        <span style={styles.certificateFakeLineLong} />
+                        <span style={styles.certificateFakeLineMedium} />
+                        <span style={styles.certificateFakeLineShort} />
+                      </div>
+
+                      <div style={styles.certificateBottomMeta}>
+                        <span style={styles.certificateSignatureLine} />
+                        <span style={styles.certificateSignatureLine} />
+                      </div>
+                    </div>
+
+                    <div style={styles.certificateSeal}>
+                      <div style={styles.certificateSealInner}>
+                        <div style={styles.certificateSealCore}>
+                          <Icon name="star" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div style={styles.certContent}>
                   <p style={styles.certKicker}>Official Credential</p>
                   <h2 style={styles.largeCardTitle}>Certification</h2>
@@ -670,39 +705,6 @@ export default function AlumnoPage() {
                   <div style={styles.featureRow}>
                     <Feature icon="shield" text="Trusted by Professionals" />
                     <Feature icon="certificate" text="Industry Recognized" />
-                  </div>
-                </div>
-
-                <div style={styles.certificateVisualWrap}>
-                  <div style={styles.certificateVisualGlow} />
-                  <div style={styles.certificateVisualCard}>
-                    <div style={styles.certificatePaper}>
-                      <div style={styles.certificatePaperTopLine} />
-                      <div style={styles.certificatePaperInner}>
-                        <span style={styles.certificateMiniBrand}>GHC Academy</span>
-                        <span style={styles.certificateWord}>CERTIFICATE</span>
-                        <span style={styles.certificateOfAchievement}>of achievement</span>
-
-                        <div style={styles.certificateFakeTextBlock}>
-                          <span style={styles.certificateFakeLineLong} />
-                          <span style={styles.certificateFakeLineMedium} />
-                          <span style={styles.certificateFakeLineShort} />
-                        </div>
-
-                        <div style={styles.certificateBottomMeta}>
-                          <span style={styles.certificateSignatureLine} />
-                          <span style={styles.certificateSignatureLine} />
-                        </div>
-                      </div>
-
-                      <div style={styles.certificateSeal}>
-                        <div style={styles.certificateSealInner}>
-                          <div style={styles.certificateSealCore}>
-                            <Icon name="star" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </article>
@@ -2376,30 +2378,223 @@ const styles: Record<string, CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: '1fr 160px',
     overflow: 'hidden',
+    position: 'relative',
   },
 
   certificationCard: {
     minHeight: 240,
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
-    background:
-      'linear-gradient(135deg, rgba(10,14,13,0.98), rgba(8,10,9,0.92)), radial-gradient(circle at 78% 38%, rgba(214,178,94,0.10), transparent 28%)',
+    background: 'rgba(11,15,13,0.92)',
     padding: 22,
-    display: 'grid',
-    gridTemplateColumns: '1fr 240px',
     overflow: 'hidden',
     position: 'relative',
     isolation: 'isolate',
+    display: 'flex',
+    alignItems: 'stretch',
+  },
+
+  certificationBgPhoto: {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage:
+      'linear-gradient(90deg, rgba(8,11,10,0.98) 0%, rgba(8,11,10,0.92) 26%, rgba(8,11,10,0.55) 58%, rgba(8,11,10,0.18) 100%), url(https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    filter: 'grayscale(0.15) contrast(1.02) brightness(0.72)',
+    zIndex: 0,
+  },
+
+  certificationBgOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background:
+      'radial-gradient(circle at 82% 40%, rgba(214,178,94,0.10), transparent 26%), linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.10))',
+    zIndex: 1,
   },
 
   examContent: {
     minWidth: 0,
+    position: 'relative',
+    zIndex: 2,
   },
 
   certContent: {
+    width: '54%',
     minWidth: 0,
     position: 'relative',
+    zIndex: 3,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+
+  certificateScene: {
+    position: 'absolute',
+    top: 14,
+    right: 18,
+    bottom: 14,
+    width: '46%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 2,
+    pointerEvents: 'none',
+  },
+
+  certificateSceneShadow: {
+    position: 'absolute',
+    width: 270,
+    height: 170,
+    borderRadius: 30,
+    background: 'rgba(0,0,0,0.36)',
+    filter: 'blur(24px)',
+    transform: 'rotate(-8deg) translateY(18px)',
+  },
+
+  certificatePaper: {
+    position: 'relative',
+    width: 278,
+    height: 178,
+    borderRadius: 18,
+    background:
+      'linear-gradient(135deg, #fff7e6 0%, #f7ebca 42%, #efdfb1 100%)',
+    border: '1px solid rgba(214,178,94,0.32)',
+    boxShadow:
+      '0 18px 44px rgba(0,0,0,0.28), inset 0 0 0 2px rgba(255,255,255,0.30)',
+    transform: 'rotate(-8deg)',
+    overflow: 'hidden',
+  },
+
+  certificatePaperShine: {
+    position: 'absolute',
+    inset: 0,
+    background:
+      'linear-gradient(120deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.05) 28%, transparent 55%)',
+    pointerEvents: 'none',
+  },
+
+  certificatePaperTopLine: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    top: 14,
+    height: 4,
+    borderRadius: 999,
+    background:
+      'linear-gradient(90deg, rgba(214,178,94,0.10), rgba(214,178,94,0.88), rgba(214,178,94,0.10))',
+  },
+
+  certificatePaperInner: {
+    position: 'absolute',
+    inset: 22,
+    display: 'grid',
+    alignContent: 'start',
+    gap: 4,
+  },
+
+  certificateMiniBrand: {
+    color: 'rgba(90,64,19,0.72)',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.20em',
+    fontWeight: 800,
+  },
+
+  certificateWord: {
+    color: '#72501a',
+    fontSize: 28,
+    lineHeight: 1,
+    letterSpacing: '0.12em',
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+  },
+
+  certificateOfAchievement: {
+    color: 'rgba(106,75,20,0.78)',
+    fontSize: 13,
+    lineHeight: 1,
+    fontStyle: 'italic',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+  },
+
+  certificateFakeTextBlock: {
+    display: 'grid',
+    gap: 5,
+    marginTop: 12,
+  },
+
+  certificateFakeLineLong: {
+    width: '100%',
+    height: 4,
+    borderRadius: 999,
+    background: 'rgba(106,75,20,0.18)',
+  },
+
+  certificateFakeLineMedium: {
+    width: '78%',
+    height: 4,
+    borderRadius: 999,
+    background: 'rgba(106,75,20,0.14)',
+  },
+
+  certificateFakeLineShort: {
+    width: '56%',
+    height: 4,
+    borderRadius: 999,
+    background: 'rgba(106,75,20,0.14)',
+  },
+
+  certificateBottomMeta: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingTop: 18,
+    gap: 12,
+  },
+
+  certificateSignatureLine: {
+    width: 68,
+    height: 2,
+    borderRadius: 999,
+    background: 'rgba(106,75,20,0.26)',
+  },
+
+  certificateSeal: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+    width: 76,
+    height: 76,
+    borderRadius: '50%',
+    background: `radial-gradient(circle at 30% 30%, rgba(255,242,201,1), ${gold} 38%, #a67b29 70%, #805a16 100%)`,
+    boxShadow: '0 12px 24px rgba(112,80,22,0.28)',
+    clipPath:
+      'polygon(50% 0%, 56% 6%, 64% 2%, 69% 9%, 77% 5%, 80% 13%, 88% 12%, 89% 20%, 97% 22%, 95% 30%, 100% 36%, 96% 43%, 100% 50%, 96% 57%, 100% 64%, 95% 70%, 97% 78%, 89% 80%, 88% 88%, 80% 87%, 77% 95%, 69% 91%, 64% 98%, 56% 94%, 50% 100%, 44% 94%, 36% 98%, 31% 91%, 23% 95%, 20% 87%, 12% 88%, 11% 80%, 3% 78%, 5% 70%, 0% 64%, 4% 57%, 0% 50%, 4% 43%, 0% 36%, 5% 30%, 3% 22%, 11% 20%, 12% 12%, 20% 13%, 23% 5%, 31% 9%, 36% 2%, 44% 6%)',
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  certificateSealInner: {
+    width: 54,
+    height: 54,
+    borderRadius: '50%',
+    border: `2px solid ${goldStroke}`,
+    background: goldSoft,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  certificateSealCore: {
+    width: 30,
+    height: 30,
+    borderRadius: '50%',
+    background: 'rgba(255,255,255,0.14)',
+    color: '#5c3e0d',
+    display: 'grid',
+    placeItems: 'center',
   },
 
   certKicker: {
@@ -2438,6 +2633,7 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 800,
     cursor: 'pointer',
     marginTop: 10,
+    width: 'fit-content',
   },
 
   featureRow: {
@@ -2460,173 +2656,6 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1,
     color: 'rgba(244,246,242,0.08)',
     fontWeight: 950,
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  certificateVisualWrap: {
-    position: 'relative',
-    display: 'grid',
-    placeItems: 'center',
-    minHeight: 190,
-    zIndex: 1,
-  },
-
-  certificateVisualGlow: {
-    position: 'absolute',
-    width: 220,
-    height: 160,
-    borderRadius: 28,
-    background: 'rgba(214,178,94,0.08)',
-    filter: 'blur(30px)',
-    transform: 'rotate(-8deg)',
-  },
-
-  certificateVisualCard: {
-    position: 'relative',
-    width: 220,
-    height: 150,
-    borderRadius: 20,
-    background:
-      'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03)), rgba(16,18,17,0.88)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    display: 'grid',
-    placeItems: 'center',
-    transform: 'rotate(-6deg)',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.40)',
-    overflow: 'visible',
-  },
-
-  certificatePaper: {
-    position: 'relative',
-    width: 184,
-    height: 118,
-    borderRadius: 14,
-    background:
-      'linear-gradient(135deg, #fff6df 0%, #f9ebc5 42%, #f2ddb1 100%)',
-    border: '1px solid rgba(214,178,94,0.28)',
-    boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.28)',
-    overflow: 'hidden',
-  },
-
-  certificatePaperTopLine: {
-    position: 'absolute',
-    left: 10,
-    right: 10,
-    top: 10,
-    height: 3,
-    borderRadius: 999,
-    background: 'linear-gradient(90deg, rgba(214,178,94,0.10), rgba(214,178,94,0.82), rgba(214,178,94,0.10))',
-  },
-
-  certificatePaperInner: {
-    position: 'absolute',
-    inset: 16,
-    display: 'grid',
-    alignContent: 'start',
-    gap: 4,
-  },
-
-  certificateMiniBrand: {
-    color: 'rgba(90,64,19,0.72)',
-    fontSize: 9,
-    textTransform: 'uppercase',
-    letterSpacing: '0.18em',
-    fontWeight: 800,
-  },
-
-  certificateWord: {
-    color: '#6a4b14',
-    fontSize: 20,
-    lineHeight: 1,
-    letterSpacing: '0.10em',
-    fontWeight: 900,
-    textTransform: 'uppercase',
-    fontFamily: 'Georgia, "Times New Roman", serif',
-  },
-
-  certificateOfAchievement: {
-    color: 'rgba(106,75,20,0.76)',
-    fontSize: 11,
-    lineHeight: 1,
-    fontStyle: 'italic',
-    fontFamily: 'Georgia, "Times New Roman", serif',
-  },
-
-  certificateFakeTextBlock: {
-    display: 'grid',
-    gap: 4,
-    marginTop: 8,
-  },
-
-  certificateFakeLineLong: {
-    width: '100%',
-    height: 3,
-    borderRadius: 999,
-    background: 'rgba(106,75,20,0.18)',
-  },
-
-  certificateFakeLineMedium: {
-    width: '74%',
-    height: 3,
-    borderRadius: 999,
-    background: 'rgba(106,75,20,0.14)',
-  },
-
-  certificateFakeLineShort: {
-    width: '52%',
-    height: 3,
-    borderRadius: 999,
-    background: 'rgba(106,75,20,0.14)',
-  },
-
-  certificateBottomMeta: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 'auto',
-    paddingTop: 12,
-    gap: 10,
-  },
-
-  certificateSignatureLine: {
-    width: 48,
-    height: 2,
-    borderRadius: 999,
-    background: 'rgba(106,75,20,0.24)',
-  },
-
-  certificateSeal: {
-    position: 'absolute',
-    right: 10,
-    bottom: 10,
-    width: 54,
-    height: 54,
-    borderRadius: '50%',
-    background: `radial-gradient(circle at 30% 30%, rgba(255,242,201,1), ${gold} 38%, #a67b29 70%, #805a16 100%)`,
-    boxShadow: '0 10px 20px rgba(112,80,22,0.26)',
-    clipPath:
-      'polygon(50% 0%, 56% 6%, 64% 2%, 69% 9%, 77% 5%, 80% 13%, 88% 12%, 89% 20%, 97% 22%, 95% 30%, 100% 36%, 96% 43%, 100% 50%, 96% 57%, 100% 64%, 95% 70%, 97% 78%, 89% 80%, 88% 88%, 80% 87%, 77% 95%, 69% 91%, 64% 98%, 56% 94%, 50% 100%, 44% 94%, 36% 98%, 31% 91%, 23% 95%, 20% 87%, 12% 88%, 11% 80%, 3% 78%, 5% 70%, 0% 64%, 4% 57%, 0% 50%, 4% 43%, 0% 36%, 5% 30%, 3% 22%, 11% 20%, 12% 12%, 20% 13%, 23% 5%, 31% 9%, 36% 2%, 44% 6%)',
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  certificateSealInner: {
-    width: 38,
-    height: 38,
-    borderRadius: '50%',
-    border: `2px solid ${goldStroke}`,
-    background: goldSoft,
-    display: 'grid',
-    placeItems: 'center',
-  },
-
-  certificateSealCore: {
-    width: 22,
-    height: 22,
-    borderRadius: '50%',
-    background: 'rgba(255,255,255,0.14)',
-    color: '#5c3e0d',
     display: 'grid',
     placeItems: 'center',
   },
