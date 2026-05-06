@@ -66,6 +66,9 @@ const bg = '#050706';
 const white = '#F4F6F2';
 const muted = 'rgba(244,246,242,0.62)';
 const soft = 'rgba(244,246,242,0.42)';
+const gold = '#D6B25E';
+const goldSoft = 'rgba(214,178,94,0.18)';
+const goldStroke = 'rgba(214,178,94,0.38)';
 
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Dashboard', helper: 'Resumen', icon: 'dashboard' },
@@ -540,7 +543,11 @@ export default function AlumnoPage() {
 
                 <div style={styles.progressMiniStats}>
                   <MiniStat icon="clock" label="Lessons completed" value={stats.lessons} />
-                  <MiniStat icon="certificate" label="Certificates earned" value={stats.certificates} />
+                  <MiniStat
+                    icon="certificate"
+                    label="Certificates earned"
+                    value={stats.certificates}
+                  />
                 </div>
               </article>
 
@@ -625,7 +632,11 @@ export default function AlumnoPage() {
                     certification.
                   </p>
 
-                  <button type="button" style={styles.darkButton} onClick={() => setActiveTab('examenes')}>
+                  <button
+                    type="button"
+                    style={styles.darkButton}
+                    onClick={() => setActiveTab('examenes')}
+                  >
                     Start Simulation
                     <Icon name="arrow" />
                   </button>
@@ -643,6 +654,11 @@ export default function AlumnoPage() {
               </article>
 
               <article style={styles.certificationCard}>
+                <div style={styles.certificateBackdropWord}>CERTIFICATE</div>
+                <div style={styles.certificateBackdropSubword}>OFFICIAL TITLE</div>
+                <div style={styles.certificateFineLineTop} />
+                <div style={styles.certificateFineLineBottom} />
+
                 <div style={styles.certContent}>
                   <p style={styles.certKicker}>Official Credential</p>
                   <h2 style={styles.largeCardTitle}>Certification</h2>
@@ -666,19 +682,20 @@ export default function AlumnoPage() {
                   </div>
                 </div>
 
-                <div style={styles.medalVisual}>
-                  <div style={styles.medalCircle}>
-                    <Icon name="star" />
+                <div style={styles.certificateSealWrap}>
+                  <div style={styles.certificateSealGlow} />
+                  <div style={styles.certificateSeal}>
+                    <div style={styles.certificateSealInner}>
+                      <div style={styles.certificateSealInnerRing}>
+                        <Icon name="star" />
+                      </div>
+                    </div>
                   </div>
-                  <div style={styles.medalRibbonLeft} />
-                  <div style={styles.medalRibbonRight} />
                 </div>
               </article>
             </section>
           </div>
-        )}
-
-        {activeTab === 'cursos' && (
+        )}        {activeTab === 'cursos' && (
           <div style={styles.sectionStack}>
             <Panel title="My Courses">
               {activeCourses.length === 0 ? (
@@ -1043,8 +1060,14 @@ function CourseCard({ card, completed = false }: { card: DashboardCard; complete
         </p>
 
         <div style={styles.courseStatsGrid}>
-          <ProfileStat label="Lessons" value={`${card.completedLessonCount}/${card.courseLessons.length}`} />
-          <ProfileStat label="Modules" value={`${card.completedModuleCount}/${card.courseModules.length}`} />
+          <ProfileStat
+            label="Lessons"
+            value={`${card.completedLessonCount}/${card.courseLessons.length}`}
+          />
+          <ProfileStat
+            label="Modules"
+            value={`${card.completedModuleCount}/${card.courseModules.length}`}
+          />
           <ProfileStat label="Progress" value={`${card.progressPercent}%`} />
         </div>
 
@@ -1130,9 +1153,7 @@ function EmptyState({ text }: { text: string }) {
       <p>{text}</p>
     </article>
   );
-}
-
-function Icon({ name }: { name: IconName }) {
+}function Icon({ name }: { name: IconName }) {
   const common = {
     width: 18,
     height: 18,
@@ -2235,12 +2256,63 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 16,
     border: '1px solid rgba(255,255,255,0.09)',
     background:
-      'radial-gradient(circle at 82% 45%, rgba(255,255,255,0.10), transparent 22%), linear-gradient(145deg, rgba(255,255,255,0.065), rgba(255,255,255,0.020)), rgba(8,12,10,0.90)',
+      'linear-gradient(135deg, rgba(14,18,16,0.94), rgba(10,12,10,0.90)), radial-gradient(circle at 78% 50%, rgba(214,178,94,0.12), transparent 26%)',
     padding: 22,
     display: 'grid',
-    gridTemplateColumns: '1fr 190px',
+    gridTemplateColumns: '1fr 200px',
     overflow: 'hidden',
     position: 'relative',
+    isolation: 'isolate',
+  },
+
+  certificateBackdropWord: {
+    position: 'absolute',
+    inset: '18px auto auto 18px',
+    fontSize: 78,
+    lineHeight: 0.9,
+    fontWeight: 900,
+    letterSpacing: '0.18em',
+    textTransform: 'uppercase',
+    color: 'rgba(244,246,242,0.035)',
+    pointerEvents: 'none',
+    userSelect: 'none',
+    zIndex: 0,
+    whiteSpace: 'nowrap',
+  },
+
+  certificateBackdropSubword: {
+    position: 'absolute',
+    left: 24,
+    bottom: 22,
+    fontSize: 18,
+    lineHeight: 1,
+    fontWeight: 800,
+    letterSpacing: '0.42em',
+    textTransform: 'uppercase',
+    color: 'rgba(214,178,94,0.10)',
+    pointerEvents: 'none',
+    userSelect: 'none',
+    zIndex: 0,
+  },
+
+  certificateFineLineTop: {
+    position: 'absolute',
+    left: 22,
+    right: 22,
+    top: 18,
+    height: 1,
+    background: 'linear-gradient(90deg, transparent, rgba(214,178,94,0.20), transparent)',
+    zIndex: 0,
+  },
+
+  certificateFineLineBottom: {
+    position: 'absolute',
+    left: 22,
+    right: 22,
+    bottom: 18,
+    height: 1,
+    background: 'linear-gradient(90deg, transparent, rgba(214,178,94,0.16), transparent)',
+    zIndex: 0,
   },
 
   examContent: {
@@ -2255,7 +2327,7 @@ const styles: Record<string, CSSProperties> = {
 
   certKicker: {
     margin: '0 0 10px',
-    color: green,
+    color: gold,
     textTransform: 'uppercase',
     letterSpacing: '0.16em',
     fontSize: 10,
@@ -2315,50 +2387,54 @@ const styles: Record<string, CSSProperties> = {
     placeItems: 'center',
   },
 
-  medalVisual: {
+  certificateSealWrap: {
     position: 'relative',
     display: 'grid',
     placeItems: 'center',
     minHeight: 190,
-    opacity: 0.72,
+    zIndex: 1,
   },
 
-  medalCircle: {
-    width: 118,
-    height: 118,
+  certificateSealGlow: {
+    position: 'absolute',
+    width: 142,
+    height: 142,
     borderRadius: 999,
+    background: 'rgba(214,178,94,0.12)',
+    filter: 'blur(28px)',
+  },
+
+  certificateSeal: {
+    width: 132,
+    height: 132,
+    borderRadius: '50%',
+    position: 'relative',
+    background: `radial-gradient(circle at 30% 30%, rgba(255,236,180,0.95), ${gold} 36%, #a97d29 72%, #7a5617 100%)`,
+    boxShadow: '0 18px 42px rgba(0,0,0,0.34), inset 0 2px 10px rgba(255,255,255,0.28)',
+    clipPath:
+      'polygon(50% 0%, 56% 6%, 64% 2%, 69% 9%, 77% 5%, 80% 13%, 88% 12%, 89% 20%, 97% 22%, 95% 30%, 100% 36%, 96% 43%, 100% 50%, 96% 57%, 100% 64%, 95% 70%, 97% 78%, 89% 80%, 88% 88%, 80% 87%, 77% 95%, 69% 91%, 64% 98%, 56% 94%, 50% 100%, 44% 94%, 36% 98%, 31% 91%, 23% 95%, 20% 87%, 12% 88%, 11% 80%, 3% 78%, 5% 70%, 0% 64%, 4% 57%, 0% 50%, 4% 43%, 0% 36%, 5% 30%, 3% 22%, 11% 20%, 12% 12%, 20% 13%, 23% 5%, 31% 9%, 36% 2%, 44% 6%)',
+  },
+
+  certificateSealInner: {
+    position: 'absolute',
+    inset: 16,
+    borderRadius: '50%',
+    border: `2px solid ${goldStroke}`,
+    background: 'rgba(255,255,255,0.05)',
     display: 'grid',
     placeItems: 'center',
-    color: 'rgba(244,246,242,0.45)',
-    border: '1px solid rgba(244,246,242,0.22)',
-    background:
-      'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.22), transparent 25%), linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02))',
-    boxShadow: '0 22px 60px rgba(0,0,0,0.35)',
-    zIndex: 2,
   },
 
-  medalRibbonLeft: {
-    position: 'absolute',
-    width: 48,
-    height: 92,
-    background: 'rgba(244,246,242,0.10)',
-    transform: 'rotate(18deg)',
-    bottom: 8,
-    left: 48,
-    clipPath: 'polygon(0 0, 100% 0, 78% 100%, 48% 78%, 16% 100%)',
-    border: '1px solid rgba(255,255,255,0.08)',
-  },
-
-  medalRibbonRight: {
-    position: 'absolute',
-    width: 48,
-    height: 92,
-    background: 'rgba(244,246,242,0.08)',
-    transform: 'rotate(-18deg)',
-    bottom: 8,
-    right: 48,
-    clipPath: 'polygon(0 0, 100% 0, 84% 100%, 52% 78%, 18% 100%)',
-    border: '1px solid rgba(255,255,255,0.08)',
+  certificateSealInnerRing: {
+    width: 70,
+    height: 70,
+    borderRadius: '50%',
+    border: `2px solid ${goldStroke}`,
+    background: goldSoft,
+    color: '#3f2b08',
+    display: 'grid',
+    placeItems: 'center',
+    boxShadow: 'inset 0 2px 8px rgba(255,255,255,0.18)',
   },
 
   sectionStack: {
