@@ -10,6 +10,7 @@ import GHCLogo from '../components/GHCLogo';
 type AnyRecord = Record<string, any>;
 
 type Tab = 'dashboard' | 'cursos' | 'curriculum' | 'examenes' | 'certificados' | 'perfil';
+type ViewMode = 'grid' | 'list';
 
 type IconName =
   | 'dashboard'
@@ -30,7 +31,13 @@ type IconName =
   | 'bell'
   | 'shield'
   | 'star'
-  | 'user';
+  | 'user'
+  | 'search'
+  | 'grid'
+  | 'list'
+  | 'bookmark'
+  | 'box'
+  | 'home';
 
 type DashboardCard = {
   course: AnyRecord;
@@ -81,6 +88,8 @@ export default function AlumnoPage() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
 
@@ -249,7 +258,9 @@ export default function AlumnoPage() {
       const progressPercent =
         courseLessons.length > 0
           ? Math.round((completedLessonCount / courseLessons.length) * 100)
-          : 0;
+          : completion
+            ? 100
+            : 0;
 
       const nextLesson = findNextLesson({
         courseModules,
@@ -479,9 +490,11 @@ export default function AlumnoPage() {
 
       <section style={styles.appShell}>
         <header style={styles.topbar}>
-          <div>
-            <p style={styles.topbarEyebrow}>GHC Academy · Student Command Center</p>
-            <h1 style={styles.topbarTitle}>Dashboard</h1>
+          <div style={styles.breadcrumb}>
+            <Icon name="home" />
+            <span>Home</span>
+            <span style={styles.breadcrumbSeparator}>›</span>
+            <span>{getCurrentPageLabel(activeTab)}</span>
           </div>
 
           <div style={styles.topbarRight}>
@@ -675,31 +688,110 @@ export default function AlumnoPage() {
               </article>
             </section>
           </div>
-        )}        {activeTab === 'cursos' && (
-          <div style={styles.sectionStack}>
-            <Panel title="My Courses">
+        )}
+
+        {activeTab === 'cursos' && (
+          <div style={styles.coursesPage}>
+            <section style={styles.coursesHeader}>
+              <div>
+                <h1 style={styles.pageTitle}>My Courses</h1>
+                <p style={styles.pageSubtitle}>
+                  Continue learning and track your progress across all your courses.
+                </p>
+              </div>
+            </section>
+
+            <section style={styles.courseControls}>
+              <div style={styles.searchBox}>
+                <Icon name="search" />
+                <span>Search courses...</span>
+              </div>
+
+              <button type="button" style={styles.filterActive}>
+                Active
+                <span>⌄</span>
+              </button>
+
+              <button type="button" style={styles.filterButton}>
+                Completed
+              </button>
+
+              <button type="button" style={styles.filterButton}>
+                Level
+                <span>⌄</span>
+              </button>
+
+              <button type="button" style={styles.filterButton}>
+                Category
+                <span>⌄</span>
+              </button>
+
+              <div style={styles.controlsSpacer} />
+
+              <button type="button" style={styles.sortButton}>
+                Sort by: Recent
+                <span>⌄</span>
+              </button>
+
+              <div style={styles.viewToggle}>
+                <button
+                  type="button"
+                  style={viewMode === 'grid' ? styles.viewButtonActive : styles.viewButton}
+                  onClick={() => setViewMode('grid')}
+                  aria-label="Ver en cuadrícula"
+                >
+                  <Icon name="grid" />
+                </button>
+
+                <button
+                  type="button"
+                  style={viewMode === 'list' ? styles.viewButtonActive : styles.viewButton}
+                  onClick={() => setViewMode('list')}
+                  aria-label="Ver en lista"
+                >
+                  <Icon name="list" />
+                </button>
+              </div>
+            </section>
+
+            <section style={styles.courseSection}>
+              <h2 style={styles.courseSectionTitle}>Active Courses</h2>
+
               {activeCourses.length === 0 ? (
                 <EmptyState text="Todavía no tienes cursos activos. Entra al catálogo para iniciar tu formación." />
               ) : (
-                <div style={styles.courseGrid}>
-                  {activeCourses.map((card) => (
-                    <CourseCard key={card.course.id} card={card} />
+                <div style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}>
+                  {activeCourses.map((card, index) => (
+                    <PremiumCourseCard
+                      key={card.course.id}
+                      card={card}
+                      index={index}
+                      mode={viewMode}
+                    />
                   ))}
                 </div>
               )}
-            </Panel>
+            </section>
 
-            <Panel title="Completed Courses">
+            <section style={styles.courseSection}>
+              <h2 style={styles.courseSectionTitle}>Completed Courses</h2>
+
               {completedCourses.length === 0 ? (
                 <EmptyState text="Cuando completes un curso, aparecerá aquí." />
               ) : (
-                <div style={styles.courseGrid}>
-                  {completedCourses.map((card) => (
-                    <CourseCard key={card.course.id} card={card} completed />
+                <div style={viewMode === 'grid' ? styles.premiumCourseGrid : styles.premiumCourseList}>
+                  {completedCourses.map((card, index) => (
+                    <PremiumCourseCard
+                      key={card.course.id}
+                      card={card}
+                      index={index + 4}
+                      mode={viewMode}
+                      completed
+                    />
                   ))}
                 </div>
               )}
-            </Panel>
+            </section>
           </div>
         )}
 
@@ -851,6 +943,10 @@ function GlobalCss() {
           -webkit-tap-highlight-color: transparent;
         }
 
+        button {
+          font: inherit;
+        }
+
         @media (max-width: 1180px) {
           main[data-ghc-page="student"] {
             grid-template-columns: 104px minmax(0, 1fr) !important;
@@ -900,6 +996,111 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
       <h2 style={styles.panelTitle}>{title}</h2>
       {children}
     </section>
+  );
+}
+
+function PremiumCourseCard({
+  card,
+  completed = false,
+  index,
+  mode,
+}: {
+  card: DashboardCard;
+  completed?: boolean;
+  index: number;
+  mode: ViewMode;
+}) {
+  const course = card.course;
+  const href = card.nextLesson
+    ? `/cursos/${getCourseSlug(course)}/${card.nextLesson.id}`
+    : `/cursos/${getCourseSlug(course)}`;
+
+  const title = String(course.title || 'Curso GHC Academy');
+  const subtitle =
+    course.subtitle ||
+    course.description ||
+    'Formación premium basada en ciencia, estructura y rendimiento.';
+
+  return (
+    <article style={mode === 'grid' ? styles.premiumCourseCard : styles.premiumCourseCardList}>
+      <div
+        style={{
+          ...styles.premiumCourseImage,
+          ...(mode === 'list' ? styles.premiumCourseImageList : {}),
+          backgroundImage: getPremiumCourseBackground(course, index),
+        }}
+      >
+        <div style={styles.premiumImageOverlay} />
+
+        <div style={styles.courseTopBadges}>
+          <span style={completed ? styles.completedBadge : styles.progressBadge}>
+            {completed ? 'Completed' : 'In progress'}
+          </span>
+        </div>
+
+        <span style={styles.bookmarkIcon}>
+          <Icon name={completed ? 'check' : 'bookmark'} />
+        </span>
+      </div>
+
+      <div style={styles.premiumCourseBody}>
+        <h3 style={styles.premiumCourseTitle}>{title}</h3>
+
+        <p style={styles.premiumCourseText}>{subtitle}</p>
+
+        <div style={styles.premiumStatsGrid}>
+          <PremiumMetric
+            icon="document"
+            value={card.courseLessons.length || card.completedLessonCount || 0}
+            label="Lessons"
+          />
+          <PremiumMetric
+            icon="box"
+            value={card.courseModules.length || card.completedModuleCount || 0}
+            label="Modules"
+          />
+          <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progress" />
+        </div>
+
+        <div style={styles.cardProgressArea}>
+          <div style={styles.progressTrack}>
+            <div style={{ ...styles.progressFill, width: `${card.progressPercent}%` }} />
+          </div>
+          <span style={styles.cardProgressText}>{card.progressPercent}% Complete</span>
+        </div>
+
+        <div style={styles.premiumActions}>
+          <Link href={href} style={completed ? styles.reviewButton : styles.courseContinueButton}>
+            {completed ? 'Review' : 'Continue'}
+            {!completed && <Icon name="arrow" />}
+          </Link>
+
+          <Link href={`/cursos/${getCourseSlug(course)}`} style={styles.courseDetailButton}>
+            Details
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function PremiumMetric({
+  icon,
+  value,
+  label,
+}: {
+  icon: IconName;
+  value: string | number;
+  label: string;
+}) {
+  return (
+    <div style={styles.premiumMetric}>
+      <div style={styles.metricTopLine}>
+        <Icon name={icon} />
+        <strong>{value}</strong>
+      </div>
+      <span>{label}</span>
+    </div>
   );
 }
 
@@ -1017,66 +1218,6 @@ function Feature({ icon, text }: { icon: IconName; text: string }) {
   );
 }
 
-function CourseCard({ card, completed = false }: { card: DashboardCard; completed?: boolean }) {
-  return (
-    <article style={styles.courseCard}>
-      <div style={{ ...styles.courseImage, backgroundImage: getCourseBackground(card.course) }}>
-        <div style={styles.courseImageOverlay} />
-      </div>
-
-      <div style={styles.courseCardBody}>
-        <div style={styles.badgeRow}>
-          <span style={styles.badgeGreen}>{completed ? 'Completed' : 'In progress'}</span>
-          {card.course.level && <span style={styles.badgeDark}>{card.course.level}</span>}
-          {card.certificate && <span style={styles.badgeDark}>Certified</span>}
-        </div>
-
-        <h3 style={styles.courseCardTitle}>{card.course.title}</h3>
-
-        <p style={styles.courseCardText}>
-          {card.course.subtitle ||
-            card.course.description ||
-            'Formación premium basada en ciencia, estructura y rendimiento.'}
-        </p>
-
-        <div style={styles.courseStatsGrid}>
-          <ProfileStat
-            label="Lessons"
-            value={`${card.completedLessonCount}/${card.courseLessons.length}`}
-          />
-          <ProfileStat
-            label="Modules"
-            value={`${card.completedModuleCount}/${card.courseModules.length}`}
-          />
-          <ProfileStat label="Progress" value={`${card.progressPercent}%`} />
-        </div>
-
-        <div style={styles.progressTrack}>
-          <div style={{ ...styles.progressFill, width: `${card.progressPercent}%` }} />
-        </div>
-
-        <div style={styles.cardActions}>
-          <Link
-            href={
-              card.nextLesson
-                ? `/cursos/${getCourseSlug(card.course)}/${card.nextLesson.id}`
-                : `/cursos/${getCourseSlug(card.course)}`
-            }
-            style={styles.continueButton}
-          >
-            Continue
-            <Icon name="arrow" />
-          </Link>
-
-          <Link href={`/cursos/${getCourseSlug(card.course)}`} style={styles.textLink}>
-            Detail
-          </Link>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function CertificateCard({ certificate }: { certificate: AnyRecord }) {
   return (
     <article style={styles.certificateCard}>
@@ -1133,7 +1274,9 @@ function EmptyState({ text }: { text: string }) {
       <p>{text}</p>
     </article>
   );
-}function Icon({ name }: { name: IconName }) {
+}
+
+function Icon({ name }: { name: IconName }) {
   const common = {
     width: 18,
     height: 18,
@@ -1142,6 +1285,19 @@ function EmptyState({ text }: { text: string }) {
     xmlns: 'http://www.w3.org/2000/svg',
     'aria-hidden': true,
   };
+
+  if (name === 'home') {
+    return (
+      <svg {...common}>
+        <path
+          d="m4 11 8-7 8 7v9h-5v-6H9v6H4v-9Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
 
   if (name === 'dashboard') {
     return (
@@ -1156,7 +1312,7 @@ function EmptyState({ text }: { text: string }) {
     );
   }
 
-  if (name === 'courses') {
+  if (name === 'courses' || name === 'box') {
     return (
       <svg {...common}>
         <path
@@ -1243,7 +1399,7 @@ function EmptyState({ text }: { text: string }) {
     );
   }
 
-  if (name === 'resources') {
+  if (name === 'resources' || name === 'list') {
     return (
       <svg {...common}>
         <path
@@ -1251,6 +1407,19 @@ function EmptyState({ text }: { text: string }) {
           stroke="currentColor"
           strokeWidth="1.8"
           strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === 'grid') {
+    return (
+      <svg {...common}>
+        <path
+          d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
         />
       </svg>
     );
@@ -1388,6 +1557,32 @@ function EmptyState({ text }: { text: string }) {
     );
   }
 
+  if (name === 'bookmark') {
+    return (
+      <svg {...common}>
+        <path
+          d="M7 4h10v16l-5-3-5 3V4Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === 'search') {
+    return (
+      <svg {...common}>
+        <path
+          d="m20 20-4-4M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg {...common}>
       <path
@@ -1494,6 +1689,15 @@ function getCourseSlug(course: AnyRecord) {
   return String(course?.slug || course?.id || '');
 }
 
+function getCurrentPageLabel(tab: Tab) {
+  if (tab === 'dashboard') return 'Dashboard';
+  if (tab === 'cursos') return 'My Courses';
+  if (tab === 'curriculum') return 'Curriculum';
+  if (tab === 'examenes') return 'Mock Exams';
+  if (tab === 'certificados') return 'Certification';
+  return 'Performance';
+}
+
 function getCourseImage(course: AnyRecord) {
   return (
     course?.cover_image ||
@@ -1502,12 +1706,27 @@ function getCourseImage(course: AnyRecord) {
     course?.image_url ||
     course?.thumbnail ||
     course?.thumbnail_url ||
-    'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1600&q=80'
+    ''
   );
 }
 
-function getCourseBackground(course: AnyRecord) {
-  return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.92)), url(${getCourseImage(course)})`;
+function getPremiumCourseBackground(course: AnyRecord, index: number) {
+  const realImage = getCourseImage(course);
+
+  const fallbacks = [
+    'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
+  ];
+
+  const selected = realImage || fallbacks[index % fallbacks.length];
+
+  return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
 }
 
 function cardBackground() {
@@ -1822,30 +2041,27 @@ const styles: Record<string, CSSProperties> = {
   },
 
   topbar: {
-    height: 64,
+    minHeight: 64,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 20,
     marginBottom: 18,
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    paddingBottom: 12,
   },
 
-  topbarEyebrow: {
-    margin: 0,
-    color: soft,
-    textTransform: 'uppercase',
-    letterSpacing: '0.16em',
-    fontSize: 11,
+  breadcrumb: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    color: 'rgba(244,246,242,0.72)',
+    fontSize: 13,
     fontWeight: 800,
   },
 
-  topbarTitle: {
-    margin: '4px 0 0',
-    color: white,
-    fontSize: 26,
-    lineHeight: 1,
-    fontWeight: 900,
-    letterSpacing: '-0.03em',
+  breadcrumbSeparator: {
+    color: 'rgba(244,246,242,0.34)',
   },
 
   topbarRight: {
@@ -1932,6 +2148,368 @@ const styles: Record<string, CSSProperties> = {
     background: 'rgba(34,214,91,0.06)',
     color: muted,
     padding: 16,
+  },
+
+  pageTitle: {
+    margin: 0,
+    fontSize: 36,
+    lineHeight: 1,
+    letterSpacing: '-0.05em',
+    fontWeight: 900,
+  },
+
+  pageSubtitle: {
+    margin: '12px 0 0',
+    color: muted,
+    fontSize: 15,
+    lineHeight: 1.6,
+  },
+
+  coursesPage: {
+    display: 'grid',
+    gap: 18,
+  },
+
+  coursesHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'end',
+    gap: 18,
+  },
+
+  courseControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+    padding: '0 0 6px',
+  },
+
+  searchBox: {
+    width: 320,
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: '0 15px',
+    color: 'rgba(244,246,242,0.48)',
+    fontSize: 13,
+  },
+
+  filterActive: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(34,214,91,0.30)',
+    background: 'rgba(34,214,91,0.095)',
+    color: green,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 18px',
+    cursor: 'pointer',
+    fontWeight: 850,
+  },
+
+  filterButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    color: 'rgba(244,246,242,0.78)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 18px',
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
+
+  controlsSpacer: {
+    flex: 1,
+  },
+
+  sortButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    color: 'rgba(244,246,242,0.72)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '0 18px',
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
+
+  viewToggle: {
+    height: 46,
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.030)',
+    display: 'flex',
+    alignItems: 'center',
+    padding: 4,
+    gap: 4,
+  },
+
+  viewButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    border: '0',
+    background: 'transparent',
+    color: 'rgba(244,246,242,0.52)',
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+  },
+
+  viewButtonActive: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    border: '0',
+    background: 'rgba(34,214,91,0.12)',
+    color: green,
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+  },
+
+  courseSection: {
+    display: 'grid',
+    gap: 14,
+  },
+
+  courseSectionTitle: {
+    margin: 0,
+    fontSize: 20,
+    lineHeight: 1,
+    letterSpacing: '-0.03em',
+    fontWeight: 850,
+  },
+
+  premiumCourseGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: 18,
+    alignItems: 'stretch',
+  },
+
+  premiumCourseList: {
+    display: 'grid',
+    gap: 14,
+  },
+
+  premiumCourseCard: {
+    minHeight: 394,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+  },
+
+  premiumCourseCardList: {
+    minHeight: 220,
+    borderRadius: 16,
+    border: '1px solid rgba(255,255,255,0.09)',
+    background: 'linear-gradient(145deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)), rgba(8,12,10,0.88)',
+    overflow: 'hidden',
+    display: 'grid',
+    gridTemplateColumns: '320px minmax(0, 1fr)',
+    boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+  },
+
+  premiumCourseImage: {
+    height: 164,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    position: 'relative',
+    filter: 'grayscale(1) contrast(1.05) brightness(0.82)',
+    flexShrink: 0,
+  },
+
+  premiumCourseImageList: {
+    height: '100%',
+    minHeight: 220,
+  },
+
+  premiumImageOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background:
+      'linear-gradient(180deg, rgba(5,7,6,0.00), rgba(5,7,6,0.86)), radial-gradient(circle at top right, rgba(34,214,91,0.13), transparent 34%)',
+  },
+
+  courseTopBadges: {
+    position: 'absolute',
+    left: 14,
+    top: 14,
+    display: 'flex',
+    gap: 8,
+    zIndex: 2,
+  },
+
+  progressBadge: {
+    borderRadius: 5,
+    border: '1px solid rgba(34,214,91,0.30)',
+    background: 'rgba(34,214,91,0.10)',
+    color: green,
+    padding: '6px 9px',
+    fontSize: 10,
+    lineHeight: 1,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  completedBadge: {
+    borderRadius: 5,
+    border: '1px solid rgba(255,255,255,0.14)',
+    background: 'rgba(255,255,255,0.055)',
+    color: 'rgba(244,246,242,0.74)',
+    padding: '6px 9px',
+    fontSize: 10,
+    lineHeight: 1,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+
+  bookmarkIcon: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+    color: 'rgba(244,246,242,0.76)',
+    zIndex: 2,
+    width: 24,
+    height: 24,
+    display: 'grid',
+    placeItems: 'center',
+  },
+
+  premiumCourseBody: {
+    padding: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    minWidth: 0,
+  },
+
+  premiumCourseTitle: {
+    margin: 0,
+    minHeight: 44,
+    color: white,
+    fontSize: 21,
+    lineHeight: 1.08,
+    letterSpacing: '-0.035em',
+    fontWeight: 900,
+  },
+
+  premiumCourseText: {
+    margin: '10px 0 0',
+    minHeight: 52,
+    color: muted,
+    fontSize: 14,
+    lineHeight: 1.55,
+  },
+
+  premiumStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 8,
+    marginTop: 'auto',
+    paddingTop: 16,
+  },
+
+  premiumMetric: {
+    minHeight: 60,
+    borderRadius: 9,
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.032)',
+    padding: '10px 8px',
+    display: 'grid',
+    alignContent: 'center',
+    gap: 4,
+    minWidth: 0,
+  },
+
+  metricTopLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    color: 'rgba(244,246,242,0.78)',
+    minWidth: 0,
+  },
+
+  cardProgressArea: {
+    marginTop: 13,
+    display: 'grid',
+    gap: 8,
+  },
+
+  cardProgressText: {
+    color: green,
+    fontSize: 13,
+    fontWeight: 850,
+  },
+
+  premiumActions: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 10,
+    marginTop: 14,
+  },
+
+  courseContinueButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: 'linear-gradient(135deg, rgba(34,214,91,0.98), rgba(91,222,117,0.82))',
+    color: '#061008',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 900,
+    fontSize: 13,
+  },
+
+  reviewButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: 'rgba(255,255,255,0.050)',
+    color: white,
+    border: '1px solid rgba(255,255,255,0.10)',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 850,
+    fontSize: 13,
+  },
+
+  courseDetailButton: {
+    minHeight: 42,
+    borderRadius: 9,
+    background: 'rgba(255,255,255,0.040)',
+    color: white,
+    border: '1px solid rgba(255,255,255,0.10)',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    fontWeight: 850,
+    fontSize: 13,
   },
 
   dashboardGrid: {
@@ -2466,49 +3044,28 @@ const styles: Record<string, CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
     gap: 18,
-    alignItems: 'stretch',
   },
 
-  courseCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    border: '1px solid rgba(255,255,255,0.09)',
-    background: cardBackground(),
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
+  courseCardTitle: {
+    margin: 0,
+    fontSize: 24,
+    lineHeight: 1.05,
+    letterSpacing: '-0.035em',
+    fontWeight: 900,
   },
 
-  courseImage: {
-    height: 174,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    position: 'relative',
-    filter: 'grayscale(1) contrast(1.04) brightness(0.82)',
-    flexShrink: 0,
+  courseCardText: {
+    color: muted,
+    lineHeight: 1.65,
+    fontSize: 14,
+    minHeight: 66,
   },
 
-  courseImageOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background:
-      'linear-gradient(180deg, rgba(5,7,6,0.05), rgba(5,7,6,0.88)), radial-gradient(circle at top right, rgba(34,214,91,0.16), transparent 34%)',
-  },
-
-  courseCardBody: {
-    padding: 20,
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-  },
-
-  badgeRow: {
-    display: 'flex',
-    gap: 8,
-    flexWrap: 'wrap',
-    marginBottom: 14,
-    minHeight: 30,
-    alignItems: 'flex-start',
+  courseStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 10,
+    marginTop: 16,
   },
 
   badgeGreen: {
@@ -2520,60 +3077,6 @@ const styles: Record<string, CSSProperties> = {
     textTransform: 'uppercase',
     letterSpacing: '0.11em',
     fontSize: 10,
-    fontWeight: 900,
-  },
-
-  badgeDark: {
-    borderRadius: 999,
-    background: 'rgba(255,255,255,0.045)',
-    border: '1px solid rgba(255,255,255,0.09)',
-    color: muted,
-    padding: '6px 9px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.11em',
-    fontSize: 10,
-    fontWeight: 900,
-  },
-
-  courseCardTitle: {
-    margin: 0,
-    fontSize: 24,
-    lineHeight: 1.05,
-    letterSpacing: '-0.035em',
-    fontWeight: 900,
-    minHeight: 54,
-  },
-
-  courseCardText: {
-    color: muted,
-    lineHeight: 1.65,
-    fontSize: 14,
-    minHeight: 74,
-    margin: '12px 0 0',
-  },
-
-  courseStatsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 10,
-    marginTop: 'auto',
-    paddingTop: 18,
-    marginBottom: 16,
-  },
-
-  cardActions: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-    marginTop: 16,
-  },
-
-  textLink: {
-    color: green,
-    textDecoration: 'none',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    fontSize: 12,
     fontWeight: 900,
   },
 
@@ -2663,31 +3166,28 @@ const styles: Record<string, CSSProperties> = {
   },
 
   profileStat: {
-    borderRadius: 13,
+    borderRadius: 9,
     border: '1px solid rgba(255,255,255,0.08)',
     background: 'rgba(0,0,0,0.20)',
-    padding: 13,
+    padding: '10px 8px',
     minWidth: 0,
     display: 'grid',
-    gap: 6,
-    alignContent: 'start',
+    gap: 5,
+    alignContent: 'center',
   },
 
   profileStatLabel: {
-    color: 'rgba(244,246,242,0.54)',
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.11em',
-    fontWeight: 900,
+    color: 'rgba(244,246,242,0.60)',
+    fontSize: 11,
     lineHeight: 1.2,
   },
 
   profileStatValue: {
     color: white,
-    fontSize: 21,
+    fontSize: 16,
     lineHeight: 1.05,
-    fontWeight: 900,
-    letterSpacing: '-0.02em',
+    fontWeight: 850,
+    letterSpacing: '-0.01em',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
