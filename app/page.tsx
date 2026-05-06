@@ -61,20 +61,18 @@ const pillars = [
 
 export default function HomePage() {
   return (
-    <main className="ghc-home">
-      <section className="ghc-site-shell">
-        <header className="ghc-site-header">
-          <Link href="/" className="ghc-brand">
-            <span className="ghc-brand-mark">
-              <span>G</span>
-            </span>
-            <span className="ghc-brand-copy">
+    <main className="ghc-home-v2">
+      <section className="ghc-home-shell">
+        <header className="ghc-home-header">
+          <Link href="/" className="ghc-logo">
+            <span className="ghc-logo-mark" />
+            <span className="ghc-logo-text">
               <strong>GHC</strong>
-              <small>Academy</small>
+              <span>Academy</span>
             </span>
           </Link>
 
-          <nav className="ghc-nav">
+          <nav className="ghc-home-nav">
             <Link href="/" className="active">
               Inicio
             </Link>
@@ -84,14 +82,14 @@ export default function HomePage() {
             <Link href="/acceso">Acceso</Link>
           </nav>
 
-          <Link href="/acceso" className="ghc-header-cta">
+          <Link href="/acceso" className="ghc-home-cta">
             Únete ahora →
           </Link>
         </header>
 
-        <section className="ghc-hero-home">
+        <section className="ghc-home-hero">
           <div>
-            <p className="ghc-kicker-home">Ciencia · Progresión · Rendimiento</p>
+            <p className="ghc-home-kicker">Ciencia · Progresión · Rendimiento</p>
 
             <h1>Formación de alto rendimiento desde la ciencia</h1>
 
@@ -100,35 +98,35 @@ export default function HomePage() {
               buscan resultados reales, sostenibles y medibles.
             </p>
 
-            <div className="ghc-hero-actions">
-              <Link href="/cursos" className="ghc-btn-primary">
+            <div className="ghc-home-actions">
+              <Link href="/cursos" className="ghc-home-btn-primary">
                 Explorar cursos →
               </Link>
 
-              <Link href="#metodologia" className="ghc-btn-ghost">
+              <Link href="#metodologia" className="ghc-home-btn-ghost">
                 Conocer metodología →
               </Link>
             </div>
 
-            <div className="ghc-hero-features">
-              <div className="ghc-hero-feature">
-                <span className="ghc-hero-feature-icon">◷</span>
+            <div className="ghc-home-feature-row">
+              <div className="ghc-home-feature">
+                <i>◷</i>
                 <div>
                   <strong>Aprende a tu ritmo</strong>
                   <span>Acceso 24/7</span>
                 </div>
               </div>
 
-              <div className="ghc-hero-feature">
-                <span className="ghc-hero-feature-icon">◇</span>
+              <div className="ghc-home-feature">
+                <i>◇</i>
                 <div>
                   <strong>Certificación oficial</strong>
                   <span>Credencial GHC</span>
                 </div>
               </div>
 
-              <div className="ghc-hero-feature">
-                <span className="ghc-hero-feature-icon">↗</span>
+              <div className="ghc-home-feature">
+                <i>↗</i>
                 <div>
                   <strong>Basado en evidencia</strong>
                   <span>Ciencia aplicada</span>
@@ -137,12 +135,12 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="ghc-hero-visual">
-            <div className="ghc-hero-photo" />
+          <div className="ghc-home-hero-visual">
+            <div className="ghc-home-hero-photo" />
 
-            <div className="ghc-floating-card">
+            <div className="ghc-home-floating">
               <p>Detección de progreso</p>
-              <div className="ghc-bars">
+              <div className="ghc-home-bars">
                 <span style={{ height: '42%' }} />
                 <span style={{ height: '74%' }} />
                 <span style={{ height: '56%' }} />
@@ -151,32 +149,32 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="ghc-anatomy-pill">
-              <span>＋</span>
-              <p>Biomecánica · Control motor · Rendimiento</p>
+            <div className="ghc-home-pill">
+              <i>＋</i>
+              <span>Biomecánica · Control motor · Rendimiento</span>
             </div>
           </div>
         </section>
 
-        <section className="ghc-section">
-          <div className="ghc-section-header">
+        <section className="ghc-home-section">
+          <div className="ghc-home-section-header">
             <div>
-              <p className="ghc-section-label">Programas destacados</p>
-              <h2 className="ghc-section-title">
+              <p className="ghc-home-section-label">Programas destacados</p>
+              <h2 className="ghc-home-section-title">
                 Aprende con nuestros cursos estrella
               </h2>
             </div>
 
-            <Link href="/cursos" className="ghc-section-link">
+            <Link href="/cursos" className="ghc-home-section-link">
               Ver todos los cursos →
             </Link>
           </div>
 
-          <div className="ghc-course-grid">
+          <div className="ghc-home-course-grid">
             {featuredCourses.map((course) => (
-              <article key={course.title} className="ghc-course-card">
+              <article key={course.title} className="ghc-home-course-card">
                 <div
-                  className="ghc-course-image"
+                  className="ghc-home-course-image"
                   style={{
                     backgroundImage: `
                       linear-gradient(180deg, rgba(5,7,6,0.05), rgba(5,7,6,0.90)),
@@ -184,14 +182,14 @@ export default function HomePage() {
                     `,
                   }}
                 >
-                  <span className="ghc-course-badge">{course.badge}</span>
+                  <span className="ghc-home-course-badge">{course.badge}</span>
                 </div>
 
-                <div className="ghc-course-body">
+                <div className="ghc-home-course-body">
                   <h3>{course.title}</h3>
                   <p>{course.description}</p>
 
-                  <div className="ghc-course-meta">
+                  <div className="ghc-home-course-meta">
                     <div>
                       <span>Nivel</span>
                       <strong>{course.level}</strong>
@@ -208,7 +206,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <Link href="/cursos" className="ghc-card-link">
+                  <Link href="/cursos" className="ghc-home-card-link">
                     Ver curso →
                   </Link>
                 </div>
@@ -217,24 +215,24 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="metodologia" className="ghc-section ghc-method">
+        <section id="metodologia" className="ghc-home-section ghc-home-method">
           <div>
-            <p className="ghc-section-label">Nuestra metodología</p>
-            <h2 className="ghc-section-title">Ciencia aplicada. Resultados reales.</h2>
+            <p className="ghc-home-section-label">Nuestra metodología</p>
+            <h2 className="ghc-home-section-title">Ciencia aplicada. Resultados reales.</h2>
             <p>
               Combinamos investigación, experiencia y tecnología para que aprendas lo que realmente
               funciona y puedas aplicarlo con criterio profesional.
             </p>
 
-            <Link href="/cursos" className="ghc-btn-ghost">
+            <Link href="/cursos" className="ghc-home-btn-ghost">
               Conocer metodología →
             </Link>
           </div>
 
-          <div className="ghc-pillars">
+          <div className="ghc-home-pillars">
             {pillars.map((pillar) => (
-              <article key={pillar.title} className="ghc-pillar-card">
-                <span className="ghc-pillar-icon">{pillar.icon}</span>
+              <article key={pillar.title} className="ghc-home-pillar">
+                <i>{pillar.icon}</i>
                 <h3>{pillar.title}</h3>
                 <p>{pillar.text}</p>
               </article>
@@ -242,45 +240,43 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="ghc-section ghc-platform">
+        <section className="ghc-home-section ghc-home-platform">
           <div>
-            <p className="ghc-section-label">Tu experiencia en GHC Academy</p>
-            <h2 className="ghc-section-title">Todo lo que necesitas para crecer</h2>
+            <p className="ghc-home-section-label">Tu experiencia en GHC Academy</p>
+            <h2 className="ghc-home-section-title">Todo lo que necesitas para crecer</h2>
             <p>
               Una plataforma diseñada para que aprendas, apliques y midas tu progreso con una ruta
               clara y profesional.
             </p>
 
-            <ul className="ghc-feature-list">
+            <ul className="ghc-home-feature-list">
               <li>Ruta de aprendizaje personalizada</li>
               <li>Contenido actualizado continuamente</li>
               <li>Comunidad de profesionales</li>
               <li>Soporte y recursos exclusivos</li>
             </ul>
 
-            <Link href="/alumno" className="ghc-btn-ghost">
+            <Link href="/alumno" className="ghc-home-btn-ghost">
               Ver plataforma →
             </Link>
           </div>
 
-          <div className="ghc-dashboard-preview">
-            <article className="ghc-preview-card">
+          <div className="ghc-home-dashboard-preview">
+            <article className="ghc-home-preview-card">
               <h3>Progreso general</h3>
-              <div className="ghc-ring">
+              <div className="ghc-home-ring">
                 <div>
                   <strong>67%</strong>
                   <span>Completado</span>
                 </div>
               </div>
-              <p className="ghc-preview-text">
-                Excelente trabajo. Sigue así para alcanzar tus objetivos.
-              </p>
+              <p>Excelente trabajo. Sigue así para alcanzar tus objetivos.</p>
             </article>
 
-            <article className="ghc-preview-card">
+            <article className="ghc-home-preview-card">
               <h3>Módulos del programa</h3>
 
-              <div className="ghc-module-preview-row">
+              <div className="ghc-home-module-row">
                 <span>✓</span>
                 <div>
                   <strong>Biomecánica Fundamental</strong>
@@ -288,7 +284,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="ghc-module-preview-row">
+              <div className="ghc-home-module-row">
                 <span>✓</span>
                 <div>
                   <strong>Sistemas Energéticos</strong>
@@ -296,7 +292,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="ghc-module-preview-row active">
+              <div className="ghc-home-module-row active">
                 <span>●</span>
                 <div>
                   <strong>Adaptaciones Neuromusculares</strong>
@@ -304,7 +300,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="ghc-module-preview-row locked">
+              <div className="ghc-home-module-row locked">
                 <span>🔒</span>
                 <div>
                   <strong>Mecánica de la Hipertrofia</strong>
@@ -312,28 +308,28 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <Link href="/alumno" className="ghc-card-link">
+              <Link href="/alumno" className="ghc-home-card-link">
                 Ver mi progreso →
               </Link>
             </article>
 
-            <article className="ghc-preview-card">
-              <div className="ghc-medal">★</div>
+            <article className="ghc-home-preview-card">
+              <div className="ghc-home-medal">★</div>
               <h3>Próximo examen</h3>
               <p>Prepárate para obtener tu certificado oficial.</p>
-              <Link href="/cursos" className="ghc-small-green-button">
+              <Link href="/cursos" className="ghc-home-small-button">
                 Ir al simulador →
               </Link>
             </article>
           </div>
         </section>
 
-        <section className="ghc-community">
+        <section className="ghc-home-community">
           <div>
             <h2>Únete a una comunidad de profesionales que entrenan su conocimiento.</h2>
           </div>
 
-          <div className="ghc-community-stats">
+          <div className="ghc-home-community-stats">
             <div>
               <strong>+10.000</strong>
               <span>Alumnos formados</span>
@@ -350,15 +346,15 @@ export default function HomePage() {
             </div>
           </div>
 
-          <Link href="/acceso" className="ghc-btn-primary">
+          <Link href="/acceso" className="ghc-home-btn-primary">
             Únete ahora →
           </Link>
         </section>
 
-        <footer className="ghc-footer">
+        <footer className="ghc-home-footer">
           <div>
-            <div className="ghc-footer-brand">
-              <span className="ghc-footer-mark">G</span>
+            <div className="ghc-home-footer-brand">
+              <span className="ghc-home-footer-mark">G</span>
               <div>
                 <strong>GHC</strong>
                 <br />
@@ -372,7 +368,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="ghc-footer-columns">
+          <div className="ghc-home-footer-columns">
             <div>
               <strong>Plataforma</strong>
               <Link href="/cursos">Cursos</Link>
