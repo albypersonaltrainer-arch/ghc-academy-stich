@@ -1109,8 +1109,8 @@ function CertificateCard({ certificate }: { certificate: AnyRecord }) {
 function ProfileStat({ label, value }: { label: string; value: string | number }) {
   return (
     <div style={styles.profileStat}>
-      <span>{label}</span>
-      <strong>{value}</strong>
+      <span style={styles.profileStatLabel}>{label}</span>
+      <strong style={styles.profileStatValue}>{value}</strong>
     </div>
   );
 }
@@ -2466,6 +2466,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
     gap: 18,
+    alignItems: 'stretch',
   },
 
   courseCard: {
@@ -2473,6 +2474,9 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
     border: '1px solid rgba(255,255,255,0.09)',
     background: cardBackground(),
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
   },
 
   courseImage: {
@@ -2481,6 +2485,7 @@ const styles: Record<string, CSSProperties> = {
     backgroundPosition: 'center',
     position: 'relative',
     filter: 'grayscale(1) contrast(1.04) brightness(0.82)',
+    flexShrink: 0,
   },
 
   courseImageOverlay: {
@@ -2492,6 +2497,9 @@ const styles: Record<string, CSSProperties> = {
 
   courseCardBody: {
     padding: 20,
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
   },
 
   badgeRow: {
@@ -2499,6 +2507,8 @@ const styles: Record<string, CSSProperties> = {
     gap: 8,
     flexWrap: 'wrap',
     marginBottom: 14,
+    minHeight: 30,
+    alignItems: 'flex-start',
   },
 
   badgeGreen: {
@@ -2531,20 +2541,24 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1.05,
     letterSpacing: '-0.035em',
     fontWeight: 900,
+    minHeight: 54,
   },
 
   courseCardText: {
     color: muted,
     lineHeight: 1.65,
     fontSize: 14,
-    minHeight: 66,
+    minHeight: 74,
+    margin: '12px 0 0',
   },
 
   courseStatsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
     gap: 10,
-    marginTop: 16,
+    marginTop: 'auto',
+    paddingTop: 18,
+    marginBottom: 16,
   },
 
   cardActions: {
@@ -2654,6 +2668,29 @@ const styles: Record<string, CSSProperties> = {
     background: 'rgba(0,0,0,0.20)',
     padding: 13,
     minWidth: 0,
+    display: 'grid',
+    gap: 6,
+    alignContent: 'start',
+  },
+
+  profileStatLabel: {
+    color: 'rgba(244,246,242,0.54)',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.11em',
+    fontWeight: 900,
+    lineHeight: 1.2,
+  },
+
+  profileStatValue: {
+    color: white,
+    fontSize: 21,
+    lineHeight: 1.05,
+    fontWeight: 900,
+    letterSpacing: '-0.02em',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
 
   emptyState: {
