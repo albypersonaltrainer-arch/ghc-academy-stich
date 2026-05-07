@@ -88,8 +88,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-const green = '#63E546';
-
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Dashboard', helper: 'Resumen', icon: 'dashboard' },
   { id: 'cursos', label: 'My Courses', helper: 'Cursos activos', icon: 'courses' },
@@ -98,6 +96,8 @@ const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'certificados', label: 'Certification', helper: 'Credenciales', icon: 'certificate' },
   { id: 'perfil', label: 'Performance', helper: 'Perfil', icon: 'performance' },
 ];
+
+const GREEN = '#63E546';
 
 export default function AlumnoPage() {
   const router = useRouter();
@@ -769,1303 +769,215 @@ export default function AlumnoPage() {
   );
 }
 
-/* ------------------------------ VIEWS ------------------------------ */
+/* ------------------------------ HELPERS ------------------------------ */
 
-function DashboardView({
-  globalProgress,
-  stats,
-  mainCourse,
-  currentModuleView,
-  moduleViews,
-  setActiveTab,
-}: {
-  globalProgress: number;
-  stats: AnyRecord;
-  mainCourse: DashboardCard | null;
-  currentModuleView: ModuleView | null;
-  moduleViews: ModuleView[];
-  setActiveTab: (tab: Tab) => void;
-}) {
-  return (
-    <div className="dashboard-grid">
-      <section className="dashboard-top-grid">
-        <article className="progress-card">
-          <h2>Overall Progress</h2>
-
-          <div className="progress-ring-wrap">
-            <div
-              className="progress-ring"
-              style={{
-                background: `conic-gradient(${green} ${globalProgress * 3.6}deg, rgba(255,255,255,0.095) 0deg)`,
-              }}
-            >
-              <div className="progress-ring-inner">
-                <strong>{globalProgress}%</strong>
-                <span>Completed</span>
-              </div>
-            </div>
-          </div>
-
-          <p className="center-text">
-            Excellent work. Keep building expertise and elevating performance.
-          </p>
-
-          <div className="progress-mini-stats">
-            <MiniStat icon="clock" label="Lessons" value={stats.lessons} />
-            <MiniStat icon="certificate" label="Certificates" value={stats.certificates} />
-          </div>
-        </article>
-
-        <article className="next-module-card">
-          <div className="hero-image" />
-
-          <div className="next-content">
-            <p className="in-progress-label">In progress</p>
-
-            <h2>{currentModuleView?.module?.title || mainCourse?.course?.title || 'Next Module'}</h2>
-
-            <p>
-              {mainCourse?.course?.subtitle ||
-                mainCourse?.course?.description ||
-                'Explore your next learning step and keep progressing through the academy.'}
-            </p>
-
-            <div className="meta-row">
-              <MetaItem icon="clock" text="4–5 Hours" />
-              <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermediate'} />
-              <MetaItem icon="document" text={`${mainCourse?.courseLessons.length || 0} Lessons`} />
-            </div>
-
-            <div className="progress-block">
-              <div className="progress-track">
-                <div className="progress-fill" style={{ width: `${mainCourse?.progressPercent || 0}%` }} />
-              </div>
-              <span>{mainCourse?.progressPercent || 0}% Complete</span>
-            </div>
-
-            <Link
-              href={
-                mainCourse?.nextLesson
-                  ? `/cursos/${getCourseSlug(mainCourse.course)}/${mainCourse.nextLesson.id}`
-                  : mainCourse
-                    ? `/cursos/${getCourseSlug(mainCourse.course)}`
-                    : '/cursos'
-              }
-              className="primary-button"
-            >
-              Continue Learning
-              <Icon name="arrow" />
-            </Link>
-          </div>
-        </article>
-      </section>
-
-      <Panel title="Curriculum">
-        <div className="curriculum-rows">
-          {moduleViews.length === 0 ? (
-            <EmptyState text="Aún no hay módulos visibles para este curso." />
-          ) : (
-            moduleViews.slice(0, 6).map((item) => (
-              <DashboardModuleRow key={item.module.id} item={item} />
-            ))
-          )}
-        </div>
-      </Panel>
-
-      <section className="dashboard-bottom-grid">
-        <article className="exam-card">
-          <div>
-            <h2>Mock Exam Simulator</h2>
-            <p>Test your knowledge under real conditions before earning your final certification.</p>
-            <button type="button" className="secondary-button" onClick={() => setActiveTab('examenes')}>
-              Start Simulation
-              <Icon name="arrow" />
-            </button>
-          </div>
-        </article>
-
-        <article className="certification-card">
-          <div className="certification-bg-photo" />
-          <div className="certification-bg-overlay" />
-          <div className="cert-content">
-            <p>Official Credential</p>
-            <h2>Certification</h2>
-            <p>Earn your official GHC Academy certificate when your learning path is completed and verified.</p>
-            <button type="button" className="secondary-button" onClick={() => setActiveTab('certificados')}>
-              View Certification
-              <Icon name="arrow" />
-            </button>
-          </div>
-        </article>
-      </section>
-    </div>
-  );
+function isVisibleCourse(course: AnyRecord) {
+  const status = String(course.status || '').toLowerCase();
+  if (!status) return true;
+  return ['published', 'publicado', 'active', 'activo', 'preview', 'demo'].includes(status);
 }
 
-function CoursesView({
-  searchTerm,
-  setSearchTerm,
-  courseStatusFilter,
-  setCourseStatusFilter,
-  levelFilter,
-  setLevelFilter,
-  categoryFilter,
-  setCategoryFilter,
-  sortMode,
-  setSortMode,
-  viewMode,
-  setViewMode,
-  availableLevels,
-  availableCategories,
-  filteredCards,
-}: {
-  searchTerm: string;
-  setSearchTerm: (value: string) => void;
-  courseStatusFilter: CourseStatusFilter;
-  setCourseStatusFilter: (value: CourseStatusFilter) => void;
-  levelFilter: string;
-  setLevelFilter: (value: string) => void;
-  categoryFilter: string;
-  setCategoryFilter: (value: string) => void;
-  sortMode: SortMode;
-  setSortMode: (value: SortMode) => void;
-  viewMode: ViewMode;
-  setViewMode: (value: ViewMode) => void;
-  availableLevels: string[];
-  availableCategories: string[];
-  filteredCards: DashboardCard[];
-}) {
-  return (
-    <div className="courses-page">
-      <section>
-        <h1 className="page-title">My Courses</h1>
-        <p className="page-subtitle">
-          Continue learning and track your progress across all your courses.
-        </p>
-      </section>
-
-      <section className="course-controls">
-        <label className="search-box">
-          <Icon name="search" />
-          <input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search courses..."
-          />
-        </label>
-
-        <button
-          type="button"
-          className={courseStatusFilter === 'active' ? 'filter-active' : 'filter-button'}
-          onClick={() => setCourseStatusFilter('active')}
-        >
-          Active
-        </button>
-
-        <button
-          type="button"
-          className={courseStatusFilter === 'completed' ? 'filter-active' : 'filter-button'}
-          onClick={() => setCourseStatusFilter('completed')}
-        >
-          Completed
-        </button>
-
-        <button
-          type="button"
-          className={courseStatusFilter === 'all' ? 'filter-active' : 'filter-button'}
-          onClick={() => setCourseStatusFilter('all')}
-        >
-          All
-        </button>
-
-        <select
-          value={levelFilter}
-          onChange={(event) => setLevelFilter(event.target.value)}
-          className="select-control"
-        >
-          <option value="all">Level</option>
-          {availableLevels.map((level) => (
-            <option key={level} value={level}>
-              {level}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={categoryFilter}
-          onChange={(event) => setCategoryFilter(event.target.value)}
-          className="select-control"
-        >
-          <option value="all">Category</option>
-          {availableCategories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-
-        <div className="controls-spacer" />
-
-        <select
-          value={sortMode}
-          onChange={(event) => setSortMode(event.target.value as SortMode)}
-          className="sort-select"
-        >
-          <option value="recent">Sort by: Recent</option>
-          <option value="title">Sort by: Title</option>
-          <option value="progress">Sort by: Progress</option>
-        </select>
-
-        <div className="view-toggle">
-          <button
-            type="button"
-            className={viewMode === 'grid' ? 'view-button-active' : 'view-button'}
-            onClick={() => setViewMode('grid')}
-            aria-label="Ver en cuadrícula"
-          >
-            <Icon name="grid" />
-          </button>
-
-          <button
-            type="button"
-            className={viewMode === 'list' ? 'view-button-active' : 'view-button'}
-            onClick={() => setViewMode('list')}
-            aria-label="Ver en lista"
-          >
-            <Icon name="list" />
-          </button>
-        </div>
-      </section>
-
-      <section className="course-section-header">
-        <h2>
-          {courseStatusFilter === 'completed'
-            ? 'Completed Courses'
-            : courseStatusFilter === 'all'
-              ? 'All Courses'
-              : 'Active Courses'}
-        </h2>
-
-        <span>
-          {filteredCards.length} result{filteredCards.length === 1 ? '' : 's'}
-        </span>
-      </section>
-
-      {filteredCards.length === 0 ? (
-        <EmptyState text="No hay cursos que coincidan con los filtros seleccionados." />
-      ) : (
-        <div className={viewMode === 'grid' ? 'premium-course-grid' : 'premium-course-list'}>
-          {filteredCards.map((card, index) => (
-            <PremiumCourseCard
-              key={card.course.id}
-              card={card}
-              index={index}
-              mode={viewMode}
-              completed={Boolean(card.completion)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CurriculumView({
-  courseCards,
-  curriculumCourse,
-  curriculumModuleViews,
-  curriculumActiveModule,
-  curriculumLessons,
+function buildModuleViews({
+  courseCard,
   lessonProgress,
-  selectedCurriculumCourseId,
-  setSelectedCurriculumCourseId,
+  moduleCompletions,
 }: {
-  courseCards: DashboardCard[];
-  curriculumCourse: DashboardCard | null;
-  curriculumModuleViews: ModuleView[];
-  curriculumActiveModule: ModuleView | null;
-  curriculumLessons: AnyRecord[];
+  courseCard: DashboardCard;
   lessonProgress: AnyRecord[];
-  selectedCurriculumCourseId: string;
-  setSelectedCurriculumCourseId: (value: string) => void;
+  moduleCompletions: AnyRecord[];
+}): ModuleView[] {
+  return courseCard.courseModules.map((module, index) => {
+    const moduleLessons = courseCard.courseLessons.filter(
+      (lesson) => String(lesson.module_id) === String(module.id)
+    );
+
+    const completedLessons = moduleLessons.filter((lesson) =>
+      lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+    ).length;
+
+    const isCompleted = moduleCompletions.some(
+      (completion) => String(completion.module_id) === String(module.id)
+    );
+
+    const previousModule = courseCard.courseModules[index - 1];
+
+    const isUnlocked =
+      index === 0 ||
+      isCompleted ||
+      moduleCompletions.some(
+        (completion) => String(completion.module_id) === String(previousModule?.id)
+      );
+
+    const isCurrent =
+      Boolean(courseCard.nextLesson) &&
+      String(courseCard.nextLesson?.module_id) === String(module.id);
+
+    const nextLessonInsideModule = moduleLessons.find(
+      (lesson) =>
+        !lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+    );
+
+    const targetLesson = nextLessonInsideModule || moduleLessons[0];
+
+    return {
+      module,
+      index,
+      lessons: moduleLessons,
+      completedLessons,
+      progress:
+        moduleLessons.length > 0
+          ? Math.round((completedLessons / moduleLessons.length) * 100)
+          : isCompleted
+            ? 100
+            : 0,
+      isCompleted,
+      isCurrent,
+      isLocked: !isUnlocked,
+      href:
+        isUnlocked && targetLesson
+          ? `/cursos/${getCourseSlug(courseCard.course)}/${targetLesson.id}`
+          : `/cursos/${getCourseSlug(courseCard.course)}`,
+    };
+  });
+}
+
+function findNextLesson({
+  courseModules,
+  courseLessons,
+  lessonProgress,
+  moduleCompletions,
+}: {
+  courseModules: AnyRecord[];
+  courseLessons: AnyRecord[];
+  lessonProgress: AnyRecord[];
+  moduleCompletions: AnyRecord[];
 }) {
+  const completedLessonIds = new Set(lessonProgress.map((item) => String(item.lesson_id)));
+  const completedModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
+
+  for (let index = 0; index < courseModules.length; index++) {
+    const module = courseModules[index];
+
+    const moduleUnlocked =
+      index === 0 ||
+      completedModuleIds.has(String(module.id)) ||
+      completedModuleIds.has(String(courseModules[index - 1]?.id));
+
+    if (!moduleUnlocked) continue;
+
+    const moduleLessons = courseLessons
+      .filter((lesson) => String(lesson.module_id) === String(module.id))
+      .sort(sortLessons);
+
+    const nextLesson = moduleLessons.find((lesson) => !completedLessonIds.has(String(lesson.id)));
+
+    if (nextLesson) return nextLesson;
+  }
+
+  return courseLessons[0] || null;
+}
+
+function getOrder(item: AnyRecord, fallback: number) {
+  return item.position ?? item.sort_order ?? item.order_index ?? item.order ?? fallback;
+}
+
+function sortModules(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractModuleNumber(a.title);
+  const bNumber = extractModuleNumber(b.title);
+  if (aNumber !== bNumber) return aNumber - bNumber;
+  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
+}
+
+function sortLessons(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractLessonNumber(a.title);
+  const bNumber = extractLessonNumber(b.title);
+  if (aNumber !== bNumber) return aNumber - bNumber;
+  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
+}
+
+function extractLessonNumber(title: string = '') {
+  const match = title.match(/lecci[oó]n\s*(\d+)/i);
+  return match ? Number(match[1]) : 999;
+}
+
+function extractModuleNumber(title: string = '') {
+  const match = title.match(/m[oó]dulo\s*(\d+)/i);
+  return match ? Number(match[1]) : 999;
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function shortName(name: string) {
+  return name.split('@')[0].split(' ')[0];
+}
+
+function getCourseSlug(course: AnyRecord) {
+  return String(course?.slug || course?.id || '');
+}
+
+function getCurrentPageLabel(tab: Tab) {
+  if (tab === 'dashboard') return 'Dashboard';
+  if (tab === 'cursos') return 'My Courses';
+  if (tab === 'curriculum') return 'Curriculum';
+  if (tab === 'examenes') return 'Mock Exams';
+  if (tab === 'certificados') return 'Certification';
+  return 'Performance';
+}
+
+function getCourseImage(course: AnyRecord) {
   return (
-    <div className="curriculum-page">
-      <section className="curriculum-header-compact">
-        <div>
-          <h1 className="page-title">Curriculum</h1>
-          <p className="page-subtitle">Your structured learning path to mastery.</p>
-        </div>
-
-        <div className="curriculum-header-right">
-          <div className="current-course-box">
-            <span>Current Course</span>
-            <select
-              value={selectedCurriculumCourseId || curriculumCourse?.course?.id || ''}
-              onChange={(event) => setSelectedCurriculumCourseId(event.target.value)}
-            >
-              {courseCards.map((card) => (
-                <option key={card.course.id} value={card.course.id}>
-                  {card.course.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="curriculum-metrics-row">
-            <CurriculumMetric
-              icon="curriculum"
-              label="Total Modules"
-              value={curriculumCourse?.courseModules.length || 0}
-              helper="Modules"
-            />
-            <CurriculumMetric
-              icon="check"
-              label="Completed Lessons"
-              value={`${curriculumCourse?.completedLessonCount || 0}/${
-                curriculumCourse?.courseLessons.length || 0
-              }`}
-              helper={`${curriculumCourse?.progressPercent || 0}% complete`}
-            />
-            <CurriculumMetric
-              icon="performance"
-              label="Current Stage"
-              value={curriculumActiveModule ? `Module ${curriculumActiveModule.index + 1}` : '—'}
-              helper={
-                curriculumActiveModule?.isCurrent
-                  ? 'In Progress'
-                  : curriculumActiveModule?.isCompleted
-                    ? 'Completed'
-                    : 'Ready'
-              }
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="curriculum-main-grid-compact">
-        <article className="roadmap-panel-compact">
-          <div className="panel-header-compact">
-            <h2>Module Roadmap</h2>
-            <p>Track your progress through each module.</p>
-          </div>
-
-          <div className="roadmap-list-compact">
-            {curriculumModuleViews.length === 0 ? (
-              <EmptyState text="Aún no hay módulos visibles para este curso." />
-            ) : (
-              curriculumModuleViews.map((item) => (
-                <RoadmapModuleRow
-                  key={item.module.id}
-                  item={item}
-                  course={curriculumCourse?.course}
-                />
-              ))
-            )}
-          </div>
-
-          <div className="roadmap-footer-note-compact">
-            <Icon name="shield" />
-            <span>Complete modules in order to unlock new content and assessments.</span>
-          </div>
-        </article>
-
-        <article className="module-detail-panel">
-          <div className="module-detail-top">
-            <div>
-              <h2>
-                {curriculumActiveModule
-                  ? `Module ${curriculumActiveModule.index + 1}: ${
-                      curriculumActiveModule.module.title || 'Current Module'
-                    }`
-                  : 'Module Lessons'}
-              </h2>
-
-              <p>
-                {curriculumCourse?.course?.subtitle ||
-                  curriculumCourse?.course?.description ||
-                  'Explore the current module and continue your learning path.'}
-              </p>
-            </div>
-
-            <div className="module-progress-badge">
-              <strong>{curriculumActiveModule?.progress || 0}%</strong>
-              <span>Complete</span>
-            </div>
-          </div>
-
-          <div className="progress-track-compact">
-            <div
-              className="progress-fill"
-              style={{
-                width: `${curriculumActiveModule?.progress || 0}%`,
-              }}
-            />
-          </div>
-
-          <div className="lesson-table-header-compact">
-            <span>Lessons</span>
-            <span>Type</span>
-            <span>Status</span>
-          </div>
-
-          <div className="lesson-rows-compact">
-            {curriculumLessons.length === 0 ? (
-              <EmptyState text="Este módulo todavía no tiene lecciones visibles." />
-            ) : (
-              curriculumLessons.slice(0, 8).map((lesson, index) => {
-                const completed = lessonProgress.some(
-                  (progress) => String(progress.lesson_id) === String(lesson.id)
-                );
-
-                const active =
-                  curriculumCourse?.nextLesson &&
-                  String(curriculumCourse.nextLesson.id) === String(lesson.id);
-
-                const locked =
-                  curriculumActiveModule?.isLocked ||
-                  (!completed && !active && index > (curriculumActiveModule?.completedLessons || 0));
-
-                return (
-                  <LessonRow
-                    key={lesson.id}
-                    lesson={lesson}
-                    index={index}
-                    completed={completed}
-                    active={Boolean(active)}
-                    locked={Boolean(locked)}
-                    href={
-                      curriculumCourse?.course
-                        ? `/cursos/${getCourseSlug(curriculumCourse.course)}/${lesson.id}`
-                        : '#'
-                    }
-                  />
-                );
-              })
-            )}
-          </div>
-
-          <div className="module-footer-compact">
-            <div className="module-footer-meta">
-              <div className="module-footer-item">
-                <Icon name="clock" />
-                <div>
-                  <span>Estimated Time</span>
-                  <strong>4–5 Hours</strong>
-                </div>
-              </div>
-
-              <div className="module-footer-item">
-                <Icon name="chart" />
-                <div>
-                  <span>Difficulty</span>
-                  <strong>{curriculumCourse?.course?.level || 'Intermediate'}</strong>
-                </div>
-              </div>
-            </div>
-
-            <Link
-              href={
-                curriculumCourse?.course
-                  ? `/cursos/${getCourseSlug(curriculumCourse.course)}`
-                  : '/cursos'
-              }
-              className="resources-button"
-            >
-              View Module Resources
-              <Icon name="arrow" />
-            </Link>
-          </div>
-        </article>
-      </section>
-
-      <article className="curriculum-banner-compact">
-        <div className="banner-icon">
-          <Icon name="trophy" />
-        </div>
-
-        <div>
-          <h3>Stay Consistent, Achieve Excellence</h3>
-          <p>Continue making progress each day. Small steps lead to big results.</p>
-        </div>
-
-        <Link
-          href={
-            curriculumCourse?.nextLesson
-              ? `/cursos/${getCourseSlug(curriculumCourse.course)}/${curriculumCourse.nextLesson.id}`
-              : curriculumCourse?.course
-                ? `/cursos/${getCourseSlug(curriculumCourse.course)}`
-                : '/cursos'
-          }
-          className="keep-going-link"
-        >
-          Keep Going
-          <Icon name="arrow" />
-        </Link>
-      </article>
-    </div>
+    course?.cover_image ||
+    course?.cover_image_url ||
+    course?.image ||
+    course?.image_url ||
+    course?.thumbnail ||
+    course?.thumbnail_url ||
+    ''
   );
 }
 
-function MockExamsView() {
-  const results = [
-    {
-      title: 'Neuromuscular Adaptations',
-      date: 'Attempted on May 12, 2025 · 10:30 AM',
-      score: '85%',
-      status: 'Passed',
-      ok: true,
-    },
-    {
-      title: 'Energy Systems',
-      date: 'Attempted on May 8, 2025 · 02:15 PM',
-      score: '72%',
-      status: 'Passed',
-      ok: true,
-    },
-    {
-      title: 'Biomechanics Fundamentals',
-      date: 'Attempted on May 5, 2025 · 11:45 AM',
-      score: '65%',
-      status: 'Failed',
-      ok: false,
-    },
-    {
-      title: 'Hypertrophy Mechanics',
-      date: 'Attempted on Apr 30, 2025 · 09:20 AM',
-      score: '58%',
-      status: 'Failed',
-      ok: false,
-    },
+function getPremiumCourseBackground(course: AnyRecord, index: number) {
+  const realImage = getCourseImage(course);
+
+  const fallbacks = [
+    'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
   ];
 
-  const moduleExams = [
-    { title: 'Neuromuscular Adaptations', meta: '3 / 3 Exams', score: 75, color: green },
-    { title: 'Energy Systems', meta: '2 / 2 Exams', score: 72, color: green },
-    { title: 'Biomechanics Fundamentals', meta: '2 / 2 Exams', score: 65, color: '#F7C948' },
-    { title: 'Hypertrophy Mechanics', meta: '0 / 1 Exams', score: 0, color: '#FF5757' },
-  ];
-
-  return (
-    <div className="mock-page">
-      <section className="mock-header">
-        <div className="mock-title-block">
-          <span className="mock-target-icon">
-            <Icon name="target" />
-          </span>
-          <div>
-            <h1>Mock Exams</h1>
-            <p>
-              Simulate real certification conditions and evaluate your readiness with advanced
-              performance analytics.
-            </p>
-          </div>
-        </div>
-
-        <div className="mock-feature-strip">
-          <MockFeature icon="clock" title="Timed Sessions" text="Real exam time limits" />
-          <MockFeature
-            icon="chat"
-            title="Instant Feedback"
-            text="Detailed explanations and solutions"
-          />
-          <MockFeature
-            icon="shield"
-            title="Certification Prep"
-            text="Aligned with GHC standards"
-          />
-        </div>
-      </section>
-
-      <section className="mock-hero-grid">
-        <article className="exam-simulator-card">
-          <div className="exam-simulator-content">
-            <div className="exam-title-row">
-              <h2>Exam Simulator</h2>
-              <span>Featured</span>
-            </div>
-
-            <p>
-              Take a full-length mock exam that simulates the real certification experience and
-              tests your knowledge under pressure.
-            </p>
-
-            <div className="exam-meta-grid">
-              <MockMeta icon="lock" label="Mode" value="Timed Simulation" />
-              <MockMeta icon="clock" label="Duration" value="2 Hours" />
-              <MockMeta icon="document" label="Questions" value="90 Questions" />
-              <MockMeta icon="target" label="Passing Score" value="70%" />
-            </div>
-
-            <div className="exam-action-row">
-              <button type="button" className="mock-primary-button">
-                Start Simulation
-                <Icon name="arrow" />
-              </button>
-
-              <button type="button" className="mock-ghost-button">
-                View Exam Details
-                <Icon name="arrow" />
-              </button>
-            </div>
-          </div>
-
-          <div className="exam-laptop-visual">
-            <div className="exam-laptop-screen">
-              <span>Mock Exam</span>
-              <strong>02:00:00</strong>
-              <div className="exam-laptop-rows">
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article className="exam-rules-card">
-          <div className="exam-rules-title">
-            <Icon name="document" />
-            <h2>Exam Rules</h2>
-          </div>
-
-          <div className="rule-list">
-            {[
-              'Real exam timing and conditions',
-              'No pause once the exam begins',
-              'No external resources allowed',
-              'Answers submitted automatically',
-              'Results available immediately',
-              'Review explanations after completion',
-            ].map((rule) => (
-              <div key={rule} className="rule-item">
-                <Icon name="check" />
-                <span>{rule}</span>
-              </div>
-            ))}
-          </div>
-
-          <button type="button" className="mock-secondary-button">
-            View Full Rules
-            <Icon name="arrow" />
-          </button>
-        </article>
-      </section>
-
-      <section className="mock-middle-grid">
-        <article className="latest-results-card">
-          <div className="mock-card-header">
-            <h2>Latest Results</h2>
-            <button type="button">View All Results</button>
-          </div>
-
-          <div className="results-list">
-            {results.map((result) => (
-              <div key={result.title} className="result-row">
-                <span className={result.ok ? 'result-icon-ok' : 'result-icon-fail'}>
-                  <Icon name="document" />
-                </span>
-
-                <div className="result-info">
-                  <strong>{result.title}</strong>
-                  <p>{result.date}</p>
-                </div>
-
-                <div className={result.ok ? 'result-score-ok' : 'result-score-fail'}>
-                  <strong>{result.score}</strong>
-                  <span>{result.status}</span>
-                </div>
-
-                <Icon name="arrow" />
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="readiness-card">
-          <div className="mock-card-header">
-            <h2>Readiness Score</h2>
-            <button type="button">View Details</button>
-          </div>
-
-          <div className="readiness-ring-wrap">
-            <div
-              className="readiness-ring"
-              style={{
-                background: `conic-gradient(${green} ${78 * 3.6}deg, rgba(255,255,255,0.10) 0deg)`,
-              }}
-            >
-              <div className="readiness-ring-inner">
-                <strong>78%</strong>
-                <span>Ready</span>
-              </div>
-            </div>
-          </div>
-
-          <p>You're well prepared! Keep practicing to boost your confidence.</p>
-
-          <div className="readiness-footer">
-            <span>Target Score: 70%</span>
-            <strong>Above Target</strong>
-          </div>
-        </article>
-
-        <article className="module-exams-card">
-          <div className="mock-card-header">
-            <h2>Module Exams</h2>
-            <button type="button">View All Modules</button>
-          </div>
-
-          <div className="module-exam-list">
-            {moduleExams.map((item) => (
-              <div key={item.title} className="module-exam-row">
-                <Icon name="document" />
-                <div>
-                  <strong>{item.title}</strong>
-                  <span>{item.meta}</span>
-                  <div className="module-exam-progress">
-                    <div
-                      style={{
-                        width: `${item.score}%`,
-                        height: '100%',
-                        borderRadius: 999,
-                        background: item.color,
-                      }}
-                    />
-                  </div>
-                </div>
-                <strong style={{ color: item.color }}>{item.score}%</strong>
-                <Icon name="arrow" />
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="analytics-card">
-        <h2>Performance Analytics</h2>
-
-        <div className="analytics-grid">
-          <div className="average-score-card">
-            <span>Average Score</span>
-            <strong>70%</strong>
-            <p>Across 7 Attempts</p>
-            <em>▲ 12% vs last month</em>
-            <div className="sparkline" />
-          </div>
-
-          <div className="score-trend-card">
-            <div className="score-trend-tooltip">
-              <span>May 12, 2025</span>
-              <strong>85%</strong>
-            </div>
-
-            <h3>Score Trend</h3>
-            <div className="score-trend-grid">
-              <svg viewBox="0 0 520 170" className="trend-svg" aria-hidden="true">
-                <path
-                  d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48"
-                  fill="none"
-                  stroke={green}
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48 L500 160 L20 160 Z"
-                  fill="rgba(99,229,70,0.10)"
-                />
-              </svg>
-            </div>
-          </div>
-
-          <div className="focus-area-card">
-            <h3>Strengths & Focus Areas</h3>
-
-            <div className="focus-item">
-              <span className="focus-icon-green">
-                <Icon name="flame" />
-              </span>
-              <div>
-                <strong>Strengths</strong>
-                <p>Energy Systems, Neuromuscular</p>
-              </div>
-            </div>
-
-            <div className="focus-item">
-              <span className="focus-icon-gold">
-                <Icon name="target" />
-              </span>
-              <div>
-                <strong>Focus Areas</strong>
-                <p>Hypertrophy Mechanics, Biomechanics</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
+  const selected = realImage || fallbacks[index % fallbacks.length];
+  return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
 }
 
-function CertificationTab({ certificates }: { certificates: AnyRecord[] }) {
-  return (
-    <div className="section-stack">
-      <Panel title="Certification">
-        {certificates.length === 0 ? (
-          <EmptyState text="Aún no tienes certificados reales emitidos. Completa un curso y emite tu certificado para verlo aquí." />
-        ) : (
-          <div className="course-grid">
-            {certificates.map((certificate) => (
-              <CertificateCard key={certificate.id} certificate={certificate} />
-            ))}
-          </div>
-        )}
-      </Panel>
-    </div>
-  );
+function getLessonType(lesson: AnyRecord) {
+  const raw = String(
+    lesson.content_type || lesson.type || lesson.kind || lesson.format || 'video'
+  ).toLowerCase();
+
+  if (raw.includes('audio')) return 'Audio';
+  if (raw.includes('pdf')) return 'PDF';
+  if (raw.includes('quiz') || raw.includes('exam') || raw.includes('test')) return 'Quiz';
+  if (raw.includes('text') || raw.includes('texto')) return 'Text';
+  return 'Video';
 }
 
-function PerformanceTab({
-  displayName,
-  user,
-  profile,
-  stats,
-}: {
-  displayName: string;
-  user: AnyRecord | null;
-  profile: AnyRecord | null;
-  stats: AnyRecord;
-}) {
-  return (
-    <div className="section-stack">
-      <Panel title="Performance Profile">
-        <div className="profile-grid">
-          <ProfileStat label="Alumno" value={displayName} />
-          <ProfileStat label="Email" value={user?.email || '—'} />
-          <ProfileStat label="Rol" value={profile?.role || 'student'} />
-          <ProfileStat label="Cursos completados" value={stats.completedCourses} />
-          <ProfileStat label="Certificados" value={stats.certificates} />
-          <ProfileStat label="Progreso global" value={`${stats.globalProgress}%`} />
-        </div>
-      </Panel>
-
-      <Panel title="Security Roadmap">
-        <div className="info-grid">
-          <InfoBlock
-            icon="shield"
-            title="Acceso protegido"
-            text="Ruta /alumno protegida mediante Supabase Auth."
-          />
-          <InfoBlock
-            icon="user"
-            title="Dispositivos"
-            text="Preparado para añadir control de sesiones y dispositivos autorizados."
-          />
-          <InfoBlock
-            icon="performance"
-            title="IA 24/7"
-            text="Base preparada para tutoría inteligente y recomendaciones personalizadas."
-          />
-        </div>
-      </Panel>
-    </div>
-  );
-}
-
-function MockFeature({ icon, title, text }: { icon: IconName; title: string; text: string }) {
-  return (
-    <article className="mock-feature">
-      <span>
-        <Icon name={icon} />
-      </span>
-      <div>
-        <strong>{title}</strong>
-        <p>{text}</p>
-      </div>
-    </article>
-  );
-}
-
-function MockMeta({ icon, label, value }: { icon: IconName; label: string; value: string }) {
-  return (
-    <div className="mock-meta-item">
-      <Icon name={icon} />
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-    </div>
-  );
-}
-
-function DashboardModuleRow({ item }: { item: ModuleView }) {
-  if (item.isLocked) {
-    return (
-      <article className="dashboard-module-row locked">
-        <div className="dashboard-module-icon locked">
-          <Icon name="lock" />
-        </div>
-
-        <div className="dashboard-module-body">
-          <p className="module-mini-label muted">Module {item.index + 1}</p>
-          <h3>{item.module.title || `Módulo ${item.index + 1}`}</h3>
-        </div>
-
-        <span className="locked-pill">Locked</span>
-      </article>
-    );
-  }
-
-  return (
-    <Link href={item.href} className={item.isCurrent ? 'dashboard-module-row active' : 'dashboard-module-row'}>
-      <div className={item.isCompleted ? 'dashboard-module-icon done' : 'dashboard-module-icon'}>
-        <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
-      </div>
-
-      <div className="dashboard-module-body">
-        <div className="dashboard-module-top">
-          <p className="module-mini-label">Module {item.index + 1}</p>
-          {item.isCurrent && <span className="in-progress-mini">In progress</span>}
-        </div>
-
-        <h3>{item.module.title || `Módulo ${item.index + 1}`}</h3>
-
-        {item.isCurrent && (
-          <div className="progress-track-mini">
-            <div className="progress-fill" style={{ width: `${item.progress}%` }} />
-          </div>
-        )}
-      </div>
-
-      <div className="dashboard-module-right">
-        <strong>{item.isCompleted ? '100% Score' : `${item.progress}%`}</strong>
-      </div>
-    </Link>
-  );
-}
-
-function PremiumCourseCard({
-  card,
-  completed = false,
-  index,
-  mode,
-}: {
-  card: DashboardCard;
-  completed?: boolean;
-  index: number;
-  mode: ViewMode;
-}) {
-  const course = card.course;
-  const href = card.nextLesson
-    ? `/cursos/${getCourseSlug(course)}/${card.nextLesson.id}`
-    : `/cursos/${getCourseSlug(course)}`;
-
-  return (
-    <article className={mode === 'grid' ? 'premium-course-card' : 'premium-course-card-list'}>
-      <div
-        className={mode === 'grid' ? 'premium-course-image' : 'premium-course-image list'}
-        style={{
-          backgroundImage: getPremiumCourseBackground(course, index),
-        }}
-      >
-        <div className="premium-image-overlay" />
-
-        <div className="course-top-badges">
-          <span className={completed ? 'completed-badge' : 'progress-badge'}>
-            {completed ? 'Completed' : 'In Progress'}
-          </span>
-        </div>
-
-        <span className="bookmark-icon">
-          <Icon name={completed ? 'check' : 'bookmark'} />
-        </span>
-      </div>
-
-      <div className="premium-course-body">
-        <h3>{course.title || 'Curso GHC Academy'}</h3>
-        <p>
-          {course.subtitle ||
-            course.description ||
-            'Formación premium basada en ciencia, estructura y rendimiento.'}
-        </p>
-
-        <div className="premium-stats-grid">
-          <PremiumMetric icon="document" value={card.courseLessons.length} label="Lessons" />
-          <PremiumMetric icon="box" value={card.courseModules.length} label="Modules" />
-          <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progress" />
-        </div>
-
-        <div className="card-progress-area">
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${card.progressPercent}%` }} />
-          </div>
-          <span className="progress-text-green">{card.progressPercent}% Complete</span>
-        </div>
-
-        <div className="premium-actions">
-          <Link href={href} className={completed ? 'review-button' : 'primary-button-small'}>
-            {completed ? 'Review' : 'Continue'}
-            {!completed && <Icon name="arrow" />}
-          </Link>
-
-          <Link href={`/cursos/${getCourseSlug(course)}`} className="secondary-button-small">
-            Details
-          </Link>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function PremiumMetric({
-  icon,
-  value,
-  label,
-}: {
-  icon: IconName;
-  value: string | number;
-  label: string;
-}) {
-  return (
-    <div className="premium-metric">
-      <div>
-        <Icon name={icon} />
-        <strong>{value}</strong>
-      </div>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function CurriculumMetric({
-  icon,
-  label,
-  value,
-  helper,
-}: {
-  icon: IconName;
-  label: string;
-  value: string | number;
-  helper: string;
-}) {
-  return (
-    <article className="curriculum-metric">
-      <span>
-        <Icon name={icon} />
-      </span>
-
-      <div>
-        <p>{label}</p>
-        <strong>{value}</strong>
-        <em>{helper}</em>
-      </div>
-    </article>
-  );
-}
-
-function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyRecord }) {
-  const title = item.module.title || `Module ${item.index + 1}`;
-
-  if (item.isCurrent) {
-    return (
-      <Link href={item.href} className="roadmap-current-card">
-        <div className="roadmap-current-line" />
-
-        <div className="roadmap-current-content">
-          <div className="roadmap-top-badges">
-            <span className="module-mini-label">Module {item.index + 1}</span>
-            <span className="in-progress-mini">In Progress</span>
-          </div>
-
-          <h3>{title}</h3>
-
-          <p>
-            {item.completedLessons} of {item.lessons.length} Lessons Completed
-          </p>
-
-          <div className="progress-track-mini">
-            <div className="progress-fill" style={{ width: `${item.progress}%` }} />
-          </div>
-
-          <div className="roadmap-bottom-row">
-            <span>{item.progress}% Complete</span>
-
-            <span>
-              Continue
-              <Icon name="arrow" />
-            </span>
-          </div>
-        </div>
-
-        <div
-          className="roadmap-current-image"
-          style={{
-            backgroundImage: `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.74)), url(${
-              getCourseImage(course || {}) ||
-              'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80'
-            })`,
-          }}
-        />
-      </Link>
-    );
-  }
-
-  if (item.isLocked) {
-    return (
-      <article className="roadmap-row locked">
-        <div className="roadmap-dot locked">
-          <Icon name="lock" />
-        </div>
-
-        <div className="roadmap-body">
-          <p className="module-mini-label muted">Module {item.index + 1}</p>
-          <h3>{title}</h3>
-          <p>{item.lessons.length} Lessons</p>
-        </div>
-
-        <span className="locked-pill">Locked</span>
-      </article>
-    );
-  }
-
-  return (
-    <Link href={item.href} className="roadmap-row">
-      <div className={item.isCompleted ? 'roadmap-dot done' : 'roadmap-dot'}>
-        <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
-      </div>
-
-      <div className="roadmap-body">
-        <p className="module-mini-label">Module {item.index + 1}</p>
-        <h3>{title}</h3>
-        <p>{item.lessons.length} Lessons</p>
-      </div>
-
-      <div className="roadmap-side">
-        <strong>{item.isCompleted ? '100%' : `${item.progress}%`}</strong>
-        <span>{item.isCompleted ? 'Completed' : 'Ready'}</span>
-      </div>
-    </Link>
-  );
-}
-
-function LessonRow({
-  lesson,
-  index,
-  completed,
-  active,
-  locked,
-  href,
-}: {
-  lesson: AnyRecord;
-  index: number;
-  completed: boolean;
-  active: boolean;
-  locked: boolean;
-  href: string;
-}) {
-  const contentType = getLessonType(lesson);
-  const icon = getLessonIcon(contentType);
-  const title = lesson.title || `Lesson ${index + 1}`;
-
-  const content = (
-    <article className={active ? 'lesson-row active' : locked ? 'lesson-row locked' : 'lesson-row'}>
-      <div className="lesson-name-cell">
-        <span className={completed ? 'lesson-icon done' : active ? 'lesson-icon active' : 'lesson-icon'}>
-          <Icon name={completed ? 'check' : icon} />
-        </span>
-
-        <div>
-          <strong>{`${index + 1}. ${title}`}</strong>
-          <p>{lesson.description || lesson.subtitle || 'Contenido académico del módulo'}</p>
-        </div>
-      </div>
-
-      <span className="lesson-type-pill">
-        <Icon name={icon} />
-        {contentType}
-      </span>
-
-      <span
-        className={
-          locked
-            ? 'lesson-status locked'
-            : completed
-              ? 'lesson-status completed'
-              : active
-                ? 'lesson-status active'
-                : 'lesson-status pending'
-        }
-      >
-        {locked ? 'Locked' : completed ? 'Completed' : active ? 'In Progress' : 'Pending'}
-      </span>
-    </article>
-  );
-
-  if (locked) return content;
-
-  return (
-    <Link href={href} className="lesson-link">
-      {content}
-    </Link>
-  );
-}
-
-function CertificateCard({ certificate }: { certificate: AnyRecord }) {
-  return (
-    <article className="certificate-card">
-      <div className="certificate-icon">
-        <Icon name="star" />
-      </div>
-
-      <span className="progress-badge">Valid Certificate</span>
-
-      <h3>{certificate.course_title || 'Curso completado'}</h3>
-
-      <div className="profile-grid">
-        <ProfileStat label="Score" value={`${certificate.final_score ?? '—'}%`} />
-        <ProfileStat label="Status" value="Valid" />
-        <ProfileStat label="Code" value={certificate.certificate_code || '—'} />
-      </div>
-
-      {certificate.verification_slug ? (
-        <Link href={`/certificados/${certificate.verification_slug}`} className="primary-button">
-          View Certificate
-          <Icon name="arrow" />
-        </Link>
-      ) : (
-        <p className="empty-text">Certificado registrado sin enlace público.</p>
-      )}
-    </article>
-  );
-}
-
-function ProfileStat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="profile-stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function InfoBlock({ icon, title, text }: { icon: IconName; title: string; text: string }) {
-  return (
-    <article className="info-block">
-      <span>
-        <Icon name={icon} />
-      </span>
-      <h3>{title}</h3>
-      <p>{text}</p>
-    </article>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <article className="empty-state">
-      <p>{text}</p>
-    </article>
-  );
+function getLessonIcon(type: string): IconName {
+  if (type === 'Audio') return 'audio';
+  if (type === 'PDF') return 'pdf';
+  if (type === 'Quiz') return 'exam';
+  if (type === 'Text') return 'text';
+  return 'play';
 }
