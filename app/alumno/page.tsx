@@ -2167,3 +2167,155 @@ function buildModuleViews({
     };
   });
 }
+
+
+/* ------------------------------ FINAL AUXILIARY HELPERS ------------------------------ */
+/* Estas funciones cierran las dependencias del dashboard para que Vercel compile. */
+
+function findNextLesson({
+  courseModules,
+  courseLessons,
+  lessonProgress,
+  moduleCompletions,
+}: {
+  courseModules: AnyRecord[];
+  courseLessons: AnyRecord[];
+  lessonProgress: AnyRecord[];
+  moduleCompletions: AnyRecord[];
+}) {
+  const completedLessonIds = new Set(lessonProgress.map((item) => String(item.lesson_id)));
+  const completedModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
+
+  for (let index = 0; index < courseModules.length; index++) {
+    const module = courseModules[index];
+
+    const moduleUnlocked =
+      index === 0 ||
+      completedModuleIds.has(String(module.id)) ||
+      completedModuleIds.has(String(courseModules[index - 1]?.id));
+
+    if (!moduleUnlocked) continue;
+
+    const moduleLessons = courseLessons
+      .filter((lesson) => String(lesson.module_id) === String(module.id))
+      .sort(sortLessons);
+
+    const nextLesson = moduleLessons.find((lesson) => !completedLessonIds.has(String(lesson.id)));
+
+    if (nextLesson) return nextLesson;
+  }
+
+  return courseLessons[0] || null;
+}
+
+function getOrder(item: AnyRecord, fallback: number) {
+  return item.position ?? item.sort_order ?? item.order_index ?? item.order ?? fallback;
+}
+
+function sortModules(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractModuleNumber(a.title);
+  const bNumber = extractModuleNumber(b.title);
+
+  if (aNumber !== bNumber) return aNumber - bNumber;
+
+  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
+}
+
+function sortLessons(a: AnyRecord, b: AnyRecord) {
+  const aNumber = extractLessonNumber(a.title);
+  const bNumber = extractLessonNumber(b.title);
+
+  if (aNumber !== bNumber) return aNumber - bNumber;
+
+  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
+}
+
+function extractLessonNumber(title: string = '') {
+  const match = String(title).match(/lecci[oó]n\s*(\d+)/i);
+  return match ? Number(match[1]) : 999;
+}
+
+function extractModuleNumber(title: string = '') {
+  const match = String(title).match(/m[oó]dulo\s*(\d+)/i);
+  return match ? Number(match[1]) : 999;
+}
+
+function getInitials(name: string) {
+  return String(name)
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function shortName(name: string) {
+  return String(name).split('@')[0].split(' ')[0];
+}
+
+function getCourseSlug(course: AnyRecord) {
+  return String(course?.slug || course?.id || '');
+}
+
+function getCurrentPageLabel(tab: Tab) {
+  if (tab === 'dashboard') return 'Dashboard';
+  if (tab === 'cursos') return 'My Courses';
+  if (tab === 'curriculum') return 'Curriculum';
+  if (tab === 'examenes') return 'Mock Exams';
+  if (tab === 'certificados') return 'Certification';
+  return 'Performance';
+}
+
+function getCourseImage(course: AnyRecord) {
+  return (
+    course?.cover_image ||
+    course?.cover_image_url ||
+    course?.image ||
+    course?.image_url ||
+    course?.thumbnail ||
+    course?.thumbnail_url ||
+    ''
+  );
+}
+
+function getPremiumCourseBackground(course: AnyRecord, index: number) {
+  const realImage = getCourseImage(course);
+
+  const fallbacks = [
+    'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
+  ];
+
+  const selected = realImage || fallbacks[index % fallbacks.length];
+
+  return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
+}
+
+function getLessonType(lesson: AnyRecord) {
+  const raw = String(
+    lesson.content_type || lesson.type || lesson.kind || lesson.format || 'video'
+  ).toLowerCase();
+
+  if (raw.includes('audio')) return 'Audio';
+  if (raw.includes('pdf')) return 'PDF';
+  if (raw.includes('quiz') || raw.includes('exam') || raw.includes('test')) return 'Quiz';
+  if (raw.includes('text') || raw.includes('texto')) return 'Text';
+
+  return 'Video';
+}
+
+function getLessonIcon(type: string): IconName {
+  if (type === 'Audio') return 'audio';
+  if (type === 'PDF') return 'pdf';
+  if (type === 'Quiz') return 'exam';
+  if (type === 'Text') return 'text';
+
+  return 'play';
+}
