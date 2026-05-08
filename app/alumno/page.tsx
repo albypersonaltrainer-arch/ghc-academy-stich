@@ -503,7 +503,7 @@ export default function AlumnoPage() {
         <GlobalStyles />
         <Background />
         <section className="loading-card">
-          <GHCLogo size="md" showTexto tagline={false} />
+          <GHCLogo size="md" showText tagline={false} />
           <h1>Cargando panel</h1>
           <p>Preparando cursos, módulos, progreso, certificados y perfil real del alumno.</p>
         </section>
@@ -519,7 +519,7 @@ export default function AlumnoPage() {
       <aside className="sidebar">
         <div>
           <div className="logo-block">
-            <GHCLogo size="md" showTexto tagline={false} />
+            <GHCLogo size="md" showText tagline={false} />
           </div>
 
           <nav className="nav">
