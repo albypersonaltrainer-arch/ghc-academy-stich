@@ -9,14 +9,14 @@ import GHCLogo from '../components/GHCLogo';
 
 type AnyRecord = Record<string, any>;
 type Tab = 'dashboard' | 'cursos' | 'curriculum' | 'examenes' | 'certificados' | 'perfil';
-type ViewMode = 'grid' | 'list';
-type CourseStatusFilter = 'active' | 'completed' | 'all';
-type SortMode = 'recent' | 'title' | 'progress';
+type ViewModo = 'grid' | 'list';
+type CourseEstadoFilter = 'active' | 'completed' | 'all';
+type SortModo = 'recent' | 'title' | 'progress';
 
-type DashboardCard = {
+type PanelCard = {
   course: AnyRecord;
-  courseModules: AnyRecord[];
-  courseLessons: AnyRecord[];
+  courseMódulos: AnyRecord[];
+  courseLecciones: AnyRecord[];
   completedLessonCount: number;
   completedModuleCount: number;
   completion?: AnyRecord;
@@ -29,11 +29,11 @@ type ModuleView = {
   module: AnyRecord;
   index: number;
   lessons: AnyRecord[];
-  completedLessons: number;
+  completedLecciones: number;
   progress: number;
-  isCompleted: boolean;
+  isCompletado: boolean;
   isCurrent: boolean;
-  isLocked: boolean;
+  isBloqueado: boolean;
   href: string;
 };
 
@@ -64,42 +64,42 @@ const supabase = createClient(
 const GREEN = '#63E546';
 
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
-  { id: 'dashboard', label: 'Dashboard', helper: 'Resumen', icon: 'dashboard' },
-  { id: 'cursos', label: 'My Courses', helper: 'Cursos activos', icon: 'courses' },
-  { id: 'curriculum', label: 'Curriculum', helper: 'Módulos', icon: 'curriculum' },
-  { id: 'examenes', label: 'Mock Exams', helper: 'Evaluación', icon: 'exam' },
-  { id: 'certificados', label: 'Certification', helper: 'Credenciales', icon: 'certificate' },
-  { id: 'perfil', label: 'Performance', helper: 'Perfil', icon: 'performance' },
+  { id: 'dashboard', label: 'Panel', helper: 'Resumen', icon: 'dashboard' },
+  { id: 'cursos', label: 'Mis cursos', helper: 'Cursos activos', icon: 'courses' },
+  { id: 'curriculum', label: 'Itinerario', helper: 'Módulos', icon: 'curriculum' },
+  { id: 'examenes', label: 'Simulador de exámenes', helper: 'Evaluación', icon: 'exam' },
+  { id: 'certificados', label: 'Certificados', helper: 'Credenciales', icon: 'certificate' },
+  { id: 'perfil', label: 'Rendimiento', helper: 'Perfil', icon: 'performance' },
 ];
 
 export default function AlumnoPage() {
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [activeTab, setActivosTab] = useState<Tab>('dashboard');
+  const [viewModo, setViewModo] = useState<ViewModo>('grid');
+  const [notificationsOpen, setNotificacionesOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [courseStatusFilter, setCourseStatusFilter] = useState<CourseStatusFilter>('active');
-  const [levelFilter, setLevelFilter] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [sortMode, setSortMode] = useState<SortMode>('recent');
-  const [selectedCurriculumCourseId, setSelectedCurriculumCourseId] = useState('');
+  const [courseEstadoFilter, setCourseEstadoFilter] = useState<CourseEstadoFilter>('active');
+  const [levelFilter, setNivelFilter] = useState('all');
+  const [categoryFilter, setCategoríaFilter] = useState('all');
+  const [sortModo, setSortModo] = useState<SortModo>('recent');
+  const [selectedItinerarioCourseId, setSelectedItinerarioCourseId] = useState('');
 
   const [user, setUser] = useState<AnyRecord | null>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
-  const [courses, setCourses] = useState<AnyRecord[]>([]);
-  const [modules, setModules] = useState<AnyRecord[]>([]);
-  const [lessons, setLessons] = useState<AnyRecord[]>([]);
-  const [lessonProgress, setLessonProgress] = useState<AnyRecord[]>([]);
+  const [courses, setCursos] = useState<AnyRecord[]>([]);
+  const [modules, setMódulos] = useState<AnyRecord[]>([]);
+  const [lessons, setLecciones] = useState<AnyRecord[]>([]);
+  const [lessonProgreso, setLessonProgreso] = useState<AnyRecord[]>([]);
   const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
   const [courseCompletions, setCourseCompletions] = useState<AnyRecord[]>([]);
-  const [certificates, setCertificates] = useState<AnyRecord[]>([]);
+  const [certificates, setCertificados] = useState<AnyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
 
   useEffect(() => {
-    async function loadDashboard() {
+    async function loadPanel() {
       try {
         setLoading(true);
         setSystemMessage('');
@@ -129,19 +129,19 @@ export default function AlumnoPage() {
         if (coursesError) {
           console.error(coursesError);
           setSystemMessage('No se pudieron cargar los cursos.');
-          setCourses([]);
+          setCursos([]);
           return;
         }
 
-        const visibleCourses = Array.isArray(coursesData)
+        const visibleCursos = Array.isArray(coursesData)
           ? coursesData
               .filter(isVisibleCourse)
               .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
           : [];
 
-        setCourses(visibleCourses);
+        setCursos(visibleCursos);
 
-        const courseIds = visibleCourses.map((course) => course.id).filter(Boolean);
+        const courseIds = visibleCursos.map((course) => course.id).filter(Boolean);
 
         if (courseIds.length > 0) {
           const { data: modulesData } = await supabase
@@ -149,10 +149,10 @@ export default function AlumnoPage() {
             .select('*')
             .in('course_id', courseIds);
 
-          const finalModules = Array.isArray(modulesData) ? [...modulesData].sort(sortModules) : [];
-          setModules(finalModules);
+          const finalMódulos = Array.isArray(modulesData) ? [...modulesData].sort(sortMódulos) : [];
+          setMódulos(finalMódulos);
 
-          const moduleIds = finalModules.map((module) => module.id).filter(Boolean);
+          const moduleIds = finalMódulos.map((module) => module.id).filter(Boolean);
 
           if (moduleIds.length > 0) {
             const { data: lessonsData } = await supabase
@@ -160,13 +160,13 @@ export default function AlumnoPage() {
               .select('*')
               .in('module_id', moduleIds);
 
-            setLessons(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLessons) : []);
+            setLecciones(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLecciones) : []);
           } else {
-            setLessons([]);
+            setLecciones([]);
           }
         } else {
-          setModules([]);
-          setLessons([]);
+          setMódulos([]);
+          setLecciones([]);
         }
 
         const { data: progressData } = await supabase
@@ -175,7 +175,7 @@ export default function AlumnoPage() {
           .eq('user_id', activeUser.id)
           .eq('completed', true);
 
-        setLessonProgress(Array.isArray(progressData) ? progressData : []);
+        setLessonProgreso(Array.isArray(progressData) ? progressData : []);
 
         const { data: moduleCompletionData } = await supabase
           .from('module_completions')
@@ -199,7 +199,7 @@ export default function AlumnoPage() {
           .eq('user_id', activeUser.id)
           .eq('status', 'valid');
 
-        setCertificates(Array.isArray(certificatesData) ? certificatesData : []);
+        setCertificados(Array.isArray(certificatesData) ? certificatesData : []);
       } catch (error) {
         console.error(error);
         setSystemMessage('Error cargando el panel del alumno.');
@@ -208,7 +208,7 @@ export default function AlumnoPage() {
       }
     }
 
-    loadDashboard();
+    loadPanel();
   }, [router]);
 
   const displayName =
@@ -217,23 +217,23 @@ export default function AlumnoPage() {
     user?.email ||
     'Alumno GHC Academy';
 
-  const courseCards = useMemo<DashboardCard[]>(() => {
+  const courseCards = useMemo<PanelCard[]>(() => {
     return courses.map((course) => {
-      const courseModules = modules
+      const courseMódulos = modules
         .filter((module) => String(module.course_id) === String(course.id))
-        .sort(sortModules);
+        .sort(sortMódulos);
 
-      const courseLessons = lessons
+      const courseLecciones = lessons
         .filter((lesson) =>
-          courseModules.some((module) => String(module.id) === String(lesson.module_id))
+          courseMódulos.some((module) => String(module.id) === String(lesson.module_id))
         )
-        .sort(sortLessons);
+        .sort(sortLecciones);
 
-      const completedLessonCount = courseLessons.filter((lesson) =>
-        lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+      const completedLessonCount = courseLecciones.filter((lesson) =>
+        lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
       ).length;
 
-      const completedModuleCount = courseModules.filter((module) =>
+      const completedModuleCount = courseMódulos.filter((module) =>
         moduleCompletions.some((completion) => String(completion.module_id) === String(module.id))
       ).length;
 
@@ -246,23 +246,23 @@ export default function AlumnoPage() {
       );
 
       const progressPercent =
-        courseLessons.length > 0
-          ? Math.round((completedLessonCount / courseLessons.length) * 100)
+        courseLecciones.length > 0
+          ? Math.round((completedLessonCount / courseLecciones.length) * 100)
           : completion
             ? 100
             : 0;
 
       const nextLesson = findNextLesson({
-        courseModules,
-        courseLessons,
-        lessonProgress,
+        courseMódulos,
+        courseLecciones,
+        lessonProgreso,
         moduleCompletions,
       });
 
       return {
         course,
-        courseModules,
-        courseLessons,
+        courseMódulos,
+        courseLecciones,
         completedLessonCount,
         completedModuleCount,
         completion,
@@ -275,46 +275,46 @@ export default function AlumnoPage() {
     courses,
     modules,
     lessons,
-    lessonProgress,
+    lessonProgreso,
     moduleCompletions,
     courseCompletions,
     certificates,
   ]);
 
-  const activeCourses = courseCards.filter((card) => !card.completion);
-  const completedCourses = courseCards.filter((card) => Boolean(card.completion));
+  const activeCursos = courseCards.filter((card) => !card.completion);
+  const completedCursos = courseCards.filter((card) => Boolean(card.completion));
 
   const mainCourse = useMemo(() => {
     return (
-      activeCourses.find((card) => card.courseModules.length > 0) ||
-      completedCourses.find((card) => card.courseModules.length > 0) ||
+      activeCursos.find((card) => card.courseMódulos.length > 0) ||
+      completedCursos.find((card) => card.courseMódulos.length > 0) ||
       courseCards[0] ||
       null
     );
-  }, [activeCourses, completedCourses, courseCards]);
+  }, [activeCursos, completedCursos, courseCards]);
 
   const curriculumCourse = useMemo(() => {
-    if (selectedCurriculumCourseId) {
+    if (selectedItinerarioCourseId) {
       const selected = courseCards.find(
-        (card) => String(card.course.id) === String(selectedCurriculumCourseId)
+        (card) => String(card.course.id) === String(selectedItinerarioCourseId)
       );
       if (selected) return selected;
     }
     return mainCourse || courseCards[0] || null;
-  }, [courseCards, mainCourse, selectedCurriculumCourseId]);
+  }, [courseCards, mainCourse, selectedItinerarioCourseId]);
 
   const moduleViews = useMemo<ModuleView[]>(() => {
     if (!mainCourse) return [];
     return buildModuleViews({
       courseCard: mainCourse,
-      lessonProgress,
+      lessonProgreso,
       moduleCompletions,
     });
-  }, [mainCourse, lessonProgress, moduleCompletions]);
+  }, [mainCourse, lessonProgreso, moduleCompletions]);
 
   const currentModuleView =
     moduleViews.find((item) => item.isCurrent) ||
-    moduleViews.find((item) => !item.isLocked && !item.isCompleted) ||
+    moduleViews.find((item) => !item.isBloqueado && !item.isCompletado) ||
     moduleViews[0] ||
     null;
 
@@ -322,38 +322,38 @@ export default function AlumnoPage() {
     if (!curriculumCourse) return [];
     return buildModuleViews({
       courseCard: curriculumCourse,
-      lessonProgress,
+      lessonProgreso,
       moduleCompletions,
     });
-  }, [curriculumCourse, lessonProgress, moduleCompletions]);
+  }, [curriculumCourse, lessonProgreso, moduleCompletions]);
 
-  const curriculumActiveModule =
+  const curriculumActivosModule =
     curriculumModuleViews.find((item) => item.isCurrent) ||
-    curriculumModuleViews.find((item) => !item.isLocked && !item.isCompleted) ||
+    curriculumModuleViews.find((item) => !item.isBloqueado && !item.isCompletado) ||
     curriculumModuleViews[0] ||
     null;
 
-  const curriculumLessons = curriculumActiveModule?.lessons || [];
+  const curriculumLecciones = curriculumActivosModule?.lessons || [];
 
-  const totalLessons = courseCards.reduce((acc, card) => acc + card.courseLessons.length, 0);
-  const completedLessonsVisible = courseCards.reduce(
+  const totalLecciones = courseCards.reduce((acc, card) => acc + card.courseLecciones.length, 0);
+  const completedLeccionesVisible = courseCards.reduce(
     (acc, card) => acc + card.completedLessonCount,
     0
   );
 
-  const globalProgress =
-    totalLessons > 0 ? Math.round((completedLessonsVisible / totalLessons) * 100) : 0;
+  const globalProgreso =
+    totalLecciones > 0 ? Math.round((completedLeccionesVisible / totalLecciones) * 100) : 0;
 
   const stats = {
     courses: courses.length,
-    lessons: completedLessonsVisible,
+    lessons: completedLeccionesVisible,
     modules: moduleCompletions.length,
-    completedCourses: courseCompletions.length,
+    completedCursos: courseCompletions.length,
     certificates: certificates.length,
-    globalProgress,
+    globalProgreso,
   };
 
-  const availableLevels = useMemo(() => {
+  const availableNivels = useMemo(() => {
     return Array.from(
       new Set(
         courseCards
@@ -388,9 +388,9 @@ export default function AlumnoPage() {
       const course = card.course;
 
       const statusOk =
-        courseStatusFilter === 'all' ||
-        (courseStatusFilter === 'active' && !card.completion) ||
-        (courseStatusFilter === 'completed' && Boolean(card.completion));
+        courseEstadoFilter === 'all' ||
+        (courseEstadoFilter === 'active' && !card.completion) ||
+        (courseEstadoFilter === 'completed' && Boolean(card.completion));
 
       const level = String(course.level || '').trim();
       const category = String(
@@ -418,11 +418,11 @@ export default function AlumnoPage() {
     });
 
     return filtered.sort((a, b) => {
-      if (sortMode === 'title') {
+      if (sortModo === 'title') {
         return String(a.course.title || '').localeCompare(String(b.course.title || ''));
       }
 
-      if (sortMode === 'progress') {
+      if (sortModo === 'progress') {
         return b.progressPercent - a.progressPercent;
       }
 
@@ -436,7 +436,7 @@ export default function AlumnoPage() {
 
       return bDate - aDate;
     });
-  }, [courseCards, searchTerm, courseStatusFilter, levelFilter, categoryFilter, sortMode]);
+  }, [courseCards, searchTerm, courseEstadoFilter, levelFilter, categoryFilter, sortModo]);
 
   const notifications = useMemo<NotificationItem[]>(() => {
     const nextHref =
@@ -453,7 +453,7 @@ export default function AlumnoPage() {
         message: mainCourse?.course?.title
           ? `Tienes pendiente avanzar en ${mainCourse.course.title}.`
           : 'Tienes cursos disponibles para continuar tu formación.',
-        type: 'Learning',
+        type: 'Formación',
         time: 'Ahora',
         unread: true,
         href: nextHref,
@@ -465,7 +465,7 @@ export default function AlumnoPage() {
           certificates.length > 0
             ? 'Ya tienes al menos un certificado válido emitido.'
             : 'Completa tu curso y examen final para emitir tu certificado.',
-        type: 'Certification',
+        type: 'Certificados',
         time: 'Hoy',
         unread: certificates.length > 0,
         href: '/alumno',
@@ -474,7 +474,7 @@ export default function AlumnoPage() {
         id: 'catalog',
         title: 'Catálogo GHC Academy',
         message: 'Explora nuevos cursos y especializaciones disponibles.',
-        type: 'Courses',
+        type: 'Cursos',
         time: 'Esta semana',
         unread: true,
         href: '/cursos',
@@ -483,14 +483,14 @@ export default function AlumnoPage() {
         id: 'billing',
         title: 'Estado de acceso',
         message: 'Más adelante aquí aparecerán avisos de renovaciones o incidencias de pago.',
-        type: 'Billing',
+        type: 'Pagos',
         time: 'Próximamente',
         unread: false,
       },
     ];
   }, [mainCourse, certificates.length]);
 
-  const unreadNotifications = notifications.filter((item) => item.unread).length;
+  const unreadNotificaciones = notifications.filter((item) => item.unread).length;
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -503,7 +503,7 @@ export default function AlumnoPage() {
         <GlobalStyles />
         <Background />
         <section className="loading-card">
-          <GHCLogo size="md" showText tagline={false} />
+          <GHCLogo size="md" showTexto tagline={false} />
           <h1>Cargando dashboard</h1>
           <p>Preparando cursos, módulos, progreso, certificados y perfil real del alumno.</p>
         </section>
@@ -519,7 +519,7 @@ export default function AlumnoPage() {
       <aside className="sidebar">
         <div>
           <div className="logo-block">
-            <GHCLogo size="md" showText tagline={false} />
+            <GHCLogo size="md" showTexto tagline={false} />
           </div>
 
           <nav className="nav">
@@ -528,7 +528,7 @@ export default function AlumnoPage() {
                 key={tab.id}
                 type="button"
                 className={activeTab === tab.id ? 'nav-item active' : 'nav-item'}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => setActivosTab(tab.id)}
               >
                 <Icon name={tab.icon} />
                 <span>
@@ -545,12 +545,12 @@ export default function AlumnoPage() {
           <div>
             <strong>{shortName(displayName)}</strong>
             <p>
-              Student <span>Pro</span>
+              Alumno <span>Pro</span>
             </p>
           </div>
           <button type="button" onClick={handleLogout}>
             <Icon name="logout" />
-            Sign Out
+            Cerrar sesión
           </button>
         </div>
       </aside>
@@ -559,7 +559,7 @@ export default function AlumnoPage() {
         <header className="topbar">
           <div className="breadcrumb">
             <Icon name="home" />
-            <span>Dashboard</span>
+            <span>Panel</span>
             <span>›</span>
             <strong>{getCurrentPageLabel(activeTab)}</strong>
           </div>
@@ -572,20 +572,20 @@ export default function AlumnoPage() {
               <button
                 type="button"
                 aria-label="Notificaciones"
-                onClick={() => setNotificationsOpen((value) => !value)}
+                onClick={() => setNotificacionesOpen((value) => !value)}
               >
                 <Icon name="bell" />
-                {unreadNotifications > 0 && <em>{unreadNotifications}</em>}
+                {unreadNotificaciones > 0 && <em>{unreadNotificaciones}</em>}
               </button>
 
               {notificationsOpen && (
                 <div className="notifications-panel">
                   <div className="notifications-header">
                     <div>
-                      <p>Student alerts</p>
-                      <h3>Notifications</h3>
+                      <p>Avisos del alumno</p>
+                      <h3>Notificaciones</h3>
                     </div>
-                    <span>{unreadNotifications} new</span>
+                    <span>{unreadNotificaciones} new</span>
                   </div>
 
                   {notifications.map((notification) => (
@@ -593,7 +593,7 @@ export default function AlumnoPage() {
                       key={notification.id}
                       href={notification.href || '#'}
                       className={notification.unread ? 'notification unread' : 'notification'}
-                      onClick={() => setNotificationsOpen(false)}
+                      onClick={() => setNotificacionesOpen(false)}
                     >
                       <small>{notification.type}</small>
                       <strong>{notification.title}</strong>
@@ -613,54 +613,54 @@ export default function AlumnoPage() {
         {systemMessage && <div className="notice">{systemMessage}</div>}
 
         {activeTab === 'dashboard' && (
-          <DashboardView
-            globalProgress={globalProgress}
+          <PanelView
+            globalProgreso={globalProgreso}
             stats={stats}
             mainCourse={mainCourse}
             moduleViews={moduleViews}
-            setActiveTab={setActiveTab}
+            setActivosTab={setActivosTab}
           />
         )}
 
         {activeTab === 'cursos' && (
-          <CoursesView
+          <CursosView
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
-            courseStatusFilter={courseStatusFilter}
-            setCourseStatusFilter={setCourseStatusFilter}
+            courseEstadoFilter={courseEstadoFilter}
+            setCourseEstadoFilter={setCourseEstadoFilter}
             levelFilter={levelFilter}
-            setLevelFilter={setLevelFilter}
+            setNivelFilter={setNivelFilter}
             categoryFilter={categoryFilter}
-            setCategoryFilter={setCategoryFilter}
-            sortMode={sortMode}
-            setSortMode={setSortMode}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            availableLevels={availableLevels}
+            setCategoríaFilter={setCategoríaFilter}
+            sortModo={sortModo}
+            setSortModo={setSortModo}
+            viewModo={viewModo}
+            setViewModo={setViewModo}
+            availableNivels={availableNivels}
             availableCategories={availableCategories}
             filteredCards={filteredCards}
           />
         )}
 
         {activeTab === 'curriculum' && (
-          <CurriculumView
+          <ItinerarioView
             courseCards={courseCards}
             curriculumCourse={curriculumCourse}
             curriculumModuleViews={curriculumModuleViews}
-            curriculumActiveModule={curriculumActiveModule}
-            curriculumLessons={curriculumLessons}
-            lessonProgress={lessonProgress}
-            selectedCurriculumCourseId={selectedCurriculumCourseId}
-            setSelectedCurriculumCourseId={setSelectedCurriculumCourseId}
+            curriculumActivosModule={curriculumActivosModule}
+            curriculumLecciones={curriculumLecciones}
+            lessonProgreso={lessonProgreso}
+            selectedItinerarioCourseId={selectedItinerarioCourseId}
+            setSelectedItinerarioCourseId={setSelectedItinerarioCourseId}
           />
         )}
 
         {activeTab === 'examenes' && <MockExamsView />}
 
-        {activeTab === 'certificados' && <CertificationTab certificates={certificates} />}
+        {activeTab === 'certificados' && <CertificadosTab certificates={certificates} />}
 
         {activeTab === 'perfil' && (
-          <PerformanceTab displayName={displayName} user={user} profile={profile} stats={stats} />
+          <RendimientoTab displayName={displayName} user={user} profile={profile} stats={stats} />
         )}
       </section>
     </main>
@@ -669,50 +669,50 @@ export default function AlumnoPage() {
 
 /* ------------------------------ VIEWS ------------------------------ */
 
-function DashboardView({
-  globalProgress,
+function PanelView({
+  globalProgreso,
   stats,
   mainCourse,
   moduleViews,
-  setActiveTab,
+  setActivosTab,
 }: {
-  globalProgress: number;
+  globalProgreso: number;
   stats: AnyRecord;
-  mainCourse: DashboardCard | null;
+  mainCourse: PanelCard | null;
   moduleViews: ModuleView[];
-  setActiveTab: (tab: Tab) => void;
+  setActivosTab: (tab: Tab) => void;
 }) {
   return (
     <div className="dashboard-grid">
       <section className="hero-grid">
         <article className="progress-card">
-          <h2>Overall Progress</h2>
+          <h2>Progreso general</h2>
 
           <div
             className="progress-ring"
             style={{
-              background: `conic-gradient(${GREEN} ${globalProgress * 3.6}deg, rgba(255,255,255,0.095) 0deg)`,
+              background: `conic-gradient(${GREEN} ${globalProgreso * 3.6}deg, rgba(255,255,255,0.095) 0deg)`,
             }}
           >
             <div>
-              <strong>{globalProgress}%</strong>
-              <span>Completed</span>
+              <strong>{globalProgreso}%</strong>
+              <span>Completado</span>
             </div>
           </div>
 
-          <p>Excellent work. Keep building expertise and elevating performance.</p>
+          <p>Buen trabajo. Sigue consolidando conocimientos y elevando tu rendimiento.</p>
 
           <div className="mini-stats">
-            <MiniStat icon="clock" label="Lessons" value={stats.lessons} />
-            <MiniStat icon="certificate" label="Certificates" value={stats.certificates} />
+            <MiniStat icon="clock" label="Lecciones" value={stats.lessons} />
+            <MiniStat icon="certificate" label="Certificados" value={stats.certificates} />
           </div>
         </article>
 
         <article className="next-card">
           <div className="next-image" />
           <div className="next-body">
-            <small>In progress</small>
-            <h2>{mainCourse?.course?.title || 'Next Module'}</h2>
+            <small>En progreso</small>
+            <h2>{mainCourse?.course?.title || 'Siguiente módulo'}</h2>
             <p>
               {mainCourse?.course?.subtitle ||
                 mainCourse?.course?.description ||
@@ -721,7 +721,7 @@ function DashboardView({
             <div className="meta-row">
               <MetaItem icon="clock" text="4–5 Hours" />
               <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermediate'} />
-              <MetaItem icon="document" text={`${mainCourse?.courseLessons.length || 0} Lessons`} />
+              <MetaItem icon="document" text={`${mainCourse?.courseLecciones.length || 0} Lecciones`} />
             </div>
             <Link
               href={
@@ -733,14 +733,14 @@ function DashboardView({
               }
               className="primary-action"
             >
-              Continue Learning
+              Continuar formación
               <Icon name="arrow" />
             </Link>
           </div>
         </article>
       </section>
 
-      <Panel title="Curriculum">
+      <Panel title="Itinerario">
         <div className="compact-list">
           {moduleViews.length === 0 ? (
             <EmptyState text="Aún no hay módulos visibles para este curso." />
@@ -751,12 +751,12 @@ function DashboardView({
                 href={item.href}
                 className={item.isCurrent ? 'compact-row active' : 'compact-row'}
               >
-                <Icon name={item.isCompleted ? 'check' : item.isLocked ? 'lock' : 'curriculum'} />
+                <Icon name={item.isCompletado ? 'check' : item.isBloqueado ? 'lock' : 'curriculum'} />
                 <span>
                   <small>Module {item.index + 1}</small>
                   <strong>{item.module.title || `Módulo ${item.index + 1}`}</strong>
                 </span>
-                <em>{item.isLocked ? 'Locked' : `${item.progress}%`}</em>
+                <em>{item.isBloqueado ? 'Bloqueado' : `${item.progress}%`}</em>
               </Link>
             ))
           )}
@@ -765,10 +765,10 @@ function DashboardView({
 
       <section className="dashboard-bottom">
         <article className="mock-mini">
-          <h2>Mock Exam Simulator</h2>
+          <h2>Simulador de exámenes</h2>
           <p>Test your knowledge under real conditions before earning your final certification.</p>
-          <button type="button" onClick={() => setActiveTab('examenes')}>
-            Start Simulation
+          <button type="button" onClick={() => setActivosTab('examenes')}>
+            Iniciar simulación
             <Icon name="arrow" />
           </button>
         </article>
@@ -776,11 +776,11 @@ function DashboardView({
         <article className="cert-mini">
           <div />
           <span>
-            <small>Official Credential</small>
-            <h2>Certification</h2>
-            <p>Earn your official GHC Academy certificate when your learning path is completed.</p>
-            <button type="button" onClick={() => setActiveTab('certificados')}>
-              View Certification
+            <small>Credencial oficial</small>
+            <h2>Certificados</h2>
+            <p>Obtén tu certificado oficial de GHC Academy al completar tu itinerario.</p>
+            <button type="button" onClick={() => setActivosTab('certificados')}>
+              Ver certificación
               <Icon name="arrow" />
             </button>
           </span>
@@ -790,44 +790,44 @@ function DashboardView({
   );
 }
 
-function CoursesView({
+function CursosView({
   searchTerm,
   setSearchTerm,
-  courseStatusFilter,
-  setCourseStatusFilter,
+  courseEstadoFilter,
+  setCourseEstadoFilter,
   levelFilter,
-  setLevelFilter,
+  setNivelFilter,
   categoryFilter,
-  setCategoryFilter,
-  sortMode,
-  setSortMode,
-  viewMode,
-  setViewMode,
-  availableLevels,
+  setCategoríaFilter,
+  sortModo,
+  setSortModo,
+  viewModo,
+  setViewModo,
+  availableNivels,
   availableCategories,
   filteredCards,
 }: {
   searchTerm: string;
   setSearchTerm: (value: string) => void;
-  courseStatusFilter: CourseStatusFilter;
-  setCourseStatusFilter: (value: CourseStatusFilter) => void;
+  courseEstadoFilter: CourseEstadoFilter;
+  setCourseEstadoFilter: (value: CourseEstadoFilter) => void;
   levelFilter: string;
-  setLevelFilter: (value: string) => void;
+  setNivelFilter: (value: string) => void;
   categoryFilter: string;
-  setCategoryFilter: (value: string) => void;
-  sortMode: SortMode;
-  setSortMode: (value: SortMode) => void;
-  viewMode: ViewMode;
-  setViewMode: (value: ViewMode) => void;
-  availableLevels: string[];
+  setCategoríaFilter: (value: string) => void;
+  sortModo: SortModo;
+  setSortModo: (value: SortModo) => void;
+  viewModo: ViewModo;
+  setViewModo: (value: ViewModo) => void;
+  availableNivels: string[];
   availableCategories: string[];
-  filteredCards: DashboardCard[];
+  filteredCards: PanelCard[];
 }) {
   return (
     <div className="courses-page">
       <section>
-        <h1>My Courses</h1>
-        <p>Continue learning and track your progress across all your courses.</p>
+        <h1>Mis cursos</h1>
+        <p>Continúa tu formación y controla tu progreso en todos tus cursos.</p>
       </section>
 
       <section className="filters">
@@ -836,43 +836,43 @@ function CoursesView({
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search courses..."
+            placeholder="Buscar cursos..."
           />
         </label>
 
         <button
           type="button"
-          className={courseStatusFilter === 'active' ? 'active' : ''}
-          onClick={() => setCourseStatusFilter('active')}
+          className={courseEstadoFilter === 'active' ? 'active' : ''}
+          onClick={() => setCourseEstadoFilter('active')}
         >
-          Active
+          Activos
         </button>
         <button
           type="button"
-          className={courseStatusFilter === 'completed' ? 'active' : ''}
-          onClick={() => setCourseStatusFilter('completed')}
+          className={courseEstadoFilter === 'completed' ? 'active' : ''}
+          onClick={() => setCourseEstadoFilter('completed')}
         >
-          Completed
+          Completado
         </button>
         <button
           type="button"
-          className={courseStatusFilter === 'all' ? 'active' : ''}
-          onClick={() => setCourseStatusFilter('all')}
+          className={courseEstadoFilter === 'all' ? 'active' : ''}
+          onClick={() => setCourseEstadoFilter('all')}
         >
-          All
+          Todos
         </button>
 
-        <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-          <option value="all">Level</option>
-          {availableLevels.map((level) => (
+        <select value={levelFilter} onChange={(event) => setNivelFilter(event.target.value)}>
+          <option value="all">Nivel</option>
+          {availableNivels.map((level) => (
             <option key={level} value={level}>
               {level}
             </option>
           ))}
         </select>
 
-        <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-          <option value="all">Category</option>
+        <select value={categoryFilter} onChange={(event) => setCategoríaFilter(event.target.value)}>
+          <option value="all">Categoría</option>
           {availableCategories.map((category) => (
             <option key={category} value={category}>
               {category}
@@ -882,24 +882,24 @@ function CoursesView({
 
         <span />
 
-        <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-          <option value="recent">Sort by: Recent</option>
-          <option value="title">Sort by: Title</option>
-          <option value="progress">Sort by: Progress</option>
+        <select value={sortModo} onChange={(event) => setSortModo(event.target.value as SortModo)}>
+          <option value="recent">Ordenar: recientes</option>
+          <option value="title">Ordenar: título</option>
+          <option value="progress">Ordenar: progreso</option>
         </select>
 
         <div className="view-toggle">
           <button
             type="button"
-            className={viewMode === 'grid' ? 'active' : ''}
-            onClick={() => setViewMode('grid')}
+            className={viewModo === 'grid' ? 'active' : ''}
+            onClick={() => setViewModo('grid')}
           >
             <Icon name="grid" />
           </button>
           <button
             type="button"
-            className={viewMode === 'list' ? 'active' : ''}
-            onClick={() => setViewMode('list')}
+            className={viewModo === 'list' ? 'active' : ''}
+            onClick={() => setViewModo('list')}
           >
             <Icon name="list" />
           </button>
@@ -907,20 +907,20 @@ function CoursesView({
       </section>
 
       <section className="section-title-row">
-        <h2>Courses</h2>
-        <p>{filteredCards.length} results</p>
+        <h2>Cursos</h2>
+        <p>{filteredCards.length} resultados</p>
       </section>
 
       {filteredCards.length === 0 ? (
         <EmptyState text="No hay cursos que coincidan con los filtros seleccionados." />
       ) : (
-        <div className={viewMode === 'grid' ? 'course-grid' : 'course-list'}>
+        <div className={viewModo === 'grid' ? 'course-grid' : 'course-list'}>
           {filteredCards.map((card, index) => (
             <PremiumCourseCard
               key={card.course.id}
               card={card}
               index={index}
-              mode={viewMode}
+              mode={viewModo}
               completed={Boolean(card.completion)}
             />
           ))}
@@ -930,39 +930,39 @@ function CoursesView({
   );
 }
 
-function CurriculumView({
+function ItinerarioView({
   courseCards,
   curriculumCourse,
   curriculumModuleViews,
-  curriculumActiveModule,
-  curriculumLessons,
-  lessonProgress,
-  selectedCurriculumCourseId,
-  setSelectedCurriculumCourseId,
+  curriculumActivosModule,
+  curriculumLecciones,
+  lessonProgreso,
+  selectedItinerarioCourseId,
+  setSelectedItinerarioCourseId,
 }: {
-  courseCards: DashboardCard[];
-  curriculumCourse: DashboardCard | null;
+  courseCards: PanelCard[];
+  curriculumCourse: PanelCard | null;
   curriculumModuleViews: ModuleView[];
-  curriculumActiveModule: ModuleView | null;
-  curriculumLessons: AnyRecord[];
-  lessonProgress: AnyRecord[];
-  selectedCurriculumCourseId: string;
-  setSelectedCurriculumCourseId: (value: string) => void;
+  curriculumActivosModule: ModuleView | null;
+  curriculumLecciones: AnyRecord[];
+  lessonProgreso: AnyRecord[];
+  selectedItinerarioCourseId: string;
+  setSelectedItinerarioCourseId: (value: string) => void;
 }) {
   return (
     <div className="curriculum-page">
       <section className="curriculum-head">
         <div>
-          <h1>Curriculum</h1>
-          <p>Your structured learning path to mastery.</p>
+          <h1>Itinerario</h1>
+          <p>Tu itinerario estructurado hacia el dominio.</p>
         </div>
 
         <div className="curriculum-side-head">
           <label>
-            Current Course
+            Curso actual
             <select
-              value={selectedCurriculumCourseId || curriculumCourse?.course?.id || ''}
-              onChange={(event) => setSelectedCurriculumCourseId(event.target.value)}
+              value={selectedItinerarioCourseId || curriculumCourse?.course?.id || ''}
+              onChange={(event) => setSelectedItinerarioCourseId(event.target.value)}
             >
               {courseCards.map((card) => (
                 <option key={card.course.id} value={card.course.id}>
@@ -973,30 +973,30 @@ function CurriculumView({
           </label>
 
           <div className="curriculum-metrics">
-            <CurriculumMetric
+            <ItinerarioMetric
               icon="curriculum"
-              label="Total Modules"
-              value={curriculumCourse?.courseModules.length || 0}
-              helper="Modules"
+              label="Módulos totales"
+              value={curriculumCourse?.courseMódulos.length || 0}
+              helper="Módulos"
             />
-            <CurriculumMetric
+            <ItinerarioMetric
               icon="check"
-              label="Completed Lessons"
+              label="Lecciones completadas"
               value={`${curriculumCourse?.completedLessonCount || 0}/${
-                curriculumCourse?.courseLessons.length || 0
+                curriculumCourse?.courseLecciones.length || 0
               }`}
               helper={`${curriculumCourse?.progressPercent || 0}% complete`}
             />
-            <CurriculumMetric
+            <ItinerarioMetric
               icon="performance"
-              label="Current Stage"
-              value={curriculumActiveModule ? `Module ${curriculumActiveModule.index + 1}` : '—'}
+              label="Etapa actual"
+              value={curriculumActivosModule ? `Module ${curriculumActivosModule.index + 1}` : '—'}
               helper={
-                curriculumActiveModule?.isCurrent
-                  ? 'In Progress'
-                  : curriculumActiveModule?.isCompleted
-                    ? 'Completed'
-                    : 'Ready'
+                curriculumActivosModule?.isCurrent
+                  ? 'En progreso'
+                  : curriculumActivosModule?.isCompletado
+                    ? 'Completado'
+                    : 'Preparado'
               }
             />
           </div>
@@ -1005,8 +1005,8 @@ function CurriculumView({
 
       <section className="curriculum-grid">
         <article className="roadmap-panel">
-          <h2>Module Roadmap</h2>
-          <p>Track your progress through each module.</p>
+          <h2>Mapa de módulos</h2>
+          <p>Sigue tu avance por cada módulo.</p>
 
           <div className="roadmap-list">
             {curriculumModuleViews.length === 0 ? (
@@ -1027,11 +1027,11 @@ function CurriculumView({
           <div className="lesson-panel-top">
             <div>
               <h2>
-                {curriculumActiveModule
-                  ? `Module ${curriculumActiveModule.index + 1}: ${
-                      curriculumActiveModule.module.title || 'Current Module'
+                {curriculumActivosModule
+                  ? `Module ${curriculumActivosModule.index + 1}: ${
+                      curriculumActivosModule.module.title || 'Current Module'
                     }`
-                  : 'Module Lessons'}
+                  : 'Lecciones del módulo'}
               </h2>
 
               <p>
@@ -1042,27 +1042,27 @@ function CurriculumView({
             </div>
 
             <div className="module-progress">
-              <strong>{curriculumActiveModule?.progress || 0}%</strong>
-              <span>Complete</span>
+              <strong>{curriculumActivosModule?.progress || 0}%</strong>
+              <span>Completado</span>
             </div>
           </div>
 
           <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${curriculumActiveModule?.progress || 0}%` }} />
+            <div className="progress-fill" style={{ width: `${curriculumActivosModule?.progress || 0}%` }} />
           </div>
 
           <div className="lesson-header-row">
-            <span>Lessons</span>
-            <span>Type</span>
-            <span>Status</span>
+            <span>Lecciones</span>
+            <span>Tipo</span>
+            <span>Estado</span>
           </div>
 
           <div className="lesson-list">
-            {curriculumLessons.length === 0 ? (
+            {curriculumLecciones.length === 0 ? (
               <EmptyState text="Este módulo todavía no tiene lecciones visibles." />
             ) : (
-              curriculumLessons.slice(0, 8).map((lesson, index) => {
-                const completed = lessonProgress.some(
+              curriculumLecciones.slice(0, 8).map((lesson, index) => {
+                const completed = lessonProgreso.some(
                   (progress) => String(progress.lesson_id) === String(lesson.id)
                 );
 
@@ -1071,8 +1071,8 @@ function CurriculumView({
                   String(curriculumCourse.nextLesson.id) === String(lesson.id);
 
                 const locked =
-                  curriculumActiveModule?.isLocked ||
-                  (!completed && !active && index > (curriculumActiveModule?.completedLessons || 0));
+                  curriculumActivosModule?.isBloqueado ||
+                  (!completed && !active && index > (curriculumActivosModule?.completedLecciones || 0));
 
                 return (
                   <LessonRow
@@ -1098,8 +1098,8 @@ function CurriculumView({
       <article className="curriculum-banner">
         <Icon name="trophy" />
         <div>
-          <h3>Stay Consistent, Achieve Excellence</h3>
-          <p>Continue making progress each day. Small steps lead to big results.</p>
+          <h3>Sé constante, alcanza la excelencia</h3>
+          <p>Avanza cada día. Los pequeños pasos construyen grandes resultados.</p>
         </div>
         <Link
           href={
@@ -1110,7 +1110,7 @@ function CurriculumView({
                 : '/cursos'
           }
         >
-          Keep Going
+          Seguir avanzando
           <Icon name="arrow" />
         </Link>
       </article>
@@ -1119,11 +1119,11 @@ function CurriculumView({
 }
 
 function MockExamsView() {
-  const results = [
-    { title: 'Neuromuscular Adaptations', date: 'Attempted on May 12, 2025 · 10:30 AM', score: '85%', status: 'Passed', ok: true },
-    { title: 'Energy Systems', date: 'Attempted on May 8, 2025 · 02:15 PM', score: '72%', status: 'Passed', ok: true },
-    { title: 'Biomechanics Fundamentals', date: 'Attempted on May 5, 2025 · 11:45 AM', score: '65%', status: 'Failed', ok: false },
-    { title: 'Hypertrophy Mechanics', date: 'Attempted on Apr 30, 2025 · 09:20 AM', score: '58%', status: 'Failed', ok: false },
+  const resultados = [
+    { title: 'Adaptaciones neuromusculares', date: 'Attempted on May 12, 2025 · 10:30 AM', score: '85%', status: 'Aprobado', ok: true },
+    { title: 'Sistemas energéticos', date: 'Attempted on May 8, 2025 · 02:15 PM', score: '72%', status: 'Aprobado', ok: true },
+    { title: 'Fundamentos de biomecánica', date: 'Attempted on May 5, 2025 · 11:45 AM', score: '65%', status: 'Suspendido', ok: false },
+    { title: 'Mecánica de la hipertrofia', date: 'Attempted on Apr 30, 2025 · 09:20 AM', score: '58%', status: 'Suspendido', ok: false },
   ];
 
   return (
@@ -1134,7 +1134,7 @@ function MockExamsView() {
             <Icon name="target" />
           </span>
           <div>
-            <h1>Mock Exams</h1>
+            <h1>Simulador de exámenes</h1>
             <p>
               Simulate real certification conditions and evaluate your readiness with advanced
               performance analytics.
@@ -1143,9 +1143,9 @@ function MockExamsView() {
         </div>
 
         <div className="mock-feature-strip">
-          <MockFeature icon="clock" title="Timed Sessions" text="Real exam time limits" />
-          <MockFeature icon="chat" title="Instant Feedback" text="Detailed explanations" />
-          <MockFeature icon="shield" title="Certification Prep" text="Aligned with standards" />
+          <MockFeature icon="clock" title="Sesiones cronometradas" text="Tiempos reales de examen" />
+          <MockFeature icon="chat" title="Feedback inmediato" text="Explicaciones detalladas" />
+          <MockFeature icon="shield" title="Preparación de certificación" text="Alineado con estándares GHC" />
         </div>
       </section>
 
@@ -1153,8 +1153,8 @@ function MockExamsView() {
         <article className="exam-simulator-card">
           <div className="exam-simulator-content">
             <div className="exam-title-row">
-              <h2>Exam Simulator</h2>
-              <span>Featured</span>
+              <h2>Simulador de examen</h2>
+              <span>Destacado</span>
             </div>
 
             <p>
@@ -1163,20 +1163,20 @@ function MockExamsView() {
             </p>
 
             <div className="exam-meta-grid">
-              <MockMeta icon="lock" label="Mode" value="Timed Simulation" />
-              <MockMeta icon="clock" label="Duration" value="2 Hours" />
-              <MockMeta icon="document" label="Questions" value="90 Questions" />
-              <MockMeta icon="target" label="Passing Score" value="70%" />
+              <MockMeta icon="lock" label="Modo" value="Simulación cronometrada" />
+              <MockMeta icon="clock" label="Duración" value="2 horas" />
+              <MockMeta icon="document" label="Preguntas" value="90 preguntas" />
+              <MockMeta icon="target" label="Nota mínima" value="70%" />
             </div>
 
             <div className="exam-action-row">
               <button type="button" className="mock-primary-button">
-                Start Simulation
+                Iniciar simulación
                 <Icon name="arrow" />
               </button>
 
               <button type="button" className="mock-ghost-button">
-                View Exam Details
+                Ver detalles del examen
                 <Icon name="arrow" />
               </button>
             </div>
@@ -1199,17 +1199,17 @@ function MockExamsView() {
         <article className="exam-rules-card">
           <div className="exam-rules-title">
             <Icon name="document" />
-            <h2>Exam Rules</h2>
+            <h2>Reglas del examen</h2>
           </div>
 
           <div className="rule-list">
             {[
-              'Real exam timing and conditions',
-              'No pause once the exam begins',
-              'No external resources allowed',
-              'Answers submitted automatically',
-              'Results available immediately',
-              'Review explanations after completion',
+              'Tiempos y condiciones de examen real',
+              'No se puede pausar una vez iniciado',
+              'No se permiten recursos externos',
+              'Respuestas enviadas automáticamente',
+              'Resultados disponibles al instante',
+              'Revisión de explicaciones al finalizar',
             ].map((rule) => (
               <div key={rule} className="rule-item">
                 <Icon name="check" />
@@ -1219,21 +1219,21 @@ function MockExamsView() {
           </div>
 
           <button type="button" className="mock-secondary-button">
-            View Full Rules
+            Ver reglas completas
             <Icon name="arrow" />
           </button>
         </article>
       </section>
 
       <section className="mock-middle-grid">
-        <article className="latest-results-card">
+        <article className="latest-resultados-card">
           <div className="mock-card-header">
-            <h2>Latest Results</h2>
-            <button type="button">View All Results</button>
+            <h2>Últimos resultados</h2>
+            <button type="button">Ver todos los resultados</button>
           </div>
 
-          <div className="results-list">
-            {results.map((result) => (
+          <div className="resultados-list">
+            {resultados.map((result) => (
               <div key={result.title} className="result-row">
                 <span className={result.ok ? 'result-icon-ok' : 'result-icon-fail'}>
                   <Icon name="document" />
@@ -1257,8 +1257,8 @@ function MockExamsView() {
 
         <article className="readiness-card">
           <div className="mock-card-header">
-            <h2>Readiness Score</h2>
-            <button type="button">View Details</button>
+            <h2>Nivel de preparación</h2>
+            <button type="button">Ver detalles</button>
           </div>
 
           <div className="readiness-ring-wrap">
@@ -1270,31 +1270,31 @@ function MockExamsView() {
             >
               <div className="readiness-ring-inner">
                 <strong>78%</strong>
-                <span>Ready</span>
+                <span>Preparado</span>
               </div>
             </div>
           </div>
 
-          <p>You are well prepared. Keep practicing to boost your confidence.</p>
+          <p>Estás bien preparado. Sigue practicando para aumentar tu confianza.</p>
 
           <div className="readiness-footer">
-            <span>Target Score: 70%</span>
-            <strong>Above Target</strong>
+            <span>Objetivo: 70%</span>
+            <strong>Por encima del objetivo</strong>
           </div>
         </article>
 
         <article className="module-exams-card">
           <div className="mock-card-header">
-            <h2>Module Exams</h2>
-            <button type="button">View All Modules</button>
+            <h2>Exámenes por módulo</h2>
+            <button type="button">Ver todos los módulos</button>
           </div>
 
           <div className="module-exam-list">
             {[
-              { title: 'Neuromuscular Adaptations', meta: '3 / 3 Exams', score: 75, color: GREEN },
-              { title: 'Energy Systems', meta: '2 / 2 Exams', score: 72, color: GREEN },
-              { title: 'Biomechanics Fundamentals', meta: '2 / 2 Exams', score: 65, color: '#F7C948' },
-              { title: 'Hypertrophy Mechanics', meta: '0 / 1 Exams', score: 0, color: '#FF5757' },
+              { title: 'Adaptaciones neuromusculares', meta: '3 / 3 Exams', score: 75, color: GREEN },
+              { title: 'Sistemas energéticos', meta: '2 / 2 Exams', score: 72, color: GREEN },
+              { title: 'Fundamentos de biomecánica', meta: '2 / 2 Exams', score: 65, color: '#F7C948' },
+              { title: 'Mecánica de la hipertrofia', meta: '0 / 1 Exams', score: 0, color: '#FF5757' },
             ].map((item) => (
               <div key={item.title} className="module-exam-row">
                 <Icon name="document" />
@@ -1314,14 +1314,14 @@ function MockExamsView() {
       </section>
 
       <section className="analytics-card">
-        <h2>Performance Analytics</h2>
+        <h2>Analítica de rendimiento</h2>
 
         <div className="analytics-grid">
           <div className="average-score-card">
-            <span>Average Score</span>
+            <span>Nota media</span>
             <strong>70%</strong>
-            <p>Across 7 Attempts</p>
-            <em>▲ 12% vs last month</em>
+            <p>En 7 intentos</p>
+            <em>▲ 12% vs mes anterior</em>
             <div className="sparkline" />
           </div>
 
@@ -1331,7 +1331,7 @@ function MockExamsView() {
               <strong>85%</strong>
             </div>
 
-            <h3>Score Trend</h3>
+            <h3>Tendencia de puntuación</h3>
             <svg viewBox="0 0 520 170" className="trend-svg" aria-hidden="true">
               <path
                 d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48"
@@ -1349,15 +1349,15 @@ function MockExamsView() {
           </div>
 
           <div className="focus-area-card">
-            <h3>Strengths & Focus Areas</h3>
+            <h3>Fortalezas y áreas de mejora</h3>
 
             <div className="focus-item">
               <span className="focus-icon-green">
                 <Icon name="flame" />
               </span>
               <div>
-                <strong>Strengths</strong>
-                <p>Energy Systems, Neuromuscular</p>
+                <strong>Fortalezas</strong>
+                <p>Sistemas energéticos, Neuromuscular</p>
               </div>
             </div>
 
@@ -1366,8 +1366,8 @@ function MockExamsView() {
                 <Icon name="target" />
               </span>
               <div>
-                <strong>Focus Areas</strong>
-                <p>Hypertrophy Mechanics, Biomechanics</p>
+                <strong>Áreas de mejora</strong>
+                <p>Mecánica de la hipertrofia, Biomechanics</p>
               </div>
             </div>
           </div>
@@ -1377,10 +1377,10 @@ function MockExamsView() {
   );
 }
 
-function CertificationTab({ certificates }: { certificates: AnyRecord[] }) {
+function CertificadosTab({ certificates }: { certificates: AnyRecord[] }) {
   return (
     <div className="section-stack">
-      <Panel title="Certification">
+      <Panel title="Certificados">
         {certificates.length === 0 ? (
           <EmptyState text="Aún no tienes certificados reales emitidos. Completa un curso y emite tu certificado para verlo aquí." />
         ) : (
@@ -1395,7 +1395,7 @@ function CertificationTab({ certificates }: { certificates: AnyRecord[] }) {
   );
 }
 
-function PerformanceTab({
+function RendimientoTab({
   displayName,
   user,
   profile,
@@ -1408,18 +1408,18 @@ function PerformanceTab({
 }) {
   return (
     <div className="section-stack">
-      <Panel title="Performance Profile">
+      <Panel title="Perfil de rendimiento">
         <div className="profile-grid">
           <ProfileStat label="Alumno" value={displayName} />
           <ProfileStat label="Email" value={user?.email || '—'} />
           <ProfileStat label="Rol" value={profile?.role || 'student'} />
-          <ProfileStat label="Cursos completados" value={stats.completedCourses} />
+          <ProfileStat label="Cursos completados" value={stats.completedCursos} />
           <ProfileStat label="Certificados" value={stats.certificates} />
-          <ProfileStat label="Progreso global" value={`${stats.globalProgress}%`} />
+          <ProfileStat label="Progreso global" value={`${stats.globalProgreso}%`} />
         </div>
       </Panel>
 
-      <Panel title="Security Roadmap">
+      <Panel title="Hoja de ruta de seguridad">
         <div className="info-grid">
           <InfoBlock
             icon="shield"
@@ -1473,10 +1473,10 @@ function PremiumCourseCard({
   index,
   mode,
 }: {
-  card: DashboardCard;
+  card: PanelCard;
   completed?: boolean;
   index: number;
-  mode: ViewMode;
+  mode: ViewModo;
 }) {
   const course = card.course;
   const href = card.nextLesson
@@ -1492,7 +1492,7 @@ function PremiumCourseCard({
         <div className="premium-image-overlay" />
         <div className="course-top-badges">
           <span className={completed ? 'completed-badge' : 'progress-badge'}>
-            {completed ? 'Completed' : 'In Progress'}
+            {completed ? 'Completado' : 'En progreso'}
           </span>
         </div>
         <span className="bookmark-icon"><Icon name={completed ? 'check' : 'bookmark'} /></span>
@@ -1503,24 +1503,24 @@ function PremiumCourseCard({
         <p>{course.subtitle || course.description || 'Formación premium basada en ciencia, estructura y rendimiento.'}</p>
 
         <div className="premium-stats-grid">
-          <PremiumMetric icon="document" value={card.courseLessons.length} label="Lessons" />
-          <PremiumMetric icon="box" value={card.courseModules.length} label="Modules" />
-          <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progress" />
+          <PremiumMetric icon="document" value={card.courseLecciones.length} label="Lecciones" />
+          <PremiumMetric icon="box" value={card.courseMódulos.length} label="Módulos" />
+          <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progreso" />
         </div>
 
         <div className="card-progress-area">
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${card.progressPercent}%` }} />
           </div>
-          <span className="progress-text-green">{card.progressPercent}% Complete</span>
+          <span className="progress-text-green">{card.progressPercent}% Completado</span>
         </div>
 
         <div className="premium-actions">
           <Link href={href} className={completed ? 'review-button' : 'primary-button-small'}>
-            {completed ? 'Review' : 'Continue'} {!completed && <Icon name="arrow" />}
+            {completed ? 'Repasar' : 'Continuar'} {!completed && <Icon name="arrow" />}
           </Link>
           <Link href={`/cursos/${getCourseSlug(course)}`} className="secondary-button-small">
-            Details
+            Detalles
           </Link>
         </div>
       </div>
@@ -1537,7 +1537,7 @@ function PremiumMetric({ icon, value, label }: { icon: IconName; value: string |
   );
 }
 
-function CurriculumMetric({ icon, label, value, helper }: { icon: IconName; label: string; value: string | number; helper: string }) {
+function ItinerarioMetric({ icon, label, value, helper }: { icon: IconName; label: string; value: string | number; helper: string }) {
   return (
     <article className="curriculum-metric">
       <span><Icon name={icon} /></span>
@@ -1560,16 +1560,16 @@ function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyReco
         <div className="roadmap-current-content">
           <div className="roadmap-top-badges">
             <span className="module-mini-label">Module {item.index + 1}</span>
-            <span className="in-progress-mini">In Progress</span>
+            <span className="in-progress-mini">En progreso</span>
           </div>
           <h3>{title}</h3>
-          <p>{item.completedLessons} of {item.lessons.length} Lessons Completed</p>
+          <p>{item.completedLecciones} of {item.lessons.length} Lecciones Completado</p>
           <div className="progress-track-mini">
             <div className="progress-fill" style={{ width: `${item.progress}%` }} />
           </div>
           <div className="roadmap-bottom-row">
-            <span>{item.progress}% Complete</span>
-            <span>Continue <Icon name="arrow" /></span>
+            <span>{item.progress}% Completado</span>
+            <span>Continuar <Icon name="arrow" /></span>
           </div>
         </div>
         <div
@@ -1584,33 +1584,33 @@ function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyReco
     );
   }
 
-  if (item.isLocked) {
+  if (item.isBloqueado) {
     return (
       <article className="roadmap-row locked">
         <div className="roadmap-dot locked"><Icon name="lock" /></div>
         <div className="roadmap-body">
           <p className="module-mini-label muted">Module {item.index + 1}</p>
           <h3>{title}</h3>
-          <p>{item.lessons.length} Lessons</p>
+          <p>{item.lessons.length} Lecciones</p>
         </div>
-        <span className="locked-pill">Locked</span>
+        <span className="locked-pill">Bloqueado</span>
       </article>
     );
   }
 
   return (
     <Link href={item.href} className="roadmap-row">
-      <div className={item.isCompleted ? 'roadmap-dot done' : 'roadmap-dot'}>
-        <Icon name={item.isCompleted ? 'check' : 'curriculum'} />
+      <div className={item.isCompletado ? 'roadmap-dot done' : 'roadmap-dot'}>
+        <Icon name={item.isCompletado ? 'check' : 'curriculum'} />
       </div>
       <div className="roadmap-body">
         <p className="module-mini-label">Module {item.index + 1}</p>
         <h3>{title}</h3>
-        <p>{item.lessons.length} Lessons</p>
+        <p>{item.lessons.length} Lecciones</p>
       </div>
       <div className="roadmap-side">
-        <strong>{item.isCompleted ? '100%' : `${item.progress}%`}</strong>
-        <span>{item.isCompleted ? 'Completed' : 'Ready'}</span>
+        <strong>{item.isCompletado ? '100%' : `${item.progress}%`}</strong>
+        <span>{item.isCompletado ? 'Completado' : 'Preparado'}</span>
       </div>
     </Link>
   );
@@ -1631,8 +1631,8 @@ function LessonRow({
   locked: boolean;
   href: string;
 }) {
-  const contentType = getLessonType(lesson);
-  const icon = getLessonIcon(contentType);
+  const contentTipo = getLessonTipo(lesson);
+  const icon = getLessonIcon(contentTipo);
   const title = lesson.title || `Lesson ${index + 1}`;
 
   const content = (
@@ -1646,9 +1646,9 @@ function LessonRow({
           <p>{lesson.description || lesson.subtitle || 'Contenido académico del módulo'}</p>
         </div>
       </div>
-      <span className="lesson-type-pill"><Icon name={icon} /> {contentType}</span>
+      <span className="lesson-type-pill"><Icon name={icon} /> {contentTipo}</span>
       <span className={locked ? 'lesson-status locked' : completed ? 'lesson-status completed' : active ? 'lesson-status active' : 'lesson-status pending'}>
-        {locked ? 'Locked' : completed ? 'Completed' : active ? 'In Progress' : 'Pending'}
+        {locked ? 'Bloqueado' : completed ? 'Completado' : active ? 'En progreso' : 'Pendiente'}
       </span>
     </article>
   );
@@ -1661,16 +1661,16 @@ function CertificateCard({ certificate }: { certificate: AnyRecord }) {
   return (
     <article className="certificate-card">
       <div className="certificate-icon"><Icon name="star" /></div>
-      <span className="progress-badge">Valid Certificate</span>
+      <span className="progress-badge">Certificado válido</span>
       <h3>{certificate.course_title || 'Curso completado'}</h3>
       <div className="profile-grid">
-        <ProfileStat label="Score" value={`${certificate.final_score ?? '—'}%`} />
-        <ProfileStat label="Status" value="Valid" />
-        <ProfileStat label="Code" value={certificate.certificate_code || '—'} />
+        <ProfileStat label="Nota" value={`${certificate.final_score ?? '—'}%`} />
+        <ProfileStat label="Estado" value="Valid" />
+        <ProfileStat label="Código" value={certificate.certificate_code || '—'} />
       </div>
       {certificate.verification_slug ? (
         <Link href={`/certificados/${certificate.verification_slug}`} className="primary-action">
-          View Certificate <Icon name="arrow" />
+          Ver certificado <Icon name="arrow" />
         </Link>
       ) : (
         <p className="empty-text">Certificado registrado sin enlace público.</p>
@@ -1860,7 +1860,7 @@ function GlobalStyles() {
 
       .dashboard-grid,.courses-page,.curriculum-page,.mock-page,.section-stack { display: grid; gap: 16px; }
       .hero-grid { display: grid; grid-template-columns: 340px minmax(0,1fr); gap: 16px; }
-      .progress-card,.next-card,.panel,.mock-mini,.cert-mini,.roadmap-panel,.lesson-panel,.mock-feature,.exam-simulator-card,.exam-rules-card,.latest-results-card,.readiness-card,.module-exams-card,.analytics-card,.premium-course-card,.premium-course-card-list,.certificate-card { border-radius: 16px; border: 1px solid rgba(255,255,255,.09); background: var(--panel); box-shadow: 0 20px 70px rgba(0,0,0,.16); }
+      .progress-card,.next-card,.panel,.mock-mini,.cert-mini,.roadmap-panel,.lesson-panel,.mock-feature,.exam-simulator-card,.exam-rules-card,.latest-resultados-card,.readiness-card,.module-exams-card,.analytics-card,.premium-course-card,.premium-course-card-list,.certificate-card { border-radius: 16px; border: 1px solid rgba(255,255,255,.09); background: var(--panel); box-shadow: 0 20px 70px rgba(0,0,0,.16); }
       .progress-card { padding: 20px; }
       .progress-card h2 { margin: 0 0 18px; font-size: 18px; }
       .progress-ring { width: 172px; height: 172px; border-radius: 999px; display: grid; place-items: center; margin: 0 auto 16px; box-shadow: 0 0 42px rgba(var(--green-rgb),.12); }
@@ -2035,11 +2035,11 @@ function GlobalStyles() {
       .rule-item { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 14px; }
       .mock-secondary-button { min-height: 40px; width: fit-content; padding: 0 16px; }
       .mock-middle-grid { display: grid; grid-template-columns: minmax(0,1.05fr) minmax(300px,.85fr) minmax(0,1fr); gap: 14px; }
-      .latest-results-card,.readiness-card,.module-exams-card,.analytics-card { padding: 18px; }
+      .latest-resultados-card,.readiness-card,.module-exams-card,.analytics-card { padding: 18px; }
       .readiness-card { display: grid; }
       .mock-card-header { display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 12px; }
       .mock-card-header button { border: 0; background: transparent; color: var(--green); font-size: 12px; font-weight: 850; cursor: pointer; }
-      .results-list { display: grid; gap: 8px; }
+      .resultados-list { display: grid; gap: 8px; }
       .result-row { min-height: 56px; display: grid; grid-template-columns: 34px minmax(0,1fr) 64px 20px; gap: 10px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.055); padding: 6px 0; }
       .result-icon-ok,.result-icon-fail { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; }
       .result-icon-ok { color: var(--green); background: rgba(var(--green-rgb),.08); }
@@ -2120,31 +2120,31 @@ function isVisibleCourse(course: AnyRecord) {
 
 function buildModuleViews({
   courseCard,
-  lessonProgress,
+  lessonProgreso,
   moduleCompletions,
 }: {
-  courseCard: DashboardCard;
-  lessonProgress: AnyRecord[];
+  courseCard: PanelCard;
+  lessonProgreso: AnyRecord[];
   moduleCompletions: AnyRecord[];
 }): ModuleView[] {
-  return courseCard.courseModules.map((module, index) => {
-    const moduleLessons = courseCard.courseLessons.filter(
+  return courseCard.courseMódulos.map((module, index) => {
+    const moduleLecciones = courseCard.courseLecciones.filter(
       (lesson) => String(lesson.module_id) === String(module.id)
     );
 
-    const completedLessons = moduleLessons.filter((lesson) =>
-      lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+    const completedLecciones = moduleLecciones.filter((lesson) =>
+      lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
     ).length;
 
-    const isCompleted = moduleCompletions.some(
+    const isCompletado = moduleCompletions.some(
       (completion) => String(completion.module_id) === String(module.id)
     );
 
-    const previousModule = courseCard.courseModules[index - 1];
+    const previousModule = courseCard.courseMódulos[index - 1];
 
     const isUnlocked =
       index === 0 ||
-      isCompleted ||
+      isCompletado ||
       moduleCompletions.some(
         (completion) => String(completion.module_id) === String(previousModule?.id)
       );
@@ -2153,27 +2153,27 @@ function buildModuleViews({
       Boolean(courseCard.nextLesson) &&
       String(courseCard.nextLesson?.module_id) === String(module.id);
 
-    const nextLessonInsideModule = moduleLessons.find(
+    const nextLessonInsideModule = moduleLecciones.find(
       (lesson) =>
-        !lessonProgress.some((progress) => String(progress.lesson_id) === String(lesson.id))
+        !lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
     );
 
-    const targetLesson = nextLessonInsideModule || moduleLessons[0];
+    const targetLesson = nextLessonInsideModule || moduleLecciones[0];
 
     return {
       module,
       index,
-      lessons: moduleLessons,
-      completedLessons,
+      lessons: moduleLecciones,
+      completedLecciones,
       progress:
-        moduleLessons.length > 0
-          ? Math.round((completedLessons / moduleLessons.length) * 100)
-          : isCompleted
+        moduleLecciones.length > 0
+          ? Math.round((completedLecciones / moduleLecciones.length) * 100)
+          : isCompletado
             ? 100
             : 0,
-      isCompleted,
+      isCompletado,
       isCurrent,
-      isLocked: !isUnlocked,
+      isBloqueado: !isUnlocked,
       href:
         isUnlocked && targetLesson
           ? `/cursos/${getCourseSlug(courseCard.course)}/${targetLesson.id}`
@@ -2187,46 +2187,46 @@ function buildModuleViews({
 /* Estas funciones cierran las dependencias del dashboard para que Vercel compile. */
 
 function findNextLesson({
-  courseModules,
-  courseLessons,
-  lessonProgress,
+  courseMódulos,
+  courseLecciones,
+  lessonProgreso,
   moduleCompletions,
 }: {
-  courseModules: AnyRecord[];
-  courseLessons: AnyRecord[];
-  lessonProgress: AnyRecord[];
+  courseMódulos: AnyRecord[];
+  courseLecciones: AnyRecord[];
+  lessonProgreso: AnyRecord[];
   moduleCompletions: AnyRecord[];
 }) {
-  const completedLessonIds = new Set(lessonProgress.map((item) => String(item.lesson_id)));
+  const completedLessonIds = new Set(lessonProgreso.map((item) => String(item.lesson_id)));
   const completedModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
 
-  for (let index = 0; index < courseModules.length; index++) {
-    const module = courseModules[index];
+  for (let index = 0; index < courseMódulos.length; index++) {
+    const module = courseMódulos[index];
 
     const moduleUnlocked =
       index === 0 ||
       completedModuleIds.has(String(module.id)) ||
-      completedModuleIds.has(String(courseModules[index - 1]?.id));
+      completedModuleIds.has(String(courseMódulos[index - 1]?.id));
 
     if (!moduleUnlocked) continue;
 
-    const moduleLessons = courseLessons
+    const moduleLecciones = courseLecciones
       .filter((lesson) => String(lesson.module_id) === String(module.id))
-      .sort(sortLessons);
+      .sort(sortLecciones);
 
-    const nextLesson = moduleLessons.find((lesson) => !completedLessonIds.has(String(lesson.id)));
+    const nextLesson = moduleLecciones.find((lesson) => !completedLessonIds.has(String(lesson.id)));
 
     if (nextLesson) return nextLesson;
   }
 
-  return courseLessons[0] || null;
+  return courseLecciones[0] || null;
 }
 
 function getOrder(item: AnyRecord, fallback: number) {
   return item.position ?? item.sort_order ?? item.order_index ?? item.order ?? fallback;
 }
 
-function sortModules(a: AnyRecord, b: AnyRecord) {
+function sortMódulos(a: AnyRecord, b: AnyRecord) {
   const aNumber = extractModuleNumber(a.title);
   const bNumber = extractModuleNumber(b.title);
 
@@ -2235,7 +2235,7 @@ function sortModules(a: AnyRecord, b: AnyRecord) {
   return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
 }
 
-function sortLessons(a: AnyRecord, b: AnyRecord) {
+function sortLecciones(a: AnyRecord, b: AnyRecord) {
   const aNumber = extractLessonNumber(a.title);
   const bNumber = extractLessonNumber(b.title);
 
@@ -2273,12 +2273,12 @@ function getCourseSlug(course: AnyRecord) {
 }
 
 function getCurrentPageLabel(tab: Tab) {
-  if (tab === 'dashboard') return 'Dashboard';
-  if (tab === 'cursos') return 'My Courses';
-  if (tab === 'curriculum') return 'Curriculum';
-  if (tab === 'examenes') return 'Mock Exams';
-  if (tab === 'certificados') return 'Certification';
-  return 'Performance';
+  if (tab === 'dashboard') return 'Panel';
+  if (tab === 'cursos') return 'Mis cursos';
+  if (tab === 'curriculum') return 'Itinerario';
+  if (tab === 'examenes') return 'Simulador de exámenes';
+  if (tab === 'certificados') return 'Certificados';
+  return 'Rendimiento';
 }
 
 function getCourseImage(course: AnyRecord) {
@@ -2312,24 +2312,24 @@ function getPremiumCourseBackground(course: AnyRecord, index: number) {
   return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
 }
 
-function getLessonType(lesson: AnyRecord) {
+function getLessonTipo(lesson: AnyRecord) {
   const raw = String(
     lesson.content_type || lesson.type || lesson.kind || lesson.format || 'video'
   ).toLowerCase();
 
   if (raw.includes('audio')) return 'Audio';
   if (raw.includes('pdf')) return 'PDF';
-  if (raw.includes('quiz') || raw.includes('exam') || raw.includes('test')) return 'Quiz';
-  if (raw.includes('text') || raw.includes('texto')) return 'Text';
+  if (raw.includes('quiz') || raw.includes('exam') || raw.includes('test')) return 'Test';
+  if (raw.includes('text') || raw.includes('texto')) return 'Texto';
 
-  return 'Video';
+  return 'Vídeo';
 }
 
 function getLessonIcon(type: string): IconName {
   if (type === 'Audio') return 'audio';
   if (type === 'PDF') return 'pdf';
-  if (type === 'Quiz') return 'exam';
-  if (type === 'Text') return 'text';
+  if (type === 'Test') return 'exam';
+  if (type === 'Texto') return 'text';
 
   return 'play';
 }
