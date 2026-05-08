@@ -1120,10 +1120,10 @@ function ItinerarioView({
 
 function MockExamsView() {
   const resultados = [
-    { title: 'Adaptaciones neuromusculares', date: 'Attempted on May 12, 2025 · 10:30 AM', score: '85%', status: 'Aprobado', ok: true },
-    { title: 'Sistemas energéticos', date: 'Attempted on May 8, 2025 · 02:15 PM', score: '72%', status: 'Aprobado', ok: true },
-    { title: 'Fundamentos de biomecánica', date: 'Attempted on May 5, 2025 · 11:45 AM', score: '65%', status: 'Suspendido', ok: false },
-    { title: 'Mecánica de la hipertrofia', date: 'Attempted on Apr 30, 2025 · 09:20 AM', score: '58%', status: 'Suspendido', ok: false },
+    { title: 'Adaptaciones neuromusculares', date: 'Realizado el 12 de mayo de 2025 · 10:30', score: '85%', status: 'Aprobado', ok: true },
+    { title: 'Sistemas energéticos', date: 'Realizado el 8 de mayo de 2025 · 14:15', score: '72%', status: 'Aprobado', ok: true },
+    { title: 'Fundamentos de biomecánica', date: 'Realizado el 5 de mayo de 2025 · 11:45', score: '65%', status: 'Suspendido', ok: false },
+    { title: 'Mecánica de la hipertrofia', date: 'Realizado el 30 de abril de 2025 · 09:20', score: '58%', status: 'Suspendido', ok: false },
   ];
 
   return (
@@ -1136,8 +1136,8 @@ function MockExamsView() {
           <div>
             <h1>Simulador de exámenes</h1>
             <p>
-              Simulate real certification conditions and evaluate your readiness with advanced
-              performance analytics.
+              Simula condiciones reales de certificación y evalúa tu preparación
+              con analítica avanzada de rendimiento.
             </p>
           </div>
         </div>
@@ -1158,8 +1158,8 @@ function MockExamsView() {
             </div>
 
             <p>
-              Take a full-length mock exam that simulates the real certification experience and
-              tests your knowledge under pressure.
+              Realiza una simulación completa que reproduce la experiencia de certificación
+              y pone a prueba tus conocimientos bajo presión.
             </p>
 
             <div className="exam-meta-grid">
@@ -1184,7 +1184,7 @@ function MockExamsView() {
 
           <div className="exam-laptop-visual">
             <div className="exam-laptop-screen">
-              <span>Mock Exam</span>
+              <span>Simulador</span>
               <strong>02:00:00</strong>
               <div className="exam-laptop-rows">
                 <i />
@@ -1327,7 +1327,7 @@ function MockExamsView() {
 
           <div className="score-trend-card">
             <div className="score-trend-tooltip">
-              <span>May 12, 2025</span>
+              <span>12 mayo 2025</span>
               <strong>85%</strong>
             </div>
 
@@ -2002,30 +2002,30 @@ function GlobalStyles() {
       .curriculum-banner a { color: var(--green); text-decoration: none; display: inline-flex; gap: 8px; align-items: center; font-weight: 900; font-size: 13px; }
 
       .mock-page { display: grid; gap: 14px; }
-      .mock-header { display: grid; grid-template-columns: minmax(0,.85fr) minmax(520px,1fr); gap: 16px; align-items: center; }
+      .mock-header { display: grid; grid-template-columns: minmax(0,.9fr) minmax(500px,1fr); gap: 16px; align-items: center; }
       .mock-title-block { display: flex; align-items: flex-start; gap: 14px; }
       .mock-title-block > span { width: 44px; height: 44px; border-radius: 999px; color: var(--green); display: grid; place-items: center; background: rgba(var(--green-rgb),.08); border: 1px solid rgba(var(--green-rgb),.2); flex-shrink: 0; }
-      .mock-title-block h1 { margin: 0; font-size: 38px; line-height: .95; font-weight: 950; letter-spacing: -.055em; }
+      .mock-title-block h1 { margin: 0; font-size: 34px; line-height: .98; font-weight: 950; letter-spacing: -.055em; }
       .mock-title-block p { margin: 10px 0 0; color: var(--muted); line-height: 1.6; font-size: 15px; max-width: 620px; }
       .mock-feature-strip { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
       .mock-feature { min-height: 78px; display: flex; gap: 12px; align-items: center; padding: 14px; }
       .mock-feature > span { width: 38px; height: 38px; border-radius: 999px; color: var(--green); display: grid; place-items: center; background: rgba(var(--green-rgb),.08); border: 1px solid rgba(var(--green-rgb),.16); flex-shrink: 0; }
       .mock-feature p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
-      .mock-hero-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(320px,.85fr); gap: 14px; }
-      .exam-simulator-card { min-height: 260px; background: linear-gradient(90deg, rgba(11,15,13,.98), rgba(11,15,13,.86)), radial-gradient(circle at 75% 50%, rgba(255,255,255,.06), transparent 26%); display: grid; grid-template-columns: minmax(0,.9fr) minmax(360px,.85fr); overflow: hidden; padding: 20px; }
+      .mock-hero-grid { display: grid; grid-template-columns: minmax(0,1.48fr) minmax(320px,.88fr); gap: 14px; }
+      .exam-simulator-card { min-height: 260px; background: linear-gradient(90deg, rgba(11,15,13,.98), rgba(11,15,13,.86)), radial-gradient(circle at 75% 50%, rgba(255,255,255,.06), transparent 26%); display: grid; grid-template-columns: minmax(430px,1fr) minmax(340px,.92fr); overflow: hidden; padding: 20px; }
       .exam-simulator-content { display: grid; align-content: center; gap: 16px; min-width: 0; }
       .exam-title-row { display: flex; align-items: center; gap: 10px; }
-      .exam-title-row h2,.exam-rules-title h2,.mock-card-header h2,.analytics-card > h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -.035em; }
+      .exam-title-row h2,.exam-rules-title h2,.mock-card-header h2,.analytics-card > h2 { margin: 0; font-size: 21px; font-weight: 900; letter-spacing: -.035em; }
       .exam-title-row span { color: var(--green); background: rgba(var(--green-rgb),.12); border: 1px solid rgba(var(--green-rgb),.24); border-radius: 999px; padding: 5px 8px; text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 900; }
-      .exam-simulator-content > p { color: var(--muted); line-height: 1.6; max-width: 560px; }
-      .exam-meta-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
-      .mock-meta-item { display: flex; gap: 8px; color: var(--muted); align-items: center; min-width: 0; }
+      .exam-simulator-content > p { color: var(--muted); line-height: 1.55; max-width: 620px; margin: 0; }
+      .exam-meta-grid { display: grid; grid-template-columns: repeat(4,minmax(92px,1fr)); gap: 10px; align-items: start; }
+      .mock-meta-item { display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 8px; color: var(--muted); align-items: start; min-width: 0; }
       .mock-meta-item div { display: grid; gap: 3px; }
-      .mock-meta-item strong { color: var(--white); }
+      .mock-meta-item strong { color: var(--white); font-size: 13px; line-height: 1.2; }
       .exam-action-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
       .mock-primary-button { min-height: 46px; border: 0; padding: 0 20px; }
       .mock-ghost-button { min-height: 46px; border: 0; background: transparent; padding: 0; }
-      .exam-laptop-visual { position: relative; min-height: 220px; background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80); background-size: cover; background-position: center; border-radius: 14px; filter: grayscale(1) contrast(1.08) brightness(.72); }
+      .exam-laptop-visual { position: relative; min-height: 220px; background: linear-gradient(90deg, rgba(5,7,6,.08), rgba(5,7,6,.50)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80); background-size: cover; background-position: center; border-radius: 14px; filter: grayscale(1) contrast(1.08) brightness(.58); }
       .exam-laptop-screen { position: absolute; right: 32px; top: 32px; width: 180px; height: 116px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.64); padding: 12px; color: var(--white); transform: perspective(700px) rotateY(-12deg) rotateX(4deg); display: grid; gap: 6px; }
       .exam-laptop-rows { display: grid; gap: 5px; }
       .exam-laptop-rows i { height: 5px; border-radius: 999px; background: rgba(255,255,255,.16); }
