@@ -1378,22 +1378,195 @@ function MockExamsView() {
 }
 
 function CertificadosTab({ certificates }: { certificates: AnyRecord[] }) {
+  const issuedCertificate = certificates[0] || null;
+
   return (
-    <div className="section-stack">
-      <Panel title="Certificados">
-        {certificates.length === 0 ? (
-          <EmptyState text="Aún no tienes certificados reales emitidos. Completa un curso y emite tu certificado para verlo aquí." />
-        ) : (
-          <div className="course-grid">
-            {certificates.map((certificate) => (
-              <CertificateCard key={certificate.id} certificate={certificate} />
-            ))}
+    <div className="cert-pro-page">
+      <section className="cert-pro-hero">
+        <div className="cert-pro-hero-content">
+          <p className="cert-pro-kicker">Credenciales oficiales</p>
+          <h1>Certificados</h1>
+          <p>
+            Valida tu formación, demuestra tus competencias y presenta credenciales verificables
+            dentro del ecosistema GHC Academy.
+          </p>
+
+          <div className="cert-pro-benefits">
+            <div>
+              <Icon name="shield" />
+              <span>Verificable</span>
+            </div>
+            <div>
+              <Icon name="certificate" />
+              <span>Profesional</span>
+            </div>
+            <div>
+              <Icon name="star" />
+              <span>Reconocido</span>
+            </div>
           </div>
-        )}
-      </Panel>
+        </div>
+
+        <div className="cert-pro-hero-image" />
+      </section>
+
+      <section className="cert-pro-grid">
+        <article className="cert-pro-available">
+          <div className="cert-pro-card-header">
+            <div>
+              <p className="cert-pro-kicker">Credenciales digitales</p>
+              <h2>Certificados disponibles</h2>
+            </div>
+            <span>{certificates.length} emitido{certificates.length === 1 ? '' : 's'}</span>
+          </div>
+
+          {issuedCertificate ? (
+            <article className="cert-pro-issued-card">
+              <div className="cert-pro-thumb">
+                <div className="cert-pro-thumb-inner">
+                  <span>GHC Academy</span>
+                  <strong>Certificate</strong>
+                  <em>{issuedCertificate.course_title || 'Curso completado'}</em>
+                  <b>{issuedCertificate.final_score ?? '—'}%</b>
+                </div>
+              </div>
+
+              <div className="cert-pro-issued-body">
+                <span className="cert-pro-status-pill">Emitido</span>
+                <h3>{issuedCertificate.course_title || 'Curso completado'}</h3>
+                <p>
+                  Certificado real emitido para este alumno. Preparado para verificación pública
+                  mediante código o enlace seguro.
+                </p>
+
+                <div className="cert-pro-mini-grid">
+                  <ProfileStat label="Nota" value={`${issuedCertificate.final_score ?? '—'}%`} />
+                  <ProfileStat label="Estado" value="Válido" />
+                  <ProfileStat label="Código" value={issuedCertificate.certificate_code || '—'} />
+                </div>
+
+                {issuedCertificate.verification_slug ? (
+                  <Link
+                    href={`/certificados/${issuedCertificate.verification_slug}`}
+                    className="cert-pro-primary"
+                  >
+                    Ver certificado
+                    <Icon name="arrow" />
+                  </Link>
+                ) : (
+                  <span className="cert-pro-muted">
+                    Certificado registrado sin enlace público de verificación.
+                  </span>
+                )}
+              </div>
+            </article>
+          ) : (
+            <article className="cert-pro-empty-issued">
+              <div className="cert-pro-empty-icon">
+                <Icon name="certificate" />
+              </div>
+              <h3>Aún no hay certificados emitidos</h3>
+              <p>
+                Cuando completes un curso y apruebes el examen final, tu certificado aparecerá
+                en este panel.
+              </p>
+            </article>
+          )}
+
+          <article className="cert-pro-locked-card">
+            <div className="cert-pro-locked-thumb">
+              <Icon name="lock" />
+              <span>Certificate locked</span>
+            </div>
+
+            <div className="cert-pro-issued-body">
+              <span className="cert-pro-locked-pill">Bloqueado</span>
+              <h3>Próxima certificación</h3>
+              <p>Completa los módulos pendientes y supera el examen final para desbloquearla.</p>
+
+              <div className="cert-pro-progress-line">
+                <div style={{ width: '65%' }} />
+              </div>
+
+              <span className="cert-pro-muted">Progreso estimado: 65%</span>
+            </div>
+          </article>
+        </article>
+
+        <aside className="cert-pro-side">
+          <article className="cert-pro-how">
+            <h2>Cómo funciona</h2>
+
+            <div className="cert-pro-steps">
+              <div>
+                <Icon name="curriculum" />
+                <strong>Completa módulos</strong>
+                <span>Avanza por el itinerario del curso.</span>
+              </div>
+              <div>
+                <Icon name="exam" />
+                <strong>Aprueba el examen</strong>
+                <span>Supera la evaluación final requerida.</span>
+              </div>
+              <div>
+                <Icon name="certificate" />
+                <strong>Recibe certificado</strong>
+                <span>Se emite tu credencial oficial.</span>
+              </div>
+              <div>
+                <Icon name="resources" />
+                <strong>Verifica y comparte</strong>
+                <span>Presenta tu logro con confianza.</span>
+              </div>
+            </div>
+          </article>
+
+          <article className="cert-pro-verify">
+            <div className="cert-pro-shield">
+              <Icon name="shield" />
+            </div>
+            <div>
+              <h2>Verificación</h2>
+              <p>
+                Los certificados de GHC Academy estarán preparados para verificación pública,
+                trazabilidad y control de autenticidad.
+              </p>
+              <button type="button">
+                Verificar certificado
+                <Icon name="arrow" />
+              </button>
+            </div>
+          </article>
+
+          <article className="cert-pro-status">
+            <div className="cert-pro-status-ring">
+              <strong>{certificates.length}</strong>
+            </div>
+            <div>
+              <h2>Estado de credenciales</h2>
+              <p>Certificados emitidos actualmente.</p>
+            </div>
+            <ul>
+              <li>
+                <span>Emitidos</span>
+                <strong>{certificates.length}</strong>
+              </li>
+              <li>
+                <span>En progreso</span>
+                <strong>1</strong>
+              </li>
+              <li>
+                <span>Bloqueados</span>
+                <strong>2</strong>
+              </li>
+            </ul>
+          </article>
+        </aside>
+      </section>
     </div>
   );
 }
+
 
 function RendimientoTab({
   displayName,
@@ -2101,6 +2274,451 @@ function GlobalStyles() {
       @media (max-width: 1320px) {
         .student-page { grid-template-columns: 102px minmax(0, 1fr); }
         .nav-item span,.user-card > div:nth-child(2) { display: none; }
+      }
+
+
+      .cert-pro-page {
+        display: grid;
+        gap: 16px;
+      }
+
+      .cert-pro-hero {
+        min-height: 300px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.09);
+        background: var(--panel);
+        overflow: hidden;
+        position: relative;
+        display: grid;
+        grid-template-columns: .82fr 1.18fr;
+        box-shadow: 0 20px 70px rgba(0,0,0,.16);
+      }
+
+      .cert-pro-hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(5,7,6,.98) 0%, rgba(5,7,6,.90) 30%, rgba(5,7,6,.40) 62%, rgba(5,7,6,.10) 100%),
+          radial-gradient(circle at 78% 40%, rgba(214,178,94,.15), transparent 28%);
+        z-index: 1;
+      }
+
+      .cert-pro-hero-content {
+        position: relative;
+        z-index: 2;
+        padding: 34px;
+        display: grid;
+        align-content: center;
+        gap: 14px;
+      }
+
+      .cert-pro-kicker {
+        margin: 0;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .18em;
+        font-size: 11px;
+        font-weight: 950;
+      }
+
+      .cert-pro-hero h1 {
+        margin: 0;
+        font-size: clamp(40px, 5vw, 68px);
+        line-height: .92;
+        letter-spacing: -.06em;
+        font-weight: 950;
+      }
+
+      .cert-pro-hero p {
+        color: var(--muted);
+        line-height: 1.65;
+        max-width: 500px;
+      }
+
+      .cert-pro-benefits {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+
+      .cert-pro-benefits div {
+        min-width: 130px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.035);
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+        color: var(--muted);
+      }
+
+      .cert-pro-benefits svg {
+        color: var(--green);
+      }
+
+      .cert-pro-hero-image {
+        min-height: 300px;
+        background:
+          linear-gradient(90deg, rgba(5,7,6,.35), rgba(5,7,6,.04)),
+          url(https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1400&q=80);
+        background-size: cover;
+        background-position: center;
+        filter: grayscale(.05) contrast(1.05) brightness(.78);
+      }
+
+      .cert-pro-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(390px, .95fr);
+        gap: 16px;
+      }
+
+      .cert-pro-available,
+      .cert-pro-how,
+      .cert-pro-verify,
+      .cert-pro-status {
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.09);
+        background: var(--panel);
+        padding: 20px;
+        box-shadow: 0 20px 70px rgba(0,0,0,.16);
+      }
+
+      .cert-pro-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .cert-pro-card-header h2,
+      .cert-pro-how h2,
+      .cert-pro-verify h2,
+      .cert-pro-status h2 {
+        margin: 6px 0 0;
+        font-size: 22px;
+        line-height: 1;
+        letter-spacing: -.035em;
+        font-weight: 950;
+      }
+
+      .cert-pro-card-header > span {
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.24);
+        background: rgba(var(--green-rgb),.10);
+        border-radius: 999px;
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .cert-pro-issued-card,
+      .cert-pro-locked-card {
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.028);
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 235px minmax(0,1fr);
+        gap: 16px;
+        margin-top: 12px;
+      }
+
+      .cert-pro-thumb,
+      .cert-pro-locked-thumb {
+        min-height: 160px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.10);
+        background:
+          linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.02)),
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.16), transparent 36%);
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+        position: relative;
+      }
+
+      .cert-pro-thumb-inner {
+        width: 180px;
+        height: 118px;
+        border-radius: 12px;
+        border: 1px solid rgba(var(--green-rgb),.30);
+        background: rgba(0,0,0,.34);
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 12px;
+      }
+
+      .cert-pro-thumb-inner span {
+        color: var(--muted);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .18em;
+      }
+
+      .cert-pro-thumb-inner strong {
+        color: var(--white);
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        font-family: Georgia, serif;
+      }
+
+      .cert-pro-thumb-inner em {
+        color: var(--green);
+        font-size: 11px;
+        font-style: normal;
+      }
+
+      .cert-pro-thumb-inner b {
+        color: var(--gold);
+      }
+
+      .cert-pro-issued-body {
+        min-width: 0;
+        display: grid;
+        align-content: center;
+        gap: 10px;
+      }
+
+      .cert-pro-issued-body h3 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 1.05;
+        letter-spacing: -.035em;
+        font-weight: 950;
+      }
+
+      .cert-pro-issued-body p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .cert-pro-status-pill,
+      .cert-pro-locked-pill {
+        width: fit-content;
+        border-radius: 999px;
+        padding: 6px 9px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      .cert-pro-status-pill {
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.26);
+        background: rgba(var(--green-rgb),.10);
+      }
+
+      .cert-pro-locked-pill {
+        color: var(--soft);
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.04);
+      }
+
+      .cert-pro-mini-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0,1fr));
+        gap: 10px;
+      }
+
+      .cert-pro-primary {
+        min-height: 42px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 900;
+        width: fit-content;
+        padding: 0 16px;
+      }
+
+      .cert-pro-muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .cert-pro-empty-issued {
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.028);
+        padding: 24px;
+        display: grid;
+        gap: 12px;
+        justify-items: start;
+      }
+
+      .cert-pro-empty-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(var(--green-rgb),.08);
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.22);
+      }
+
+      .cert-pro-locked-thumb {
+        color: var(--soft);
+        gap: 10px;
+      }
+
+      .cert-pro-progress-line {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.10);
+        overflow: hidden;
+      }
+
+      .cert-pro-progress-line div {
+        height: 100%;
+        background: var(--green);
+        border-radius: 999px;
+        box-shadow: 0 0 18px rgba(var(--green-rgb),.22);
+      }
+
+      .cert-pro-side {
+        display: grid;
+        gap: 16px;
+      }
+
+      .cert-pro-steps {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0,1fr));
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .cert-pro-steps div {
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.026);
+        padding: 14px;
+        display: grid;
+        gap: 8px;
+        text-align: center;
+      }
+
+      .cert-pro-steps svg {
+        color: var(--green);
+        margin: 0 auto;
+      }
+
+      .cert-pro-steps strong {
+        font-size: 13px;
+      }
+
+      .cert-pro-steps span {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .cert-pro-verify {
+        display: grid;
+        grid-template-columns: 76px minmax(0,1fr);
+        gap: 18px;
+        align-items: center;
+      }
+
+      .cert-pro-shield {
+        width: 76px;
+        height: 76px;
+        border-radius: 20px;
+        display: grid;
+        place-items: center;
+        background: rgba(var(--green-rgb),.08);
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.20);
+      }
+
+      .cert-pro-verify p,
+      .cert-pro-status p {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .cert-pro-verify button {
+        min-height: 40px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(255,255,255,.045);
+        color: var(--white);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 14px;
+        font-weight: 850;
+        cursor: pointer;
+      }
+
+      .cert-pro-status {
+        display: grid;
+        grid-template-columns: 100px minmax(0,1fr) 150px;
+        gap: 16px;
+        align-items: center;
+      }
+
+      .cert-pro-status-ring {
+        width: 82px;
+        height: 82px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 10px solid rgba(var(--green-rgb),.22);
+        box-shadow: inset 0 0 0 2px rgba(255,255,255,.05);
+      }
+
+      .cert-pro-status-ring strong {
+        font-size: 30px;
+        line-height: 1;
+      }
+
+      .cert-pro-status ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .cert-pro-status li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .cert-pro-status li strong {
+        color: var(--white);
+      }
+
+      @media (max-width: 1180px) {
+        .cert-pro-hero,
+        .cert-pro-grid,
+        .cert-pro-issued-card,
+        .cert-pro-locked-card,
+        .cert-pro-status {
+          grid-template-columns: 1fr;
+        }
+
+        .cert-pro-steps {
+          grid-template-columns: repeat(2, minmax(0,1fr));
+        }
+
+        .cert-pro-verify {
+          grid-template-columns: 1fr;
+        }
       }
 
       @media (max-width: 1180px) {
