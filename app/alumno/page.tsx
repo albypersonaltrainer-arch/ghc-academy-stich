@@ -1379,25 +1379,26 @@ function MockExamsView() {
 
 function CertificadosTab({ certificates }: { certificates: AnyRecord[] }) {
   const issuedCertificate = certificates[0] || null;
+  const issuedCount = certificates.length;
 
   return (
-    <div className="cert-pro-page">
-      <section className="cert-pro-hero">
-        <div className="cert-pro-hero-content">
-          <p className="cert-pro-kicker">Credenciales oficiales</p>
-          <h1>Certificados</h1>
-          <p>
-            Obtén credenciales oficiales de GHC Academy, valida tu formación y demuestra tu
-            experiencia con certificados verificables.
+    <div className="cert-final-page">
+      <section className="cert-final-hero">
+        <div className="cert-final-copy">
+          <p className="cert-final-kicker">Credenciales oficiales</p>
+          <h1>Certificación</h1>
+          <p className="cert-final-subtitle">
+            Obtén credenciales oficiales de GHC Academy y demuestra tu experiencia con certificados
+            verificables, profesionales y preparados para compartir.
           </p>
 
-          <div className="cert-pro-benefits">
+          <div className="cert-final-trust">
             <div>
-              <Icon name="shield" />
+              <Icon name="star" />
               <span>Confiables por profesionales</span>
             </div>
             <div>
-              <Icon name="certificate" />
+              <Icon name="shield" />
               <span>Credenciales verificables</span>
             </div>
             <div>
@@ -1407,87 +1408,99 @@ function CertificadosTab({ certificates }: { certificates: AnyRecord[] }) {
           </div>
         </div>
 
-        <div className="cert-pro-hero-image">
-          <div className="cert-pro-certificate-paper">
-            <div className="cert-pro-paper-logo">GHC Academy</div>
-            <div className="cert-pro-paper-title">CERTIFICADO</div>
-            <div className="cert-pro-paper-subtitle">DE LOGRO</div>
-            <div className="cert-pro-paper-name">John Doe</div>
-            <div className="cert-pro-paper-course">Adaptaciones Neuromusculares</div>
-            <div className="cert-pro-paper-signature" />
-            <div className="cert-pro-paper-seal">
+        <div className="cert-final-visual" aria-hidden="true">
+          <div className="cert-final-paper">
+            <div className="cert-final-paper-border" />
+            <div className="cert-final-paper-logo">GHC Academy</div>
+            <div className="cert-final-paper-title">CERTIFICADO</div>
+            <div className="cert-final-paper-subtitle">DE LOGRO</div>
+            <div className="cert-final-paper-line">Se otorga a</div>
+            <div className="cert-final-paper-name">John Doe</div>
+            <div className="cert-final-paper-copy">
+              Por haber completado satisfactoriamente los requisitos de
+            </div>
+            <div className="cert-final-paper-course">Adaptaciones Neuromusculares</div>
+            <div className="cert-final-paper-signature" />
+            <div className="cert-final-paper-director">Director académico</div>
+            <div className="cert-final-seal">
               <Icon name="star" />
             </div>
           </div>
         </div>
       </section>
 
-      <section className="cert-pro-grid">
-        <article className="cert-pro-available">
-          <div className="cert-pro-card-header">
+      <section className="cert-final-layout">
+        <article className="cert-final-available">
+          <div className="cert-final-section-head">
             <div>
-              <p className="cert-pro-kicker">Credenciales digitales</p>
+              <p className="cert-final-kicker">Credenciales digitales</p>
               <h2>Certificados disponibles</h2>
             </div>
-            <span>{certificates.length} emitido{certificates.length === 1 ? '' : 's'}</span>
+            <span>{issuedCount} emitido{issuedCount === 1 ? '' : 's'}</span>
           </div>
 
           {issuedCertificate ? (
-            <article className="cert-pro-issued-card">
-              <div className="cert-pro-thumb">
-                <div className="cert-pro-thumb-inner">
+            <article className="cert-final-issued">
+              <div className="cert-final-card-art">
+                <div className="cert-final-card-art-inner">
                   <span>GHC Academy</span>
                   <strong>Certificado</strong>
                   <em>{issuedCertificate.course_title || 'Curso completado'}</em>
                   <b>{issuedCertificate.final_score ?? '—'}%</b>
+                  <i />
                 </div>
               </div>
 
-              <div className="cert-pro-issued-body">
-                <span className="cert-pro-status-pill">Emitido</span>
+              <div className="cert-final-card-content">
+                <span className="cert-final-pill-issued">Emitido</span>
                 <h3>{issuedCertificate.course_title || 'Curso completado'}</h3>
                 <p>
-                  Has completado los requisitos del módulo y superado la evaluación final. Tu
-                  credencial queda lista para verificación y consulta.
+                  Has completado los requisitos del curso y aprobado la evaluación final. Tu
+                  credencial está lista para consulta y verificación.
                 </p>
 
-                <div className="cert-pro-mini-grid">
+                <div className="cert-final-stats">
                   <ProfileStat label="Nota" value={`${issuedCertificate.final_score ?? '—'}%`} />
-                  <ProfileStat label="Estado" value="Válido" />
-                  <ProfileStat label="Código" value={issuedCertificate.certificate_code || '—'} />
+                  <ProfileStat label="Fecha" value={issuedCertificate.issued_at ? formatShortDate(issuedCertificate.issued_at) : '—'} />
+                  <ProfileStat label="ID credencial" value={issuedCertificate.certificate_code || 'GHC'} />
+                </div>
+
+                <div className="cert-final-code">
+                  <span>Código de verificación</span>
+                  <strong>{issuedCertificate.certificate_code || 'Pendiente'}</strong>
                 </div>
 
                 {issuedCertificate.verification_slug ? (
                   <Link
                     href={`/certificados/${issuedCertificate.verification_slug}`}
-                    className="cert-pro-primary"
+                    className="cert-final-primary"
                   >
                     Ver certificado
                     <Icon name="arrow" />
                   </Link>
                 ) : (
-                  <span className="cert-pro-muted">
+                  <span className="cert-final-muted">
                     Certificado registrado sin enlace público de verificación.
                   </span>
                 )}
               </div>
             </article>
           ) : (
-            <article className="cert-pro-empty-issued">
-              <div className="cert-pro-empty-icon">
+            <article className="cert-final-empty">
+              <div>
                 <Icon name="certificate" />
               </div>
               <h3>Aún no hay certificados emitidos</h3>
               <p>
-                Cuando completes un curso y apruebes el examen final, tu certificado aparecerá
-                en este panel.
+                Cuando completes un curso y apruebes el examen final, tu certificado aparecerá en
+                este panel.
               </p>
             </article>
           )}
 
-          <article className="cert-pro-locked-card">
-            <div className="cert-pro-locked-thumb">
-              <div className="cert-pro-locked-card-art">
+          <article className="cert-final-locked">
+            <div className="cert-final-locked-art">
+              <div>
                 <span>GHC Academy</span>
                 <strong>Certificado</strong>
                 <em>Bloqueado</em>
@@ -1495,65 +1508,65 @@ function CertificadosTab({ certificates }: { certificates: AnyRecord[] }) {
               </div>
             </div>
 
-            <div className="cert-pro-issued-body">
-              <span className="cert-pro-locked-pill">Bloqueado</span>
+            <div className="cert-final-card-content">
+              <span className="cert-final-pill-locked">Bloqueado</span>
               <h3>Próxima certificación</h3>
               <p>
-                Completa los módulos pendientes y supera el examen final para desbloquear esta
+                Completa todos los módulos y supera el examen final para desbloquear esta
                 credencial.
               </p>
 
-              <div className="cert-pro-progress-line">
+              <div className="cert-final-progress">
                 <div style={{ width: '65%' }} />
               </div>
 
-              <span className="cert-pro-muted">Progreso estimado: 65%</span>
+              <span className="cert-final-muted">Progreso estimado: 65%</span>
             </div>
           </article>
 
-          <button type="button" className="cert-pro-all-button">
+          <button type="button" className="cert-final-all">
             Ver todos los certificados
             <Icon name="arrow" />
           </button>
         </article>
 
-        <aside className="cert-pro-side">
-          <article className="cert-pro-how">
+        <aside className="cert-final-right">
+          <article className="cert-final-how">
             <h2>Cómo funciona</h2>
 
-            <div className="cert-pro-steps">
+            <div className="cert-final-steps">
               <div>
-                <Icon name="curriculum" />
+                <span><Icon name="curriculum" /></span>
                 <strong>Completa todos los módulos</strong>
-                <span>Avanza en cada módulo del curso.</span>
+                <p>Avanza en cada módulo del curso.</p>
               </div>
               <div>
-                <Icon name="exam" />
+                <span><Icon name="exam" /></span>
                 <strong>Aprueba el examen final</strong>
-                <span>Obtén la puntuación requerida.</span>
+                <p>Obtén la puntuación requerida.</p>
               </div>
               <div>
-                <Icon name="certificate" />
+                <span><Icon name="certificate" /></span>
                 <strong>Recibe tu certificado</strong>
-                <span>Se emite tu credencial oficial.</span>
+                <p>Obtén tu credencial oficial.</p>
               </div>
               <div>
-                <Icon name="resources" />
+                <span><Icon name="resources" /></span>
                 <strong>Verifica y comparte</strong>
-                <span>Presenta tu logro con confianza.</span>
+                <p>Presenta tu logro con confianza.</p>
               </div>
             </div>
           </article>
 
-          <article className="cert-pro-verify">
-            <div className="cert-pro-shield">
+          <article className="cert-final-verify">
+            <div className="cert-final-verify-icon">
               <Icon name="shield" />
             </div>
             <div>
               <h2>Verificación</h2>
               <p>
-                Los certificados de GHC Academy estarán preparados para verificación pública,
-                trazabilidad y control de autenticidad.
+                Los certificados de GHC Academy serán verificables y seguros. Validamos cada
+                credencial para garantizar autenticidad y confianza.
               </p>
               <button type="button">
                 Verificar certificado
@@ -1562,27 +1575,18 @@ function CertificadosTab({ certificates }: { certificates: AnyRecord[] }) {
             </div>
           </article>
 
-          <article className="cert-pro-status">
-            <div className="cert-pro-status-ring">
-              <strong>{certificates.length}</strong>
+          <article className="cert-final-status">
+            <div className="cert-final-ring">
+              <strong>{issuedCount}</strong>
             </div>
             <div>
               <h2>Estado de credenciales</h2>
-              <p>Certificados emitidos actualmente.</p>
+              <p>Certificados emitidos actualmente. ¡Sigue así!</p>
             </div>
             <ul>
-              <li>
-                <span>Emitidos</span>
-                <strong>{certificates.length}</strong>
-              </li>
-              <li>
-                <span>En progreso</span>
-                <strong>1</strong>
-              </li>
-              <li>
-                <span>Bloqueados</span>
-                <strong>2</strong>
-              </li>
+              <li><span>Emitidos</span><strong>{issuedCount}</strong></li>
+              <li><span>En progreso</span><strong>1</strong></li>
+              <li><span>Bloqueados</span><strong>2</strong></li>
             </ul>
           </article>
         </aside>
@@ -1978,6 +1982,19 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'flame') return <svg {...common}><path d="M12 21c3.4-1.2 5.5-3.6 5.5-7 0-3-1.6-5.2-4.8-8.6-.1 2.7-1.1 4-2.6 5.3-.2-1.6-1-2.9-2.1-4C6.6 9 5.5 11 5.5 14c0 3.4 2.1 5.8 6.5 7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
 
   return <svg {...common}><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
+}
+
+
+function formatShortDate(value: string) {
+  try {
+    return new Intl.DateTimeFormat('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(value));
+  } catch {
+    return '—';
+  }
 }
 
 function GlobalStyles() {
@@ -2886,6 +2903,638 @@ function GlobalStyles() {
         }
 
         .cert-pro-verify {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      
+      .cert-final-page {
+        display: grid;
+        gap: 16px;
+      }
+
+      .cert-final-hero {
+        min-height: 320px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.09);
+        background:
+          linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+          rgba(9,13,12,.94);
+        overflow: hidden;
+        position: relative;
+        display: grid;
+        grid-template-columns: .78fr 1.22fr;
+        box-shadow: 0 24px 80px rgba(0,0,0,.24);
+      }
+
+      .cert-final-hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(5,7,6,.98) 0%, rgba(5,7,6,.94) 32%, rgba(5,7,6,.48) 63%, rgba(5,7,6,.14) 100%),
+          radial-gradient(circle at 75% 44%, rgba(214,178,94,.16), transparent 28%);
+        z-index: 1;
+      }
+
+      .cert-final-copy {
+        position: relative;
+        z-index: 3;
+        padding: 36px;
+        display: grid;
+        align-content: center;
+        gap: 14px;
+      }
+
+      .cert-final-kicker {
+        margin: 0;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .18em;
+        font-size: 11px;
+        font-weight: 950;
+      }
+
+      .cert-final-copy h1 {
+        margin: 0;
+        font-size: clamp(42px, 5vw, 70px);
+        line-height: .92;
+        letter-spacing: -.06em;
+        font-weight: 950;
+      }
+
+      .cert-final-subtitle {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+        max-width: 520px;
+      }
+
+      .cert-final-trust {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 8px;
+        max-width: 560px;
+      }
+
+      .cert-final-trust div {
+        min-height: 84px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.035);
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+        color: var(--muted);
+      }
+
+      .cert-final-trust svg {
+        color: var(--green);
+      }
+
+      .cert-final-visual {
+        position: relative;
+        min-height: 320px;
+        overflow: hidden;
+      }
+
+      .cert-final-visual::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(120deg, transparent 0%, rgba(18,45,25,.55) 58%, rgba(18,45,25,.05) 59%, transparent 72%);
+        z-index: 1;
+      }
+
+      .cert-final-paper {
+        position: absolute;
+        right: 54px;
+        top: 26px;
+        width: min(650px, 94%);
+        height: 300px;
+        border-radius: 10px;
+        background:
+          linear-gradient(135deg, rgba(255,255,255,.96), rgba(231,219,190,.94)),
+          radial-gradient(circle at 20% 30%, rgba(255,255,255,.45), transparent 34%);
+        color: #111;
+        transform: rotate(-8deg);
+        box-shadow: 0 30px 78px rgba(0,0,0,.48);
+        border: 1px solid rgba(214,178,94,.35);
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        overflow: hidden;
+      }
+
+      .cert-final-paper::before {
+        content: '';
+        position: absolute;
+        inset: 18px;
+        border: 1px solid rgba(20,20,20,.18);
+        border-radius: 6px;
+      }
+
+      .cert-final-paper::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(120deg, rgba(255,255,255,.32), transparent 34%),
+          radial-gradient(circle at 80% 20%, rgba(255,255,255,.18), transparent 28%);
+        pointer-events: none;
+      }
+
+      .cert-final-paper-logo {
+        position: absolute;
+        top: 34px;
+        font-size: 18px;
+        text-transform: uppercase;
+        letter-spacing: .28em;
+        font-weight: 800;
+        color: #1a1a1a;
+      }
+
+      .cert-final-paper-title {
+        position: absolute;
+        top: 82px;
+        font-family: Georgia, serif;
+        font-size: 42px;
+        text-transform: uppercase;
+        letter-spacing: .15em;
+        font-weight: 700;
+      }
+
+      .cert-final-paper-subtitle {
+        position: absolute;
+        top: 130px;
+        font-family: Georgia, serif;
+        font-size: 14px;
+        letter-spacing: .26em;
+        text-transform: uppercase;
+      }
+
+      .cert-final-paper-line {
+        position: absolute;
+        top: 150px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+      }
+
+      .cert-final-paper-name {
+        position: absolute;
+        top: 162px;
+        font-family: Georgia, serif;
+        font-style: italic;
+        font-size: 34px;
+      }
+
+      .cert-final-paper-copy {
+        position: absolute;
+        top: 204px;
+        font-size: 11px;
+        opacity: .75;
+      }
+
+      .cert-final-paper-course {
+        position: absolute;
+        top: 224px;
+        font-family: Georgia, serif;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .cert-final-paper-signature {
+        position: absolute;
+        left: 92px;
+        bottom: 44px;
+        width: 150px;
+        height: 1px;
+        background: rgba(0,0,0,.55);
+      }
+
+      .cert-final-paper-director {
+        position: absolute;
+        left: 104px;
+        bottom: 26px;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+      }
+
+      .cert-final-seal {
+        position: absolute;
+        right: 90px;
+        bottom: 48px;
+        width: 88px;
+        height: 88px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: #51370b;
+        background:
+          radial-gradient(circle at 30% 30%, #fff1bf, #d6b25e 38%, #9f741e 72%, #6c4a0f 100%);
+        box-shadow: 0 10px 26px rgba(0,0,0,.30);
+        clip-path: polygon(50% 0%,56% 8%,65% 3%,70% 12%,80% 9%,83% 19%,93% 20%,91% 31%,100% 38%,94% 48%,100% 58%,91% 65%,93% 76%,83% 77%,80% 87%,70% 84%,65% 97%,56% 92%,50% 100%,44% 92%,35% 97%,30% 84%,20% 87%,17% 77%,7% 76%,9% 65%,0% 58%,6% 48%,0% 38%,9% 31%,7% 20%,17% 19%,20% 9%,30% 12%,35% 3%,44% 8%);
+        z-index: 3;
+      }
+
+      .cert-final-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.04fr) minmax(390px, .96fr);
+        gap: 16px;
+      }
+
+      .cert-final-available,
+      .cert-final-how,
+      .cert-final-verify,
+      .cert-final-status {
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.09);
+        background: var(--panel);
+        padding: 20px;
+        box-shadow: 0 20px 70px rgba(0,0,0,.16);
+      }
+
+      .cert-final-section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .cert-final-section-head h2,
+      .cert-final-how h2,
+      .cert-final-verify h2,
+      .cert-final-status h2 {
+        margin: 6px 0 0;
+        font-size: 22px;
+        line-height: 1;
+        letter-spacing: -.035em;
+        font-weight: 950;
+      }
+
+      .cert-final-section-head > span {
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.24);
+        background: rgba(var(--green-rgb),.10);
+        border-radius: 999px;
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .cert-final-issued,
+      .cert-final-locked {
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.028);
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 235px minmax(0,1fr);
+        gap: 16px;
+        margin-top: 12px;
+      }
+
+      .cert-final-card-art,
+      .cert-final-locked-art {
+        min-height: 160px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.10);
+        background:
+          linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.02)),
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.16), transparent 36%);
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+        position: relative;
+      }
+
+      .cert-final-card-art-inner,
+      .cert-final-locked-art > div {
+        width: 182px;
+        height: 120px;
+        border-radius: 12px;
+        border: 1px solid rgba(var(--green-rgb),.30);
+        background: rgba(0,0,0,.34);
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 12px;
+      }
+
+      .cert-final-card-art-inner span,
+      .cert-final-locked-art span {
+        color: var(--muted);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .18em;
+      }
+
+      .cert-final-card-art-inner strong,
+      .cert-final-locked-art strong {
+        color: var(--white);
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        font-family: Georgia, serif;
+      }
+
+      .cert-final-card-art-inner em,
+      .cert-final-locked-art em {
+        color: var(--green);
+        font-size: 11px;
+        font-style: normal;
+      }
+
+      .cert-final-card-art-inner b {
+        color: var(--gold);
+      }
+
+      .cert-final-card-art-inner i {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #d6b25e, #775210);
+        display: block;
+      }
+
+      .cert-final-card-content {
+        min-width: 0;
+        display: grid;
+        align-content: center;
+        gap: 10px;
+      }
+
+      .cert-final-card-content h3 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 1.05;
+        letter-spacing: -.035em;
+        font-weight: 950;
+      }
+
+      .cert-final-card-content p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .cert-final-pill-issued,
+      .cert-final-pill-locked {
+        width: fit-content;
+        border-radius: 999px;
+        padding: 6px 9px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      .cert-final-pill-issued {
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.26);
+        background: rgba(var(--green-rgb),.10);
+      }
+
+      .cert-final-pill-locked {
+        color: var(--soft);
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.04);
+      }
+
+      .cert-final-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0,1fr));
+        gap: 10px;
+      }
+
+      .cert-final-code {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .cert-final-code strong {
+        color: var(--white);
+      }
+
+      .cert-final-primary {
+        min-height: 42px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 900;
+        width: fit-content;
+        padding: 0 16px;
+      }
+
+      .cert-final-muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .cert-final-empty {
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.028);
+        padding: 24px;
+        display: grid;
+        gap: 12px;
+        justify-items: start;
+      }
+
+      .cert-final-empty > div {
+        width: 54px;
+        height: 54px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(var(--green-rgb),.08);
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.22);
+      }
+
+      .cert-final-progress {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.10);
+        overflow: hidden;
+      }
+
+      .cert-final-progress div {
+        height: 100%;
+        background: var(--green);
+        border-radius: 999px;
+        box-shadow: 0 0 18px rgba(var(--green-rgb),.22);
+      }
+
+      .cert-final-all {
+        width: 100%;
+        min-height: 44px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        color: var(--white);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        margin-top: 12px;
+        cursor: pointer;
+        font-weight: 850;
+      }
+
+      .cert-final-right {
+        display: grid;
+        gap: 16px;
+      }
+
+      .cert-final-steps {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0,1fr));
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .cert-final-steps div {
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.026);
+        padding: 14px;
+        display: grid;
+        gap: 8px;
+        text-align: center;
+      }
+
+      .cert-final-steps span {
+        width: 46px;
+        height: 46px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.22);
+        background: rgba(var(--green-rgb),.08);
+        margin: 0 auto;
+      }
+
+      .cert-final-steps strong {
+        font-size: 13px;
+      }
+
+      .cert-final-steps p {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+        margin: 0;
+      }
+
+      .cert-final-verify {
+        display: grid;
+        grid-template-columns: 76px minmax(0,1fr);
+        gap: 18px;
+        align-items: center;
+      }
+
+      .cert-final-verify-icon {
+        width: 76px;
+        height: 76px;
+        border-radius: 20px;
+        display: grid;
+        place-items: center;
+        background: rgba(var(--green-rgb),.08);
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.20);
+      }
+
+      .cert-final-verify p,
+      .cert-final-status p {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .cert-final-verify button {
+        min-height: 40px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(255,255,255,.045);
+        color: var(--white);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 14px;
+        font-weight: 850;
+        cursor: pointer;
+      }
+
+      .cert-final-status {
+        display: grid;
+        grid-template-columns: 100px minmax(0,1fr) 150px;
+        gap: 16px;
+        align-items: center;
+      }
+
+      .cert-final-ring {
+        width: 82px;
+        height: 82px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 10px solid rgba(var(--green-rgb),.22);
+        box-shadow: inset 0 0 0 2px rgba(255,255,255,.05);
+      }
+
+      .cert-final-ring strong {
+        font-size: 30px;
+        line-height: 1;
+      }
+
+      .cert-final-status ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .cert-final-status li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .cert-final-status li strong {
+        color: var(--white);
+      }
+
+      @media (max-width: 1180px) {
+        .cert-final-hero,
+        .cert-final-layout,
+        .cert-final-issued,
+        .cert-final-locked,
+        .cert-final-status {
+          grid-template-columns: 1fr;
+        }
+
+        .cert-final-steps {
+          grid-template-columns: repeat(2, minmax(0,1fr));
+        }
+
+        .cert-final-verify {
           grid-template-columns: 1fr;
         }
       }
