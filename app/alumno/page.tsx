@@ -37,6 +37,18 @@ type ModuleView = {
   href: string;
 };
 
+
+type NotificationItem = {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  time: string;
+  unread: boolean;
+  href?: string;
+};
+
+
 type IconName =
   | 'home' | 'dashboard' | 'courses' | 'curriculum' | 'exam' | 'certificate'
   | 'performance' | 'resources' | 'support' | 'logout' | 'clock' | 'chart'
