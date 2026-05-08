@@ -61,6 +61,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
+const GREEN = '#63E546';
+
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Dashboard', helper: 'Resumen', icon: 'dashboard' },
   { id: 'cursos', label: 'My Courses', helper: 'Cursos activos', icon: 'courses' },
