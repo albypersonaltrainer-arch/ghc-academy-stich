@@ -504,7 +504,7 @@ export default function AlumnoPage() {
         <Background />
         <section className="loading-card">
           <GHCLogo size="md" showTexto tagline={false} />
-          <h1>Cargando dashboard</h1>
+          <h1>Cargando panel</h1>
           <p>Preparando cursos, módulos, progreso, certificados y perfil real del alumno.</p>
         </section>
       </main>
@@ -716,7 +716,7 @@ function PanelView({
             <p>
               {mainCourse?.course?.subtitle ||
                 mainCourse?.course?.description ||
-                'Explore your next learning step and keep progressing through the academy.'}
+                'Continúa con el siguiente paso de tu formación dentro de la academia.'}
             </p>
             <div className="meta-row">
               <MetaItem icon="clock" text="4–5 Hours" />
@@ -766,7 +766,7 @@ function PanelView({
       <section className="dashboard-bottom">
         <article className="mock-mini">
           <h2>Simulador de exámenes</h2>
-          <p>Test your knowledge under real conditions before earning your final certification.</p>
+          <p>Pon a prueba tus conocimientos en condiciones reales antes de obtener tu certificación final.</p>
           <button type="button" onClick={() => setActivosTab('examenes')}>
             Iniciar simulación
             <Icon name="arrow" />
@@ -2091,6 +2091,12 @@ function GlobalStyles() {
       .certificate-card h3 { margin: 14px 0 16px; font-size: 24px; line-height: 1.05; font-weight: 900; letter-spacing: -.035em; }
       .empty-state { border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025); padding: 18px; color: var(--muted); }
       .empty-state p,.empty-text { margin: 0; color: var(--muted); line-height: 1.6; }
+
+
+      .loading-page {
+        grid-template-columns: 1fr !important;
+        place-items: center;
+      }
 
       @media (max-width: 1320px) {
         .student-page { grid-template-columns: 102px minmax(0, 1fr); }
