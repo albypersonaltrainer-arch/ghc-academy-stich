@@ -1755,7 +1755,8 @@ function RendimientoTab({
       </section>
 
       <section className="performance-pro-grid">
-        <article className="performance-progress-card">
+        <div className="performance-main-column">
+          <article className="performance-progress-card">
           <div className="performance-card-header">
             <div>
               <h2>Resumen del progreso académico</h2>
@@ -1797,6 +1798,7 @@ function RendimientoTab({
             <span>Gran trabajo. Has mostrado una mejora constante este mes.</span>
             <button type="button">Ver analítica detallada <Icon name="arrow" /></button>
           </div>
+        </article>
 
           <article className="performance-top-courses-card performance-under-progress">
             <div className="performance-card-header compact">
@@ -1830,7 +1832,7 @@ function RendimientoTab({
               <strong>{completedCourses || 12} cursos</strong>
             </div>
           </article>
-        </article>
+        </div>
 
         <aside className="performance-side-column">
           <article className="performance-cert-card">
@@ -3006,6 +3008,12 @@ function GlobalStyles() {
         align-items: start;
       }
 
+      .performance-main-column {
+        display: grid;
+        gap: 16px;
+        min-width: 0;
+      }
+
       .performance-progress-card,
       .performance-cert-card,
       .performance-activity-card,
@@ -3191,13 +3199,19 @@ function GlobalStyles() {
       }
 
       .performance-under-progress {
-        margin-top: 18px;
-        background: rgba(255,255,255,.022);
+        margin-top: 0;
+        background:
+          linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.018)),
+          rgba(10,13,12,.88);
+        border: 1px solid rgba(255,255,255,.09);
+        border-radius: 16px;
+        box-shadow: 0 20px 70px rgba(0,0,0,.16);
       }
 
       .performance-under-progress .performance-course-rank-list {
         grid-template-columns: repeat(3, minmax(0,1fr));
         display: grid;
+        gap: 12px;
       }
 
       .performance-cert-list,
@@ -4670,21 +4684,23 @@ function GlobalStyles() {
 
       .cert-final-steps {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0,1fr));
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(280px,1fr));
+        gap: 12px;
         margin-top: 16px;
       }
 
       .cert-final-steps div {
+        min-height: 112px;
         border-radius: 14px;
         border: 1px solid rgba(255,255,255,.08);
         background: rgba(255,255,255,.026);
-        padding: 13px;
+        padding: 16px;
         display: grid;
         grid-template-columns: 42px minmax(0,1fr);
-        gap: 10px;
+        gap: 8px 12px;
         text-align: left;
-        align-items: center;
+        align-items: start;
+        align-content: center;
       }
 
       .cert-final-steps span {
@@ -4699,8 +4715,19 @@ function GlobalStyles() {
         margin: 0;
       }
 
-      .cert-final-steps strong { font-size: 13px; }
-      .cert-final-steps p { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 0; }
+      .cert-final-steps strong {
+        font-size: 14px;
+        line-height: 1.25;
+        align-self: center;
+      }
+      .cert-final-steps p {
+        grid-column: 2;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+        margin: -2px 0 0;
+        max-width: 26ch;
+      }
 
       .cert-final-verify {
         display: grid;
@@ -4786,7 +4813,7 @@ function GlobalStyles() {
           grid-template-columns: 1fr;
         }
 
-        .cert-final-steps { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .cert-final-steps { grid-template-columns: repeat(2, minmax(260px,1fr)); }
         .cert-final-verify { grid-template-columns: 1fr; }
         .cert-final-paper { right: 24px; left: 24px; width: auto; }
       }
@@ -5138,7 +5165,15 @@ function GlobalStyles() {
         }
 
         .cert-final-steps {
-          grid-template-columns: repeat(2, minmax(0,1fr));
+          grid-template-columns: repeat(2, minmax(260px,1fr));
+        }
+      }
+
+
+
+      @media (max-width: 760px) {
+        .cert-final-steps {
+          grid-template-columns: 1fr;
         }
       }
 
@@ -5150,7 +5185,7 @@ function GlobalStyles() {
       @media (max-width: 1180px) {
         .student-page { grid-template-columns: 1fr; }
         .sidebar { position: relative; height: auto; }
-        .mock-header,.mock-hero-grid,.mock-middle-grid,.analytics-grid,.hero-grid,.dashboard-bottom,.curriculum-grid,.curriculum-head { grid-template-columns: 1fr; }
+        .mock-header,.mock-hero-grid,.mock-middle-grid,.analytics-grid,.hero-grid,.dashboard-bottom,.curriculum-grid,.curriculum-head,.performance-pro-grid { grid-template-columns: 1fr; }
         .exam-meta-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
       }
     `}</style>
