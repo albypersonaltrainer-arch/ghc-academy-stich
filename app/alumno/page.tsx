@@ -1431,24 +1431,6 @@ function CertificadosTab({
             Obtén credenciales oficiales de GHC Academy y demuestra tu experiencia con certificados
             verificables, profesionales y preparados para reforzar tu perfil en el sector.
           </p>
-
-          <div className="cert-final-trust">
-            <div>
-              <Icon name="star" />
-              <strong>Confiable por profesionales</strong>
-              <span>Formación con criterio técnico, estructura y aplicación real.</span>
-            </div>
-            <div>
-              <Icon name="shield" />
-              <strong>Credenciales verificables</strong>
-              <span>Código único para consulta, validación y trazabilidad.</span>
-            </div>
-            <div>
-              <Icon name="box" />
-              <strong>Reconocido en la industria</strong>
-              <span>Un distintivo premium para demostrar avance y especialización.</span>
-            </div>
-          </div>
         </div>
 
         <div className="cert-final-visual" aria-hidden="true">
@@ -1469,6 +1451,24 @@ function CertificadosTab({
             <div className="cert-final-seal">
               <Icon name="star" />
             </div>
+          </div>
+        </div>
+
+        <div className="cert-final-trust">
+          <div>
+            <Icon name="star" />
+            <strong>Confiable por profesionales</strong>
+            <span>Formación con criterio técnico, estructura y aplicación real.</span>
+          </div>
+          <div>
+            <Icon name="shield" />
+            <strong>Credenciales verificables</strong>
+            <span>Código único para consulta, validación y trazabilidad.</span>
+          </div>
+          <div>
+            <Icon name="box" />
+            <strong>Reconocido en la industria</strong>
+            <span>Un distintivo premium para demostrar avance y especialización.</span>
           </div>
         </div>
       </section>
@@ -1551,6 +1551,10 @@ function CertificadosTab({
               <div className="cert-final-locked-brand">GHC Academy</div>
               <div className="cert-final-locked-title">CERTIFICADO</div>
               <div className="cert-final-locked-subtitle">Próxima credencial</div>
+              <div className="cert-final-locked-name">Alumno GHC</div>
+              <div className="cert-final-locked-course">Especialización pendiente</div>
+              <div className="cert-final-locked-line" />
+              <div className="cert-final-locked-seal"><Icon name="star" /></div>
               <div className="cert-final-locked-padlock"><Icon name="lock" /></div>
             </div>
 
@@ -1690,17 +1694,17 @@ function RendimientoTab({
         <div>
           <div className="performance-pro-breadcrumb">
             <Icon name="home" />
-            <span>Dashboard</span>
+            <span>Panel</span>
             <span>›</span>
-            <strong>Performance</strong>
+            <strong>Rendimiento</strong>
           </div>
-          <h1>Performance Profile</h1>
-          <p>Track your progress, achievements, and academic growth.</p>
+          <h1>Perfil de rendimiento</h1>
+          <p>Analiza tu progreso, logros y evolución académica dentro de GHC Academy.</p>
         </div>
 
         <article className="performance-pro-quote">
           <strong>“</strong>
-          <span>Success is the sum of small efforts, repeated day in and day out.</span>
+          <span>El éxito es la suma de pequeños esfuerzos repetidos cada día.</span>
           <em>— Robert Collier</em>
         </article>
       </section>
@@ -1717,47 +1721,47 @@ function RendimientoTab({
               <span>Pro</span>
             </div>
             <p>{email}</p>
-            <p>{role === 'student' ? 'Student' : role} · GHC Academy</p>
-            <p className="performance-enrolled"><Icon name="clock" /> Enrolled · {formatShortDate(profile?.created_at || user?.created_at || new Date().toISOString())}</p>
+            <p>{role === 'student' ? 'Alumno' : role} · GHC Academy</p>
+            <p className="performance-enrolled"><Icon name="clock" /> Inscrito · {formatShortDate(profile?.created_at || user?.created_at || new Date().toISOString())}</p>
           </div>
         </div>
 
         <div className="performance-profile-goals">
           <Icon name="target" />
           <div>
-            <h3>My Goals</h3>
-            <p>Become a certified professional in health and fitness by mastering anatomy, physiology, and training.</p>
-            <button type="button"><Icon name="performance" /> Edit Goals</button>
+            <h3>Mis objetivos</h3>
+            <p>Convertirte en un profesional certificado dominando anatomía, fisiología, entrenamiento y criterio aplicado.</p>
+            <button type="button"><Icon name="performance" /> Editar objetivos</button>
           </div>
         </div>
 
         <div className="performance-profile-status">
           <div>
             <Icon name="shield" />
-            <h3>Account Status</h3>
+            <h3>Estado de la cuenta</h3>
           </div>
-          <strong><Icon name="check" /> Active</strong>
-          <p>Your account is in good standing with full access to all features.</p>
-          <span>Plan: <b>Pro Student</b></span>
+          <strong><Icon name="check" /> Activa</strong>
+          <p>Tu cuenta está activa y con acceso completo a las funciones disponibles.</p>
+          <span>Plan: <b>Alumno Pro</b></span>
         </div>
       </section>
 
       <section className="performance-metrics-strip">
-        <PerformanceMetric icon="clock" label="Total Learning Time" value={`${learningHours}h ${totalLessonsCompleted ? '30m' : '00m'}`} trend="+12% vs last 30 days" />
-        <PerformanceMetric icon="courses" label="Courses Completed" value={completedCourses} trend={`+${completedCourses || 0} vs last 30 days`} />
-        <PerformanceMetric icon="box" label="Modules Completed" value={modulesCompleted} trend={`+${modulesCompleted || 0} vs last 30 days`} />
-        <PerformanceMetric icon="check" label="Quizzes Passed" value={`${quizzesPassed}%`} trend="+8% vs last 30 days" />
-        <PerformanceMetric icon="flame" label="Current Streak" value={`${currentStreak} Days`} trend="Keep it up!" accent="gold" />
+        <PerformanceMetric icon="clock" label="Tiempo total de estudio" value={`${learningHours}h ${totalLessonsCompleted ? '30m' : '00m'}`} trend="+12% vs últimos 30 días" />
+        <PerformanceMetric icon="courses" label="Cursos completados" value={completedCourses} trend={`+${completedCourses || 0} vs últimos 30 días`} />
+        <PerformanceMetric icon="box" label="Módulos completados" value={modulesCompleted} trend={`+${modulesCompleted || 0} vs últimos 30 días`} />
+        <PerformanceMetric icon="check" label="Exámenes aprobados" value={`${quizzesPassed}%`} trend="+8% vs últimos 30 días" />
+        <PerformanceMetric icon="flame" label="Racha actual" value={`${currentStreak} días`} trend="Sigue así" accent="gold" />
       </section>
 
       <section className="performance-pro-grid">
         <article className="performance-progress-card">
           <div className="performance-card-header">
             <div>
-              <h2>Learning Progress Overview</h2>
-              <p>Your overall academic performance trend over time.</p>
+              <h2>Resumen del progreso académico</h2>
+              <p>Evolución general de tu rendimiento académico en el tiempo.</p>
             </div>
-            <button type="button">Last 30 Days</button>
+            <button type="button">Últimos 30 días</button>
           </div>
 
           <div className="performance-chart-wrap">
@@ -1782,24 +1786,24 @@ function RendimientoTab({
           </div>
 
           <div className="performance-rings-row">
-            <PerformanceRing label="Overall Progress" value={progress} trend="+15%" />
-            <PerformanceRing label="Assignments" value={Math.max(82, progress)} trend="+10%" />
-            <PerformanceRing label="Assessments" value={Math.max(78, quizzesPassed)} trend="+12%" />
-            <PerformanceRing label="Engagement" value={Math.max(70, Math.min(100, progress + 8))} trend="+8%" />
+            <PerformanceRing label="Progreso global" value={progress} trend="+15%" />
+            <PerformanceRing label="Tareas" value={Math.max(82, progress)} trend="+10%" />
+            <PerformanceRing label="Evaluaciones" value={Math.max(78, quizzesPassed)} trend="+12%" />
+            <PerformanceRing label="Constancia" value={Math.max(70, Math.min(100, progress + 8))} trend="+8%" />
           </div>
 
           <div className="performance-insight-row">
             <Icon name="trophy" />
-            <span>Great job! You have shown consistent improvement this month.</span>
-            <button type="button">View Detailed Analytics <Icon name="arrow" /></button>
+            <span>Gran trabajo. Has mostrado una mejora constante este mes.</span>
+            <button type="button">Ver analítica detallada <Icon name="arrow" /></button>
           </div>
         </article>
 
         <aside className="performance-side-column">
           <article className="performance-cert-card">
             <div className="performance-card-header compact">
-              <h2>Certificates Earned</h2>
-              <button type="button">View All</button>
+              <h2>Certificados obtenidos</h2>
+              <button type="button">Ver todo</button>
             </div>
             <div className="performance-cert-list">
               {recentCertificates.length > 0 ? (
@@ -1807,18 +1811,18 @@ function RendimientoTab({
                   <div className="performance-cert-row" key={certificate.id || certificate.certificate_code || index}>
                     <div className="performance-medal">{index + 1}</div>
                     <div>
-                      <strong>{certificate.course_title || certificate.title || `Level ${index + 1} Certificate`}</strong>
+                      <strong>{certificate.course_title || certificate.title || `Certificado nivel ${index + 1}`}</strong>
                       <p>{certificate.issuer || 'GHC Academy'}</p>
-                      <span>Earned on {certificate.issued_at ? formatShortDate(certificate.issued_at) : '—'}</span>
+                      <span>Emitido el {certificate.issued_at ? formatShortDate(certificate.issued_at) : '—'}</span>
                     </div>
-                    <em><Icon name="check" /> Verified</em>
+                    <em><Icon name="check" /> Verificado</em>
                   </div>
                 ))
               ) : (
                 [
-                  ['Level 1 Certificate', 'Earned on May 20, 2024'],
-                  ['Biomechanics Fundamentals', 'Earned on Apr 28, 2024'],
-                  ['Energy Systems', 'Earned on Apr 10, 2024'],
+                  ['Certificado Nivel 1', 'Emitido el 20 may 2024'],
+                  ['Fundamentos de biomecánica', 'Emitido el 28 abr 2024'],
+                  ['Sistemas energéticos', 'Emitido el 10 abr 2024'],
                 ].map(([title, date], index) => (
                   <div className="performance-cert-row ghost" key={title}>
                     <div className="performance-medal">{index + 1}</div>
@@ -1827,7 +1831,7 @@ function RendimientoTab({
                       <p>GHC Academy</p>
                       <span>{date}</span>
                     </div>
-                    <em><Icon name="check" /> Verified</em>
+                    <em><Icon name="check" /> Verificado</em>
                   </div>
                 ))
               )}
@@ -1836,21 +1840,21 @@ function RendimientoTab({
 
           <article className="performance-activity-card">
             <div className="performance-card-header compact">
-              <h2>Recent Academic Activity</h2>
-              <button type="button">View All</button>
+              <h2>Actividad académica reciente</h2>
+              <button type="button">Ver todo</button>
             </div>
             <div className="performance-timeline">
               {[
-                `Completed Quiz: ${topCourses[0]?.course?.title || 'Neuromuscular Adaptations'}`,
-                `Completed Module ${modulesCompleted || 3}: ${topCourses[0]?.course?.title || 'Neuromuscular Adaptations'}`,
-                certificatesCount > 0 ? 'Earned Certificate: Level 1 Certificate' : 'Certificate pending: complete final exam',
-                `Started Course: ${topCourses[1]?.course?.title || 'Hypertrophy Mechanics'}`,
+                `Examen completado: ${topCourses[0]?.course?.title || 'Adaptaciones neuromusculares'}`,
+                `Módulo completado ${modulesCompleted || 3}: ${topCourses[0]?.course?.title || 'Adaptaciones neuromusculares'}`,
+                certificatesCount > 0 ? 'Certificado obtenido: Certificado Nivel 1' : 'Certificado pendiente: completa el examen final',
+                `Curso iniciado: ${topCourses[1]?.course?.title || 'Mecánica de la hipertrofia'}`,
               ].map((activity, index) => (
                 <div className="performance-timeline-item" key={`${activity}-${index}`}>
                   <span />
                   <div>
                     <strong>{activity}</strong>
-                    <p>{index === 0 ? 'Today at 10:24 AM' : index === 1 ? 'Yesterday at 3:45 PM' : 'May 20, 2024 at 9:15 AM'}</p>
+                    <p>{index === 0 ? 'Hoy a las 10:24' : index === 1 ? 'Ayer a las 15:45' : '20 may 2024 a las 09:15'}</p>
                   </div>
                 </div>
               ))}
@@ -1859,8 +1863,8 @@ function RendimientoTab({
 
           <article className="performance-top-courses-card">
             <div className="performance-card-header compact">
-              <h2>Top Completed Courses</h2>
-              <button type="button">View All</button>
+              <h2>Cursos con mayor avance</h2>
+              <button type="button">Ver todo</button>
             </div>
             <div className="performance-course-rank-list">
               {(topCourses.length ? topCourses : courseCards.slice(0, 3)).map((card, index) => (
@@ -1877,7 +1881,7 @@ function RendimientoTab({
                 <div className="performance-course-rank">
                   <span>1</span>
                   <div>
-                    <strong>Biomechanics Fundamentals</strong>
+                    <strong>Fundamentos de biomecánica</strong>
                     <div><i style={{ width: '100%' }} /></div>
                   </div>
                   <em>100%</em>
@@ -1885,20 +1889,20 @@ function RendimientoTab({
               )}
             </div>
             <div className="performance-total-row">
-              <span>Total Completed</span>
-              <strong>{completedCourses || 12} Courses</strong>
+              <span>Total completado</span>
+              <strong>{completedCourses || 12} cursos</strong>
             </div>
           </article>
 
           <article className="performance-security-card">
             <div className="performance-card-header compact">
-              <h2>Account & Security Roadmap</h2>
+              <h2>Hoja de ruta de cuenta y seguridad</h2>
             </div>
             <div className="performance-security-list">
-              <PerformanceSecurityItem icon="shield" title="Email Verified" text={email} status="check" />
-              <PerformanceSecurityItem icon="lock" title="Two-Factor Authentication" text="Add an extra layer of security" action="Enable" />
-              <PerformanceSecurityItem icon="user" title="Update Password" text="Last updated 45 days ago" action="Update" />
-              <PerformanceSecurityItem icon="performance" title="Learning Preferences" text="Customize your experience" action="Manage" />
+              <PerformanceSecurityItem icon="shield" title="Email Verificado" text={email} status="check" />
+              <PerformanceSecurityItem icon="lock" title="Autenticación de dos factores" text="Añade una capa extra de seguridad" action="Activar" />
+              <PerformanceSecurityItem icon="user" title="Actualizar contraseña" text="Última actualización hace 45 días" action="Actualizar" />
+              <PerformanceSecurityItem icon="performance" title="Preferencias de aprendizaje" text="Personaliza tu experiencia" action="Gestionar" />
             </div>
           </article>
         </aside>
@@ -2350,6 +2354,18 @@ function GlobalStyles() {
       button, input, select { font: inherit; }
       input::placeholder { color: rgba(244,246,242,.36); }
       select option { background: #080b0a; color: #f4f6f2; }
+      select option:checked,
+      select option:hover,
+      select option:focus {
+        background: linear-gradient(135deg, var(--green), #7bee65) !important;
+        background-color: var(--green) !important;
+        color: #061008 !important;
+      }
+      select:focus {
+        outline: 0;
+        border-color: rgba(var(--green-rgb),.42) !important;
+        box-shadow: 0 0 0 3px rgba(var(--green-rgb),.12);
+      }
 
       .student-page { min-height: 100vh; background: var(--bg); color: var(--white); position: relative; display: grid; grid-template-columns: 278px minmax(0, 1fr); overflow: visible; }
       .loading-page { display: grid; place-items: center; overflow: hidden; }
@@ -2443,6 +2459,28 @@ function GlobalStyles() {
       .cert-mini > span { position: relative; z-index: 2; max-width: 58%; }
       .cert-mini small { color: var(--gold); text-transform: uppercase; letter-spacing: .16em; font-weight: 900; }
       .cert-mini p,.mock-mini p { color: var(--muted); line-height: 1.65; }
+      .mock-mini button,
+      .cert-mini button {
+        width: fit-content;
+        min-height: 42px;
+        border-radius: 10px;
+        border: 1px solid rgba(var(--green-rgb),.26);
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 0 18px;
+        font-weight: 950;
+        cursor: pointer;
+        box-shadow: 0 0 26px rgba(var(--green-rgb),.16);
+      }
+      .mock-mini button:hover,
+      .cert-mini button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0 34px rgba(var(--green-rgb),.22);
+      }
 
       .filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .filters label { width: 320px; min-height: 44px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); display: flex; align-items: center; gap: 12px; padding: 0 15px; color: rgba(244,246,242,.48); font-size: 13px; }
@@ -2562,10 +2600,32 @@ function GlobalStyles() {
       .exam-title-row h2,.exam-rules-title h2,.mock-card-header h2,.analytics-card > h2 { margin: 0; font-size: 21px; font-weight: 900; letter-spacing: -.035em; }
       .exam-title-row span { color: var(--green); background: rgba(var(--green-rgb),.12); border: 1px solid rgba(var(--green-rgb),.24); border-radius: 999px; padding: 5px 8px; text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 900; }
       .exam-simulator-content > p { color: var(--muted); line-height: 1.55; max-width: 620px; margin: 0; }
-      .exam-meta-grid { display: grid; grid-template-columns: repeat(4,minmax(92px,1fr)); gap: 10px; align-items: start; }
-      .mock-meta-item { display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 8px; color: var(--muted); align-items: start; min-width: 0; }
-      .mock-meta-item div { display: grid; gap: 3px; }
-      .mock-meta-item strong { color: var(--white); font-size: 13px; line-height: 1.2; }
+      .exam-meta-grid { display: grid; grid-template-columns: repeat(4,minmax(132px,1fr)); gap: 12px; align-items: stretch; }
+      .mock-meta-item {
+        min-height: 84px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.09);
+        background: rgba(255,255,255,.032);
+        display: grid;
+        grid-template-columns: 42px minmax(0,1fr);
+        gap: 12px;
+        color: var(--muted);
+        align-items: center;
+        min-width: 0;
+        padding: 14px;
+      }
+      .mock-meta-item > svg {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        padding: 11px;
+        color: var(--green);
+        background: rgba(var(--green-rgb),.08);
+        border: 1px solid rgba(var(--green-rgb),.18);
+      }
+      .mock-meta-item div { display: grid; gap: 5px; }
+      .mock-meta-item span { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; font-weight: 900; color: var(--soft); }
+      .mock-meta-item strong { color: var(--white); font-size: 15px; line-height: 1.2; }
       .exam-action-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
       .mock-primary-button { min-height: 46px; border: 0; padding: 0 20px; }
       .mock-ghost-button { min-height: 46px; border: 0; background: transparent; padding: 0; }
@@ -4720,6 +4780,139 @@ function GlobalStyles() {
         .cert-final-seal { right: 54px; width: 64px; height: 64px; }
       }
 
+
+      .cert-final-hero {
+        grid-template-columns: 1fr;
+        gap: 18px;
+        padding: 34px;
+      }
+      .cert-final-hero::before {
+        background:
+          radial-gradient(circle at 50% 44%, rgba(214,178,94,.13), transparent 28%),
+          radial-gradient(circle at 50% 12%, rgba(var(--green-rgb),.12), transparent 26%),
+          linear-gradient(180deg, rgba(5,7,6,.96) 0%, rgba(5,7,6,.90) 58%, rgba(5,7,6,.98) 100%);
+      }
+      .cert-final-copy {
+        padding: 0;
+        text-align: center;
+        justify-items: center;
+      }
+      .cert-final-copy h1 {
+        text-transform: uppercase;
+        max-width: 980px;
+      }
+      .cert-final-subtitle {
+        max-width: 760px;
+      }
+      .cert-final-visual {
+        min-height: 350px;
+        width: 100%;
+        display: grid;
+        place-items: center;
+      }
+      .cert-final-visual::after {
+        background: radial-gradient(circle at center, rgba(var(--green-rgb),.10), transparent 44%);
+      }
+      .cert-final-paper {
+        position: relative;
+        right: auto;
+        top: auto;
+        width: min(720px, 96%);
+        height: 318px;
+        transform: rotate(-4deg);
+      }
+      .cert-final-trust {
+        position: relative;
+        z-index: 3;
+        max-width: 980px;
+        margin: 0 auto;
+      }
+      .cert-final-locked-art {
+        filter: grayscale(1);
+        opacity: .76;
+        background:
+          linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.025)),
+          radial-gradient(circle at 76% 22%, rgba(255,255,255,.10), transparent 30%),
+          #101312;
+      }
+      .cert-final-locked-art::before {
+        content: '';
+        position: absolute;
+        inset: 16px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.20);
+      }
+      .cert-final-locked-name {
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        top: 84px;
+        text-align: center;
+        font-family: Georgia, serif;
+        font-size: 24px;
+        font-style: italic;
+        color: rgba(244,246,242,.62);
+      }
+      .cert-final-locked-course {
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        bottom: 34px;
+        text-align: center;
+        color: rgba(244,246,242,.42);
+        font-size: 12px;
+        font-weight: 850;
+      }
+      .cert-final-locked-line {
+        position: absolute;
+        left: 52px;
+        right: 52px;
+        top: 118px;
+        height: 1px;
+        background: rgba(255,255,255,.16);
+      }
+      .cert-final-locked-seal {
+        position: absolute;
+        right: 24px;
+        bottom: 24px;
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: rgba(244,246,242,.52);
+        border: 1px solid rgba(255,255,255,.20);
+        background: rgba(255,255,255,.045);
+      }
+      .cert-final-locked-padlock {
+        background: rgba(5,7,6,.72) !important;
+        border: 1px solid rgba(255,255,255,.22);
+        backdrop-filter: blur(8px);
+      }
+
+
+      .performance-cert-row {
+        grid-template-columns: 46px minmax(0,1fr);
+        align-items: start;
+        min-height: 86px;
+        padding: 12px;
+      }
+      .performance-cert-row em {
+        grid-column: 2;
+        justify-self: start;
+        margin-top: -2px;
+      }
+      .performance-cert-row strong {
+        font-size: 14px;
+      }
+      .performance-cert-row p,
+      .performance-cert-row span {
+        line-height: 1.45;
+      }
+      .performance-medal {
+        margin-top: 2px;
+      }
+
       @media (max-width: 1320px) {
         .student-page { grid-template-columns: 102px minmax(0, 1fr); }
         .nav-item span,.user-card > div:nth-child(2) { display: none; }
@@ -4729,6 +4922,7 @@ function GlobalStyles() {
         .student-page { grid-template-columns: 1fr; }
         .sidebar { position: relative; height: auto; }
         .mock-header,.mock-hero-grid,.mock-middle-grid,.analytics-grid,.hero-grid,.dashboard-bottom,.curriculum-grid,.curriculum-head { grid-template-columns: 1fr; }
+        .exam-meta-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
       }
     `}</style>
   );
