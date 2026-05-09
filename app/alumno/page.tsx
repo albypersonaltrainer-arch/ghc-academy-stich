@@ -1,1653 +1,936 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-import GHCLogo from '../components/GHCLogo';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase } from "../lib/supabaseClient";
+import GHCLogo from "../components/GHCLogo";
 
 type AnyRecord = Record<string, any>;
-type Tab = 'dashboard' | 'cursos' | 'curriculum' | 'examenes' | 'certificados' | 'perfil';
-type ViewModo = 'grid' | 'list';
-type CourseEstadoFilter = 'active' | 'completed' | 'all';
-type SortModo = 'recent' | 'title' | 'progress';
 
-type PanelCard = {
-  course: AnyRecord;
-  courseMódulos: AnyRecord[];
-  courseLecciones: AnyRecord[];
-  completedLessonCount: number;
-  completedModuleCount: number;
-  completion?: AnyRecord;
-  certificate?: AnyRecord;
-  progressPercent: number;
-  nextLesson: AnyRecord | null;
+type Course = {
+  id: string;
+  slug?: string | null;
+  title?: string | null;
+  name?: string | null;
+  description?: string | null;
+  short_description?: string | null;
+  excerpt?: string | null;
+  category?: string | null;
+  level?: string | null;
+  image_url?: string | null;
+  cover_url?: string | null;
+  thumbnail_url?: string | null;
+  status?: string | null;
+  visibility?: string | null;
+  is_published?: boolean | null;
+  published?: boolean | null;
+  price?: number | string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
-type ModuleView = {
-  module: AnyRecord;
-  index: number;
-  lessons: AnyRecord[];
-  completedLecciones: number;
+type Module = {
+  id: string;
+  course_id?: string | null;
+  title?: string | null;
+  name?: string | null;
+  description?: string | null;
+  order?: number | null;
+  order_index?: number | null;
+  position?: number | null;
+  module_order?: number | null;
+  sort_order?: number | null;
+  number?: number | null;
+  is_locked?: boolean | null;
+};
+
+type Lesson = {
+  id: string;
+  course_id?: string | null;
+  module_id?: string | null;
+  title?: string | null;
+  name?: string | null;
+  description?: string | null;
+  type?: string | null;
+  lesson_type?: string | null;
+  content_type?: string | null;
+  order?: number | null;
+  order_index?: number | null;
+  position?: number | null;
+  lesson_order?: number | null;
+  sort_order?: number | null;
+  duration?: string | number | null;
+  video_url?: string | null;
+  audio_url?: string | null;
+  pdf_url?: string | null;
+  text_content?: string | null;
+};
+
+type UserProgress = {
+  id?: string;
+  user_id?: string | null;
+  course_id?: string | null;
+  module_id?: string | null;
+  lesson_id?: string | null;
+  completed?: boolean | null;
+  is_completed?: boolean | null;
+  status?: string | null;
+  progress?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type Certificate = {
+  id: string;
+  user_id?: string | null;
+  course_id?: string | null;
+  title?: string | null;
+  course_title?: string | null;
+  description?: string | null;
+  status?: string | null;
+  certificate_code?: string | null;
+  code?: string | null;
+  verification_code?: string | null;
+  verification_url?: string | null;
+  issued_at?: string | null;
+  created_at?: string | null;
+  final_score?: number | string | null;
+  score?: number | string | null;
+  grade?: string | null;
+};
+
+type ModuleView = Module & {
+  titleSafe: string;
+  lessons: Lesson[];
+  completedLessons: number;
+  totalLessons: number;
   progress: number;
-  isCompletado: boolean;
-  isCurrent: boolean;
-  isBloqueado: boolean;
-  href: string;
+  locked: boolean;
 };
 
+type CourseView = Course & {
+  titleSafe: string;
+  descriptionSafe: string;
+  slugSafe: string;
+  imageSafe: string;
+  modules: ModuleView[];
+  lessons: Lesson[];
+  completedLessons: number;
+  totalLessons: number;
+  progress: number;
+  nextLesson: Lesson | null;
+  certificate: Certificate | null;
+};
 
 type NotificationItem = {
   id: string;
   title: string;
   message: string;
-  type: string;
   time: string;
-  unread: boolean;
-  href?: string;
+  type: "success" | "info" | "warning" | "certificate";
+  read?: boolean;
 };
 
+type ActiveTab = "dashboard" | "courses" | "curriculum" | "exams" | "certificates";
 
-type IconName =
-  | 'home' | 'dashboard' | 'courses' | 'curriculum' | 'exam' | 'certificate'
-  | 'performance' | 'resources' | 'support' | 'logout' | 'clock' | 'chart'
-  | 'document' | 'lock' | 'check' | 'arrow' | 'bell' | 'shield' | 'star'
-  | 'user' | 'search' | 'grid' | 'list' | 'bookmark' | 'box' | 'play'
-  | 'audio' | 'pdf' | 'text' | 'trophy' | 'target' | 'chat' | 'flame';
+type LoadingState = "idle" | "loading" | "ready" | "error";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+const GREEN = "#63E546";
+const GHC_GREEN = "#22D65B";
+const BG = "#050706";
+const CARD = "rgba(14, 18, 16, 0.82)";
+const CARD_2 = "rgba(20, 26, 23, 0.92)";
+const BORDER = "rgba(255, 255, 255, 0.10)";
+const TEXT = "#F4F7F2";
+const MUTED = "#A8B2AA";
+const STEEL = "#7F8A84";
 
-const GREEN = '#63E546';
+const DEFAULT_COURSE_BACKGROUNDS = [
+  "radial-gradient(circle at 18% 18%, rgba(99,229,70,.34), transparent 30%), linear-gradient(135deg, #101611 0%, #222B24 48%, #070908 100%)",
+  "radial-gradient(circle at 72% 20%, rgba(99,229,70,.28), transparent 28%), linear-gradient(135deg, #101316 0%, #1C2429 52%, #060808 100%)",
+  "radial-gradient(circle at 24% 76%, rgba(99,229,70,.26), transparent 30%), linear-gradient(135deg, #13110F 0%, #29231B 52%, #070706 100%)",
+  "radial-gradient(circle at 70% 70%, rgba(99,229,70,.24), transparent 32%), linear-gradient(135deg, #0F1512 0%, #23302B 48%, #050706 100%)",
+];
 
-const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
-  { id: 'dashboard', label: 'Panel', helper: 'Resumen', icon: 'dashboard' },
-  { id: 'cursos', label: 'Mis cursos', helper: 'Cursos activos', icon: 'courses' },
-  { id: 'curriculum', label: 'Itinerario', helper: 'Módulos', icon: 'curriculum' },
-  { id: 'examenes', label: 'Simulador de exámenes', helper: 'Evaluación', icon: 'exam' },
-  { id: 'certificados', label: 'Certificados', helper: 'Credenciales', icon: 'certificate' },
-  { id: 'perfil', label: 'Rendimiento', helper: 'Perfil', icon: 'performance' },
+function safeString(value: unknown, fallback = ""): string {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  return text.length ? text : fallback;
+}
+
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function formatDate(value?: string | null): string {
+  if (!value) return "Pendiente";
+  try {
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(value));
+  } catch {
+    return "Pendiente";
+  }
+}
+
+function formatPercent(value: number): string {
+  const safe = Math.max(0, Math.min(100, Math.round(value || 0)));
+  return `${safe}%`;
+}
+
+function normalizeStatus(value?: string | null): string {
+  return safeString(value, "").toLowerCase();
+}
+
+function isVisibleCourse(course: Course): boolean {
+  const status = normalizeStatus(course.status);
+  const visibility = normalizeStatus(course.visibility);
+  if (course.is_published === false || course.published === false) return false;
+  if (["draft", "archived", "hidden", "inactive", "deleted"].includes(status)) return false;
+  if (["private", "hidden", "draft", "archived"].includes(visibility)) return false;
+  return true;
+}
+
+function extractModuleNumber(module: Partial<Module>): number {
+  const explicit = [module.order, module.order_index, module.position, module.module_order, module.sort_order, module.number]
+    .map((v) => Number(v))
+    .find((v) => Number.isFinite(v));
+  if (explicit !== undefined) return explicit;
+  const title = safeString(module.title || module.name, "");
+  const match = title.match(/(?:m[oó]dulo|module|unidad|bloque)?\s*#?\s*(\d+)/i);
+  return match ? Number(match[1]) : 9999;
+}
+
+function extractLessonNumber(lesson: Partial<Lesson>): number {
+  const explicit = [lesson.order, lesson.order_index, lesson.position, lesson.lesson_order, lesson.sort_order]
+    .map((v) => Number(v))
+    .find((v) => Number.isFinite(v));
+  if (explicit !== undefined) return explicit;
+  const title = safeString(lesson.title || lesson.name, "");
+  const match = title.match(/(?:lecci[oó]n|lesson|clase)?\s*#?\s*(\d+)/i);
+  return match ? Number(match[1]) : 9999;
+}
+
+function getOrder(item: Partial<Module & Lesson>, fallback = 9999): number {
+  const values = [item.order, item.order_index, item.position, item.sort_order, (item as AnyRecord).module_order, (item as AnyRecord).lesson_order, (item as AnyRecord).number];
+  const found = values.map((v) => Number(v)).find((v) => Number.isFinite(v));
+  return found === undefined ? fallback : found;
+}
+
+function sortModules(modules: Module[]): Module[] {
+  return [...modules].sort((a, b) => {
+    const byNumber = extractModuleNumber(a) - extractModuleNumber(b);
+    if (byNumber !== 0) return byNumber;
+    return safeString(a.title || a.name).localeCompare(safeString(b.title || b.name), "es");
+  });
+}
+
+function sortLessons(lessons: Lesson[]): Lesson[] {
+  return [...lessons].sort((a, b) => {
+    const byNumber = extractLessonNumber(a) - extractLessonNumber(b);
+    if (byNumber !== 0) return byNumber;
+    return safeString(a.title || a.name).localeCompare(safeString(b.title || b.name), "es");
+  });
+}
+
+function getCourseSlug(course: Course): string {
+  const direct = safeString(course.slug, "");
+  if (direct) return direct;
+  const title = safeString(course.title || course.name, "curso");
+  return title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || safeString(course.id, "curso");
+}
+
+function getCourseImage(course: Course): string {
+  return safeString(course.image_url || course.cover_url || course.thumbnail_url, "");
+}
+
+function getPremiumCourseBackground(course: Course, index = 0): string {
+  const image = getCourseImage(course);
+  if (image) return `linear-gradient(135deg, rgba(5,7,6,.78), rgba(5,7,6,.42)), url(${image})`;
+  return DEFAULT_COURSE_BACKGROUNDS[index % DEFAULT_COURSE_BACKGROUNDS.length];
+}
+
+function getLessonType(lesson: Lesson): string {
+  const raw = safeString(lesson.lesson_type || lesson.content_type || lesson.type, "texto").toLowerCase();
+  if (raw.includes("video") || lesson.video_url) return "video";
+  if (raw.includes("audio") || lesson.audio_url) return "audio";
+  if (raw.includes("pdf") || lesson.pdf_url) return "pdf";
+  if (raw.includes("mix") || raw.includes("multi")) return "mixto";
+  return "texto";
+}
+
+function getLessonIcon(lesson: Lesson): string {
+  const type = getLessonType(lesson);
+  if (type === "video") return "▶";
+  if (type === "audio") return "♪";
+  if (type === "pdf") return "PDF";
+  if (type === "mixto") return "◆";
+  return "TXT";
+}
+
+function isProgressCompleted(progress: UserProgress): boolean {
+  const status = normalizeStatus(progress.status);
+  return progress.completed === true || progress.is_completed === true || ["completed", "complete", "done", "finished", "aprobado", "finalizado"].includes(status);
+}
+
+function buildModuleViews(modules: Module[], lessons: Lesson[], progress: UserProgress[]): ModuleView[] {
+  const completedLessonIds = new Set(progress.filter(isProgressCompleted).map((item) => safeString(item.lesson_id)).filter(Boolean));
+
+  return sortModules(modules).map((module) => {
+    const moduleLessons = sortLessons(lessons.filter((lesson) => safeString(lesson.module_id) === safeString(module.id)));
+    const completedLessons = moduleLessons.filter((lesson) => completedLessonIds.has(safeString(lesson.id))).length;
+    const totalLessons = moduleLessons.length;
+    const moduleProgress = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+    return {
+      ...module,
+      titleSafe: safeString(module.title || module.name, "Módulo sin título"),
+      lessons: moduleLessons,
+      completedLessons,
+      totalLessons,
+      progress: moduleProgress,
+      locked: Boolean(module.is_locked),
+    };
+  });
+}
+
+function findNextLesson(modules: ModuleView[], progress: UserProgress[]): Lesson | null {
+  const completedLessonIds = new Set(progress.filter(isProgressCompleted).map((item) => safeString(item.lesson_id)).filter(Boolean));
+  for (const module of modules) {
+    for (const lesson of module.lessons) {
+      if (!completedLessonIds.has(safeString(lesson.id))) return lesson;
+    }
+  }
+  return modules[0]?.lessons[0] || null;
+}
+
+function getCertificateCode(certificate: Certificate | null): string {
+  if (!certificate) return "GHC-PENDIENTE";
+  return safeString(certificate.certificate_code || certificate.verification_code || certificate.code, `GHC-${safeString(certificate.id).slice(0, 8).toUpperCase()}`);
+}
+
+function courseTitle(course: Course | null | undefined): string {
+  return safeString(course?.title || course?.name, "Curso GHC Academy");
+}
+
+function courseDescription(course: Course | null | undefined): string {
+  return safeString(course?.short_description || course?.description || course?.excerpt, "Formación avanzada con enfoque científico, práctico y profesional.");
+}
+
+function scoreText(certificate: Certificate | null): string {
+  if (!certificate) return "Pendiente de evaluación final";
+  const value = certificate.final_score ?? certificate.score ?? certificate.grade;
+  if (value === null || value === undefined || value === "") return "Aprobado por GHC Academy";
+  if (typeof value === "number") return `Nota final: ${Math.round(value)}%`;
+  return `Resultado: ${String(value)}`;
+}
+
+function buildCourseViews(courses: Course[], modules: Module[], lessons: Lesson[], progress: UserProgress[], certificates: Certificate[]): CourseView[] {
+  return courses.filter(isVisibleCourse).map((course, index) => {
+    const courseId = safeString(course.id);
+    const courseModules = modules.filter((module) => safeString(module.course_id) === courseId);
+    const moduleViews = buildModuleViews(courseModules, lessons, progress);
+    const courseLessons = moduleViews.flatMap((module) => module.lessons);
+    const completedIds = new Set(progress.filter(isProgressCompleted).map((item) => safeString(item.lesson_id)).filter(Boolean));
+    const completedLessons = courseLessons.filter((lesson) => completedIds.has(safeString(lesson.id))).length;
+    const totalLessons = courseLessons.length;
+    const progressValue = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    const certificate = certificates.find((item) => safeString(item.course_id) === courseId) || null;
+
+    return {
+      ...course,
+      titleSafe: courseTitle(course),
+      descriptionSafe: courseDescription(course),
+      slugSafe: getCourseSlug(course),
+      imageSafe: getCourseImage(course) || getPremiumCourseBackground(course, index),
+      modules: moduleViews,
+      lessons: courseLessons,
+      completedLessons,
+      totalLessons,
+      progress: progressValue,
+      nextLesson: findNextLesson(moduleViews, progress),
+      certificate,
+    };
+  });
+}
+
+const initialNotifications: NotificationItem[] = [
+  {
+    id: "cert-ready",
+    title: "Certificación preparada",
+    message: "Cuando completes un curso, tu credencial aparecerá aquí con verificación pública.",
+    time: "Ahora",
+    type: "certificate",
+    read: false,
+  },
+  {
+    id: "progress",
+    title: "Progreso sincronizado",
+    message: "Tus módulos, exámenes y certificados se actualizan con Supabase.",
+    time: "Sistema",
+    type: "success",
+    read: true,
+  },
 ];
 
 export default function AlumnoPage() {
   const router = useRouter();
+  const [status, setStatus] = useState<LoadingState>("loading");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
+  const [user, setUser] = useState<any>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [progress, setProgress] = useState<UserProgress[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [levelFilter, setLevelFilter] = useState("todos");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  const [activeTab, setActivosTab] = useState<Tab>('dashboard');
-  const [viewModo, setViewModo] = useState<ViewModo>('grid');
-  const [notificationsOpen, setNotificacionesOpen] = useState(false);
+  const loadDashboard = useCallback(async () => {
+    setStatus("loading");
+    const { data: authData, error: authError } = await supabase.auth.getUser();
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [courseEstadoFilter, setCourseEstadoFilter] = useState<CourseEstadoFilter>('active');
-  const [levelFilter, setNivelFilter] = useState('all');
-  const [categoryFilter, setCategoríaFilter] = useState('all');
-  const [sortModo, setSortModo] = useState<SortModo>('recent');
-  const [selectedItinerarioCourseId, setSelectedItinerarioCourseId] = useState('');
-
-  const [user, setUser] = useState<AnyRecord | null>(null);
-  const [profile, setProfile] = useState<AnyRecord | null>(null);
-  const [courses, setCursos] = useState<AnyRecord[]>([]);
-  const [modules, setMódulos] = useState<AnyRecord[]>([]);
-  const [lessons, setLecciones] = useState<AnyRecord[]>([]);
-  const [lessonProgreso, setLessonProgreso] = useState<AnyRecord[]>([]);
-  const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
-  const [courseCompletions, setCourseCompletions] = useState<AnyRecord[]>([]);
-  const [certificates, setCertificados] = useState<AnyRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [systemMessage, setSystemMessage] = useState('');
-
-  useEffect(() => {
-    async function loadPanel() {
-      try {
-        setLoading(true);
-        setSystemMessage('');
-
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-
-        if (userError || !userData.user) {
-          router.replace('/acceso');
-          return;
-        }
-
-        const activeUser = userData.user as AnyRecord;
-        setUser(activeUser);
-
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', activeUser.id)
-          .maybeSingle();
-
-        setProfile(profileData || null);
-
-        const { data: coursesData, error: coursesError } = await supabase
-          .from('courses')
-          .select('*');
-
-        if (coursesError) {
-          console.error(coursesError);
-          setSystemMessage('No se pudieron cargar los cursos.');
-          setCursos([]);
-          return;
-        }
-
-        const visibleCursos = Array.isArray(coursesData)
-          ? coursesData
-              .filter(isVisibleCourse)
-              .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
-          : [];
-
-        setCursos(visibleCursos);
-
-        const courseIds = visibleCursos.map((course) => course.id).filter(Boolean);
-
-        if (courseIds.length > 0) {
-          const { data: modulesData } = await supabase
-            .from('modules')
-            .select('*')
-            .in('course_id', courseIds);
-
-          const finalMódulos = Array.isArray(modulesData) ? [...modulesData].sort(sortMódulos) : [];
-          setMódulos(finalMódulos);
-
-          const moduleIds = finalMódulos.map((module) => module.id).filter(Boolean);
-
-          if (moduleIds.length > 0) {
-            const { data: lessonsData } = await supabase
-              .from('lessons')
-              .select('*')
-              .in('module_id', moduleIds);
-
-            setLecciones(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLecciones) : []);
-          } else {
-            setLecciones([]);
-          }
-        } else {
-          setMódulos([]);
-          setLecciones([]);
-        }
-
-        const { data: progressData } = await supabase
-          .from('lesson_progress')
-          .select('*')
-          .eq('user_id', activeUser.id)
-          .eq('completed', true);
-
-        setLessonProgreso(Array.isArray(progressData) ? progressData : []);
-
-        const { data: moduleCompletionData } = await supabase
-          .from('module_completions')
-          .select('*')
-          .eq('user_id', activeUser.id)
-          .eq('completed', true);
-
-        setModuleCompletions(Array.isArray(moduleCompletionData) ? moduleCompletionData : []);
-
-        const { data: courseCompletionData } = await supabase
-          .from('course_completions')
-          .select('*')
-          .eq('user_id', activeUser.id)
-          .eq('completed', true);
-
-        setCourseCompletions(Array.isArray(courseCompletionData) ? courseCompletionData : []);
-
-        const { data: certificatesData } = await supabase
-          .from('certificates')
-          .select('*')
-          .eq('user_id', activeUser.id)
-          .eq('status', 'valid');
-
-        setCertificados(Array.isArray(certificatesData) ? certificatesData : []);
-      } catch (error) {
-        console.error(error);
-        setSystemMessage('Error cargando el panel del alumno.');
-      } finally {
-        setLoading(false);
-      }
+    if (authError || !authData?.user) {
+      router.replace("/login");
+      return;
     }
 
-    loadPanel();
+    const currentUser = authData.user;
+    setUser(currentUser);
+
+    try {
+      const [{ data: coursesData }, { data: certificatesData }, { data: progressData }] = await Promise.all([
+        supabase.from("courses").select("*").order("created_at", { ascending: false }),
+        supabase.from("certificates").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false }),
+        supabase.from("user_progress").select("*").eq("user_id", currentUser.id),
+      ]);
+
+      const safeCourses = asArray<Course>(coursesData as Course[]);
+      const safeCertificates = asArray<Certificate>(certificatesData as Certificate[]);
+      const safeProgress = asArray<UserProgress>(progressData as UserProgress[]);
+      const courseIds = safeCourses.map((course) => course.id).filter(Boolean);
+
+      let safeModules: Module[] = [];
+      if (courseIds.length) {
+        const { data: modulesData } = await supabase.from("modules").select("*").in("course_id", courseIds);
+        safeModules = asArray<Module>(modulesData as Module[]);
+      }
+
+      const moduleIds = safeModules.map((module) => module.id).filter(Boolean);
+      let safeLessons: Lesson[] = [];
+      if (moduleIds.length) {
+        const { data: lessonsData } = await supabase.from("lessons").select("*").in("module_id", moduleIds);
+        safeLessons = asArray<Lesson>(lessonsData as Lesson[]);
+      }
+
+      setCourses(safeCourses);
+      setModules(safeModules);
+      setLessons(safeLessons);
+      setProgress(safeProgress);
+      setCertificates(safeCertificates);
+      setStatus("ready");
+    } catch (error) {
+      console.error("Error cargando dashboard alumno:", error);
+      setStatus("error");
+    }
   }, [router]);
 
-  const displayName =
-    profile?.full_name ||
-    user?.user_metadata?.full_name ||
-    user?.email ||
-    'Alumno GHC Academy';
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
-  const courseCards = useMemo<PanelCard[]>(() => {
-    return courses.map((course) => {
-      const courseMódulos = modules
-        .filter((module) => String(module.course_id) === String(course.id))
-        .sort(sortMódulos);
+  const courseViews = useMemo(() => buildCourseViews(courses, modules, lessons, progress, certificates), [courses, modules, lessons, progress, certificates]);
 
-      const courseLecciones = lessons
-        .filter((lesson) =>
-          courseMódulos.some((module) => String(module.id) === String(lesson.module_id))
-        )
-        .sort(sortLecciones);
-
-      const completedLessonCount = courseLecciones.filter((lesson) =>
-        lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
-      ).length;
-
-      const completedModuleCount = courseMódulos.filter((module) =>
-        moduleCompletions.some((completion) => String(completion.module_id) === String(module.id))
-      ).length;
-
-      const completion = courseCompletions.find(
-        (item) => String(item.course_id) === String(course.id)
-      );
-
-      const certificate = certificates.find(
-        (item) => String(item.course_id) === String(course.id)
-      );
-
-      const progressPercent =
-        courseLecciones.length > 0
-          ? Math.round((completedLessonCount / courseLecciones.length) * 100)
-          : completion
-            ? 100
-            : 0;
-
-      const nextLesson = findNextLesson({
-        courseMódulos,
-        courseLecciones,
-        lessonProgreso,
-        moduleCompletions,
-      });
-
-      return {
-        course,
-        courseMódulos,
-        courseLecciones,
-        completedLessonCount,
-        completedModuleCount,
-        completion,
-        certificate,
-        progressPercent,
-        nextLesson,
-      };
+  const filteredCourses = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return courseViews.filter((course) => {
+      const matchesQuery = !query || [course.titleSafe, course.descriptionSafe, course.category, course.level].some((value) => safeString(value).toLowerCase().includes(query));
+      const matchesLevel = levelFilter === "todos" || safeString(course.level, "").toLowerCase() === levelFilter;
+      return matchesQuery && matchesLevel;
     });
-  }, [
-    courses,
-    modules,
-    lessons,
-    lessonProgreso,
-    moduleCompletions,
-    courseCompletions,
-    certificates,
-  ]);
+  }, [courseViews, search, levelFilter]);
 
-  const activeCursos = courseCards.filter((card) => !card.completion);
-  const completedCursos = courseCards.filter((card) => Boolean(card.completion));
+  const stats = useMemo(() => {
+    const issued = certificates.length;
+    const inProgress = courseViews.filter((course) => !course.certificate && course.progress > 0 && course.progress < 100).length;
+    const blocked = Math.max(courseViews.length - issued - inProgress, 0);
+    const totalLessons = courseViews.reduce((sum, course) => sum + course.totalLessons, 0);
+    const completedLessons = courseViews.reduce((sum, course) => sum + course.completedLessons, 0);
+    const overallProgress = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    return { issued, inProgress, blocked, totalLessons, completedLessons, overallProgress };
+  }, [certificates, courseViews]);
 
-  const mainCourse = useMemo(() => {
-    return (
-      activeCursos.find((card) => card.courseMódulos.length > 0) ||
-      completedCursos.find((card) => card.courseMódulos.length > 0) ||
-      courseCards[0] ||
-      null
-    );
-  }, [activeCursos, completedCursos, courseCards]);
+  const primaryCertificateCourse = useMemo(() => {
+    const withCert = courseViews.find((course) => course.certificate);
+    if (withCert) return withCert;
+    const mostAdvanced = [...courseViews].sort((a, b) => b.progress - a.progress)[0];
+    return mostAdvanced || null;
+  }, [courseViews]);
 
-  const curriculumCourse = useMemo(() => {
-    if (selectedItinerarioCourseId) {
-      const selected = courseCards.find(
-        (card) => String(card.course.id) === String(selectedItinerarioCourseId)
-      );
-      if (selected) return selected;
-    }
-    return mainCourse || courseCards[0] || null;
-  }, [courseCards, mainCourse, selectedItinerarioCourseId]);
-
-  const moduleViews = useMemo<ModuleView[]>(() => {
-    if (!mainCourse) return [];
-    return buildModuleViews({
-      courseCard: mainCourse,
-      lessonProgreso,
-      moduleCompletions,
-    });
-  }, [mainCourse, lessonProgreso, moduleCompletions]);
-
-  const currentModuleView =
-    moduleViews.find((item) => item.isCurrent) ||
-    moduleViews.find((item) => !item.isBloqueado && !item.isCompletado) ||
-    moduleViews[0] ||
-    null;
-
-  const curriculumModuleViews = useMemo<ModuleView[]>(() => {
-    if (!curriculumCourse) return [];
-    return buildModuleViews({
-      courseCard: curriculumCourse,
-      lessonProgreso,
-      moduleCompletions,
-    });
-  }, [curriculumCourse, lessonProgreso, moduleCompletions]);
-
-  const curriculumActivosModule =
-    curriculumModuleViews.find((item) => item.isCurrent) ||
-    curriculumModuleViews.find((item) => !item.isBloqueado && !item.isCompletado) ||
-    curriculumModuleViews[0] ||
-    null;
-
-  const curriculumLecciones = curriculumActivosModule?.lessons || [];
-
-  const totalLecciones = courseCards.reduce((acc, card) => acc + card.courseLecciones.length, 0);
-  const completedLeccionesVisible = courseCards.reduce(
-    (acc, card) => acc + card.completedLessonCount,
-    0
-  );
-
-  const globalProgreso =
-    totalLecciones > 0 ? Math.round((completedLeccionesVisible / totalLecciones) * 100) : 0;
-
-  const stats = {
-    courses: courses.length,
-    lessons: completedLeccionesVisible,
-    modules: moduleCompletions.length,
-    completedCursos: courseCompletions.length,
-    certificates: certificates.length,
-    globalProgreso,
-  };
-
-  const availableNivels = useMemo(() => {
-    return Array.from(
-      new Set(
-        courseCards
-          .map((card) => String(card.course.level || '').trim())
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b));
-  }, [courseCards]);
-
-  const availableCategories = useMemo(() => {
-    return Array.from(
-      new Set(
-        courseCards
-          .map((card) =>
-            String(
-              card.course.category ||
-                card.course.course_type ||
-                card.course.type ||
-                card.course.area ||
-                ''
-            ).trim()
-          )
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b));
-  }, [courseCards]);
-
-  const filteredCards = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
-
-    const filtered = courseCards.filter((card) => {
-      const course = card.course;
-
-      const statusOk =
-        courseEstadoFilter === 'all' ||
-        (courseEstadoFilter === 'active' && !card.completion) ||
-        (courseEstadoFilter === 'completed' && Boolean(card.completion));
-
-      const level = String(course.level || '').trim();
-      const category = String(
-        course.category || course.course_type || course.type || course.area || ''
-      ).trim();
-
-      const levelOk = levelFilter === 'all' || level === levelFilter;
-      const categoryOk = categoryFilter === 'all' || category === categoryFilter;
-
-      const searchable = [
-        course.title,
-        course.subtitle,
-        course.description,
-        course.category,
-        course.course_type,
-        course.level,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      const searchOk = !search || searchable.includes(search);
-
-      return statusOk && levelOk && categoryOk && searchOk;
-    });
-
-    return filtered.sort((a, b) => {
-      if (sortModo === 'title') {
-        return String(a.course.title || '').localeCompare(String(b.course.title || ''));
-      }
-
-      if (sortModo === 'progress') {
-        return b.progressPercent - a.progressPercent;
-      }
-
-      const aDate = new Date(
-        a.course.updated_at || a.course.created_at || a.course.published_at || 0
-      ).getTime();
-
-      const bDate = new Date(
-        b.course.updated_at || b.course.created_at || b.course.published_at || 0
-      ).getTime();
-
-      return bDate - aDate;
-    });
-  }, [courseCards, searchTerm, courseEstadoFilter, levelFilter, categoryFilter, sortModo]);
-
-  const notifications = useMemo<NotificationItem[]>(() => {
-    const nextHref =
-      mainCourse?.nextLesson && mainCourse?.course
-        ? `/cursos/${getCourseSlug(mainCourse.course)}/${mainCourse.nextLesson.id}`
-        : mainCourse?.course
-          ? `/cursos/${getCourseSlug(mainCourse.course)}`
-          : '/cursos';
-
-    return [
-      {
-        id: 'learning',
-        title: 'Continúa tu ruta activa',
-        message: mainCourse?.course?.title
-          ? `Tienes pendiente avanzar en ${mainCourse.course.title}.`
-          : 'Tienes cursos disponibles para continuar tu formación.',
-        type: 'Formación',
-        time: 'Ahora',
-        unread: true,
-        href: nextHref,
-      },
-      {
-        id: 'certificate',
-        title: certificates.length > 0 ? 'Certificado disponible' : 'Certificación pendiente',
-        message:
-          certificates.length > 0
-            ? 'Ya tienes al menos un certificado válido emitido.'
-            : 'Completa tu curso y examen final para emitir tu certificado.',
-        type: 'Certificados',
-        time: 'Hoy',
-        unread: certificates.length > 0,
-        href: '/alumno',
-      },
-      {
-        id: 'catalog',
-        title: 'Catálogo GHC Academy',
-        message: 'Explora nuevos cursos y especializaciones disponibles.',
-        type: 'Cursos',
-        time: 'Esta semana',
-        unread: true,
-        href: '/cursos',
-      },
-      {
-        id: 'billing',
-        title: 'Estado de acceso',
-        message: 'Más adelante aquí aparecerán avisos de renovaciones o incidencias de pago.',
-        type: 'Pagos',
-        time: 'Próximamente',
-        unread: false,
-      },
-    ];
-  }, [mainCourse, certificates.length]);
-
-  const unreadNotificaciones = notifications.filter((item) => item.unread).length;
+  const pendingCertificateCourse = useMemo(() => {
+    return courseViews.find((course) => !course.certificate && course.id !== primaryCertificateCourse?.id) || courseViews.find((course) => !course.certificate) || null;
+  }, [courseViews, primaryCertificateCourse]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.replace('/acceso');
+    router.replace("/login");
   }
 
-  if (loading) {
+  function markNotificationsRead() {
+    setNotifications((items) => items.map((item) => ({ ...item, read: true })));
+    setNotificationOpen((value) => !value);
+  }
+
+  if (status === "loading") {
     return (
-      <main className="student-page loading-page">
+      <main className="ghc-shell loading-shell">
         <GlobalStyles />
-        <Background />
-        <section className="loading-card">
-          <GHCLogo size="md" showText tagline={false} />
-          <h1>Cargando panel</h1>
-          <p>Preparando cursos, módulos, progreso, certificados y perfil real del alumno.</p>
-        </section>
+        <div className="loading-card">
+          <div className="loading-logo"><GHCLogo /></div>
+          <div className="loading-pulse" />
+          <p>Cargando tu plataforma GHC Academy...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <main className="ghc-shell loading-shell">
+        <GlobalStyles />
+        <div className="loading-card error-card">
+          <div className="loading-logo"><GHCLogo /></div>
+          <h1>No se pudo cargar el dashboard</h1>
+          <p>La conexión con Supabase respondió con un error. Revisa variables de entorno y tablas.</p>
+          <button className="primary-btn" onClick={loadDashboard}>Reintentar</button>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="student-page">
+    <main className="ghc-shell">
       <GlobalStyles />
-      <Background />
-
       <aside className="sidebar">
-        <div>
-          <div className="logo-block">
-            <GHCLogo size="md" showText tagline={false} />
+        <div className="brand-block">
+          <GHCLogo />
+          <div>
+            <strong>GHC Academy</strong>
+            <span>Sport Through Science</span>
           </div>
-
-          <nav className="nav">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={activeTab === tab.id ? 'nav-item active' : 'nav-item'}
-                onClick={() => setActivosTab(tab.id)}
-              >
-                <Icon name={tab.icon} />
-                <span>
-                  <strong>{tab.label}</strong>
-                  <small>{tab.helper}</small>
-                </span>
-              </button>
-            ))}
-          </nav>
         </div>
 
-        <div className="user-card">
-          <div className="avatar">{getInitials(displayName)}</div>
-          <div>
-            <strong>{shortName(displayName)}</strong>
-            <p>
-              Alumno <span>Pro</span>
-            </p>
+        <nav className="side-nav" aria-label="Navegación alumno">
+          <SideButton active={activeTab === "dashboard"} icon="⌂" label="Dashboard" onClick={() => setActiveTab("dashboard")} />
+          <SideButton active={activeTab === "courses"} icon="▦" label="Mis cursos" onClick={() => setActiveTab("courses")} />
+          <SideButton active={activeTab === "curriculum"} icon="◎" label="Itinerario" onClick={() => setActiveTab("curriculum")} />
+          <SideButton active={activeTab === "exams"} icon="✦" label="Simulador" onClick={() => setActiveTab("exams")} />
+          <SideButton active={activeTab === "certificates"} icon="◈" label="Certificados" onClick={() => setActiveTab("certificates")} />
+        </nav>
+
+        <div className="sidebar-progress">
+          <div className="mini-ring" style={{ ["--value" as any]: `${stats.overallProgress * 3.6}deg` }}>
+            <span>{stats.overallProgress}%</span>
           </div>
-          <button type="button" onClick={handleLogout}>
-            <Icon name="logout" />
-            Cerrar sesión
-          </button>
+          <div>
+            <strong>Progreso global</strong>
+            <p>{stats.completedLessons} de {stats.totalLessons} lecciones completadas</p>
+          </div>
         </div>
       </aside>
 
-      <section className="shell">
+      <section className="workspace">
         <header className="topbar">
-          <div className="breadcrumb">
-            <Icon name="home" />
-            <span>Panel</span>
-            <span>›</span>
-            <strong>{getCurrentPageLabel(activeTab)}</strong>
+          <div>
+            <div className="breadcrumb">Alumno / {tabLabel(activeTab)}</div>
+            <h1>{topTitle(activeTab)}</h1>
           </div>
 
-          <div className="topbar-actions">
-            <Link href="/">Inicio</Link>
-            <Link href="/cursos">Explorar cursos</Link>
-
-            <div className="notifications">
-              <button
-                type="button"
-                aria-label="Notificaciones"
-                onClick={() => setNotificacionesOpen((value) => !value)}
-              >
-                <Icon name="bell" />
-                {unreadNotificaciones > 0 && <em>{unreadNotificaciones}</em>}
+          <div className="top-actions">
+            <div className="notification-wrap">
+              <button className="icon-btn" onClick={markNotificationsRead} aria-label="Abrir notificaciones">
+                <span>⌁</span>
+                {notifications.some((item) => !item.read) && <i />}
               </button>
-
-              {notificationsOpen && (
-                <div className="notifications-panel">
-                  <div className="notifications-header">
-                    <div>
-                      <p>Avisos del alumno</p>
-                      <h3>Notificaciones</h3>
-                    </div>
-                    <span>{unreadNotificaciones} new</span>
-                  </div>
-
-                  {notifications.map((notification) => (
-                    <Link
-                      key={notification.id}
-                      href={notification.href || '#'}
-                      className={notification.unread ? 'notification unread' : 'notification'}
-                      onClick={() => setNotificacionesOpen(false)}
-                    >
-                      <small>{notification.type}</small>
-                      <strong>{notification.title}</strong>
-                      <p>{notification.message}</p>
-                    </Link>
-                  ))}
-                </div>
-              )}
+              {notificationOpen && <NotificationDropdown notifications={notifications} />}
             </div>
-
-            <div className="mini-user">
-              <span>{getInitials(displayName)}</span>
+            <div className="user-pill">
+              <span>{safeString(user?.email, "Alumno GHC").slice(0, 1).toUpperCase()}</span>
+              <div>
+                <strong>{safeString(user?.user_metadata?.full_name || user?.email, "Alumno GHC")}</strong>
+                <small>Perfil activo</small>
+              </div>
             </div>
+            <button className="ghost-btn" onClick={handleLogout}>Salir</button>
           </div>
         </header>
 
-        {systemMessage && <div className="notice">{systemMessage}</div>}
-
-        {activeTab === 'dashboard' && (
-          <PanelView
-            globalProgreso={globalProgreso}
-            stats={stats}
-            mainCourse={mainCourse}
-            moduleViews={moduleViews}
-            setActivosTab={setActivosTab}
-          />
-        )}
-
-        {activeTab === 'cursos' && (
-          <CursosView
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            courseEstadoFilter={courseEstadoFilter}
-            setCourseEstadoFilter={setCourseEstadoFilter}
+        {activeTab === "dashboard" && <DashboardTab courses={courseViews} stats={stats} setActiveTab={setActiveTab} />}
+        {activeTab === "courses" && (
+          <CoursesTab
+            courses={filteredCourses}
+            search={search}
+            setSearch={setSearch}
             levelFilter={levelFilter}
-            setNivelFilter={setNivelFilter}
-            categoryFilter={categoryFilter}
-            setCategoríaFilter={setCategoríaFilter}
-            sortModo={sortModo}
-            setSortModo={setSortModo}
-            viewModo={viewModo}
-            setViewModo={setViewModo}
-            availableNivels={availableNivels}
-            availableCategories={availableCategories}
-            filteredCards={filteredCards}
+            setLevelFilter={setLevelFilter}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
           />
         )}
-
-        {activeTab === 'curriculum' && (
-          <ItinerarioView
-            courseCards={courseCards}
-            curriculumCourse={curriculumCourse}
-            curriculumModuleViews={curriculumModuleViews}
-            curriculumActivosModule={curriculumActivosModule}
-            curriculumLecciones={curriculumLecciones}
-            lessonProgreso={lessonProgreso}
-            selectedItinerarioCourseId={selectedItinerarioCourseId}
-            setSelectedItinerarioCourseId={setSelectedItinerarioCourseId}
+        {activeTab === "curriculum" && <CurriculumTab courses={courseViews} />}
+        {activeTab === "exams" && <ExamsTab courses={courseViews} />}
+        {activeTab === "certificates" && (
+          <CertificatesTab
+            primaryCourse={primaryCertificateCourse}
+            pendingCourse={pendingCertificateCourse}
+            courseViews={courseViews}
+            stats={stats}
           />
-        )}
-
-        {activeTab === 'examenes' && <MockExamsView />}
-
-        {activeTab === 'certificados' && <CertificadosTab certificates={certificates} />}
-
-        {activeTab === 'perfil' && (
-          <RendimientoTab displayName={displayName} user={user} profile={profile} stats={stats} />
         )}
       </section>
     </main>
   );
 }
 
-/* ------------------------------ VIEWS ------------------------------ */
+function tabLabel(tab: ActiveTab): string {
+  const labels: Record<ActiveTab, string> = {
+    dashboard: "Dashboard",
+    courses: "Mis cursos",
+    curriculum: "Itinerario",
+    exams: "Simulador de exámenes",
+    certificates: "Certificados",
+  };
+  return labels[tab];
+}
 
-function PanelView({
-  globalProgreso,
-  stats,
-  mainCourse,
-  moduleViews,
-  setActivosTab,
-}: {
-  globalProgreso: number;
-  stats: AnyRecord;
-  mainCourse: PanelCard | null;
-  moduleViews: ModuleView[];
-  setActivosTab: (tab: Tab) => void;
-}) {
+function topTitle(tab: ActiveTab): string {
+  if (tab === "certificates") return "Certificados";
+  if (tab === "courses") return "Mis cursos";
+  if (tab === "curriculum") return "Itinerario de aprendizaje";
+  if (tab === "exams") return "Simulador de exámenes";
+  return "Panel de alumno";
+}
+
+function SideButton({ active, icon, label, onClick }: { active: boolean; icon: string; label: string; onClick: () => void }) {
   return (
-    <div className="dashboard-grid">
-      <section className="hero-grid">
-        <article className="progress-card">
-          <h2>Progreso general</h2>
-
-          <div
-            className="progress-ring"
-            style={{
-              background: `conic-gradient(${GREEN} ${globalProgreso * 3.6}deg, rgba(255,255,255,0.095) 0deg)`,
-            }}
-          >
-            <div>
-              <strong>{globalProgreso}%</strong>
-              <span>Completado</span>
-            </div>
-          </div>
-
-          <p>Buen trabajo. Sigue consolidando conocimientos y elevando tu rendimiento.</p>
-
-          <div className="mini-stats">
-            <MiniStat icon="clock" label="Lecciones" value={stats.lessons} />
-            <MiniStat icon="certificate" label="Certificados" value={stats.certificates} />
-          </div>
-        </article>
-
-        <article className="next-card">
-          <div className="next-image" />
-          <div className="next-body">
-            <small>En progreso</small>
-            <h2>{mainCourse?.course?.title || 'Siguiente módulo'}</h2>
-            <p>
-              {mainCourse?.course?.subtitle ||
-                mainCourse?.course?.description ||
-                'Continúa con el siguiente paso de tu formación dentro de la academia.'}
-            </p>
-            <div className="meta-row">
-              <MetaItem icon="clock" text="4–5 Hours" />
-              <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermediate'} />
-              <MetaItem icon="document" text={`${mainCourse?.courseLecciones.length || 0} Lecciones`} />
-            </div>
-            <Link
-              href={
-                mainCourse?.nextLesson
-                  ? `/cursos/${getCourseSlug(mainCourse.course)}/${mainCourse.nextLesson.id}`
-                  : mainCourse
-                    ? `/cursos/${getCourseSlug(mainCourse.course)}`
-                    : '/cursos'
-              }
-              className="primary-action"
-            >
-              Continuar formación
-              <Icon name="arrow" />
-            </Link>
-          </div>
-        </article>
-      </section>
-
-      <Panel title="Itinerario">
-        <div className="compact-list">
-          {moduleViews.length === 0 ? (
-            <EmptyState text="Aún no hay módulos visibles para este curso." />
-          ) : (
-            moduleViews.slice(0, 6).map((item) => (
-              <Link
-                key={item.module.id}
-                href={item.href}
-                className={item.isCurrent ? 'compact-row active' : 'compact-row'}
-              >
-                <Icon name={item.isCompletado ? 'check' : item.isBloqueado ? 'lock' : 'curriculum'} />
-                <span>
-                  <small>Module {item.index + 1}</small>
-                  <strong>{item.module.title || `Módulo ${item.index + 1}`}</strong>
-                </span>
-                <em>{item.isBloqueado ? 'Bloqueado' : `${item.progress}%`}</em>
-              </Link>
-            ))
-          )}
-        </div>
-      </Panel>
-
-      <section className="dashboard-bottom">
-        <article className="mock-mini">
-          <h2>Simulador de exámenes</h2>
-          <p>Pon a prueba tus conocimientos en condiciones reales antes de obtener tu certificación final.</p>
-          <button type="button" onClick={() => setActivosTab('examenes')}>
-            Iniciar simulación
-            <Icon name="arrow" />
-          </button>
-        </article>
-
-        <article className="cert-mini">
-          <div />
-          <span>
-            <small>Credencial oficial</small>
-            <h2>Certificados</h2>
-            <p>Obtén tu certificado oficial de GHC Academy al completar tu itinerario.</p>
-            <button type="button" onClick={() => setActivosTab('certificados')}>
-              Ver certificación
-              <Icon name="arrow" />
-            </button>
-          </span>
-        </article>
-      </section>
-    </div>
+    <button className={`side-button ${active ? "active" : ""}`} onClick={onClick}>
+      <span>{icon}</span>
+      {label}
+    </button>
   );
 }
 
-function CursosView({
-  searchTerm,
-  setSearchTerm,
-  courseEstadoFilter,
-  setCourseEstadoFilter,
-  levelFilter,
-  setNivelFilter,
-  categoryFilter,
-  setCategoríaFilter,
-  sortModo,
-  setSortModo,
-  viewModo,
-  setViewModo,
-  availableNivels,
-  availableCategories,
-  filteredCards,
-}: {
-  searchTerm: string;
-  setSearchTerm: (value: string) => void;
-  courseEstadoFilter: CourseEstadoFilter;
-  setCourseEstadoFilter: (value: CourseEstadoFilter) => void;
-  levelFilter: string;
-  setNivelFilter: (value: string) => void;
-  categoryFilter: string;
-  setCategoríaFilter: (value: string) => void;
-  sortModo: SortModo;
-  setSortModo: (value: SortModo) => void;
-  viewModo: ViewModo;
-  setViewModo: (value: ViewModo) => void;
-  availableNivels: string[];
-  availableCategories: string[];
-  filteredCards: PanelCard[];
-}) {
+function NotificationDropdown({ notifications }: { notifications: NotificationItem[] }) {
   return (
-    <div className="courses-page">
-      <section>
-        <h1>Mis cursos</h1>
-        <p>Continúa tu formación y controla tu progreso en todos tus cursos.</p>
-      </section>
-
-      <section className="filters">
-        <label>
-          <Icon name="search" />
-          <input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Buscar cursos..."
-          />
-        </label>
-
-        <button
-          type="button"
-          className={courseEstadoFilter === 'active' ? 'active' : ''}
-          onClick={() => setCourseEstadoFilter('active')}
-        >
-          Activos
-        </button>
-        <button
-          type="button"
-          className={courseEstadoFilter === 'completed' ? 'active' : ''}
-          onClick={() => setCourseEstadoFilter('completed')}
-        >
-          Completado
-        </button>
-        <button
-          type="button"
-          className={courseEstadoFilter === 'all' ? 'active' : ''}
-          onClick={() => setCourseEstadoFilter('all')}
-        >
-          Todos
-        </button>
-
-        <select value={levelFilter} onChange={(event) => setNivelFilter(event.target.value)}>
-          <option value="all">Nivel</option>
-          {availableNivels.map((level) => (
-            <option key={level} value={level}>
-              {level}
-            </option>
-          ))}
-        </select>
-
-        <select value={categoryFilter} onChange={(event) => setCategoríaFilter(event.target.value)}>
-          <option value="all">Categoría</option>
-          {availableCategories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-
-        <span />
-
-        <select value={sortModo} onChange={(event) => setSortModo(event.target.value as SortModo)}>
-          <option value="recent">Ordenar: recientes</option>
-          <option value="title">Ordenar: título</option>
-          <option value="progress">Ordenar: progreso</option>
-        </select>
-
-        <div className="view-toggle">
-          <button
-            type="button"
-            className={viewModo === 'grid' ? 'active' : ''}
-            onClick={() => setViewModo('grid')}
-          >
-            <Icon name="grid" />
-          </button>
-          <button
-            type="button"
-            className={viewModo === 'list' ? 'active' : ''}
-            onClick={() => setViewModo('list')}
-          >
-            <Icon name="list" />
-          </button>
-        </div>
-      </section>
-
-      <section className="section-title-row">
-        <h2>Cursos</h2>
-        <p>{filteredCards.length} resultados</p>
-      </section>
-
-      {filteredCards.length === 0 ? (
-        <EmptyState text="No hay cursos que coincidan con los filtros seleccionados." />
-      ) : (
-        <div className={viewModo === 'grid' ? 'course-grid' : 'course-list'}>
-          {filteredCards.map((card, index) => (
-            <PremiumCourseCard
-              key={card.course.id}
-              card={card}
-              index={index}
-              mode={viewModo}
-              completed={Boolean(card.completion)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ItinerarioView({
-  courseCards,
-  curriculumCourse,
-  curriculumModuleViews,
-  curriculumActivosModule,
-  curriculumLecciones,
-  lessonProgreso,
-  selectedItinerarioCourseId,
-  setSelectedItinerarioCourseId,
-}: {
-  courseCards: PanelCard[];
-  curriculumCourse: PanelCard | null;
-  curriculumModuleViews: ModuleView[];
-  curriculumActivosModule: ModuleView | null;
-  curriculumLecciones: AnyRecord[];
-  lessonProgreso: AnyRecord[];
-  selectedItinerarioCourseId: string;
-  setSelectedItinerarioCourseId: (value: string) => void;
-}) {
-  return (
-    <div className="curriculum-page">
-      <section className="curriculum-head">
-        <div>
-          <h1>Itinerario</h1>
-          <p>Tu itinerario estructurado hacia el dominio.</p>
-        </div>
-
-        <div className="curriculum-side-head">
-          <label>
-            Curso actual
-            <select
-              value={selectedItinerarioCourseId || curriculumCourse?.course?.id || ''}
-              onChange={(event) => setSelectedItinerarioCourseId(event.target.value)}
-            >
-              {courseCards.map((card) => (
-                <option key={card.course.id} value={card.course.id}>
-                  {card.course.title}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="curriculum-metrics">
-            <ItinerarioMetric
-              icon="curriculum"
-              label="Módulos totales"
-              value={curriculumCourse?.courseMódulos.length || 0}
-              helper="Módulos"
-            />
-            <ItinerarioMetric
-              icon="check"
-              label="Lecciones completadas"
-              value={`${curriculumCourse?.completedLessonCount || 0}/${
-                curriculumCourse?.courseLecciones.length || 0
-              }`}
-              helper={`${curriculumCourse?.progressPercent || 0}% complete`}
-            />
-            <ItinerarioMetric
-              icon="performance"
-              label="Etapa actual"
-              value={curriculumActivosModule ? `Module ${curriculumActivosModule.index + 1}` : '—'}
-              helper={
-                curriculumActivosModule?.isCurrent
-                  ? 'En progreso'
-                  : curriculumActivosModule?.isCompletado
-                    ? 'Completado'
-                    : 'Preparado'
-              }
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="curriculum-grid">
-        <article className="roadmap-panel">
-          <h2>Mapa de módulos</h2>
-          <p>Sigue tu avance por cada módulo.</p>
-
-          <div className="roadmap-list">
-            {curriculumModuleViews.length === 0 ? (
-              <EmptyState text="Aún no hay módulos visibles para este curso." />
-            ) : (
-              curriculumModuleViews.map((item) => (
-                <RoadmapModuleRow
-                  key={item.module.id}
-                  item={item}
-                  course={curriculumCourse?.course}
-                />
-              ))
-            )}
-          </div>
-        </article>
-
-        <article className="lesson-panel">
-          <div className="lesson-panel-top">
-            <div>
-              <h2>
-                {curriculumActivosModule
-                  ? `Module ${curriculumActivosModule.index + 1}: ${
-                      curriculumActivosModule.module.title || 'Current Module'
-                    }`
-                  : 'Lecciones del módulo'}
-              </h2>
-
-              <p>
-                {curriculumCourse?.course?.subtitle ||
-                  curriculumCourse?.course?.description ||
-                  'Explore the current module and continue your learning path.'}
-              </p>
-            </div>
-
-            <div className="module-progress">
-              <strong>{curriculumActivosModule?.progress || 0}%</strong>
-              <span>Completado</span>
-            </div>
-          </div>
-
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${curriculumActivosModule?.progress || 0}%` }} />
-          </div>
-
-          <div className="lesson-header-row">
-            <span>Lecciones</span>
-            <span>Tipo</span>
-            <span>Estado</span>
-          </div>
-
-          <div className="lesson-list">
-            {curriculumLecciones.length === 0 ? (
-              <EmptyState text="Este módulo todavía no tiene lecciones visibles." />
-            ) : (
-              curriculumLecciones.slice(0, 8).map((lesson, index) => {
-                const completed = lessonProgreso.some(
-                  (progress) => String(progress.lesson_id) === String(lesson.id)
-                );
-
-                const active =
-                  curriculumCourse?.nextLesson &&
-                  String(curriculumCourse.nextLesson.id) === String(lesson.id);
-
-                const locked =
-                  curriculumActivosModule?.isBloqueado ||
-                  (!completed && !active && index > (curriculumActivosModule?.completedLecciones || 0));
-
-                return (
-                  <LessonRow
-                    key={lesson.id}
-                    lesson={lesson}
-                    index={index}
-                    completed={completed}
-                    active={Boolean(active)}
-                    locked={Boolean(locked)}
-                    href={
-                      curriculumCourse?.course
-                        ? `/cursos/${getCourseSlug(curriculumCourse.course)}/${lesson.id}`
-                        : '#'
-                    }
-                  />
-                );
-              })
-            )}
-          </div>
-        </article>
-      </section>
-
-      <article className="curriculum-banner">
-        <Icon name="trophy" />
-        <div>
-          <h3>Sé constante, alcanza la excelencia</h3>
-          <p>Avanza cada día. Los pequeños pasos construyen grandes resultados.</p>
-        </div>
-        <Link
-          href={
-            curriculumCourse?.nextLesson
-              ? `/cursos/${getCourseSlug(curriculumCourse.course)}/${curriculumCourse.nextLesson.id}`
-              : curriculumCourse?.course
-                ? `/cursos/${getCourseSlug(curriculumCourse.course)}`
-                : '/cursos'
-          }
-        >
-          Seguir avanzando
-          <Icon name="arrow" />
-        </Link>
-      </article>
-    </div>
-  );
-}
-
-function MockExamsView() {
-  const resultados = [
-    { title: 'Adaptaciones neuromusculares', date: 'Realizado el 12 de mayo de 2025 · 10:30', score: '85%', status: 'Aprobado', ok: true },
-    { title: 'Sistemas energéticos', date: 'Realizado el 8 de mayo de 2025 · 14:15', score: '72%', status: 'Aprobado', ok: true },
-    { title: 'Fundamentos de biomecánica', date: 'Realizado el 5 de mayo de 2025 · 11:45', score: '65%', status: 'Suspendido', ok: false },
-    { title: 'Mecánica de la hipertrofia', date: 'Realizado el 30 de abril de 2025 · 09:20', score: '58%', status: 'Suspendido', ok: false },
-  ];
-
-  return (
-    <div className="mock-page">
-      <section className="mock-header">
-        <div className="mock-title-block">
-          <span>
-            <Icon name="target" />
-          </span>
+    <div className="notification-dropdown">
+      <div className="dropdown-head">
+        <strong>Notificaciones</strong>
+        <span>{notifications.length}</span>
+      </div>
+      {notifications.map((item) => (
+        <article key={item.id} className={`notification-item ${item.read ? "" : "unread"}`}>
+          <div className="notification-dot">{item.type === "certificate" ? "◈" : "•"}</div>
           <div>
-            <h1>Simulador de exámenes</h1>
-            <p>
-              Simula condiciones reales de certificación y evalúa tu preparación
-              con analítica avanzada de rendimiento.
-            </p>
+            <strong>{item.title}</strong>
+            <p>{item.message}</p>
+            <small>{item.time}</small>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function DashboardTab({ courses, stats, setActiveTab }: { courses: CourseView[]; stats: ReturnType<typeof buildStatsShape>; setActiveTab: (tab: ActiveTab) => void }) {
+  const featured = courses[0] || null;
+  return (
+    <section className="tab-stack">
+      <div className="dashboard-hero soft-card">
+        <div>
+          <span className="eyebrow">GHC Academy</span>
+          <h2>Tu centro de alto rendimiento académico</h2>
+          <p>Continúa tus formaciones, revisa tu avance y prepara tus certificaciones oficiales desde una experiencia premium y conectada a Supabase.</p>
+          <div className="hero-actions">
+            <button className="primary-btn" onClick={() => setActiveTab("courses")}>Continuar aprendizaje</button>
+            <button className="secondary-btn" onClick={() => setActiveTab("certificates")}>Ver certificados</button>
           </div>
         </div>
-
-        <div className="mock-feature-strip">
-          <MockFeature icon="clock" title="Sesiones cronometradas" text="Tiempos reales de examen" />
-          <MockFeature icon="chat" title="Feedback inmediato" text="Explicaciones detalladas" />
-          <MockFeature icon="shield" title="Preparación de certificación" text="Alineado con estándares GHC" />
+        <div className="dashboard-metric">
+          <strong>{stats.overallProgress}%</strong>
+          <span>Progreso global</span>
+          <div className="progress-line"><i style={{ width: `${stats.overallProgress}%` }} /></div>
         </div>
-      </section>
+      </div>
 
-      <section className="mock-hero-grid">
-        <article className="exam-simulator-card">
-          <div className="exam-simulator-content">
-            <div className="exam-title-row">
-              <h2>Simulador de examen</h2>
-              <span>Destacado</span>
-            </div>
+      <div className="stats-grid">
+        <StatCard label="Cursos activos" value={courses.length} hint="Formaciones disponibles" />
+        <StatCard label="Lecciones completadas" value={stats.completedLessons} hint={`de ${stats.totalLessons} totales`} />
+        <StatCard label="Certificados" value={stats.issued} hint="Credenciales emitidas" />
+        <StatCard label="En progreso" value={stats.inProgress} hint="Certificaciones abiertas" />
+      </div>
 
-            <p>
-              Realiza una simulación completa que reproduce la experiencia de certificación
-              y pone a prueba tus conocimientos bajo presión.
-            </p>
-
-            <div className="exam-meta-grid">
-              <MockMeta icon="lock" label="Modo" value="Simulación cronometrada" />
-              <MockMeta icon="clock" label="Duración" value="2 horas" />
-              <MockMeta icon="document" label="Preguntas" value="90 preguntas" />
-              <MockMeta icon="target" label="Nota mínima" value="70%" />
-            </div>
-
-            <div className="exam-action-row">
-              <button type="button" className="mock-primary-button">
-                Iniciar simulación
-                <Icon name="arrow" />
-              </button>
-
-              <button type="button" className="mock-ghost-button">
-                Ver detalles del examen
-                <Icon name="arrow" />
-              </button>
-            </div>
-          </div>
-
-          <div className="exam-laptop-visual">
-            <div className="exam-laptop-screen">
-              <span>Simulador</span>
-              <strong>02:00:00</strong>
-              <div className="exam-laptop-rows">
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-            </div>
+      {featured && (
+        <article className="featured-course soft-card">
+          <div className="course-cover" style={{ background: getPremiumCourseBackground(featured, 0) }} />
+          <div>
+            <span className="eyebrow">Siguiente paso recomendado</span>
+            <h3>{featured.titleSafe}</h3>
+            <p>{featured.descriptionSafe}</p>
+            <div className="progress-line"><i style={{ width: `${featured.progress}%` }} /></div>
           </div>
         </article>
+      )}
+    </section>
+  );
+}
 
-        <article className="exam-rules-card">
-          <div className="exam-rules-title">
-            <Icon name="document" />
-            <h2>Reglas del examen</h2>
-          </div>
+function buildStatsShape() {
+  return { issued: 0, inProgress: 0, blocked: 0, totalLessons: 0, completedLessons: 0, overallProgress: 0 };
+}
 
-          <div className="rule-list">
-            {[
-              'Tiempos y condiciones de examen real',
-              'No se puede pausar una vez iniciado',
-              'No se permiten recursos externos',
-              'Respuestas enviadas automáticamente',
-              'Resultados disponibles al instante',
-              'Revisión de explicaciones al finalizar',
-            ].map((rule) => (
-              <div key={rule} className="rule-item">
-                <Icon name="check" />
-                <span>{rule}</span>
+function StatCard({ label, value, hint }: { label: string; value: number | string; hint: string }) {
+  return (
+    <article className="stat-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <p>{hint}</p>
+    </article>
+  );
+}
+
+function CoursesTab({ courses, search, setSearch, levelFilter, setLevelFilter, viewMode, setViewMode }: {
+  courses: CourseView[];
+  search: string;
+  setSearch: (value: string) => void;
+  levelFilter: string;
+  setLevelFilter: (value: string) => void;
+  viewMode: "grid" | "list";
+  setViewMode: (value: "grid" | "list") => void;
+}) {
+  return (
+    <section className="tab-stack">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">Mis cursos</span>
+          <h2>Formación activa</h2>
+          <p>Busca, filtra y continúa los cursos conectados a Supabase.</p>
+        </div>
+        <div className="course-controls">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar curso..." />
+          <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)}>
+            <option value="todos">Todos los niveles</option>
+            <option value="principiante">Principiante</option>
+            <option value="medio">Medio</option>
+            <option value="intermedio">Intermedio</option>
+            <option value="avanzado">Avanzado</option>
+          </select>
+          <button className="toggle-btn" onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}>{viewMode === "grid" ? "Vista lista" : "Vista grid"}</button>
+        </div>
+      </div>
+
+      <div className={viewMode === "grid" ? "course-grid" : "course-list"}>
+        {courses.map((course, index) => <CourseCard key={course.id} course={course} index={index} list={viewMode === "list"} />)}
+      </div>
+
+      {!courses.length && <EmptyState title="No hay cursos visibles" text="Cuando haya cursos publicados en Supabase aparecerán aquí automáticamente." />}
+    </section>
+  );
+}
+
+function CourseCard({ course, index, list = false }: { course: CourseView; index: number; list?: boolean }) {
+  return (
+    <article className={`course-card ${list ? "list" : ""}`}>
+      <div className="course-cover" style={{ background: getPremiumCourseBackground(course, index) }}>
+        <span>{safeString(course.level, "GHC")}</span>
+      </div>
+      <div className="course-body">
+        <h3>{course.titleSafe}</h3>
+        <p>{course.descriptionSafe}</p>
+        <div className="course-meta">
+          <span>{course.modules.length} módulos</span>
+          <span>{course.totalLessons} lecciones</span>
+          <span>{formatPercent(course.progress)}</span>
+        </div>
+        <div className="progress-line"><i style={{ width: `${course.progress}%` }} /></div>
+        <Link className="course-link" href={`/cursos/${course.slugSafe}`}>Abrir curso</Link>
+      </div>
+    </article>
+  );
+}
+
+function CurriculumTab({ courses }: { courses: CourseView[] }) {
+  return (
+    <section className="tab-stack">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">Itinerario</span>
+          <h2>Ruta de aprendizaje</h2>
+          <p>Visualiza módulos, lecciones desbloqueadas y próximos pasos.</p>
+        </div>
+      </div>
+      <div className="timeline-panel">
+        {courses.map((course) => (
+          <article key={course.id} className="timeline-course">
+            <header>
+              <div>
+                <h3>{course.titleSafe}</h3>
+                <p>{course.completedLessons}/{course.totalLessons} lecciones completadas</p>
               </div>
-            ))}
-          </div>
-
-          <button type="button" className="mock-secondary-button">
-            Ver reglas completas
-            <Icon name="arrow" />
-          </button>
-        </article>
-      </section>
-
-      <section className="mock-middle-grid">
-        <article className="latest-resultados-card">
-          <div className="mock-card-header">
-            <h2>Últimos resultados</h2>
-            <button type="button">Ver todos los resultados</button>
-          </div>
-
-          <div className="resultados-list">
-            {resultados.map((result) => (
-              <div key={result.title} className="result-row">
-                <span className={result.ok ? 'result-icon-ok' : 'result-icon-fail'}>
-                  <Icon name="document" />
-                </span>
-
-                <div className="result-info">
-                  <strong>{result.title}</strong>
-                  <p>{result.date}</p>
-                </div>
-
-                <div className={result.ok ? 'result-score-ok' : 'result-score-fail'}>
-                  <strong>{result.score}</strong>
-                  <span>{result.status}</span>
-                </div>
-
-                <Icon name="arrow" />
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="readiness-card">
-          <div className="mock-card-header">
-            <h2>Nivel de preparación</h2>
-            <button type="button">Ver detalles</button>
-          </div>
-
-          <div className="readiness-ring-wrap">
-            <div
-              className="readiness-ring"
-              style={{
-                background: `conic-gradient(${GREEN} ${78 * 3.6}deg, rgba(255,255,255,0.10) 0deg)`,
-              }}
-            >
-              <div className="readiness-ring-inner">
-                <strong>78%</strong>
-                <span>Preparado</span>
-              </div>
-            </div>
-          </div>
-
-          <p>Estás bien preparado. Sigue practicando para aumentar tu confianza.</p>
-
-          <div className="readiness-footer">
-            <span>Objetivo: 70%</span>
-            <strong>Por encima del objetivo</strong>
-          </div>
-        </article>
-
-        <article className="module-exams-card">
-          <div className="mock-card-header">
-            <h2>Exámenes por módulo</h2>
-            <button type="button">Ver todos los módulos</button>
-          </div>
-
-          <div className="module-exam-list">
-            {[
-              { title: 'Adaptaciones neuromusculares', meta: '3 / 3 Exams', score: 75, color: GREEN },
-              { title: 'Sistemas energéticos', meta: '2 / 2 Exams', score: 72, color: GREEN },
-              { title: 'Fundamentos de biomecánica', meta: '2 / 2 Exams', score: 65, color: '#F7C948' },
-              { title: 'Mecánica de la hipertrofia', meta: '0 / 1 Exams', score: 0, color: '#FF5757' },
-            ].map((item) => (
-              <div key={item.title} className="module-exam-row">
-                <Icon name="document" />
-                <div>
-                  <strong>{item.title}</strong>
-                  <span>{item.meta}</span>
-                  <div className="module-exam-progress">
-                    <div style={{ width: `${item.score}%`, background: item.color }} />
+              <strong>{formatPercent(course.progress)}</strong>
+            </header>
+            <div className="timeline-modules">
+              {course.modules.map((module) => (
+                <div key={module.id} className="timeline-module">
+                  <span className={module.progress === 100 ? "done" : ""}>{module.progress === 100 ? "✓" : extractModuleNumber(module)}</span>
+                  <div>
+                    <strong>{module.titleSafe}</strong>
+                    <p>{module.completedLessons}/{module.totalLessons} lecciones · {formatPercent(module.progress)}</p>
                   </div>
                 </div>
-                <strong style={{ color: item.color }}>{item.score}%</strong>
-                <Icon name="arrow" />
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="analytics-card">
-        <h2>Analítica de rendimiento</h2>
-
-        <div className="analytics-grid">
-          <div className="average-score-card">
-            <span>Nota media</span>
-            <strong>70%</strong>
-            <p>En 7 intentos</p>
-            <em>▲ 12% vs mes anterior</em>
-            <div className="sparkline" />
-          </div>
-
-          <div className="score-trend-card">
-            <div className="score-trend-tooltip">
-              <span>12 mayo 2025</span>
-              <strong>85%</strong>
+              ))}
             </div>
-
-            <h3>Tendencia de puntuación</h3>
-            <svg viewBox="0 0 520 170" className="trend-svg" aria-hidden="true">
-              <path
-                d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48"
-                fill="none"
-                stroke={GREEN}
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48 L500 160 L20 160 Z"
-                fill="rgba(99,229,70,0.10)"
-              />
-            </svg>
-          </div>
-
-          <div className="focus-area-card">
-            <h3>Fortalezas y áreas de mejora</h3>
-
-            <div className="focus-item">
-              <span className="focus-icon-green">
-                <Icon name="flame" />
-              </span>
-              <div>
-                <strong>Fortalezas</strong>
-                <p>Sistemas energéticos, Neuromuscular</p>
-              </div>
-            </div>
-
-            <div className="focus-item">
-              <span className="focus-icon-gold">
-                <Icon name="target" />
-              </span>
-              <div>
-                <strong>Áreas de mejora</strong>
-                <p>Mecánica de la hipertrofia, Biomechanics</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+          </article>
+        ))}
+      </div>
+      {!courses.length && <EmptyState title="Itinerario pendiente" text="Publica cursos, módulos y lecciones para construir la ruta automáticamente." />}
+    </section>
   );
 }
 
-function CertificadosTab({ certificates }: { certificates: AnyRecord[] }) {
-  const issuedCertificate = certificates[0] || null;
-  const issuedCount = certificates.length;
+function ExamsTab({ courses }: { courses: CourseView[] }) {
+  const ready = courses.filter((course) => course.progress >= 80);
+  const locked = courses.filter((course) => course.progress < 80);
+  return (
+    <section className="tab-stack">
+      <div className="exam-hero soft-card">
+        <span className="eyebrow">Simulador GHC</span>
+        <h2>Prepara tus exámenes finales con criterio profesional</h2>
+        <p>Los exámenes se desbloquean con el avance real de módulos y lecciones. Esta zona está preparada para conectar bancos de preguntas desde Supabase.</p>
+      </div>
+      <div className="exam-grid">
+        {[...ready, ...locked].map((course) => (
+          <article key={course.id} className="exam-card">
+            <span className={course.progress >= 80 ? "badge success" : "badge locked"}>{course.progress >= 80 ? "Disponible" : "Bloqueado"}</span>
+            <h3>{course.titleSafe}</h3>
+            <p>{course.progress >= 80 ? "Puedes preparar el examen final." : "Completa más módulos para desbloquear el simulador."}</p>
+            <div className="progress-line"><i style={{ width: `${course.progress}%` }} /></div>
+          </article>
+        ))}
+      </div>
+      {!courses.length && <EmptyState title="Sin exámenes disponibles" text="Cuando haya cursos activos aparecerán sus simuladores aquí." />}
+    </section>
+  );
+}
+
+function CertificatesTab({ primaryCourse, pendingCourse, courseViews, stats }: {
+  primaryCourse: CourseView | null;
+  pendingCourse: CourseView | null;
+  courseViews: CourseView[];
+  stats: { issued: number; inProgress: number; blocked: number; totalLessons: number; completedLessons: number; overallProgress: number };
+}) {
+  const hasIssued = Boolean(primaryCourse?.certificate);
+  const issuedCertificate = primaryCourse?.certificate || null;
+  const ringValue = Math.max(8, Math.min(100, stats.issued ? Math.round((stats.issued / Math.max(courseViews.length, 1)) * 100) : stats.overallProgress));
 
   return (
-    <div className="cert-final-page">
-      <section className="cert-final-hero">
-        <div className="cert-final-copy">
-          <p className="cert-final-kicker">Credenciales oficiales</p>
-          <h1>Certificación</h1>
-          <p className="cert-final-subtitle">
-            Obtén credenciales oficiales de GHC Academy y demuestra tu experiencia con certificados
-            verificables, profesionales y preparados para compartir.
-          </p>
+    <section className="cert-page">
+      <div className="cert-heading">
+        <div>
+          <div className="breadcrumb local">Alumno / Credenciales / Certificados</div>
+          <span className="eyebrow">Certificación oficial</span>
+          <h2>Certificados</h2>
+          <p>Obtén credenciales oficiales de GHC Academy y demuestra tu experiencia.</p>
+        </div>
+      </div>
 
-          <div className="cert-final-trust">
-            <div>
-              <Icon name="star" />
-              <span>Confiables por profesionales</span>
-            </div>
-            <div>
-              <Icon name="shield" />
-              <span>Credenciales verificables</span>
-            </div>
-            <div>
-              <Icon name="box" />
-              <span>Reconocidos en la industria</span>
-            </div>
+      <section className="cert-hero">
+        <div className="cert-hero-copy">
+          <span className="cert-kicker">Credenciales oficiales</span>
+          <h3>Valida. Demuestra. Avanza.</h3>
+          <p>
+            Tus certificados GHC Academy validan conocimientos reales, fortalecen tu perfil profesional y permiten compartir una prueba clara de tus competencias dentro del ecosistema deportivo y científico.
+          </p>
+          <div className="benefit-grid">
+            <Benefit icon="✓" title="Confiable por profesionales" text="Diseñado para reflejar progreso, evaluación y dominio práctico." />
+            <Benefit icon="◈" title="Credenciales verificables" text="Cada certificado puede asociarse a un código único de validación." />
+            <Benefit icon="✦" title="Reconocido en la industria" text="Una presentación seria para alumnos, entrenadores y perfiles técnicos." />
           </div>
         </div>
-
-        <div className="cert-final-visual" aria-hidden="true">
-          <div className="cert-final-paper">
-            <div className="cert-final-paper-border" />
-            <div className="cert-final-paper-logo">GHC Academy</div>
-            <div className="cert-final-paper-title">CERTIFICADO</div>
-            <div className="cert-final-paper-subtitle">DE LOGRO</div>
-            <div className="cert-final-paper-line">Se otorga a</div>
-            <div className="cert-final-paper-name">John Doe</div>
-            <div className="cert-final-paper-copy">
-              Por haber completado satisfactoriamente los requisitos de
-            </div>
-            <div className="cert-final-paper-course">Adaptaciones Neuromusculares</div>
-            <div className="cert-final-paper-signature" />
-            <div className="cert-final-paper-director">Director académico</div>
-            <div className="cert-final-seal">
-              <Icon name="star" />
+        <div className="certificate-art-wrap" aria-hidden="true">
+          <div className="hero-orbit one" />
+          <div className="hero-orbit two" />
+          <div className="paper-certificate">
+            <div className="paper-topline" />
+            <div className="paper-logo">GHC</div>
+            <span className="paper-small">ACADEMY OFFICIAL CREDENTIAL</span>
+            <h4>CERTIFICADO</h4>
+            <strong>DE LOGRO</strong>
+            <p>Se certifica que</p>
+            <h5>{hasIssued ? safeString(userNameFromCourse(primaryCourse), "John Doe") : "John Doe"}</h5>
+            <p>ha completado satisfactoriamente la formación profesional</p>
+            <div className="paper-course">{primaryCourse?.titleSafe || "Sport Through Science"}</div>
+            <div className="paper-bottom">
+              <div>
+                <span>Firma</span>
+                <b>GHC Academy</b>
+              </div>
+              <div className="gold-seal"><i>GHC</i></div>
+              <div>
+                <span>Código</span>
+                <b>{getCertificateCode(issuedCertificate)}</b>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="cert-final-layout">
-        <article className="cert-final-available">
-          <div className="cert-final-section-head">
-            <div>
-              <p className="cert-final-kicker">Credenciales digitales</p>
-              <h2>Certificados disponibles</h2>
-            </div>
-            <span>{issuedCount} emitido{issuedCount === 1 ? '' : 's'}</span>
-          </div>
+      <section className="cert-layout">
+        <div className="cert-main-column">
+          <PanelHeader title="Certificados disponibles" text="Tus credenciales emitidas y las próximas certificaciones que puedes desbloquear." />
 
-          {issuedCertificate ? (
-            <article className="cert-final-issued">
-              <div className="cert-final-card-art">
-                <div className="cert-final-card-art-inner">
-                  <span>GHC Academy</span>
-                  <strong>Certificado</strong>
-                  <em>{issuedCertificate.course_title || 'Curso completado'}</em>
-                  <b>{issuedCertificate.final_score ?? '—'}%</b>
-                  <i />
-                </div>
-              </div>
-
-              <div className="cert-final-card-content">
-                <span className="cert-final-pill-issued">Emitido</span>
-                <h3>{issuedCertificate.course_title || 'Curso completado'}</h3>
-                <p>
-                  Has completado los requisitos del curso y aprobado la evaluación final. Tu
-                  credencial está lista para consulta y verificación.
-                </p>
-
-                <div className="cert-final-stats">
-                  <ProfileStat label="Nota" value={`${issuedCertificate.final_score ?? '—'}%`} />
-                  <ProfileStat label="Fecha" value={issuedCertificate.issued_at ? formatShortDate(issuedCertificate.issued_at) : '—'} />
-                  <ProfileStat label="ID credencial" value={issuedCertificate.certificate_code || 'GHC'} />
-                </div>
-
-                <div className="cert-final-code">
-                  <span>Código de verificación</span>
-                  <strong>{issuedCertificate.certificate_code || 'Pendiente'}</strong>
-                </div>
-
-                {issuedCertificate.verification_slug ? (
-                  <Link
-                    href={`/certificados/${issuedCertificate.verification_slug}`}
-                    className="cert-final-primary"
-                  >
-                    Ver certificado
-                    <Icon name="arrow" />
-                  </Link>
-                ) : (
-                  <span className="cert-final-muted">
-                    Certificado registrado sin enlace público de verificación.
-                  </span>
-                )}
-              </div>
-            </article>
+          {primaryCourse ? (
+            <IssuedCertificateCard course={primaryCourse} certificate={issuedCertificate} />
           ) : (
-            <article className="cert-final-empty">
-              <div>
-                <Icon name="certificate" />
-              </div>
-              <h3>Aún no hay certificados emitidos</h3>
-              <p>
-                Cuando completes un curso y apruebes el examen final, tu certificado aparecerá en
-                este panel.
-              </p>
-            </article>
+            <PremiumEmptyCertificate />
           )}
 
-          <article className="cert-final-locked">
-            <div className="cert-final-locked-art">
-              <div>
-                <span>GHC Academy</span>
-                <strong>Certificado</strong>
-                <em>Bloqueado</em>
-                <Icon name="lock" />
-              </div>
-            </div>
+          <LockedCertificateCard course={pendingCourse} fallbackProgress={stats.overallProgress} />
 
-            <div className="cert-final-card-content">
-              <span className="cert-final-pill-locked">Bloqueado</span>
-              <h3>Próxima certificación</h3>
-              <p>
-                Completa todos los módulos y supera el examen final para desbloquear esta
-                credencial.
-              </p>
-
-              <div className="cert-final-progress">
-                <div style={{ width: '65%' }} />
-              </div>
-
-              <span className="cert-final-muted">Progreso estimado: 65%</span>
-            </div>
-          </article>
-
-          <button type="button" className="cert-final-all">
-            Ver todos los certificados
-            <Icon name="arrow" />
+          <button className="all-certificates-row">
+            <span>Ver todos los certificados</span>
+            <i>→</i>
           </button>
-        </article>
+        </div>
 
-        <aside className="cert-final-right">
-          <article className="cert-final-how">
-            <h2>Cómo funciona</h2>
-
-            <div className="cert-final-steps">
-              <div>
-                <span><Icon name="curriculum" /></span>
-                <strong>Completa todos los módulos</strong>
-                <p>Avanza en cada módulo del curso.</p>
-              </div>
-              <div>
-                <span><Icon name="exam" /></span>
-                <strong>Aprueba el examen final</strong>
-                <p>Obtén la puntuación requerida.</p>
-              </div>
-              <div>
-                <span><Icon name="certificate" /></span>
-                <strong>Recibe tu certificado</strong>
-                <p>Obtén tu credencial oficial.</p>
-              </div>
-              <div>
-                <span><Icon name="resources" /></span>
-                <strong>Verifica y comparte</strong>
-                <p>Presenta tu logro con confianza.</p>
-              </div>
-            </div>
-          </article>
-
-          <article className="cert-final-verify">
-            <div className="cert-final-verify-icon">
-              <Icon name="shield" />
-            </div>
-            <div>
-              <h2>Verificación</h2>
-              <p>
-                Los certificados de GHC Academy serán verificables y seguros. Validamos cada
-                credencial para garantizar autenticidad y confianza.
-              </p>
-              <button type="button">
-                Verificar certificado
-                <Icon name="arrow" />
-              </button>
-            </div>
-          </article>
-
-          <article className="cert-final-status">
-            <div className="cert-final-ring">
-              <strong>{issuedCount}</strong>
-            </div>
-            <div>
-              <h2>Estado de credenciales</h2>
-              <p>Certificados emitidos actualmente. ¡Sigue así!</p>
-            </div>
-            <ul>
-              <li><span>Emitidos</span><strong>{issuedCount}</strong></li>
-              <li><span>En progreso</span><strong>1</strong></li>
-              <li><span>Bloqueados</span><strong>2</strong></li>
-            </ul>
-          </article>
+        <aside className="cert-side-column">
+          <HowItWorksPanel />
+          <VerificationPanel />
+          <CredentialStatusPanel stats={stats} ringValue={ringValue} />
         </aside>
       </section>
-    </div>
+    </section>
   );
 }
 
-
-function RendimientoTab({
-  displayName,
-  user,
-  profile,
-  stats,
-}: {
-  displayName: string;
-  user: AnyRecord | null;
-  profile: AnyRecord | null;
-  stats: AnyRecord;
-}) {
-  return (
-    <div className="section-stack">
-      <Panel title="Perfil de rendimiento">
-        <div className="profile-grid">
-          <ProfileStat label="Alumno" value={displayName} />
-          <ProfileStat label="Email" value={user?.email || '—'} />
-          <ProfileStat label="Rol" value={profile?.role || 'student'} />
-          <ProfileStat label="Cursos completados" value={stats.completedCursos} />
-          <ProfileStat label="Certificados" value={stats.certificates} />
-          <ProfileStat label="Progreso global" value={`${stats.globalProgreso}%`} />
-        </div>
-      </Panel>
-
-      <Panel title="Hoja de ruta de seguridad">
-        <div className="info-grid">
-          <InfoBlock
-            icon="shield"
-            title="Acceso protegido"
-            text="Ruta /alumno protegida mediante Supabase Auth."
-          />
-          <InfoBlock
-            icon="user"
-            title="Dispositivos"
-            text="Preparado para añadir control de sesiones y dispositivos autorizados."
-          />
-          <InfoBlock
-            icon="performance"
-            title="IA 24/7"
-            text="Base preparada para tutoría inteligente y recomendaciones personalizadas."
-          />
-        </div>
-      </Panel>
-    </div>
-  );
+function userNameFromCourse(_course: CourseView | null): string {
+  return "Alumno GHC";
 }
 
-
-function MockFeature({ icon, title, text }: { icon: IconName; title: string; text: string }) {
+function Benefit({ icon, title, text }: { icon: string; title: string; text: string }) {
   return (
-    <article className="mock-feature">
-      <span><Icon name={icon} /></span>
+    <article className="benefit-card">
+      <span>{icon}</span>
       <div>
         <strong>{title}</strong>
         <p>{text}</p>
@@ -1656,2127 +939,509 @@ function MockFeature({ icon, title, text }: { icon: IconName; title: string; tex
   );
 }
 
-function MockMeta({ icon, label, value }: { icon: IconName; label: string; value: string }) {
+function PanelHeader({ title, text }: { title: string; text: string }) {
   return (
-    <div className="mock-meta-item">
-      <Icon name={icon} />
+    <header className="panel-header">
       <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-    </div>
-  );
-}
-
-function PremiumCourseCard({
-  card,
-  completed = false,
-  index,
-  mode,
-}: {
-  card: PanelCard;
-  completed?: boolean;
-  index: number;
-  mode: ViewModo;
-}) {
-  const course = card.course;
-  const href = card.nextLesson
-    ? `/cursos/${getCourseSlug(course)}/${card.nextLesson.id}`
-    : `/cursos/${getCourseSlug(course)}`;
-
-  return (
-    <article className={mode === 'grid' ? 'premium-course-card' : 'premium-course-card-list'}>
-      <div
-        className={mode === 'grid' ? 'premium-course-image' : 'premium-course-image list'}
-        style={{ backgroundImage: getPremiumCourseBackground(course, index) }}
-      >
-        <div className="premium-image-overlay" />
-        <div className="course-top-badges">
-          <span className={completed ? 'completed-badge' : 'progress-badge'}>
-            {completed ? 'Completado' : 'En progreso'}
-          </span>
-        </div>
-        <span className="bookmark-icon"><Icon name={completed ? 'check' : 'bookmark'} /></span>
-      </div>
-
-      <div className="premium-course-body">
-        <h3>{course.title || 'Curso GHC Academy'}</h3>
-        <p>{course.subtitle || course.description || 'Formación premium basada en ciencia, estructura y rendimiento.'}</p>
-
-        <div className="premium-stats-grid">
-          <PremiumMetric icon="document" value={card.courseLecciones.length} label="Lecciones" />
-          <PremiumMetric icon="box" value={card.courseMódulos.length} label="Módulos" />
-          <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progreso" />
-        </div>
-
-        <div className="card-progress-area">
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${card.progressPercent}%` }} />
-          </div>
-          <span className="progress-text-green">{card.progressPercent}% Completado</span>
-        </div>
-
-        <div className="premium-actions">
-          <Link href={href} className={completed ? 'review-button' : 'primary-button-small'}>
-            {completed ? 'Repasar' : 'Continuar'} {!completed && <Icon name="arrow" />}
-          </Link>
-          <Link href={`/cursos/${getCourseSlug(course)}`} className="secondary-button-small">
-            Detalles
-          </Link>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function PremiumMetric({ icon, value, label }: { icon: IconName; value: string | number; label: string }) {
-  return (
-    <div className="premium-metric">
-      <div><Icon name={icon} /><strong>{value}</strong></div>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function ItinerarioMetric({ icon, label, value, helper }: { icon: IconName; label: string; value: string | number; helper: string }) {
-  return (
-    <article className="curriculum-metric">
-      <span><Icon name={icon} /></span>
-      <div>
-        <p>{label}</p>
-        <strong>{value}</strong>
-        <em>{helper}</em>
-      </div>
-    </article>
-  );
-}
-
-function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyRecord }) {
-  const title = item.module.title || `Module ${item.index + 1}`;
-
-  if (item.isCurrent) {
-    return (
-      <Link href={item.href} className="roadmap-current-card">
-        <div className="roadmap-current-line" />
-        <div className="roadmap-current-content">
-          <div className="roadmap-top-badges">
-            <span className="module-mini-label">Module {item.index + 1}</span>
-            <span className="in-progress-mini">En progreso</span>
-          </div>
-          <h3>{title}</h3>
-          <p>{item.completedLecciones} of {item.lessons.length} Lecciones Completado</p>
-          <div className="progress-track-mini">
-            <div className="progress-fill" style={{ width: `${item.progress}%` }} />
-          </div>
-          <div className="roadmap-bottom-row">
-            <span>{item.progress}% Completado</span>
-            <span>Continuar <Icon name="arrow" /></span>
-          </div>
-        </div>
-        <div
-          className="roadmap-current-image"
-          style={{
-            backgroundImage: `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.74)), url(${
-              getCourseImage(course || {}) || 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80'
-            })`,
-          }}
-        />
-      </Link>
-    );
-  }
-
-  if (item.isBloqueado) {
-    return (
-      <article className="roadmap-row locked">
-        <div className="roadmap-dot locked"><Icon name="lock" /></div>
-        <div className="roadmap-body">
-          <p className="module-mini-label muted">Module {item.index + 1}</p>
-          <h3>{title}</h3>
-          <p>{item.lessons.length} Lecciones</p>
-        </div>
-        <span className="locked-pill">Bloqueado</span>
-      </article>
-    );
-  }
-
-  return (
-    <Link href={item.href} className="roadmap-row">
-      <div className={item.isCompletado ? 'roadmap-dot done' : 'roadmap-dot'}>
-        <Icon name={item.isCompletado ? 'check' : 'curriculum'} />
-      </div>
-      <div className="roadmap-body">
-        <p className="module-mini-label">Module {item.index + 1}</p>
         <h3>{title}</h3>
-        <p>{item.lessons.length} Lecciones</p>
+        <p>{text}</p>
       </div>
-      <div className="roadmap-side">
-        <strong>{item.isCompletado ? '100%' : `${item.progress}%`}</strong>
-        <span>{item.isCompletado ? 'Completado' : 'Preparado'}</span>
-      </div>
-    </Link>
+    </header>
   );
 }
 
-function LessonRow({
-  lesson,
-  index,
-  completed,
-  active,
-  locked,
-  href,
-}: {
-  lesson: AnyRecord;
-  index: number;
-  completed: boolean;
-  active: boolean;
-  locked: boolean;
-  href: string;
-}) {
-  const contentTipo = getLessonTipo(lesson);
-  const icon = getLessonIcon(contentTipo);
-  const title = lesson.title || `Lesson ${index + 1}`;
-
-  const content = (
-    <article className={active ? 'lesson-row active' : locked ? 'lesson-row locked' : 'lesson-row'}>
-      <div className="lesson-name-cell">
-        <span className={completed ? 'lesson-icon done' : active ? 'lesson-icon active' : 'lesson-icon'}>
-          <Icon name={completed ? 'check' : icon} />
-        </span>
-        <div>
-          <strong>{`${index + 1}. ${title}`}</strong>
-          <p>{lesson.description || lesson.subtitle || 'Contenido académico del módulo'}</p>
+function IssuedCertificateCard({ course, certificate }: { course: CourseView; certificate: Certificate | null }) {
+  const issued = Boolean(certificate);
+  return (
+    <article className={`cert-card issued ${issued ? "" : "soft-empty"}`}>
+      <div className="cert-thumbnail issued-thumb">
+        <div className="thumb-inner">
+          <span>GHC</span>
+          <strong>CERTIFICADO</strong>
+          <i>{issued ? "Emitido" : "Preparado"}</i>
         </div>
       </div>
-      <span className="lesson-type-pill"><Icon name={icon} /> {contentTipo}</span>
-      <span className={locked ? 'lesson-status locked' : completed ? 'lesson-status completed' : active ? 'lesson-status active' : 'lesson-status pending'}>
-        {locked ? 'Bloqueado' : completed ? 'Completado' : active ? 'En progreso' : 'Pendiente'}
-      </span>
-    </article>
-  );
-
-  if (locked) return content;
-  return <Link href={href} className="lesson-link">{content}</Link>;
-}
-
-function CertificateCard({ certificate }: { certificate: AnyRecord }) {
-  return (
-    <article className="certificate-card">
-      <div className="certificate-icon"><Icon name="star" /></div>
-      <span className="progress-badge">Certificado válido</span>
-      <h3>{certificate.course_title || 'Curso completado'}</h3>
-      <div className="profile-grid">
-        <ProfileStat label="Nota" value={`${certificate.final_score ?? '—'}%`} />
-        <ProfileStat label="Estado" value="Valid" />
-        <ProfileStat label="Código" value={certificate.certificate_code || '—'} />
+      <div className="cert-card-content">
+        <div className="cert-row-top">
+          <span className={`badge ${issued ? "success" : "progress"}`}>{issued ? "Emitido" : "En progreso"}</span>
+          <small>{formatDate(certificate?.issued_at || certificate?.created_at)}</small>
+        </div>
+        <h4>{issued ? (certificate?.course_title || certificate?.title || course.titleSafe) : course.titleSafe}</h4>
+        <p>{certificate?.description || course.descriptionSafe}</p>
+        <div className="cert-details-grid">
+          <div><span>Nota</span><strong>{scoreText(certificate)}</strong></div>
+          <div><span>Fecha</span><strong>{formatDate(certificate?.issued_at || certificate?.created_at)}</strong></div>
+          <div><span>ID / Código</span><strong>{getCertificateCode(certificate)}</strong></div>
+        </div>
+        {issued ? (
+          certificate?.verification_url ? (
+            <Link className="primary-btn as-link" href={certificate.verification_url} target="_blank" rel="noreferrer">Ver certificado</Link>
+          ) : (
+            <button className="primary-btn">Ver certificado</button>
+          )
+        ) : (
+          <button className="primary-btn disabled" disabled>Completa el curso para emitirlo</button>
+        )}
       </div>
-      {certificate.verification_slug ? (
-        <Link href={`/certificados/${certificate.verification_slug}`} className="primary-action">
-          Ver certificado <Icon name="arrow" />
-        </Link>
-      ) : (
-        <p className="empty-text">Certificado registrado sin enlace público.</p>
-      )}
     </article>
   );
 }
 
-function ProfileStat({ label, value }: { label: string; value: string | number }) {
+function LockedCertificateCard({ course, fallbackProgress }: { course: CourseView | null; fallbackProgress: number }) {
+  const progressValue = course?.progress ?? fallbackProgress;
   return (
-    <div className="profile-stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+    <article className="cert-card locked-card">
+      <div className="cert-thumbnail locked-thumb">
+        <div className="lock-symbol">⌁</div>
+        <strong>GHC</strong>
+      </div>
+      <div className="cert-card-content">
+        <div className="cert-row-top">
+          <span className="badge locked">Bloqueado</span>
+          <small>{formatPercent(progressValue)} completado</small>
+        </div>
+        <h4>{course?.titleSafe || "Próxima certificación"}</h4>
+        <p>{course ? "Sigue avanzando en módulos, lecciones y examen final para desbloquear esta credencial." : "Publica cursos y módulos para activar la siguiente certificación dentro del panel del alumno."}</p>
+        <div className="progress-line xl"><i style={{ width: `${Math.max(0, Math.min(100, progressValue))}%` }} /></div>
+        <div className="locked-meta">
+          <span>Requisito</span>
+          <strong>Completar módulos + aprobar examen final</strong>
+        </div>
+      </div>
+    </article>
   );
 }
 
-function InfoBlock({ icon, title, text }: { icon: IconName; title: string; text: string }) {
+function PremiumEmptyCertificate() {
   return (
-    <article className="info-block">
-      <span><Icon name={icon} /></span>
+    <article className="cert-card issued soft-empty">
+      <div className="cert-thumbnail issued-thumb empty-thumb">
+        <div className="thumb-inner">
+          <span>GHC</span>
+          <strong>CERTIFICADO</strong>
+          <i>Pendiente</i>
+        </div>
+      </div>
+      <div className="cert-card-content">
+        <div className="cert-row-top">
+          <span className="badge progress">Estado vacío premium</span>
+          <small>Sin emisión todavía</small>
+        </div>
+        <h4>Aún no tienes certificados emitidos</h4>
+        <p>Cuando completes un curso y apruebes su examen final, tu certificado oficial aparecerá aquí con fecha, código y verificación.</p>
+        <div className="cert-details-grid">
+          <div><span>Nota</span><strong>Pendiente</strong></div>
+          <div><span>Fecha</span><strong>Pendiente</strong></div>
+          <div><span>ID / Código</span><strong>GHC-PENDIENTE</strong></div>
+        </div>
+        <button className="primary-btn disabled" disabled>Sin certificado emitido</button>
+      </div>
+    </article>
+  );
+}
+
+function HowItWorksPanel() {
+  const steps = [
+    ["01", "Completa módulos", "Avanza por el contenido y marca progreso real."],
+    ["02", "Aprueba examen final", "Valida conocimientos con evaluación del curso."],
+    ["03", "Recibe certificado", "La credencial se registra en Supabase."],
+    ["04", "Verifica y comparte", "Usa el código para demostrar autenticidad."],
+  ];
+  return (
+    <article className="side-panel how-panel">
+      <h3>Cómo funciona</h3>
+      <div className="steps-list">
+        {steps.map(([num, title, text]) => (
+          <div key={num} className="step-item">
+            <span>{num}</span>
+            <div>
+              <strong>{title}</strong>
+              <p>{text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function VerificationPanel() {
+  return (
+    <article className="side-panel verification-panel">
+      <div className="shield-icon">🛡</div>
+      <h3>Verificación</h3>
+      <p>Cada certificado puede incorporar código único, fecha de emisión y validación pública para reforzar seguridad y trazabilidad profesional.</p>
+      <div className="verify-strip">
+        <span>Estado</span>
+        <strong>Seguro y verificable</strong>
+      </div>
+    </article>
+  );
+}
+
+function CredentialStatusPanel({ stats, ringValue }: { stats: { issued: number; inProgress: number; blocked: number }; ringValue: number }) {
+  return (
+    <article className="side-panel credential-panel">
+      <h3>Estado de credenciales</h3>
+      <div className="credential-ring" style={{ ["--value" as any]: `${ringValue * 3.6}deg` }}>
+        <span>{ringValue}%</span>
+      </div>
+      <div className="credential-stats">
+        <div><span>Emitidos</span><strong>{stats.issued}</strong></div>
+        <div><span>En progreso</span><strong>{stats.inProgress}</strong></div>
+        <div><span>Bloqueados</span><strong>{stats.blocked}</strong></div>
+      </div>
+    </article>
+  );
+}
+
+function EmptyState({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="empty-state">
+      <span>◌</span>
       <h3>{title}</h3>
       <p>{text}</p>
-    </article>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <article className="empty-state">
-      <p>{text}</p>
-    </article>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="panel">
-      <h2>{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function MiniStat({ icon, label, value }: { icon: IconName; label: string; value: string | number }) {
-  return (
-    <div className="mini-stat">
-      <span><Icon name={icon} /></span>
-      <div>
-        <strong>{value}</strong>
-        <small>{label}</small>
-      </div>
     </div>
   );
-}
-
-function MetaItem({ icon, text }: { icon: IconName; text: string }) {
-  return <span className="meta-item"><Icon name={icon} /> {text}</span>;
-}
-
-function Background() {
-  return (
-    <div className="background" aria-hidden="true">
-      <div className="orb-one" />
-      <div className="orb-two" />
-      <div className="grid-texture" />
-    </div>
-  );
-}
-
-function Icon({ name }: { name: IconName }) {
-  const common = {
-    width: 18,
-    height: 18,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    xmlns: 'http://www.w3.org/2000/svg',
-    'aria-hidden': true,
-  };
-
-  if (name === 'home') return <svg {...common}><path d="m4 11 8-7 8 7v9h-5v-6H9v6H4v-9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'dashboard') return <svg {...common}><path d="M4 13h7V4H4v9Zm9 7h7V4h-7v16ZM4 20h7v-5H4v5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'courses' || name === 'box') return <svg {...common}><path d="m12 4 8 4-8 4-8-4 8-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M4 12l8 4 8-4M4 16l8 4 8-4" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'curriculum' || name === 'document') return <svg {...common}><path d="M7 4h7l3 3v13H7V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M14 4v4h4M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'exam') return <svg {...common}><path d="M5 5h14v14H5V5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="m8.5 12 2.1 2.1 4.9-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-  if (name === 'certificate') return <svg {...common}><path d="M7 4h10v9a5 5 0 0 1-10 0V4Z" stroke="currentColor" strokeWidth="1.8" /><path d="m9 19-1 3 4-2 4 2-1-3" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'performance' || name === 'chart') return <svg {...common}><path d="M4 19V5M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M7 15l3-4 3 2 4-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-  if (name === 'resources' || name === 'list') return <svg {...common}><path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'grid') return <svg {...common}><path d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'support') return <svg {...common}><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" /><path d="M9.8 9a2.2 2.2 0 1 1 3.5 1.8c-.8.6-1.3 1-1.3 2.2M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'logout') return <svg {...common}><path d="M10 6H6v12h4M14 8l4 4-4 4M18 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-  if (name === 'clock') return <svg {...common}><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" /><path d="M12 8v5l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'lock') return <svg {...common}><path d="M8 10V8a4 4 0 1 1 8 0v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M7 10h10v9H7v-9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'check') return <svg {...common}><path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-  if (name === 'arrow') return <svg {...common}><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-  if (name === 'bell') return <svg {...common}><path d="M15 17H9m9-2V9a6 6 0 1 0-12 0v6l-2 2h16l-2-2ZM10 20h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-  if (name === 'shield') return <svg {...common}><path d="M12 3.5 19 6v5.4c0 4.3-2.8 8-7 9.1-4.2-1.1-7-4.8-7-9.1V6l7-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'star') return <svg {...common}><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'bookmark') return <svg {...common}><path d="M7 4h10v16l-5-3-5 3V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'search') return <svg {...common}><path d="m20 20-4-4M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'play') return <svg {...common}><path d="M8 5.5v13l10-6.5-10-6.5Z" fill="currentColor" /></svg>;
-  if (name === 'audio') return <svg {...common}><path d="M5 10v4h3l4 4V6l-4 4H5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'pdf') return <svg {...common}><path d="M7 4h7l3 3v13H7V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M9 14h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'text') return <svg {...common}><path d="M5 6h14M5 10h14M5 14h10M5 18h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'trophy') return <svg {...common}><path d="M8 4h8v3a4 4 0 0 1-8 0V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M8 6H5a3 3 0 0 0 3 3M16 6h3a3 3 0 0 1-3 3M12 11v5M9 20h6M10 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'target') return <svg {...common}><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" stroke="currentColor" strokeWidth="1.8" /><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 12h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-  if (name === 'chat') return <svg {...common}><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v6A2.5 2.5 0 0 1 17.5 15H9l-5 4V6.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-  if (name === 'flame') return <svg {...common}><path d="M12 21c3.4-1.2 5.5-3.6 5.5-7 0-3-1.6-5.2-4.8-8.6-.1 2.7-1.1 4-2.6 5.3-.2-1.6-1-2.9-2.1-4C6.6 9 5.5 11 5.5 14c0 3.4 2.1 5.8 6.5 7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>;
-
-  return <svg {...common}><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-}
-
-
-function formatShortDate(value: string) {
-  try {
-    return new Intl.DateTimeFormat('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }).format(new Date(value));
-  } catch {
-    return '—';
-  }
 }
 
 function GlobalStyles() {
   return (
-    <style>{`
+    <style jsx global>{`
       :root {
-        --green: #63e546;
-        --green-rgb: 99, 229, 70;
-        --bg: #050706;
-        --panel: rgba(10, 13, 12, 0.88);
-        --white: #f4f6f2;
-        --muted: rgba(244, 246, 242, 0.62);
-        --soft: rgba(244, 246, 242, 0.44);
-        --gold: #d6b25e;
-        --danger: #ff5757;
-        --warning: #f7c948;
+        --green: ${GREEN};
+        --ghc-green: ${GHC_GREEN};
+        --bg: ${BG};
+        --card: ${CARD};
+        --card-2: ${CARD_2};
+        --border: ${BORDER};
+        --text: ${TEXT};
+        --muted: ${MUTED};
+        --steel: ${STEEL};
       }
 
       * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; background: var(--bg); }
-      body { color: var(--white); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-      a { color: inherit; }
+      html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+      body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      a { color: inherit; text-decoration: none; }
       button, input, select { font: inherit; }
-      input::placeholder { color: rgba(244,246,242,.36); }
-      select option { background: #080b0a; color: #f4f6f2; }
 
-      .student-page { min-height: 100vh; background: var(--bg); color: var(--white); position: relative; display: grid; grid-template-columns: 278px minmax(0, 1fr); overflow: visible; }
-      .loading-page { display: grid; place-items: center; overflow: hidden; }
-      .loading-card { width: min(720px, calc(100vw - 40px)); border-radius: 28px; border: 1px solid rgba(255,255,255,.1); background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); padding: 34px; position: relative; z-index: 2; box-shadow: 0 28px 90px rgba(0,0,0,.42); }
-      .loading-card h1 { margin: 14px 0 0; font-size: clamp(42px, 6vw, 74px); line-height: .92; font-weight: 950; letter-spacing: -.06em; }
-      .loading-card p { margin-top: 16px; color: var(--muted); line-height: 1.75; max-width: 620px; }
+      .ghc-shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 286px minmax(0, 1fr);
+        background:
+          radial-gradient(circle at 18% 3%, rgba(99,229,70,.14), transparent 25%),
+          radial-gradient(circle at 88% 12%, rgba(99,229,70,.08), transparent 22%),
+          linear-gradient(135deg, #030504 0%, #080C0A 38%, #0D1210 100%);
+        overflow-x: hidden;
+      }
 
-      .background { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-      .orb-one { position: absolute; width: 520px; height: 520px; border-radius: 999px; top: -200px; left: -160px; background: rgba(var(--green-rgb), .1); filter: blur(100px); }
-      .orb-two { position: absolute; width: 520px; height: 520px; border-radius: 999px; right: -250px; top: 120px; background: rgba(120,135,130,.09); filter: blur(110px); }
-      .grid-texture { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px); background-size: 42px 42px; opacity: .42; mask-image: radial-gradient(circle at center, black 0%, transparent 82%); }
+      .loading-shell { display: flex; align-items: center; justify-content: center; padding: 24px; }
+      .loading-card {
+        width: min(460px, 100%);
+        padding: 36px;
+        border: 1px solid var(--border);
+        border-radius: 34px;
+        background: rgba(12, 16, 14, .86);
+        box-shadow: 0 30px 100px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+        text-align: center;
+      }
+      .loading-logo { width: 150px; margin: 0 auto 22px; }
+      .loading-pulse { width: 60px; height: 60px; margin: 0 auto 18px; border-radius: 50%; background: conic-gradient(from 180deg, var(--green), transparent 70%); animation: spin 1.2s linear infinite; }
+      .loading-card p { color: var(--muted); margin: 0; }
+      .error-card h1 { margin: 0 0 10px; font-size: 26px; }
+      @keyframes spin { to { transform: rotate(360deg); } }
 
-      .sidebar { position: sticky; top: 0; height: 100vh; z-index: 2; border-right: 1px solid rgba(255,255,255,.07); background: linear-gradient(180deg, rgba(6,9,8,.97), rgba(3,5,4,.93)); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; }
-      .logo-block { display: flex; align-items: center; min-height: 58px; margin-bottom: 20px; }
-      .nav { display: grid; gap: 6px; }
-      .nav-item { border: 1px solid transparent; background: transparent; color: rgba(244,246,242,.62); display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 14px; text-align: left; cursor: pointer; border-radius: 0; }
-      .nav-item.active { border: 1px solid rgba(var(--green-rgb), .12); background: linear-gradient(90deg, rgba(var(--green-rgb),.18), rgba(var(--green-rgb),.035) 70%, transparent); color: var(--green); box-shadow: inset 3px 0 0 rgba(var(--green-rgb),.95); }
-      .nav-item svg { flex-shrink: 0; }
-      .nav-item span { display: grid; gap: 3px; }
-      .nav-item strong { font-size: 13px; }
-      .nav-item small { color: var(--soft); }
-      .sidebar-user-box,.user-card { border-radius: 16px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.035); padding: 16px; }
-      .user-card { display: grid; gap: 12px; }
-      .avatar { width: 52px; height: 52px; border-radius: 999px; background: rgba(var(--green-rgb),.11); border: 1px solid rgba(var(--green-rgb),.24); color: var(--green); display: grid; place-items: center; font-weight: 950; }
-      .user-card p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
-      .user-card p span { color: var(--green); background: rgba(var(--green-rgb),.12); border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 800; }
-      .user-card button { display: inline-flex; align-items: center; gap: 8px; background: transparent; border: 0; color: rgba(244,246,242,.58); padding: 0; cursor: pointer; }
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 24px 18px;
+        border-right: 1px solid rgba(255,255,255,.08);
+        background: linear-gradient(180deg, rgba(10,14,12,.94), rgba(6,8,7,.92));
+        backdrop-filter: blur(24px);
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .brand-block { display: flex; align-items: center; gap: 14px; padding: 12px; border: 1px solid rgba(255,255,255,.08); border-radius: 22px; background: rgba(255,255,255,.035); }
+      .brand-block > :first-child { width: 58px; flex: 0 0 58px; }
+      .brand-block strong { display: block; font-size: 15px; letter-spacing: .02em; }
+      .brand-block span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .16em; }
 
-      .shell { position: relative; z-index: 1; padding: 20px; min-width: 0; }
-      .topbar { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.06); padding-bottom: 12px; }
-      .breadcrumb { display: flex; align-items: center; gap: 10px; color: rgba(244,246,242,.72); font-size: 13px; font-weight: 800; }
-      .topbar-actions { display: flex; align-items: center; gap: 16px; position: relative; }
-      .topbar-actions a { text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; font-weight: 850; color: rgba(244,246,242,.65); }
-      .topbar-actions a:nth-child(2) { color: var(--green); font-weight: 900; }
-      .notifications { position: relative; }
-      .notifications > button { width: 40px; height: 40px; border-radius: 999px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.035); color: rgba(244,246,242,.75); display: grid; place-items: center; position: relative; cursor: pointer; }
-      .notifications em { position: absolute; right: -6px; top: -6px; min-width: 18px; height: 18px; border-radius: 999px; background: var(--green); color: #061008; display: grid; place-items: center; font-size: 10px; font-weight: 950; border: 2px solid #050706; font-style: normal; }
-      .notifications-panel { position: absolute; top: 52px; right: 0; width: 360px; border-radius: 20px; border: 1px solid rgba(255,255,255,.12); background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03)), rgba(7,10,9,.98); box-shadow: 0 28px 90px rgba(0,0,0,.48); padding: 16px; z-index: 40; backdrop-filter: blur(18px); }
-      .notification-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
-      .notification-header p { margin: 0; color: var(--green); font-size: 10px; text-transform: uppercase; letter-spacing: .18em; font-weight: 900; }
-      .notification-header h3 { margin: 6px 0 0; font-size: 20px; letter-spacing: -.03em; font-weight: 900; }
-      .notification-header > span { border-radius: 999px; border: 1px solid rgba(var(--green-rgb),.24); background: rgba(var(--green-rgb),.1); color: var(--green); padding: 6px 9px; font-size: 11px; font-weight: 900; }
-      .notification { display: block; text-decoration: none; border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); padding: 12px; margin-top: 10px; }
-      .notification.unread { border-color: rgba(var(--green-rgb),.18); background: rgba(var(--green-rgb),.055); }
-      .notification small { color: var(--green); text-transform: uppercase; letter-spacing: .12em; font-weight: 900; }
-      .notification strong { display: block; margin-top: 6px; }
-      .notification p { color: var(--muted); margin: 6px 0 0; font-size: 12px; line-height: 1.55; }
-      .notification-footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); color: var(--soft); font-size: 11px; }
-      .mini-user span { width: 42px; height: 42px; border-radius: 999px; border: 1px solid rgba(var(--green-rgb),.2); background: rgba(var(--green-rgb),.09); color: var(--green); display: grid; place-items: center; font-weight: 900; }
+      .side-nav { display: grid; gap: 8px; }
+      .side-button {
+        width: 100%;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #CBD4CD;
+        padding: 13px 14px;
+        border-radius: 17px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        text-align: left;
+        transition: .22s ease;
+      }
+      .side-button span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.055); color: var(--green); }
+      .side-button:hover, .side-button.active { border-color: rgba(99,229,70,.32); background: linear-gradient(135deg, rgba(99,229,70,.16), rgba(255,255,255,.04)); color: #fff; box-shadow: 0 16px 45px rgba(0,0,0,.22); }
 
-      .notice { margin-bottom: 16px; border-radius: 16px; border: 1px solid rgba(var(--green-rgb),.2); background: rgba(var(--green-rgb),.06); color: var(--muted); padding: 16px; }
+      .sidebar-progress { margin-top: auto; padding: 16px; border-radius: 24px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); display: flex; gap: 13px; align-items: center; }
+      .sidebar-progress strong { display: block; font-size: 13px; }
+      .sidebar-progress p { margin: 3px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+      .mini-ring { --value: 0deg; width: 56px; height: 56px; border-radius: 50%; flex: 0 0 56px; display: grid; place-items: center; background: conic-gradient(var(--green) var(--value), rgba(255,255,255,.08) 0); position: relative; }
+      .mini-ring::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #0A0E0C; }
+      .mini-ring span { position: relative; z-index: 1; font-size: 12px; font-weight: 800; }
 
-      .dashboard-grid,.courses-page,.curriculum-page,.mock-page,.section-stack { display: grid; gap: 16px; }
-      .hero-grid { display: grid; grid-template-columns: 340px minmax(0,1fr); gap: 16px; }
-      .progress-card,.next-card,.panel,.mock-mini,.cert-mini,.roadmap-panel,.lesson-panel,.mock-feature,.exam-simulator-card,.exam-rules-card,.latest-resultados-card,.readiness-card,.module-exams-card,.analytics-card,.premium-course-card,.premium-course-card-list,.certificate-card { border-radius: 16px; border: 1px solid rgba(255,255,255,.09); background: var(--panel); box-shadow: 0 20px 70px rgba(0,0,0,.16); }
-      .progress-card { padding: 20px; }
-      .progress-card h2 { margin: 0 0 18px; font-size: 18px; }
-      .progress-ring { width: 172px; height: 172px; border-radius: 999px; display: grid; place-items: center; margin: 0 auto 16px; box-shadow: 0 0 42px rgba(var(--green-rgb),.12); }
-      .progress-ring > div { width: 124px; height: 124px; border-radius: 999px; background: #080b0a; border: 1px solid rgba(255,255,255,.1); display: grid; place-items: center; text-align: center; align-content: center; }
-      .progress-ring strong { display: block; color: var(--white); font-size: 50px; line-height: .88; font-weight: 950; letter-spacing: -.06em; }
-      .progress-ring span { display: block; color: rgba(244,246,242,.62); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 850; margin-top: 8px; }
-      .progress-card > p { max-width: 270px; color: var(--muted); text-align: center; line-height: 1.6; margin: 8px auto 16px; }
-      .mini-stats { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; overflow: hidden; background: rgba(0,0,0,.18); }
-      .mini-stat { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 10px; padding: 12px; color: var(--muted); align-items: center; }
-      .mini-stat > span { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; color: var(--green); background: rgba(var(--green-rgb),.08); border: 1px solid rgba(var(--green-rgb),.18); }
-      .mini-stat div { display: grid; gap: 2px; }
+      .workspace { min-width: 0; padding: 24px 30px 54px; }
+      .topbar { min-height: 76px; display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 24px; }
+      .breadcrumb { color: var(--steel); font-size: 13px; margin-bottom: 6px; }
+      .breadcrumb.local { margin-bottom: 10px; color: rgba(168,178,170,.86); }
+      .topbar h1 { margin: 0; font-size: clamp(26px, 3vw, 42px); letter-spacing: -.04em; }
+      .top-actions { display: flex; align-items: center; gap: 12px; }
+      .notification-wrap { position: relative; }
+      .icon-btn { width: 46px; height: 46px; border-radius: 16px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.045); color: #fff; cursor: pointer; position: relative; }
+      .icon-btn span { font-size: 22px; color: var(--green); }
+      .icon-btn i { position: absolute; right: 10px; top: 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 16px rgba(99,229,70,.8); }
+      .notification-dropdown { position: absolute; right: 0; top: 56px; width: 350px; border: 1px solid rgba(255,255,255,.1); border-radius: 24px; background: rgba(10,14,12,.96); box-shadow: 0 24px 90px rgba(0,0,0,.55); padding: 14px; z-index: 30; }
+      .dropdown-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 4px 12px; }
+      .dropdown-head span { background: rgba(99,229,70,.16); color: var(--green); border: 1px solid rgba(99,229,70,.28); padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+      .notification-item { display: flex; gap: 12px; padding: 12px; border-radius: 17px; background: rgba(255,255,255,.035); margin-top: 8px; border: 1px solid rgba(255,255,255,.06); }
+      .notification-item.unread { border-color: rgba(99,229,70,.25); background: rgba(99,229,70,.08); }
+      .notification-dot { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: rgba(99,229,70,.14); color: var(--green); flex: 0 0 30px; }
+      .notification-item strong { display: block; font-size: 13px; }
+      .notification-item p { margin: 4px 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+      .notification-item small { color: var(--steel); }
 
-      .next-card { min-height: 330px; display: grid; grid-template-columns: .72fr 1fr; overflow: hidden; }
-      .next-image { background: linear-gradient(90deg, rgba(5,7,6,.08), rgba(5,7,6,.92)), url(https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80); background-size: cover; background-position: center; filter: grayscale(1) contrast(1.08) brightness(.7); }
-      .next-body { padding: 24px; display: flex; flex-direction: column; }
-      .next-body small { color: var(--green); text-transform: uppercase; letter-spacing: .16em; font-weight: 900; }
-      .next-body h2 { margin: 10px 0 0; font-size: 30px; line-height: 1.05; letter-spacing: -.035em; }
-      .next-body p { color: var(--muted); line-height: 1.65; }
-      .meta-row { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; color: var(--muted); }
-      .meta-item { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
-      .primary-action,.primary-button-small,.mock-primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 10px; border: 1px solid rgba(var(--green-rgb),.26); background: linear-gradient(135deg, var(--green), #7bee65); color: #061008; text-decoration: none; font-weight: 900; font-size: 13px; box-shadow: 0 0 26px rgba(var(--green-rgb),.16); cursor: pointer; min-height: 42px; padding: 0 18px; width: fit-content; margin-top: auto; }
-      .secondary-button,.secondary-button-small,.review-button,.mock-secondary-button,.mock-ghost-button { border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.045); color: var(--white); display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-weight: 800; cursor: pointer; text-decoration: none; min-height: 40px; padding: 0 16px; }
+      .user-pill { height: 46px; border: 1px solid rgba(255,255,255,.1); border-radius: 999px; background: rgba(255,255,255,.045); padding: 5px 12px 5px 5px; display: flex; gap: 9px; align-items: center; min-width: 210px; }
+      .user-pill > span { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, var(--green), #D9FFD0); color: #071008; font-weight: 900; }
+      .user-pill strong { display: block; max-width: 148px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+      .user-pill small { color: var(--muted); font-size: 11px; }
 
-      .panel { padding: 18px; }
-      .panel > h2 { margin: 0 0 16px; font-size: 22px; line-height: 1; font-weight: 900; letter-spacing: -.035em; }
-      .compact-list { display: grid; gap: 8px; }
-      .compact-row { min-height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.026); display: grid; grid-template-columns: 36px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; text-decoration: none; color: var(--white); }
-      .compact-row.active { border-color: rgba(var(--green-rgb),.4); background: linear-gradient(90deg, rgba(var(--green-rgb),.12), rgba(255,255,255,.025)); }
-      .compact-row small { color: var(--green); text-transform: uppercase; letter-spacing: .12em; font-weight: 900; }
-      .compact-row strong { display: block; margin-top: 4px; }
-      .compact-row em { color: var(--muted); font-style: normal; font-weight: 850; }
-      .dashboard-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .mock-mini { min-height: 238px; padding: 20px; background: linear-gradient(90deg, rgba(11,15,13,.98), rgba(11,15,13,.88)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80); background-size: cover; background-position: center; display: grid; align-items: center; }
-      .cert-mini { min-height: 238px; padding: 20px; position: relative; overflow: hidden; display: flex; align-items: center; }
-      .cert-mini > div { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,11,10,.98) 0%, rgba(8,11,10,.92) 24%, rgba(8,11,10,.56) 58%, rgba(8,11,10,.18) 100%), url(https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80); background-size: cover; background-position: center; filter: grayscale(.15) contrast(1.02) brightness(.72); }
-      .cert-mini > span { position: relative; z-index: 2; max-width: 58%; }
-      .cert-mini small { color: var(--gold); text-transform: uppercase; letter-spacing: .16em; font-weight: 900; }
-      .cert-mini p,.mock-mini p { color: var(--muted); line-height: 1.65; }
+      .ghost-btn, .secondary-btn, .toggle-btn { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.045); color: #F5F7F2; border-radius: 14px; padding: 12px 15px; cursor: pointer; transition: .22s ease; }
+      .ghost-btn:hover, .secondary-btn:hover, .toggle-btn:hover { border-color: rgba(99,229,70,.3); background: rgba(99,229,70,.08); }
+      .primary-btn { border: 0; border-radius: 15px; padding: 13px 18px; cursor: pointer; color: #071008; font-weight: 900; background: linear-gradient(135deg, var(--green), #C4FFB7); box-shadow: 0 16px 45px rgba(99,229,70,.18); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+      .primary-btn.disabled { opacity: .62; cursor: not-allowed; box-shadow: none; }
+      .primary-btn.as-link { width: fit-content; }
 
-      .filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-      .filters label { width: 320px; min-height: 44px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); display: flex; align-items: center; gap: 12px; padding: 0 15px; color: rgba(244,246,242,.48); font-size: 13px; }
-      .filters input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--white); height: 42px; }
-      .filters button,.filters select { min-height: 44px; border-radius: 10px; padding: 0 16px; cursor: pointer; font-weight: 800; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); color: rgba(244,246,242,.78); }
-      .filters button.active { border-color: rgba(var(--green-rgb),.32); background: rgba(var(--green-rgb),.11); color: var(--green); }
-      .filters > span { flex: 1; }
-      .view-toggle { height: 44px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); display: flex; align-items: center; padding: 4px; gap: 4px; }
-      .view-toggle button { width: 34px; height: 34px; min-height: 34px; border: 0; padding: 0; display: grid; place-items: center; }
-      .section-title-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-      .section-title-row h2 { margin: 0; font-size: 20px; line-height: 1; letter-spacing: -.03em; font-weight: 850; }
-      .section-title-row p { color: var(--soft); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; font-weight: 850; }
-      .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 16px; }
+      .tab-stack { display: grid; gap: 22px; }
+      .soft-card, .stat-card, .course-card, .timeline-course, .exam-card, .empty-state { border: 1px solid var(--border); background: var(--card); border-radius: 28px; box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.05); }
+      .dashboard-hero { min-height: 310px; padding: 34px; display: grid; grid-template-columns: 1.2fr .8fr; gap: 28px; align-items: center; overflow: hidden; position: relative; }
+      .dashboard-hero::after { content: ""; position: absolute; right: -90px; top: -120px; width: 340px; height: 340px; border-radius: 50%; background: rgba(99,229,70,.16); filter: blur(10px); }
+      .eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--green); font-size: 12px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+      .eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 18px rgba(99,229,70,.9); }
+      .dashboard-hero h2, .section-head h2, .exam-hero h2 { margin: 10px 0 12px; font-size: clamp(30px, 4vw, 58px); line-height: .96; letter-spacing: -.06em; }
+      .dashboard-hero p, .section-head p, .exam-hero p { margin: 0; max-width: 720px; color: var(--muted); line-height: 1.65; }
+      .hero-actions { margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap; }
+      .dashboard-metric { position: relative; z-index: 1; padding: 28px; border-radius: 28px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09); }
+      .dashboard-metric strong { display: block; font-size: 76px; letter-spacing: -.08em; color: var(--green); }
+      .dashboard-metric span { color: var(--muted); }
+      .progress-line { height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 14px; }
+      .progress-line i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--green), #C7FFB8); box-shadow: 0 0 18px rgba(99,229,70,.34); }
+      .progress-line.xl { height: 10px; }
+      .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+      .stat-card { padding: 22px; }
+      .stat-card span { color: var(--muted); font-size: 13px; }
+      .stat-card strong { display: block; font-size: 38px; margin: 8px 0; letter-spacing: -.05em; }
+      .stat-card p { margin: 0; color: var(--steel); font-size: 13px; }
+      .featured-course { padding: 18px; display: grid; grid-template-columns: 230px 1fr; gap: 20px; align-items: center; }
+
+      .section-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; }
+      .course-controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+      .course-controls input, .course-controls select { height: 46px; border: 1px solid rgba(255,255,255,.11); background: rgba(255,255,255,.045); color: #fff; border-radius: 15px; padding: 0 14px; outline: none; }
+      .course-controls input::placeholder { color: var(--steel); }
+      .course-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
       .course-list { display: grid; gap: 14px; }
-      .premium-course-card { min-height: 386px; overflow: hidden; display: flex; flex-direction: column; }
-      .premium-course-card-list { min-height: 216px; overflow: hidden; display: grid; grid-template-columns: 320px minmax(0,1fr); }
-      .premium-course-image { height: 160px; background-size: cover; background-position: center; position: relative; filter: grayscale(1) contrast(1.05) brightness(.82); flex-shrink: 0; }
-      .premium-course-image.list { height: 100%; min-height: 216px; }
-      .premium-image-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,6,0), rgba(5,7,6,.86)), radial-gradient(circle at top right, rgba(var(--green-rgb),.13), transparent 34%); }
-      .course-top-badges { position: absolute; left: 14px; top: 14px; display: flex; gap: 8px; z-index: 2; }
-      .progress-badge,.completed-badge { border-radius: 5px; padding: 6px 9px; font-size: 10px; line-height: 1; letter-spacing: .12em; text-transform: uppercase; font-weight: 900; }
-      .progress-badge { border: 1px solid rgba(var(--green-rgb),.34); background: rgba(var(--green-rgb),.12); color: var(--green); }
-      .completed-badge { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.055); color: rgba(244,246,242,.74); }
-      .bookmark-icon { position: absolute; right: 14px; top: 14px; color: rgba(244,246,242,.76); z-index: 2; width: 24px; height: 24px; display: grid; place-items: center; }
-      .premium-course-body { padding: 16px; display: flex; flex-direction: column; flex: 1; min-width: 0; }
-      .premium-course-body h3 { margin: 0; min-height: 44px; color: var(--white); font-size: 21px; line-height: 1.08; letter-spacing: -.035em; font-weight: 900; }
-      .premium-course-body p { margin: 10px 0 0; min-height: 50px; color: var(--muted); font-size: 14px; line-height: 1.55; }
-      .premium-stats-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: auto; padding-top: 16px; }
-      .premium-metric { min-height: 58px; border-radius: 9px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.032); padding: 10px 8px; display: grid; align-content: center; gap: 4px; min-width: 0; }
-      .premium-metric div { display: flex; align-items: center; gap: 8px; color: rgba(244,246,242,.78); min-width: 0; }
-      .card-progress-area { margin-top: 12px; display: grid; gap: 8px; }
-      .premium-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+      .course-card { overflow: hidden; }
+      .course-card.list { display: grid; grid-template-columns: 240px 1fr; }
+      .course-cover { min-height: 172px; background-size: cover !important; background-position: center !important; position: relative; border-radius: 22px; overflow: hidden; }
+      .course-card .course-cover { border-radius: 28px 28px 0 0; }
+      .course-card.list .course-cover { border-radius: 28px 0 0 28px; min-height: 100%; }
+      .course-cover span { position: absolute; left: 14px; top: 14px; border-radius: 999px; background: rgba(0,0,0,.48); border: 1px solid rgba(255,255,255,.14); padding: 7px 10px; font-size: 12px; color: #fff; backdrop-filter: blur(12px); }
+      .course-body { padding: 20px; }
+      .course-body h3, .featured-course h3, .timeline-course h3, .exam-card h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.025em; }
+      .course-body p, .featured-course p, .timeline-course p, .exam-card p { color: var(--muted); line-height: 1.55; margin: 0; }
+      .course-meta { margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap; }
+      .course-meta span { font-size: 12px; color: #DCE6DE; padding: 6px 9px; border-radius: 999px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.08); }
+      .course-link { margin-top: 16px; display: inline-flex; color: var(--green); font-weight: 800; }
 
-      .curriculum-head { display: grid; grid-template-columns: minmax(0, 280px) minmax(0,1fr); gap: 16px; align-items: start; }
-      .curriculum-head h1,.courses-page h1 { margin: 0; font-size: 34px; line-height: 1; letter-spacing: -.05em; font-weight: 900; }
-      .curriculum-head p,.courses-page > section p { margin: 10px 0 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
-      .curriculum-side-head { display: grid; gap: 12px; }
-      .current-course-box, .curriculum-side-head label { display: grid; gap: 6px; max-width: 340px; color: var(--soft); font-size: 12px; font-weight: 800; }
-      .curriculum-side-head select { min-height: 42px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.032); color: var(--white); padding: 0 12px; outline: 0; font-weight: 800; }
-      .curriculum-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
-      .curriculum-metric { min-height: 92px; border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: var(--panel); padding: 14px; display: flex; gap: 12px; align-items: center; box-shadow: 0 16px 50px rgba(0,0,0,.14); }
-      .curriculum-metric > span { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: rgba(var(--green-rgb),.08); border: 1px solid rgba(var(--green-rgb),.18); color: var(--green); flex-shrink: 0; }
-      .curriculum-metric div { display: grid; gap: 4px; min-width: 0; }
-      .curriculum-metric p { margin: 0; color: var(--soft); font-size: 10px; text-transform: uppercase; letter-spacing: .14em; font-weight: 900; }
-      .curriculum-metric strong { color: var(--white); font-size: 26px; line-height: 1; font-weight: 950; letter-spacing: -.04em; }
-      .curriculum-metric em { color: var(--green); font-size: 12px; font-weight: 850; font-style: normal; }
-      .curriculum-grid { display: grid; grid-template-columns: .93fr 1.07fr; gap: 14px; align-items: start; }
-      .roadmap-panel,.lesson-panel { border-radius: 16px; border: 1px solid rgba(255,255,255,.09); background: var(--panel); padding: 16px; box-shadow: 0 20px 70px rgba(0,0,0,.16); }
-      .roadmap-panel h2,.lesson-panel h2 { margin: 0; font-size: 18px; line-height: 1.1; font-weight: 900; letter-spacing: -.03em; }
-      .roadmap-panel > p,.lesson-panel p { color: var(--muted); font-size: 13px; line-height: 1.5; }
-      .roadmap-list { display: grid; gap: 10px; margin-top: 12px; }
-      .roadmap-row,.roadmap-row.locked { min-height: 72px; border-radius: 14px; display: grid; grid-template-columns: 30px minmax(0,1fr) 74px; gap: 12px; align-items: center; padding: 12px; text-decoration: none; color: var(--white); }
-      .roadmap-row { border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.026); }
-      .roadmap-row.locked { border: 1px solid rgba(255,255,255,.05); background: rgba(255,255,255,.016); color: var(--soft); }
-      .roadmap-current-card { min-height: 144px; border-radius: 16px; border: 1px solid rgba(var(--green-rgb),.52); background: linear-gradient(100deg, rgba(var(--green-rgb),.12), rgba(255,255,255,.028)); display: grid; grid-template-columns: 10px minmax(0,1fr) 146px; gap: 12px; align-items: stretch; padding: 12px; text-decoration: none; color: var(--white); box-shadow: 0 0 30px rgba(var(--green-rgb),.07); overflow: hidden; }
-      .roadmap-current-line { width: 10px; border-radius: 999px; background: linear-gradient(180deg, var(--green), rgba(var(--green-rgb),.08)); }
-      .roadmap-current-content { display: grid; align-content: center; gap: 8px; min-width: 0; }
-      .roadmap-top-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-      .roadmap-current-content h3 { margin: 0; font-size: 24px; line-height: 1.02; font-weight: 900; letter-spacing: -.04em; max-width: 320px; }
-      .roadmap-current-content p,.roadmap-body p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
-      .roadmap-bottom-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
-      .roadmap-bottom-row > span:first-child,.progress-text-green { color: var(--green); font-size: 12px; font-weight: 850; }
-      .roadmap-bottom-row > span:last-child { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: var(--green); color: #061008; font-size: 12px; font-weight: 900; }
-      .roadmap-current-image { border-radius: 12px; background-size: cover; background-position: center; filter: grayscale(1) contrast(1.08) brightness(.76); min-height: 118px; }
-      .roadmap-dot { width: 28px; height: 28px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); display: grid; place-items: center; color: var(--soft); }
-      .roadmap-dot.done { border: 1px solid rgba(var(--green-rgb),.28); background: rgba(var(--green-rgb),.08); color: var(--green); }
-      .roadmap-dot.locked { border: 1px solid rgba(255,255,255,.08); }
-      .roadmap-body { min-width: 0; display: grid; gap: 4px; }
-      .roadmap-body h3 { margin: 0; font-size: 18px; line-height: 1.15; font-weight: 850; letter-spacing: -.025em; }
-      .roadmap-side { display: grid; gap: 4px; text-align: right; color: var(--muted); font-size: 12px; }
-      .module-mini-label { margin: 0; color: var(--green); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; font-weight: 900; }
-      .module-mini-label.muted { color: var(--soft); }
-      .in-progress-mini { border-radius: 999px; background: rgba(var(--green-rgb),.12); color: var(--green); padding: 3px 8px; text-transform: uppercase; letter-spacing: .12em; font-size: 9px; font-weight: 900; }
-      .locked-pill { color: var(--soft); font-size: 12px; font-weight: 800; }
+      .timeline-panel { display: grid; gap: 16px; }
+      .timeline-course { padding: 22px; }
+      .timeline-course header { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+      .timeline-course header strong { color: var(--green); font-size: 28px; }
+      .timeline-modules { display: grid; gap: 12px; }
+      .timeline-module { display: flex; align-items: center; gap: 12px; padding: 13px; border-radius: 18px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
+      .timeline-module > span { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); color: var(--muted); font-weight: 900; }
+      .timeline-module > span.done { background: rgba(99,229,70,.16); color: var(--green); }
+      .timeline-module strong { display: block; }
+      .timeline-module p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 
-      .lesson-panel .progress-track { margin-top: 12px; }
-      .lesson-panel-top,.module-detail-top { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
-      .module-progress { min-width: 84px; border-radius: 12px; border: 1px solid rgba(var(--green-rgb),.18); background: rgba(var(--green-rgb),.06); padding: 10px; text-align: center; display: grid; gap: 2px; }
-      .lesson-header-row { margin-top: 14px; display: grid; grid-template-columns: minmax(0,1fr) 100px 110px; gap: 12px; color: var(--soft); font-size: 10px; text-transform: uppercase; letter-spacing: .14em; font-weight: 900; padding: 0 10px; }
-      .lesson-list { display: grid; gap: 8px; margin-top: 8px; }
-      .lesson-link { text-decoration: none; color: inherit; }
-      .lesson-row { min-height: 62px; border-radius: 12px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.026); display: grid; grid-template-columns: minmax(0,1fr) 100px 110px; gap: 12px; align-items: center; padding: 10px; }
-      .lesson-row.active { border-color: rgba(var(--green-rgb),.48); background: linear-gradient(90deg, rgba(var(--green-rgb),.1), rgba(255,255,255,.026)); }
-      .lesson-row.locked { border-color: rgba(255,255,255,.05); background: rgba(255,255,255,.014); opacity: .72; }
-      .lesson-name-cell { display: flex; gap: 10px; align-items: center; min-width: 0; }
-      .lesson-icon { width: 32px; height: 32px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); display: grid; place-items: center; color: var(--soft); flex-shrink: 0; }
-      .lesson-icon.done { border-color: rgba(var(--green-rgb),.26); background: rgba(var(--green-rgb),.08); color: var(--green); }
-      .lesson-icon.active { border-color: rgba(var(--green-rgb),.34); background: rgba(var(--green-rgb),.1); color: var(--green); }
-      .lesson-name-cell strong { display: block; font-size: 14px; line-height: 1.25; font-weight: 850; }
-      .lesson-name-cell p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
-      .lesson-type-pill { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 800; }
-      .lesson-status { justify-self: start; font-size: 12px; font-weight: 800; }
-      .lesson-status.completed { color: var(--green); font-weight: 900; }
-      .lesson-status.active { color: var(--green); background: rgba(var(--green-rgb),.1); border: 1px solid rgba(var(--green-rgb),.2); border-radius: 999px; padding: 6px 9px; font-size: 11px; font-weight: 900; }
-      .lesson-status.pending { color: var(--muted); }
-      .lesson-status.locked { color: var(--soft); }
-      .curriculum-banner { border-radius: 16px; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(90deg, rgba(var(--green-rgb),.1), rgba(255,255,255,.028)); padding: 14px; display: grid; grid-template-columns: 48px minmax(0,1fr) auto; gap: 14px; align-items: center; box-shadow: 0 16px 50px rgba(0,0,0,.14); }
-      .curriculum-banner > svg { width: 48px; height: 48px; border-radius: 14px; background: rgba(var(--green-rgb),.1); border: 1px solid rgba(var(--green-rgb),.22); color: var(--green); padding: 13px; }
-      .curriculum-banner h3 { margin: 0; font-size: 16px; font-weight: 900; letter-spacing: -.02em; }
-      .curriculum-banner p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-      .curriculum-banner a { color: var(--green); text-decoration: none; display: inline-flex; gap: 8px; align-items: center; font-weight: 900; font-size: 13px; }
+      .exam-hero { padding: 34px; }
+      .exam-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+      .exam-card { padding: 22px; }
+      .badge { display: inline-flex; width: fit-content; align-items: center; gap: 6px; border-radius: 999px; padding: 7px 10px; font-size: 12px; font-weight: 900; border: 1px solid rgba(255,255,255,.1); }
+      .badge.success { color: var(--green); border-color: rgba(99,229,70,.32); background: rgba(99,229,70,.12); }
+      .badge.locked { color: #C2C9C3; background: rgba(255,255,255,.06); }
+      .badge.progress { color: #DBE7DD; border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.06); }
+      .exam-card h3 { margin-top: 14px; }
 
-      .mock-page { display: grid; gap: 14px; }
-      .mock-header { display: grid; grid-template-columns: minmax(0,.9fr) minmax(500px,1fr); gap: 16px; align-items: center; }
-      .mock-title-block { display: flex; align-items: flex-start; gap: 14px; }
-      .mock-title-block > span { width: 44px; height: 44px; border-radius: 999px; color: var(--green); display: grid; place-items: center; background: rgba(var(--green-rgb),.08); border: 1px solid rgba(var(--green-rgb),.2); flex-shrink: 0; }
-      .mock-title-block h1 { margin: 0; font-size: 34px; line-height: .98; font-weight: 950; letter-spacing: -.055em; }
-      .mock-title-block p { margin: 10px 0 0; color: var(--muted); line-height: 1.6; font-size: 15px; max-width: 620px; }
-      .mock-feature-strip { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-      .mock-feature { min-height: 78px; display: flex; gap: 12px; align-items: center; padding: 14px; }
-      .mock-feature > span { width: 38px; height: 38px; border-radius: 999px; color: var(--green); display: grid; place-items: center; background: rgba(var(--green-rgb),.08); border: 1px solid rgba(var(--green-rgb),.16); flex-shrink: 0; }
-      .mock-feature p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
-      .mock-hero-grid { display: grid; grid-template-columns: minmax(0,1.48fr) minmax(320px,.88fr); gap: 14px; }
-      .exam-simulator-card { min-height: 260px; background: linear-gradient(90deg, rgba(11,15,13,.98), rgba(11,15,13,.86)), radial-gradient(circle at 75% 50%, rgba(255,255,255,.06), transparent 26%); display: grid; grid-template-columns: minmax(430px,1fr) minmax(340px,.92fr); overflow: hidden; padding: 20px; }
-      .exam-simulator-content { display: grid; align-content: center; gap: 16px; min-width: 0; }
-      .exam-title-row { display: flex; align-items: center; gap: 10px; }
-      .exam-title-row h2,.exam-rules-title h2,.mock-card-header h2,.analytics-card > h2 { margin: 0; font-size: 21px; font-weight: 900; letter-spacing: -.035em; }
-      .exam-title-row span { color: var(--green); background: rgba(var(--green-rgb),.12); border: 1px solid rgba(var(--green-rgb),.24); border-radius: 999px; padding: 5px 8px; text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 900; }
-      .exam-simulator-content > p { color: var(--muted); line-height: 1.55; max-width: 620px; margin: 0; }
-      .exam-meta-grid { display: grid; grid-template-columns: repeat(4,minmax(92px,1fr)); gap: 10px; align-items: start; }
-      .mock-meta-item { display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 8px; color: var(--muted); align-items: start; min-width: 0; }
-      .mock-meta-item div { display: grid; gap: 3px; }
-      .mock-meta-item strong { color: var(--white); font-size: 13px; line-height: 1.2; }
-      .exam-action-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-      .mock-primary-button { min-height: 46px; border: 0; padding: 0 20px; }
-      .mock-ghost-button { min-height: 46px; border: 0; background: transparent; padding: 0; }
-      .exam-laptop-visual { position: relative; min-height: 220px; background: linear-gradient(90deg, rgba(5,7,6,.08), rgba(5,7,6,.50)), url(https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80); background-size: cover; background-position: center; border-radius: 14px; filter: grayscale(1) contrast(1.08) brightness(.58); }
-      .exam-laptop-screen { position: absolute; right: 32px; top: 32px; width: 180px; height: 116px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.64); padding: 12px; color: var(--white); transform: perspective(700px) rotateY(-12deg) rotateX(4deg); display: grid; gap: 6px; }
-      .exam-laptop-rows { display: grid; gap: 5px; }
-      .exam-laptop-rows i { height: 5px; border-radius: 999px; background: rgba(255,255,255,.16); }
-      .exam-rules-card { min-height: 260px; padding: 20px; display: grid; align-content: space-between; }
-      .exam-rules-title { display: flex; gap: 12px; align-items: center; }
-      .rule-list { display: grid; gap: 10px; margin: 16px 0; }
-      .rule-item { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 14px; }
-      .mock-secondary-button { min-height: 40px; width: fit-content; padding: 0 16px; }
-      .mock-middle-grid { display: grid; grid-template-columns: minmax(0,1.05fr) minmax(300px,.85fr) minmax(0,1fr); gap: 14px; }
-      .latest-resultados-card,.readiness-card,.module-exams-card,.analytics-card { padding: 18px; }
-      .readiness-card { display: grid; }
-      .mock-card-header { display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 12px; }
-      .mock-card-header button { border: 0; background: transparent; color: var(--green); font-size: 12px; font-weight: 850; cursor: pointer; }
-      .resultados-list { display: grid; gap: 8px; }
-      .result-row { min-height: 56px; display: grid; grid-template-columns: 34px minmax(0,1fr) 64px 20px; gap: 10px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.055); padding: 6px 0; }
-      .result-icon-ok,.result-icon-fail { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; }
-      .result-icon-ok { color: var(--green); background: rgba(var(--green-rgb),.08); }
-      .result-icon-fail { color: var(--danger); background: rgba(255,87,87,.08); }
-      .result-info { min-width: 0; }
-      .result-info p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-      .result-score-ok,.result-score-fail { display: grid; text-align: right; font-weight: 900; }
-      .result-score-ok { color: var(--green); }
-      .result-score-fail { color: var(--danger); }
-      .readiness-ring-wrap { display: grid; place-items: center; margin-top: 8px; }
-      .readiness-ring { width: 156px; height: 156px; border-radius: 999px; display: grid; place-items: center; }
-      .readiness-ring-inner { width: 112px; height: 112px; border-radius: 999px; background: #080b0a; display: grid; place-items: center; align-content: center; text-align: center; }
-      .readiness-ring-inner strong { font-size: 38px; line-height: .9; letter-spacing: -.05em; }
-      .readiness-ring-inner span { color: var(--green); text-transform: uppercase; font-size: 11px; letter-spacing: .12em; margin-top: 8px; font-weight: 900; }
-      .readiness-card > p { margin: 12px auto; max-width: 250px; color: var(--muted); text-align: center; line-height: 1.5; }
-      .readiness-footer { margin-top: auto; display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
-      .readiness-footer strong { color: var(--green); }
-      .module-exam-list { display: grid; gap: 12px; }
-      .module-exam-row { display: grid; grid-template-columns: 30px minmax(0,1fr) 42px 18px; gap: 10px; align-items: center; color: var(--muted); }
-      .module-exam-row > div { min-width: 0; }
-      .module-exam-row span { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
-      .module-exam-progress { height: 5px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 8px; }
-      .module-exam-progress div { height: 100%; border-radius: 999px; }
-      .analytics-card > h2 { margin: 0; }
-      .analytics-grid { display: grid; grid-template-columns: 300px minmax(0,1fr) 310px; gap: 14px; margin-top: 12px; }
-      .average-score-card,.score-trend-card,.focus-area-card { border-radius: 14px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.024); padding: 16px; position: relative; overflow: hidden; }
-      .average-score-card > strong { display: block; font-size: 46px; line-height: 1; letter-spacing: -.05em; margin-top: 10px; }
-      .average-score-card p { color: var(--muted); }
-      .average-score-card em { color: var(--green); font-style: normal; font-weight: 850; }
-      .sparkline { position: absolute; right: 16px; bottom: 20px; width: 140px; height: 58px; background: linear-gradient(180deg, rgba(var(--green-rgb),.36), transparent); clip-path: polygon(0 90%, 10% 72%, 22% 76%, 34% 54%, 45% 58%, 55% 38%, 66% 44%, 76% 24%, 88% 20%, 100% 10%, 100% 100%, 0 100%); opacity: .8; }
-      .score-trend-tooltip { position: absolute; right: 44px; top: 14px; border-radius: 9px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.38); padding: 8px 12px; display: grid; gap: 2px; color: var(--green); font-weight: 900; }
-      .trend-svg { width: 100%; height: 170px; }
-      .focus-area-card h3,.score-trend-card h3 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
-      .focus-item { display: flex; gap: 12px; margin-top: 16px; color: var(--muted); }
-      .focus-icon-green,.focus-icon-gold { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; flex-shrink: 0; }
-      .focus-icon-green { background: rgba(var(--green-rgb),.1); color: var(--green); }
-      .focus-icon-gold { background: rgba(247,201,72,.1); color: var(--warning); }
-      .profile-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 12px; }
-      .profile-stat { border-radius: 10px; border: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.2); padding: 10px; min-width: 0; display: grid; gap: 5px; }
-      .profile-stat span { color: rgba(244,246,242,.6); font-size: 11px; line-height: 1.2; }
-      .profile-stat strong { color: var(--white); font-size: 16px; line-height: 1.05; font-weight: 850; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .info-grid,.course-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 14px; }
-      .info-block { border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); padding: 18px; }
-      .info-block > span { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--green); background: rgba(var(--green-rgb),.08); border: 1px solid rgba(var(--green-rgb),.18); margin-bottom: 14px; }
-      .info-block h3 { margin: 0; font-size: 18px; line-height: 1.2; font-weight: 850; }
-      .info-block p { margin: 8px 0 0; color: var(--muted); line-height: 1.65; font-size: 14px; }
-      .certificate-card { padding: 20px; }
-      .certificate-icon { width: 54px; height: 54px; border-radius: 999px; border: 1px solid rgba(var(--green-rgb),.26); background: rgba(var(--green-rgb),.08); display: grid; place-items: center; color: var(--green); margin-bottom: 14px; }
-      .certificate-card h3 { margin: 14px 0 16px; font-size: 24px; line-height: 1.05; font-weight: 900; letter-spacing: -.035em; }
-      .empty-state { border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025); padding: 18px; color: var(--muted); }
-      .empty-state p,.empty-text { margin: 0; color: var(--muted); line-height: 1.6; }
+      .empty-state { padding: 36px; text-align: center; }
+      .empty-state span { width: 54px; height: 54px; margin: 0 auto 16px; display: grid; place-items: center; border-radius: 50%; background: rgba(99,229,70,.12); color: var(--green); font-size: 24px; }
+      .empty-state h3 { margin: 0 0 8px; }
+      .empty-state p { margin: 0 auto; color: var(--muted); max-width: 520px; line-height: 1.55; }
 
+      .cert-page { display: grid; gap: 24px; }
+      .cert-heading { display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; }
+      .cert-heading h2 { margin: 8px 0 8px; font-size: clamp(38px, 5vw, 74px); line-height: .9; letter-spacing: -.07em; }
+      .cert-heading p { margin: 0; color: var(--muted); font-size: 17px; max-width: 760px; }
 
-      .loading-page {
-        grid-template-columns: 1fr !important;
-        place-items: center;
-      }
-
-
-      .cert-pro-page {
-        display: grid;
-        gap: 16px;
-      }
-
-      .cert-pro-hero {
-        min-height: 320px;
-        border-radius: 18px;
-        border: 1px solid rgba(255,255,255,.09);
-        background: var(--panel);
-        overflow: hidden;
+      .cert-hero {
+        min-height: 430px;
+        border-radius: 38px;
         position: relative;
-        display: grid;
-        grid-template-columns: .82fr 1.18fr;
-        box-shadow: 0 20px 70px rgba(0,0,0,.16);
-      }
-
-      .cert-pro-hero::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(90deg, rgba(5,7,6,.98) 0%, rgba(5,7,6,.90) 31%, rgba(5,7,6,.44) 63%, rgba(5,7,6,.10) 100%),
-          radial-gradient(circle at 78% 40%, rgba(214,178,94,.16), transparent 28%);
-        z-index: 1;
-      }
-
-      .cert-pro-hero-content {
-        position: relative;
-        z-index: 3;
-        padding: 36px;
-        display: grid;
-        align-content: center;
-        gap: 14px;
-      }
-
-      .cert-pro-kicker {
-        margin: 0;
-        color: var(--green);
-        text-transform: uppercase;
-        letter-spacing: .18em;
-        font-size: 11px;
-        font-weight: 950;
-      }
-
-      .cert-pro-hero h1 {
-        margin: 0;
-        font-size: clamp(42px, 5vw, 70px);
-        line-height: .92;
-        letter-spacing: -.06em;
-        font-weight: 950;
-      }
-
-      .cert-pro-hero p {
-        color: var(--muted);
-        line-height: 1.65;
-        max-width: 520px;
-      }
-
-      .cert-pro-benefits {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 8px;
-        max-width: 560px;
-      }
-
-      .cert-pro-benefits div {
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.035);
-        padding: 12px;
-        display: grid;
-        gap: 8px;
-        color: var(--muted);
-        min-height: 82px;
-      }
-
-      .cert-pro-benefits svg {
-        color: var(--green);
-      }
-
-      .cert-pro-hero-image {
-        position: relative;
-        min-height: 320px;
-        background:
-          linear-gradient(90deg, rgba(5,7,6,.18), rgba(5,7,6,.04)),
-          radial-gradient(circle at center, rgba(255,255,255,.06), transparent 46%);
-        overflow: hidden;
-      }
-
-      .cert-pro-hero-image::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(110deg, transparent 0%, rgba(18,45,25,.45) 58%, rgba(18,45,25,.05) 59%, transparent 70%);
-        opacity: .75;
-      }
-
-      .cert-pro-certificate-paper {
-        position: absolute;
-        right: 62px;
-        top: 24px;
-        width: 610px;
-        height: 300px;
-        border-radius: 10px;
-        background:
-          linear-gradient(135deg, rgba(255,255,255,.96), rgba(230,218,190,.92)),
-          radial-gradient(circle at 20% 30%, rgba(255,255,255,.45), transparent 32%);
-        color: #111;
-        transform: rotate(-9deg);
-        box-shadow: 0 28px 70px rgba(0,0,0,.45);
-        border: 1px solid rgba(214,178,94,.35);
-        z-index: 2;
-        display: grid;
-        place-items: center;
-        text-align: center;
-        overflow: hidden;
-      }
-
-      .cert-pro-certificate-paper::before {
-        content: '';
-        position: absolute;
-        inset: 18px;
-        border: 1px solid rgba(20,20,20,.16);
-        border-radius: 6px;
-      }
-
-      .cert-pro-paper-logo {
-        position: absolute;
-        top: 34px;
-        font-size: 18px;
-        text-transform: uppercase;
-        letter-spacing: .28em;
-        font-weight: 800;
-        color: #1a1a1a;
-      }
-
-      .cert-pro-paper-title {
-        position: absolute;
-        top: 82px;
-        font-family: Georgia, serif;
-        font-size: 42px;
-        text-transform: uppercase;
-        letter-spacing: .15em;
-        font-weight: 700;
-      }
-
-      .cert-pro-paper-subtitle {
-        position: absolute;
-        top: 130px;
-        font-family: Georgia, serif;
-        font-size: 14px;
-        letter-spacing: .26em;
-        text-transform: uppercase;
-      }
-
-      .cert-pro-paper-name {
-        position: absolute;
-        top: 154px;
-        font-family: Georgia, serif;
-        font-style: italic;
-        font-size: 34px;
-      }
-
-      .cert-pro-paper-course {
-        position: absolute;
-        top: 210px;
-        font-family: Georgia, serif;
-        font-size: 18px;
-        font-weight: 700;
-      }
-
-      .cert-pro-paper-signature {
-        position: absolute;
-        left: 92px;
-        bottom: 42px;
-        width: 150px;
-        height: 1px;
-        background: rgba(0,0,0,.55);
-      }
-
-      .cert-pro-paper-seal {
-        position: absolute;
-        right: 86px;
-        bottom: 48px;
-        width: 86px;
-        height: 86px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        color: #51370b;
-        background:
-          radial-gradient(circle at 30% 30%, #fff1bf, #d6b25e 38%, #9f741e 72%, #6c4a0f 100%);
-        box-shadow: 0 10px 26px rgba(0,0,0,.28);
-        clip-path: polygon(50% 0%,56% 8%,65% 3%,70% 12%,80% 9%,83% 19%,93% 20%,91% 31%,100% 38%,94% 48%,100% 58%,91% 65%,93% 76%,83% 77%,80% 87%,70% 84%,65% 97%,56% 92%,50% 100%,44% 92%,35% 97%,30% 84%,20% 87%,17% 77%,7% 76%,9% 65%,0% 58%,6% 48%,0% 38%,9% 31%,7% 20%,17% 19%,20% 9%,30% 12%,35% 3%,44% 8%);
-      }
-
-      .cert-pro-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1.05fr) minmax(390px, .95fr);
-        gap: 16px;
-      }
-
-      .cert-pro-available,
-      .cert-pro-how,
-      .cert-pro-verify,
-      .cert-pro-status {
-        border-radius: 18px;
-        border: 1px solid rgba(255,255,255,.09);
-        background: var(--panel);
-        padding: 20px;
-        box-shadow: 0 20px 70px rgba(0,0,0,.16);
-      }
-
-      .cert-pro-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 16px;
-      }
-
-      .cert-pro-card-header h2,
-      .cert-pro-how h2,
-      .cert-pro-verify h2,
-      .cert-pro-status h2 {
-        margin: 6px 0 0;
-        font-size: 22px;
-        line-height: 1;
-        letter-spacing: -.035em;
-        font-weight: 950;
-      }
-
-      .cert-pro-card-header > span {
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.24);
-        background: rgba(var(--green-rgb),.10);
-        border-radius: 999px;
-        padding: 7px 10px;
-        font-size: 12px;
-        font-weight: 900;
-      }
-
-      .cert-pro-issued-card,
-      .cert-pro-locked-card {
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.028);
-        padding: 14px;
-        display: grid;
-        grid-template-columns: 235px minmax(0,1fr);
-        gap: 16px;
-        margin-top: 12px;
-      }
-
-      .cert-pro-thumb,
-      .cert-pro-locked-thumb {
-        min-height: 160px;
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.10);
-        background:
-          linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.02)),
-          radial-gradient(circle at top right, rgba(var(--green-rgb),.16), transparent 36%);
         overflow: hidden;
         display: grid;
-        place-items: center;
-        position: relative;
-      }
-
-      .cert-pro-thumb-inner {
-        width: 180px;
-        height: 118px;
-        border-radius: 12px;
-        border: 1px solid rgba(var(--green-rgb),.30);
-        background: rgba(0,0,0,.34);
-        display: grid;
-        place-items: center;
-        text-align: center;
-        padding: 12px;
-      }
-
-      .cert-pro-thumb-inner span {
-        color: var(--muted);
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: .18em;
-      }
-
-      .cert-pro-thumb-inner strong {
-        color: var(--white);
-        text-transform: uppercase;
-        letter-spacing: .12em;
-        font-family: Georgia, serif;
-      }
-
-      .cert-pro-thumb-inner em {
-        color: var(--green);
-        font-size: 11px;
-        font-style: normal;
-      }
-
-      .cert-pro-thumb-inner b {
-        color: var(--gold);
-      }
-
-      .cert-pro-issued-body {
-        min-width: 0;
-        display: grid;
-        align-content: center;
-        gap: 10px;
-      }
-
-      .cert-pro-issued-body h3 {
-        margin: 0;
-        font-size: 24px;
-        line-height: 1.05;
-        letter-spacing: -.035em;
-        font-weight: 950;
-      }
-
-      .cert-pro-issued-body p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .cert-pro-status-pill,
-      .cert-pro-locked-pill {
-        width: fit-content;
-        border-radius: 999px;
-        padding: 6px 9px;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-      }
-
-      .cert-pro-status-pill {
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.26);
-        background: rgba(var(--green-rgb),.10);
-      }
-
-      .cert-pro-locked-pill {
-        color: var(--soft);
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.04);
-      }
-
-      .cert-pro-mini-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0,1fr));
-        gap: 10px;
-      }
-
-      .cert-pro-primary {
-        min-height: 42px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, var(--green), #7bee65);
-        color: #061008;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-weight: 900;
-        width: fit-content;
-        padding: 0 16px;
-      }
-
-      .cert-pro-muted {
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .cert-pro-empty-issued {
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.028);
-        padding: 24px;
-        display: grid;
-        gap: 12px;
-        justify-items: start;
-      }
-
-      .cert-pro-empty-icon {
-        width: 54px;
-        height: 54px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        background: rgba(var(--green-rgb),.08);
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.22);
-      }
-
-      .cert-pro-locked-thumb {
-        color: var(--soft);
-        gap: 10px;
-      }
-
-      .cert-pro-locked-card-art {
-        width: 180px;
-        height: 118px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(0,0,0,.26);
-        display: grid;
-        place-items: center;
-        text-align: center;
-        padding: 12px;
-        color: var(--soft);
-      }
-
-      .cert-pro-locked-card-art strong {
-        color: var(--white);
-        text-transform: uppercase;
-        letter-spacing: .12em;
-        font-family: Georgia, serif;
-      }
-
-      .cert-pro-locked-card-art em {
-        font-style: normal;
-        color: var(--soft);
-        font-size: 12px;
-      }
-
-      .cert-pro-progress-line {
-        height: 8px;
-        border-radius: 999px;
-        background: rgba(255,255,255,.10);
-        overflow: hidden;
-      }
-
-      .cert-pro-progress-line div {
-        height: 100%;
-        background: var(--green);
-        border-radius: 999px;
-        box-shadow: 0 0 18px rgba(var(--green-rgb),.22);
-      }
-
-      .cert-pro-all-button {
-        width: 100%;
-        min-height: 44px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.035);
-        color: var(--white);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 14px;
-        margin-top: 12px;
-        cursor: pointer;
-        font-weight: 850;
-      }
-
-      .cert-pro-side {
-        display: grid;
-        gap: 16px;
-      }
-
-      .cert-pro-steps {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0,1fr));
-        gap: 10px;
-        margin-top: 16px;
-      }
-
-      .cert-pro-steps div {
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.026);
-        padding: 14px;
-        display: grid;
-        gap: 8px;
-        text-align: center;
-      }
-
-      .cert-pro-steps svg {
-        color: var(--green);
-        margin: 0 auto;
-      }
-
-      .cert-pro-steps strong {
-        font-size: 13px;
-      }
-
-      .cert-pro-steps span {
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.45;
-      }
-
-      .cert-pro-verify {
-        display: grid;
-        grid-template-columns: 76px minmax(0,1fr);
+        grid-template-columns: minmax(0, .96fr) minmax(420px, .86fr);
         gap: 18px;
-        align-items: center;
-      }
-
-      .cert-pro-shield {
-        width: 76px;
-        height: 76px;
-        border-radius: 20px;
-        display: grid;
-        place-items: center;
-        background: rgba(var(--green-rgb),.08);
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.20);
-      }
-
-      .cert-pro-verify p,
-      .cert-pro-status p {
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .cert-pro-verify button {
-        min-height: 40px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(255,255,255,.045);
-        color: var(--white);
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 14px;
-        font-weight: 850;
-        cursor: pointer;
-      }
-
-      .cert-pro-status {
-        display: grid;
-        grid-template-columns: 100px minmax(0,1fr) 150px;
-        gap: 16px;
-        align-items: center;
-      }
-
-      .cert-pro-status-ring {
-        width: 82px;
-        height: 82px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        border: 10px solid rgba(var(--green-rgb),.22);
-        box-shadow: inset 0 0 0 2px rgba(255,255,255,.05);
-      }
-
-      .cert-pro-status-ring strong {
-        font-size: 30px;
-        line-height: 1;
-      }
-
-      .cert-pro-status ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: 10px;
-      }
-
-      .cert-pro-status li {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .cert-pro-status li strong {
-        color: var(--white);
-      }
-
-      @media (max-width: 1180px) {
-        .cert-pro-hero,
-        .cert-pro-grid,
-        .cert-pro-issued-card,
-        .cert-pro-locked-card,
-        .cert-pro-status {
-          grid-template-columns: 1fr;
-        }
-
-        .cert-pro-steps {
-          grid-template-columns: repeat(2, minmax(0,1fr));
-        }
-
-        .cert-pro-verify {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      
-      .cert-final-page {
-        display: grid;
-        gap: 16px;
-      }
-
-      .cert-final-hero {
-        min-height: 320px;
-        border-radius: 18px;
-        border: 1px solid rgba(255,255,255,.09);
+        padding: clamp(28px, 4vw, 48px);
+        border: 1px solid rgba(255,255,255,.105);
         background:
-          linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
-          rgba(9,13,12,.94);
-        overflow: hidden;
-        position: relative;
-        display: grid;
-        grid-template-columns: .78fr 1.22fr;
-        box-shadow: 0 24px 80px rgba(0,0,0,.24);
+          radial-gradient(circle at 74% 24%, rgba(99,229,70,.24), transparent 30%),
+          radial-gradient(circle at 42% 112%, rgba(99,229,70,.10), transparent 35%),
+          linear-gradient(135deg, rgba(17,23,20,.96) 0%, rgba(8,11,10,.98) 46%, rgba(25,31,27,.95) 100%);
+        box-shadow: 0 38px 130px rgba(0,0,0,.40), inset 0 1px 0 rgba(255,255,255,.07);
       }
+      .cert-hero::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px); background-size: 42px 42px; mask-image: linear-gradient(90deg, black, transparent 76%); opacity: .38; }
+      .cert-hero::after { content: ""; position: absolute; right: -180px; top: -230px; width: 560px; height: 560px; border-radius: 50%; border: 1px solid rgba(99,229,70,.16); box-shadow: inset 0 0 90px rgba(99,229,70,.08); }
+      .cert-hero-copy { position: relative; z-index: 2; align-self: center; }
+      .cert-kicker { display: inline-flex; padding: 8px 12px; border: 1px solid rgba(99,229,70,.26); background: rgba(99,229,70,.10); color: var(--green); border-radius: 999px; font-size: 12px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+      .cert-hero-copy h3 { max-width: 720px; margin: 18px 0 18px; font-size: clamp(46px, 5.7vw, 92px); line-height: .86; letter-spacing: -.085em; }
+      .cert-hero-copy > p { max-width: 680px; margin: 0; color: #C9D3CB; line-height: 1.72; font-size: 16px; }
+      .benefit-grid { margin-top: 28px; display: grid; gap: 12px; max-width: 680px; }
+      .benefit-card { display: grid; grid-template-columns: 42px 1fr; gap: 12px; padding: 13px; border-radius: 19px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.075); backdrop-filter: blur(12px); }
+      .benefit-card > span { width: 42px; height: 42px; border-radius: 15px; display: grid; place-items: center; background: linear-gradient(135deg, rgba(99,229,70,.26), rgba(99,229,70,.08)); color: var(--green); font-weight: 900; border: 1px solid rgba(99,229,70,.22); }
+      .benefit-card strong { display: block; color: #fff; margin-bottom: 3px; }
+      .benefit-card p { margin: 0; color: var(--muted); line-height: 1.42; font-size: 13px; }
 
-      .cert-final-hero::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(90deg, rgba(5,7,6,.98) 0%, rgba(5,7,6,.94) 32%, rgba(5,7,6,.48) 63%, rgba(5,7,6,.14) 100%),
-          radial-gradient(circle at 75% 44%, rgba(214,178,94,.16), transparent 28%);
-        z-index: 1;
-      }
-
-      .cert-final-copy {
-        position: relative;
-        z-index: 3;
-        padding: 36px;
-        display: grid;
-        align-content: center;
-        gap: 14px;
-      }
-
-      .cert-final-kicker {
-        margin: 0;
-        color: var(--green);
-        text-transform: uppercase;
-        letter-spacing: .18em;
-        font-size: 11px;
-        font-weight: 950;
-      }
-
-      .cert-final-copy h1 {
-        margin: 0;
-        font-size: clamp(42px, 5vw, 70px);
-        line-height: .92;
-        letter-spacing: -.06em;
-        font-weight: 950;
-      }
-
-      .cert-final-subtitle {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.65;
-        max-width: 520px;
-      }
-
-      .cert-final-trust {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 8px;
-        max-width: 560px;
-      }
-
-      .cert-final-trust div {
-        min-height: 84px;
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.035);
-        padding: 12px;
-        display: grid;
-        gap: 8px;
-        color: var(--muted);
-      }
-
-      .cert-final-trust svg {
-        color: var(--green);
-      }
-
-      .cert-final-visual {
-        position: relative;
-        min-height: 320px;
-        overflow: hidden;
-      }
-
-      .cert-final-visual::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(120deg, transparent 0%, rgba(18,45,25,.55) 58%, rgba(18,45,25,.05) 59%, transparent 72%);
-        z-index: 1;
-      }
-
-      .cert-final-paper {
-        position: absolute;
-        right: 54px;
-        top: 26px;
-        width: min(650px, 94%);
-        height: 300px;
-        border-radius: 10px;
-        background:
-          linear-gradient(135deg, rgba(255,255,255,.96), rgba(231,219,190,.94)),
-          radial-gradient(circle at 20% 30%, rgba(255,255,255,.45), transparent 34%);
-        color: #111;
-        transform: rotate(-8deg);
-        box-shadow: 0 30px 78px rgba(0,0,0,.48);
-        border: 1px solid rgba(214,178,94,.35);
-        z-index: 2;
-        display: grid;
-        place-items: center;
-        text-align: center;
-        overflow: hidden;
-      }
-
-      .cert-final-paper::before {
-        content: '';
-        position: absolute;
-        inset: 18px;
-        border: 1px solid rgba(20,20,20,.18);
-        border-radius: 6px;
-      }
-
-      .cert-final-paper::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(120deg, rgba(255,255,255,.32), transparent 34%),
-          radial-gradient(circle at 80% 20%, rgba(255,255,255,.18), transparent 28%);
-        pointer-events: none;
-      }
-
-      .cert-final-paper-logo {
-        position: absolute;
-        top: 34px;
-        font-size: 18px;
-        text-transform: uppercase;
-        letter-spacing: .28em;
-        font-weight: 800;
-        color: #1a1a1a;
-      }
-
-      .cert-final-paper-title {
-        position: absolute;
-        top: 82px;
-        font-family: Georgia, serif;
-        font-size: 42px;
-        text-transform: uppercase;
-        letter-spacing: .15em;
-        font-weight: 700;
-      }
-
-      .cert-final-paper-subtitle {
-        position: absolute;
-        top: 130px;
-        font-family: Georgia, serif;
-        font-size: 14px;
-        letter-spacing: .26em;
-        text-transform: uppercase;
-      }
-
-      .cert-final-paper-line {
-        position: absolute;
-        top: 150px;
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: .12em;
-      }
-
-      .cert-final-paper-name {
-        position: absolute;
-        top: 162px;
-        font-family: Georgia, serif;
-        font-style: italic;
-        font-size: 34px;
-      }
-
-      .cert-final-paper-copy {
-        position: absolute;
-        top: 204px;
-        font-size: 11px;
-        opacity: .75;
-      }
-
-      .cert-final-paper-course {
-        position: absolute;
-        top: 224px;
-        font-family: Georgia, serif;
-        font-size: 18px;
-        font-weight: 700;
-      }
-
-      .cert-final-paper-signature {
-        position: absolute;
-        left: 92px;
-        bottom: 44px;
-        width: 150px;
-        height: 1px;
-        background: rgba(0,0,0,.55);
-      }
-
-      .cert-final-paper-director {
-        position: absolute;
-        left: 104px;
-        bottom: 26px;
-        font-size: 9px;
-        text-transform: uppercase;
-        letter-spacing: .12em;
-      }
-
-      .cert-final-seal {
-        position: absolute;
-        right: 90px;
-        bottom: 48px;
-        width: 88px;
-        height: 88px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        color: #51370b;
-        background:
-          radial-gradient(circle at 30% 30%, #fff1bf, #d6b25e 38%, #9f741e 72%, #6c4a0f 100%);
-        box-shadow: 0 10px 26px rgba(0,0,0,.30);
-        clip-path: polygon(50% 0%,56% 8%,65% 3%,70% 12%,80% 9%,83% 19%,93% 20%,91% 31%,100% 38%,94% 48%,100% 58%,91% 65%,93% 76%,83% 77%,80% 87%,70% 84%,65% 97%,56% 92%,50% 100%,44% 92%,35% 97%,30% 84%,20% 87%,17% 77%,7% 76%,9% 65%,0% 58%,6% 48%,0% 38%,9% 31%,7% 20%,17% 19%,20% 9%,30% 12%,35% 3%,44% 8%);
-        z-index: 3;
-      }
-
-      .cert-final-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1.04fr) minmax(390px, .96fr);
-        gap: 16px;
-      }
-
-      .cert-final-available,
-      .cert-final-how,
-      .cert-final-verify,
-      .cert-final-status {
-        border-radius: 18px;
-        border: 1px solid rgba(255,255,255,.09);
-        background: var(--panel);
-        padding: 20px;
-        box-shadow: 0 20px 70px rgba(0,0,0,.16);
-      }
-
-      .cert-final-section-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 16px;
-      }
-
-      .cert-final-section-head h2,
-      .cert-final-how h2,
-      .cert-final-verify h2,
-      .cert-final-status h2 {
-        margin: 6px 0 0;
-        font-size: 22px;
-        line-height: 1;
-        letter-spacing: -.035em;
-        font-weight: 950;
-      }
-
-      .cert-final-section-head > span {
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.24);
-        background: rgba(var(--green-rgb),.10);
-        border-radius: 999px;
-        padding: 7px 10px;
-        font-size: 12px;
-        font-weight: 900;
-      }
-
-      .cert-final-issued,
-      .cert-final-locked {
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.028);
-        padding: 14px;
-        display: grid;
-        grid-template-columns: 235px minmax(0,1fr);
-        gap: 16px;
-        margin-top: 12px;
-      }
-
-      .cert-final-card-art,
-      .cert-final-locked-art {
-        min-height: 160px;
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.10);
-        background:
-          linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.02)),
-          radial-gradient(circle at top right, rgba(var(--green-rgb),.16), transparent 36%);
-        overflow: hidden;
-        display: grid;
-        place-items: center;
-        position: relative;
-      }
-
-      .cert-final-card-art-inner,
-      .cert-final-locked-art > div {
-        width: 182px;
-        height: 120px;
+      .certificate-art-wrap { position: relative; z-index: 2; min-height: 370px; display: grid; place-items: center; perspective: 1100px; }
+      .hero-orbit { position: absolute; border-radius: 999px; border: 1px solid rgba(99,229,70,.22); filter: blur(.1px); }
+      .hero-orbit.one { width: 420px; height: 420px; transform: rotate(-18deg); }
+      .hero-orbit.two { width: 300px; height: 300px; transform: rotate(22deg); border-color: rgba(255,255,255,.09); }
+      .paper-certificate {
+        width: min(390px, 92%);
+        min-height: 520px;
+        padding: 30px 28px;
         border-radius: 12px;
-        border: 1px solid rgba(var(--green-rgb),.30);
-        background: rgba(0,0,0,.34);
-        display: grid;
-        place-items: center;
-        text-align: center;
-        padding: 12px;
+        position: relative;
+        transform: rotate(-8deg) rotateY(-10deg) rotateX(5deg);
+        background:
+          radial-gradient(circle at 82% 16%, rgba(212,175,55,.22), transparent 18%),
+          linear-gradient(135deg, #FBF2D5 0%, #EFE0B8 52%, #FFF8E8 100%);
+        color: #17150F;
+        box-shadow: 0 44px 90px rgba(0,0,0,.52), 0 0 0 1px rgba(255,255,255,.42), inset 0 0 0 11px rgba(80,64,31,.08), inset 0 0 0 13px rgba(171,131,37,.28);
       }
+      .paper-certificate::before { content: ""; position: absolute; inset: 22px; border: 1px solid rgba(115,83,21,.22); border-radius: 4px; pointer-events: none; }
+      .paper-certificate::after { content: ""; position: absolute; right: -30px; bottom: 28px; width: 90px; height: 16px; background: rgba(0,0,0,.20); filter: blur(18px); transform: rotate(9deg); }
+      .paper-topline { height: 5px; width: 120px; margin: 0 auto 20px; border-radius: 999px; background: linear-gradient(90deg, transparent, #B88A24, transparent); }
+      .paper-logo { width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 12px; background: #15150E; color: #E7CC71; font-weight: 950; letter-spacing: -.06em; }
+      .paper-small { display: block; text-align: center; font-size: 9px; letter-spacing: .24em; color: #725C2D; font-weight: 800; }
+      .paper-certificate h4 { text-align: center; margin: 28px 0 0; font-size: 38px; letter-spacing: .03em; font-family: Georgia, "Times New Roman", serif; }
+      .paper-certificate > strong { display: block; text-align: center; font-size: 18px; letter-spacing: .24em; color: #826223; margin-top: 3px; }
+      .paper-certificate p { text-align: center; margin: 20px auto 0; color: #4C4634; line-height: 1.4; max-width: 290px; font-size: 13px; }
+      .paper-certificate h5 { margin: 12px auto 4px; text-align: center; font-size: 30px; font-family: Georgia, "Times New Roman", serif; border-bottom: 1px solid rgba(115,83,21,.24); width: 78%; padding-bottom: 8px; }
+      .paper-course { margin: 16px auto 0; text-align: center; font-weight: 900; color: #17150F; max-width: 280px; }
+      .paper-bottom { margin-top: 36px; display: grid; grid-template-columns: 1fr 82px 1fr; align-items: center; gap: 12px; }
+      .paper-bottom span { display: block; color: #7A6A46; font-size: 10px; text-transform: uppercase; letter-spacing: .14em; }
+      .paper-bottom b { display: block; font-size: 11px; margin-top: 5px; border-top: 1px solid rgba(60,45,18,.32); padding-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .gold-seal { width: 82px; height: 82px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 34% 28%, #FFF1A7, #C99023 52%, #8B5D12 100%); color: #37280A; box-shadow: 0 8px 20px rgba(97,65,14,.3), inset 0 0 0 6px rgba(255,255,255,.17); }
+      .gold-seal i { font-style: normal; font-weight: 950; font-size: 18px; }
 
-      .cert-final-card-art-inner span,
-      .cert-final-locked-art span {
-        color: var(--muted);
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: .18em;
-      }
+      .cert-layout { display: grid; grid-template-columns: minmax(0, 1.38fr) minmax(340px, .62fr); gap: 22px; align-items: start; }
+      .cert-main-column, .cert-side-column { display: grid; gap: 16px; }
+      .cert-main-column { border: 1px solid rgba(255,255,255,.09); border-radius: 34px; padding: 20px; background: linear-gradient(180deg, rgba(16,21,18,.82), rgba(8,11,10,.82)); box-shadow: 0 30px 100px rgba(0,0,0,.28); }
+      .panel-header { padding: 4px 4px 6px; }
+      .panel-header h3, .side-panel h3 { margin: 0 0 7px; font-size: 22px; letter-spacing: -.03em; }
+      .panel-header p, .side-panel p { margin: 0; color: var(--muted); line-height: 1.55; }
 
-      .cert-final-card-art-inner strong,
-      .cert-final-locked-art strong {
-        color: var(--white);
-        text-transform: uppercase;
-        letter-spacing: .12em;
-        font-family: Georgia, serif;
-      }
+      .cert-card { display: grid; grid-template-columns: 190px 1fr; gap: 18px; padding: 16px; border-radius: 28px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.085); position: relative; overflow: hidden; }
+      .cert-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(135deg, rgba(255,255,255,.045), transparent 45%); }
+      .cert-card > * { position: relative; z-index: 1; }
+      .cert-thumbnail { min-height: 210px; border-radius: 22px; display: grid; place-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,.1); }
+      .issued-thumb { background: radial-gradient(circle at 28% 18%, rgba(99,229,70,.26), transparent 24%), linear-gradient(135deg, #0D1510, #151C18 54%, #070908); box-shadow: inset 0 0 0 1px rgba(99,229,70,.18); }
+      .thumb-inner { width: 78%; min-height: 142px; border-radius: 14px; border: 1px solid rgba(99,229,70,.45); display: grid; place-items: center; padding: 14px; text-align: center; background: rgba(0,0,0,.24); }
+      .thumb-inner span { color: var(--green); font-weight: 950; letter-spacing: -.08em; font-size: 26px; }
+      .thumb-inner strong { font-size: 13px; letter-spacing: .14em; }
+      .thumb-inner i { color: var(--muted); font-size: 12px; font-style: normal; }
+      .empty-thumb { opacity: .72; filter: saturate(.72); }
+      .locked-thumb { background: linear-gradient(135deg, rgba(255,255,255,.075), rgba(255,255,255,.025)); color: var(--steel); position: relative; }
+      .locked-thumb::before { content: ""; position: absolute; inset: 18px; border-radius: 18px; border: 1px dashed rgba(255,255,255,.15); }
+      .lock-symbol { width: 70px; height: 70px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: var(--green); font-size: 38px; }
+      .locked-thumb strong { position: absolute; bottom: 24px; font-size: 18px; letter-spacing: -.06em; color: rgba(255,255,255,.34); }
+      .cert-card-content { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+      .cert-row-top { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+      .cert-row-top small { color: var(--steel); }
+      .cert-card h4 { margin: 0 0 8px; font-size: clamp(22px, 2.2vw, 34px); letter-spacing: -.05em; }
+      .cert-card p { margin: 0; color: var(--muted); line-height: 1.58; }
+      .cert-details-grid { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin: 18px 0; }
+      .cert-details-grid div, .locked-meta { padding: 12px; border-radius: 16px; background: rgba(0,0,0,.18); border: 1px solid rgba(255,255,255,.07); }
+      .cert-details-grid span, .locked-meta span { display: block; color: var(--steel); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 6px; }
+      .cert-details-grid strong, .locked-meta strong { display: block; font-size: 13px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .locked-meta { width: 100%; margin-top: 16px; }
+      .soft-empty { border-color: rgba(255,255,255,.075); }
+      .all-certificates-row { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-radius: 22px; border: 1px solid rgba(99,229,70,.18); background: linear-gradient(135deg, rgba(99,229,70,.10), rgba(255,255,255,.035)); color: #fff; cursor: pointer; }
+      .all-certificates-row span { font-weight: 850; }
+      .all-certificates-row i { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: rgba(99,229,70,.16); color: var(--green); font-style: normal; }
 
-      .cert-final-card-art-inner em,
-      .cert-final-locked-art em {
-        color: var(--green);
-        font-size: 11px;
-        font-style: normal;
-      }
-
-      .cert-final-card-art-inner b {
-        color: var(--gold);
-      }
-
-      .cert-final-card-art-inner i {
-        width: 34px;
-        height: 34px;
-        border-radius: 50%;
-        background: radial-gradient(circle, #d6b25e, #775210);
-        display: block;
-      }
-
-      .cert-final-card-content {
-        min-width: 0;
-        display: grid;
-        align-content: center;
-        gap: 10px;
-      }
-
-      .cert-final-card-content h3 {
-        margin: 0;
-        font-size: 24px;
-        line-height: 1.05;
-        letter-spacing: -.035em;
-        font-weight: 950;
-      }
-
-      .cert-final-card-content p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .cert-final-pill-issued,
-      .cert-final-pill-locked {
-        width: fit-content;
-        border-radius: 999px;
-        padding: 6px 9px;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-      }
-
-      .cert-final-pill-issued {
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.26);
-        background: rgba(var(--green-rgb),.10);
-      }
-
-      .cert-final-pill-locked {
-        color: var(--soft);
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.04);
-      }
-
-      .cert-final-stats {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0,1fr));
-        gap: 10px;
-      }
-
-      .cert-final-code {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .cert-final-code strong {
-        color: var(--white);
-      }
-
-      .cert-final-primary {
-        min-height: 42px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, var(--green), #7bee65);
-        color: #061008;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-weight: 900;
-        width: fit-content;
-        padding: 0 16px;
-      }
-
-      .cert-final-muted {
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .cert-final-empty {
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.028);
-        padding: 24px;
-        display: grid;
-        gap: 12px;
-        justify-items: start;
-      }
-
-      .cert-final-empty > div {
-        width: 54px;
-        height: 54px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        background: rgba(var(--green-rgb),.08);
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.22);
-      }
-
-      .cert-final-progress {
-        height: 8px;
-        border-radius: 999px;
-        background: rgba(255,255,255,.10);
-        overflow: hidden;
-      }
-
-      .cert-final-progress div {
-        height: 100%;
-        background: var(--green);
-        border-radius: 999px;
-        box-shadow: 0 0 18px rgba(var(--green-rgb),.22);
-      }
-
-      .cert-final-all {
-        width: 100%;
-        min-height: 44px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.035);
-        color: var(--white);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 14px;
-        margin-top: 12px;
-        cursor: pointer;
-        font-weight: 850;
-      }
-
-      .cert-final-right {
-        display: grid;
-        gap: 16px;
-      }
-
-      .cert-final-steps {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0,1fr));
-        gap: 10px;
-        margin-top: 16px;
-      }
-
-      .cert-final-steps div {
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.026);
-        padding: 14px;
-        display: grid;
-        gap: 8px;
-        text-align: center;
-      }
-
-      .cert-final-steps span {
-        width: 46px;
-        height: 46px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.22);
-        background: rgba(var(--green-rgb),.08);
-        margin: 0 auto;
-      }
-
-      .cert-final-steps strong {
-        font-size: 13px;
-      }
-
-      .cert-final-steps p {
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.45;
-        margin: 0;
-      }
-
-      .cert-final-verify {
-        display: grid;
-        grid-template-columns: 76px minmax(0,1fr);
-        gap: 18px;
-        align-items: center;
-      }
-
-      .cert-final-verify-icon {
-        width: 76px;
-        height: 76px;
-        border-radius: 20px;
-        display: grid;
-        place-items: center;
-        background: rgba(var(--green-rgb),.08);
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb),.20);
-      }
-
-      .cert-final-verify p,
-      .cert-final-status p {
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .cert-final-verify button {
-        min-height: 40px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(255,255,255,.045);
-        color: var(--white);
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 14px;
-        font-weight: 850;
-        cursor: pointer;
-      }
-
-      .cert-final-status {
-        display: grid;
-        grid-template-columns: 100px minmax(0,1fr) 150px;
-        gap: 16px;
-        align-items: center;
-      }
-
-      .cert-final-ring {
-        width: 82px;
-        height: 82px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        border: 10px solid rgba(var(--green-rgb),.22);
-        box-shadow: inset 0 0 0 2px rgba(255,255,255,.05);
-      }
-
-      .cert-final-ring strong {
-        font-size: 30px;
-        line-height: 1;
-      }
-
-      .cert-final-status ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: 10px;
-      }
-
-      .cert-final-status li {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .cert-final-status li strong {
-        color: var(--white);
-      }
+      .side-panel { border-radius: 30px; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(180deg, rgba(18,23,20,.88), rgba(8,11,10,.88)); padding: 22px; box-shadow: 0 24px 80px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.05); }
+      .steps-list { display: grid; gap: 12px; margin-top: 18px; }
+      .step-item { display: grid; grid-template-columns: 42px 1fr; gap: 12px; align-items: start; padding: 12px; border-radius: 18px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.065); }
+      .step-item > span { width: 42px; height: 42px; border-radius: 15px; display: grid; place-items: center; background: rgba(99,229,70,.12); color: var(--green); font-weight: 950; border: 1px solid rgba(99,229,70,.2); }
+      .step-item strong { display: block; margin-bottom: 4px; }
+      .step-item p { font-size: 13px; line-height: 1.45; }
+      .shield-icon { width: 62px; height: 62px; border-radius: 22px; display: grid; place-items: center; background: radial-gradient(circle at 30% 20%, rgba(99,229,70,.24), rgba(99,229,70,.07)); border: 1px solid rgba(99,229,70,.22); margin-bottom: 16px; font-size: 28px; }
+      .verify-strip { margin-top: 18px; padding: 14px; border-radius: 18px; background: rgba(99,229,70,.08); border: 1px solid rgba(99,229,70,.16); }
+      .verify-strip span { display: block; color: var(--steel); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 5px; }
+      .verify-strip strong { color: var(--green); }
+      .credential-ring { --value: 0deg; width: 156px; height: 156px; margin: 22px auto; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--green) var(--value), rgba(255,255,255,.08) 0); position: relative; box-shadow: 0 20px 60px rgba(99,229,70,.10); }
+      .credential-ring::after { content: ""; position: absolute; inset: 16px; border-radius: 50%; background: #0B0F0D; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+      .credential-ring span { position: relative; z-index: 1; font-size: 34px; letter-spacing: -.06em; font-weight: 950; color: #fff; }
+      .credential-stats { display: grid; gap: 9px; }
+      .credential-stats div { display: flex; justify-content: space-between; align-items: center; padding: 12px 13px; border-radius: 16px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.065); }
+      .credential-stats span { color: var(--muted); }
+      .credential-stats strong { color: #fff; }
 
       @media (max-width: 1180px) {
-        .cert-final-hero,
-        .cert-final-layout,
-        .cert-final-issued,
-        .cert-final-locked,
-        .cert-final-status {
-          grid-template-columns: 1fr;
-        }
-
-        .cert-final-steps {
-          grid-template-columns: repeat(2, minmax(0,1fr));
-        }
-
-        .cert-final-verify {
-          grid-template-columns: 1fr;
-        }
+        .ghc-shell { grid-template-columns: 1fr; }
+        .sidebar { position: relative; height: auto; flex-direction: row; align-items: center; overflow-x: auto; }
+        .brand-block { min-width: 250px; }
+        .side-nav { grid-auto-flow: column; grid-auto-columns: max-content; }
+        .sidebar-progress { min-width: 270px; margin-top: 0; }
+        .cert-hero, .dashboard-hero, .cert-layout { grid-template-columns: 1fr; }
+        .certificate-art-wrap { min-height: 520px; }
+        .course-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
 
-      @media (max-width: 1320px) {
-        .student-page { grid-template-columns: 102px minmax(0, 1fr); }
-        .nav-item span,.user-card > div:nth-child(2) { display: none; }
-      }
-
-      @media (max-width: 1180px) {
-        .student-page { grid-template-columns: 1fr; }
-        .sidebar { position: relative; height: auto; }
-        .mock-header,.mock-hero-grid,.mock-middle-grid,.analytics-grid,.hero-grid,.dashboard-bottom,.curriculum-grid,.curriculum-head { grid-template-columns: 1fr; }
+      @media (max-width: 760px) {
+        .workspace { padding: 18px 14px 42px; }
+        .topbar { align-items: flex-start; flex-direction: column; }
+        .top-actions { width: 100%; flex-wrap: wrap; }
+        .user-pill { flex: 1; min-width: 0; }
+        .notification-dropdown { left: 0; right: auto; width: min(350px, calc(100vw - 28px)); }
+        .section-head { flex-direction: column; align-items: stretch; }
+        .course-controls { justify-content: stretch; }
+        .course-controls input, .course-controls select, .toggle-btn { width: 100%; }
+        .course-grid, .exam-grid, .stats-grid { grid-template-columns: 1fr; }
+        .course-card.list, .featured-course, .cert-card { grid-template-columns: 1fr; }
+        .course-card.list .course-cover { border-radius: 28px 28px 0 0; min-height: 180px; }
+        .cert-hero { padding: 24px; border-radius: 30px; }
+        .cert-hero-copy h3 { font-size: 48px; }
+        .paper-certificate { transform: rotate(-4deg); min-height: 480px; }
+        .cert-details-grid { grid-template-columns: 1fr; }
+        .sidebar { padding: 14px; }
       }
     `}</style>
   );
-}
-
-
-/* ------------------------------ RECOVERY HELPERS ------------------------------ */
-/* Estas funciones son necesarias para el build de Vercel. */
-
-function isVisibleCourse(course: AnyRecord) {
-  const status = String(course.status || '').toLowerCase();
-
-  if (!status) return true;
-
-  return ['published', 'publicado', 'active', 'activo', 'preview', 'demo'].includes(status);
-}
-
-function buildModuleViews({
-  courseCard,
-  lessonProgreso,
-  moduleCompletions,
-}: {
-  courseCard: PanelCard;
-  lessonProgreso: AnyRecord[];
-  moduleCompletions: AnyRecord[];
-}): ModuleView[] {
-  return courseCard.courseMódulos.map((module, index) => {
-    const moduleLecciones = courseCard.courseLecciones.filter(
-      (lesson) => String(lesson.module_id) === String(module.id)
-    );
-
-    const completedLecciones = moduleLecciones.filter((lesson) =>
-      lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
-    ).length;
-
-    const isCompletado = moduleCompletions.some(
-      (completion) => String(completion.module_id) === String(module.id)
-    );
-
-    const previousModule = courseCard.courseMódulos[index - 1];
-
-    const isUnlocked =
-      index === 0 ||
-      isCompletado ||
-      moduleCompletions.some(
-        (completion) => String(completion.module_id) === String(previousModule?.id)
-      );
-
-    const isCurrent =
-      Boolean(courseCard.nextLesson) &&
-      String(courseCard.nextLesson?.module_id) === String(module.id);
-
-    const nextLessonInsideModule = moduleLecciones.find(
-      (lesson) =>
-        !lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
-    );
-
-    const targetLesson = nextLessonInsideModule || moduleLecciones[0];
-
-    return {
-      module,
-      index,
-      lessons: moduleLecciones,
-      completedLecciones,
-      progress:
-        moduleLecciones.length > 0
-          ? Math.round((completedLecciones / moduleLecciones.length) * 100)
-          : isCompletado
-            ? 100
-            : 0,
-      isCompletado,
-      isCurrent,
-      isBloqueado: !isUnlocked,
-      href:
-        isUnlocked && targetLesson
-          ? `/cursos/${getCourseSlug(courseCard.course)}/${targetLesson.id}`
-          : `/cursos/${getCourseSlug(courseCard.course)}`,
-    };
-  });
-}
-
-
-/* ------------------------------ FINAL AUXILIARY HELPERS ------------------------------ */
-/* Estas funciones cierran las dependencias del dashboard para que Vercel compile. */
-
-function findNextLesson({
-  courseMódulos,
-  courseLecciones,
-  lessonProgreso,
-  moduleCompletions,
-}: {
-  courseMódulos: AnyRecord[];
-  courseLecciones: AnyRecord[];
-  lessonProgreso: AnyRecord[];
-  moduleCompletions: AnyRecord[];
-}) {
-  const completedLessonIds = new Set(lessonProgreso.map((item) => String(item.lesson_id)));
-  const completedModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
-
-  for (let index = 0; index < courseMódulos.length; index++) {
-    const module = courseMódulos[index];
-
-    const moduleUnlocked =
-      index === 0 ||
-      completedModuleIds.has(String(module.id)) ||
-      completedModuleIds.has(String(courseMódulos[index - 1]?.id));
-
-    if (!moduleUnlocked) continue;
-
-    const moduleLecciones = courseLecciones
-      .filter((lesson) => String(lesson.module_id) === String(module.id))
-      .sort(sortLecciones);
-
-    const nextLesson = moduleLecciones.find((lesson) => !completedLessonIds.has(String(lesson.id)));
-
-    if (nextLesson) return nextLesson;
-  }
-
-  return courseLecciones[0] || null;
-}
-
-function getOrder(item: AnyRecord, fallback: number) {
-  return item.position ?? item.sort_order ?? item.order_index ?? item.order ?? fallback;
-}
-
-function sortMódulos(a: AnyRecord, b: AnyRecord) {
-  const aNumber = extractModuleNumber(a.title);
-  const bNumber = extractModuleNumber(b.title);
-
-  if (aNumber !== bNumber) return aNumber - bNumber;
-
-  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
-}
-
-function sortLecciones(a: AnyRecord, b: AnyRecord) {
-  const aNumber = extractLessonNumber(a.title);
-  const bNumber = extractLessonNumber(b.title);
-
-  if (aNumber !== bNumber) return aNumber - bNumber;
-
-  return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
-}
-
-function extractLessonNumber(title: string = '') {
-  const match = String(title).match(/lecci[oó]n\s*(\d+)/i);
-  return match ? Number(match[1]) : 999;
-}
-
-function extractModuleNumber(title: string = '') {
-  const match = String(title).match(/m[oó]dulo\s*(\d+)/i);
-  return match ? Number(match[1]) : 999;
-}
-
-function getInitials(name: string) {
-  return String(name)
-    .split(' ')
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
-
-function shortName(name: string) {
-  return String(name).split('@')[0].split(' ')[0];
-}
-
-function getCourseSlug(course: AnyRecord) {
-  return String(course?.slug || course?.id || '');
-}
-
-function getCurrentPageLabel(tab: Tab) {
-  if (tab === 'dashboard') return 'Panel';
-  if (tab === 'cursos') return 'Mis cursos';
-  if (tab === 'curriculum') return 'Itinerario';
-  if (tab === 'examenes') return 'Simulador de exámenes';
-  if (tab === 'certificados') return 'Certificados';
-  return 'Rendimiento';
-}
-
-function getCourseImage(course: AnyRecord) {
-  return (
-    course?.cover_image ||
-    course?.cover_image_url ||
-    course?.image ||
-    course?.image_url ||
-    course?.thumbnail ||
-    course?.thumbnail_url ||
-    ''
-  );
-}
-
-function getPremiumCourseBackground(course: AnyRecord, index: number) {
-  const realImage = getCourseImage(course);
-
-  const fallbacks = [
-    'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
-  ];
-
-  const selected = realImage || fallbacks[index % fallbacks.length];
-
-  return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
-}
-
-function getLessonTipo(lesson: AnyRecord) {
-  const raw = String(
-    lesson.content_type || lesson.type || lesson.kind || lesson.format || 'video'
-  ).toLowerCase();
-
-  if (raw.includes('audio')) return 'Audio';
-  if (raw.includes('pdf')) return 'PDF';
-  if (raw.includes('quiz') || raw.includes('exam') || raw.includes('test')) return 'Test';
-  if (raw.includes('text') || raw.includes('texto')) return 'Texto';
-
-  return 'Vídeo';
-}
-
-function getLessonIcon(type: string): IconName {
-  if (type === 'Audio') return 'audio';
-  if (type === 'PDF') return 'pdf';
-  if (type === 'Test') return 'exam';
-  if (type === 'Texto') return 'text';
-
-  return 'play';
 }
