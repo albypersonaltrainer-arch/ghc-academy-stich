@@ -1797,6 +1797,39 @@ function RendimientoTab({
             <span>Gran trabajo. Has mostrado una mejora constante este mes.</span>
             <button type="button">Ver analítica detallada <Icon name="arrow" /></button>
           </div>
+
+          <article className="performance-top-courses-card performance-under-progress">
+            <div className="performance-card-header compact">
+              <h2>Cursos con mayor avance</h2>
+              <button type="button">Ver todo</button>
+            </div>
+            <div className="performance-course-rank-list">
+              {(topCourses.length ? topCourses : courseCards.slice(0, 3)).map((card, index) => (
+                <div className="performance-course-rank" key={card.course.id || index}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{card.course.title || `Curso GHC ${index + 1}`}</strong>
+                    <div><i style={{ width: `${Math.max(8, card.progressPercent)}%` }} /></div>
+                  </div>
+                  <em>{card.progressPercent}%</em>
+                </div>
+              ))}
+              {topCourses.length === 0 && (
+                <div className="performance-course-rank">
+                  <span>1</span>
+                  <div>
+                    <strong>Fundamentos de biomecánica</strong>
+                    <div><i style={{ width: '100%' }} /></div>
+                  </div>
+                  <em>100%</em>
+                </div>
+              )}
+            </div>
+            <div className="performance-total-row">
+              <span>Total completado</span>
+              <strong>{completedCourses || 12} cursos</strong>
+            </div>
+          </article>
         </article>
 
         <aside className="performance-side-column">
@@ -1861,38 +1894,6 @@ function RendimientoTab({
             </div>
           </article>
 
-          <article className="performance-top-courses-card">
-            <div className="performance-card-header compact">
-              <h2>Cursos con mayor avance</h2>
-              <button type="button">Ver todo</button>
-            </div>
-            <div className="performance-course-rank-list">
-              {(topCourses.length ? topCourses : courseCards.slice(0, 3)).map((card, index) => (
-                <div className="performance-course-rank" key={card.course.id || index}>
-                  <span>{index + 1}</span>
-                  <div>
-                    <strong>{card.course.title || `Curso GHC ${index + 1}`}</strong>
-                    <div><i style={{ width: `${Math.max(8, card.progressPercent)}%` }} /></div>
-                  </div>
-                  <em>{card.progressPercent}%</em>
-                </div>
-              ))}
-              {topCourses.length === 0 && (
-                <div className="performance-course-rank">
-                  <span>1</span>
-                  <div>
-                    <strong>Fundamentos de biomecánica</strong>
-                    <div><i style={{ width: '100%' }} /></div>
-                  </div>
-                  <em>100%</em>
-                </div>
-              )}
-            </div>
-            <div className="performance-total-row">
-              <span>Total completado</span>
-              <strong>{completedCourses || 12} cursos</strong>
-            </div>
-          </article>
 
           <article className="performance-security-card">
             <div className="performance-card-header compact">
@@ -3000,7 +3001,7 @@ function GlobalStyles() {
 
       .performance-pro-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1.15fr) minmax(420px, .85fr);
+        grid-template-columns: minmax(0, 1.42fr) minmax(430px, .58fr);
         gap: 16px;
         align-items: start;
       }
@@ -3178,7 +3179,7 @@ function GlobalStyles() {
 
       .performance-side-column {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 16px;
       }
 
@@ -3186,7 +3187,17 @@ function GlobalStyles() {
       .performance-activity-card,
       .performance-top-courses-card,
       .performance-security-card {
-        min-height: 266px;
+        min-height: 0;
+      }
+
+      .performance-under-progress {
+        margin-top: 18px;
+        background: rgba(255,255,255,.022);
+      }
+
+      .performance-under-progress .performance-course-rank-list {
+        grid-template-columns: repeat(3, minmax(0,1fr));
+        display: grid;
       }
 
       .performance-cert-list,
@@ -3197,15 +3208,15 @@ function GlobalStyles() {
       }
 
       .performance-cert-row {
-        min-height: 70px;
+        min-height: 78px;
         display: grid;
-        grid-template-columns: 48px minmax(0,1fr) auto;
+        grid-template-columns: 48px minmax(0,1fr);
         gap: 12px;
         align-items: center;
         border-radius: 12px;
         border: 1px solid rgba(255,255,255,.07);
         background: rgba(255,255,255,.022);
-        padding: 10px;
+        padding: 12px;
       }
 
       .performance-cert-row.ghost {
@@ -3246,13 +3257,19 @@ function GlobalStyles() {
       }
 
       .performance-cert-row em {
+        grid-column: 2;
         display: inline-flex;
         align-items: center;
         gap: 5px;
+        width: fit-content;
         color: var(--green);
         font-style: normal;
         font-size: 11px;
         font-weight: 900;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb),.18);
+        background: rgba(var(--green-rgb),.06);
+        padding: 4px 8px;
       }
 
       .performance-timeline {
@@ -3348,13 +3365,13 @@ function GlobalStyles() {
       }
 
       .performance-security-item {
-        min-height: 54px;
+        min-height: 68px;
         display: grid;
-        grid-template-columns: 28px minmax(0,1fr) auto;
-        gap: 10px;
+        grid-template-columns: 34px minmax(0,1fr) auto;
+        gap: 14px;
         align-items: center;
         border-bottom: 1px solid rgba(255,255,255,.055);
-        padding-bottom: 10px;
+        padding: 12px 0;
       }
 
       .performance-security-item > svg {
@@ -4308,8 +4325,9 @@ function GlobalStyles() {
 
       .cert-final-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1.04fr) minmax(390px, .96fr);
-        gap: 16px;
+        grid-template-columns: minmax(0, 1.28fr) minmax(330px, .72fr);
+        gap: 18px;
+        align-items: start;
       }
 
       .cert-final-available,
@@ -4360,9 +4378,10 @@ function GlobalStyles() {
         background: rgba(255,255,255,.028);
         padding: 14px;
         display: grid;
-        grid-template-columns: 235px minmax(0,1fr);
-        gap: 16px;
+        grid-template-columns: minmax(255px, .9fr) minmax(0,1.1fr);
+        gap: 18px;
         margin-top: 12px;
+        align-items: stretch;
       }
 
       .cert-final-card-art,
@@ -4621,6 +4640,16 @@ function GlobalStyles() {
         box-shadow: 0 0 18px rgba(var(--green-rgb),.22);
       }
 
+
+
+      .cert-final-available {
+        min-width: 0;
+      }
+
+      .cert-final-card-content {
+        overflow: hidden;
+      }
+
       .cert-final-all {
         width: 100%;
         min-height: 44px;
@@ -4637,7 +4666,7 @@ function GlobalStyles() {
         font-weight: 850;
       }
 
-      .cert-final-right { display: grid; gap: 16px; }
+      .cert-final-right { display: grid; gap: 16px; min-width: 0; }
 
       .cert-final-steps {
         display: grid;
@@ -4650,22 +4679,24 @@ function GlobalStyles() {
         border-radius: 14px;
         border: 1px solid rgba(255,255,255,.08);
         background: rgba(255,255,255,.026);
-        padding: 14px;
+        padding: 13px;
         display: grid;
-        gap: 8px;
-        text-align: center;
+        grid-template-columns: 42px minmax(0,1fr);
+        gap: 10px;
+        text-align: left;
+        align-items: center;
       }
 
       .cert-final-steps span {
-        width: 46px;
-        height: 46px;
+        width: 42px;
+        height: 42px;
         border-radius: 999px;
         display: grid;
         place-items: center;
         color: var(--green);
         border: 1px solid rgba(var(--green-rgb),.22);
         background: rgba(var(--green-rgb),.08);
-        margin: 0 auto;
+        margin: 0;
       }
 
       .cert-final-steps strong { font-size: 13px; }
@@ -5045,15 +5076,15 @@ function GlobalStyles() {
 
       .performance-cert-row {
         min-height: 86px;
-        grid-template-columns: 52px minmax(0, 1fr) auto;
+        grid-template-columns: 52px minmax(0, 1fr);
         align-items: center;
         padding: 14px;
       }
 
       .performance-cert-row em {
-        grid-column: auto;
-        justify-self: end;
-        margin-top: 0;
+        grid-column: 2;
+        justify-self: start;
+        margin-top: 2px;
         white-space: nowrap;
       }
 
@@ -5092,6 +5123,22 @@ function GlobalStyles() {
         .cert-final-card-art,
         .cert-final-locked-art {
           min-height: 230px;
+        }
+      }
+
+
+
+      @media (max-width: 1500px) {
+        .cert-final-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .cert-final-right {
+          grid-template-columns: minmax(0,1fr);
+        }
+
+        .cert-final-steps {
+          grid-template-columns: repeat(2, minmax(0,1fr));
         }
       }
 
