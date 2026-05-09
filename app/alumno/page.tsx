@@ -4690,22 +4690,22 @@ function GlobalStyles() {
       }
 
       .cert-final-steps div {
-        min-height: 112px;
+        min-height: 132px;
         border-radius: 14px;
         border: 1px solid rgba(255,255,255,.08);
         background: rgba(255,255,255,.026);
-        padding: 16px;
+        padding: 18px;
         display: grid;
-        grid-template-columns: 42px minmax(0,1fr);
-        gap: 8px 12px;
+        grid-template-columns: 46px minmax(0,1fr);
+        gap: 10px 14px;
         text-align: left;
         align-items: start;
         align-content: center;
       }
 
       .cert-final-steps span {
-        width: 42px;
-        height: 42px;
+        width: 46px;
+        height: 46px;
         border-radius: 999px;
         display: grid;
         place-items: center;
@@ -4716,17 +4716,18 @@ function GlobalStyles() {
       }
 
       .cert-final-steps strong {
-        font-size: 14px;
+        font-size: 15px;
         line-height: 1.25;
         align-self: center;
+        letter-spacing: -.015em;
       }
       .cert-final-steps p {
         grid-column: 2;
         color: var(--muted);
-        font-size: 12px;
-        line-height: 1.45;
-        margin: -2px 0 0;
-        max-width: 26ch;
+        font-size: 14px;
+        line-height: 1.55;
+        margin: 0;
+        max-width: 34ch;
       }
 
       .cert-final-verify {
