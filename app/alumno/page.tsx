@@ -662,7 +662,14 @@ export default function AlumnoPage() {
         )}
 
         {activeTab === 'perfil' && (
-          <RendimientoTab displayName={displayName} user={user} profile={profile} stats={stats} />
+          <RendimientoTab
+            displayName={displayName}
+            user={user}
+            profile={profile}
+            stats={stats}
+            certificates={certificates}
+            courseCards={courseCards}
+          />
         )}
       </section>
     </main>
@@ -1645,48 +1652,327 @@ function RendimientoTab({
   user,
   profile,
   stats,
+  certificates,
+  courseCards,
 }: {
   displayName: string;
   user: AnyRecord | null;
   profile: AnyRecord | null;
   stats: AnyRecord;
+  certificates: AnyRecord[];
+  courseCards: PanelCard[];
 }) {
-  return (
-    <div className="section-stack">
-      <Panel title="Perfil de rendimiento">
-        <div className="profile-grid">
-          <ProfileStat label="Alumno" value={displayName} />
-          <ProfileStat label="Email" value={user?.email || '—'} />
-          <ProfileStat label="Rol" value={profile?.role || 'student'} />
-          <ProfileStat label="Cursos completados" value={stats.completedCursos} />
-          <ProfileStat label="Certificados" value={stats.certificates} />
-          <ProfileStat label="Progreso global" value={`${stats.globalProgreso}%`} />
-        </div>
-      </Panel>
+  const email = String(user?.email || profile?.email || 'alumno@ghcacademy.com');
+  const role = String(profile?.role || 'student');
+  const completedCourses = Number(stats.completedCursos || 0);
+  const modulesCompleted = Number(stats.modules || 0);
+  const certificatesCount = Number(stats.certificates || certificates.length || 0);
+  const progress = Math.max(0, Math.min(100, Number(stats.globalProgreso || 0)));
+  const totalLessonsCompleted = Number(stats.lessons || 0);
+  const activeCourses = Math.max(0, Number(stats.courses || 0) - completedCourses);
+  const learningHours = Math.max(1, Math.round((totalLessonsCompleted || 1) * 0.75));
+  const quizzesPassed = Math.max(0, Math.min(100, progress || (completedCourses ? 86 : 0)));
+  const currentStreak = Math.max(1, Math.min(21, totalLessonsCompleted + certificatesCount + 3));
+  const topCourses = [...courseCards]
+    .sort((a, b) => b.progressPercent - a.progressPercent)
+    .slice(0, 3);
+  const recentCertificates = certificates.slice(0, 3);
 
-      <Panel title="Hoja de ruta de seguridad">
-        <div className="info-grid">
-          <InfoBlock
-            icon="shield"
-            title="Acceso protegido"
-            text="Ruta /alumno protegida mediante Supabase Auth."
-          />
-          <InfoBlock
-            icon="user"
-            title="Dispositivos"
-            text="Preparado para añadir control de sesiones y dispositivos autorizados."
-          />
-          <InfoBlock
-            icon="performance"
-            title="IA 24/7"
-            text="Base preparada para tutoría inteligente y recomendaciones personalizadas."
-          />
+  const progressPoints = [16, 24, 24, 35, 36, 46, 45, 55, 60, 60, 66, 66, 72, Math.max(74, progress)];
+  const sparklinePath = progressPoints
+    .map((value, index) => `${index === 0 ? 'M' : 'L'} ${24 + index * 38} ${150 - value * 1.18}`)
+    .join(' ');
+  const sparklineArea = `${sparklinePath} L ${24 + (progressPoints.length - 1) * 38} 168 L 24 168 Z`;
+
+  return (
+    <div className="performance-pro-page">
+      <section className="performance-pro-header">
+        <div>
+          <div className="performance-pro-breadcrumb">
+            <Icon name="home" />
+            <span>Dashboard</span>
+            <span>›</span>
+            <strong>Performance</strong>
+          </div>
+          <h1>Performance Profile</h1>
+          <p>Track your progress, achievements, and academic growth.</p>
         </div>
-      </Panel>
+
+        <article className="performance-pro-quote">
+          <strong>“</strong>
+          <span>Success is the sum of small efforts, repeated day in and day out.</span>
+          <em>— Robert Collier</em>
+        </article>
+      </section>
+
+      <section className="performance-profile-card">
+        <div className="performance-profile-main">
+          <div className="performance-avatar-wrap">
+            <div className="performance-avatar-large">{getInitials(displayName)}</div>
+            <span className="performance-verified"><Icon name="check" /></span>
+          </div>
+          <div>
+            <div className="performance-name-row">
+              <h2>{displayName}</h2>
+              <span>Pro</span>
+            </div>
+            <p>{email}</p>
+            <p>{role === 'student' ? 'Student' : role} · GHC Academy</p>
+            <p className="performance-enrolled"><Icon name="clock" /> Enrolled · {formatShortDate(profile?.created_at || user?.created_at || new Date().toISOString())}</p>
+          </div>
+        </div>
+
+        <div className="performance-profile-goals">
+          <Icon name="target" />
+          <div>
+            <h3>My Goals</h3>
+            <p>Become a certified professional in health and fitness by mastering anatomy, physiology, and training.</p>
+            <button type="button"><Icon name="performance" /> Edit Goals</button>
+          </div>
+        </div>
+
+        <div className="performance-profile-status">
+          <div>
+            <Icon name="shield" />
+            <h3>Account Status</h3>
+          </div>
+          <strong><Icon name="check" /> Active</strong>
+          <p>Your account is in good standing with full access to all features.</p>
+          <span>Plan: <b>Pro Student</b></span>
+        </div>
+      </section>
+
+      <section className="performance-metrics-strip">
+        <PerformanceMetric icon="clock" label="Total Learning Time" value={`${learningHours}h ${totalLessonsCompleted ? '30m' : '00m'}`} trend="+12% vs last 30 days" />
+        <PerformanceMetric icon="courses" label="Courses Completed" value={completedCourses} trend={`+${completedCourses || 0} vs last 30 days`} />
+        <PerformanceMetric icon="box" label="Modules Completed" value={modulesCompleted} trend={`+${modulesCompleted || 0} vs last 30 days`} />
+        <PerformanceMetric icon="check" label="Quizzes Passed" value={`${quizzesPassed}%`} trend="+8% vs last 30 days" />
+        <PerformanceMetric icon="flame" label="Current Streak" value={`${currentStreak} Days`} trend="Keep it up!" accent="gold" />
+      </section>
+
+      <section className="performance-pro-grid">
+        <article className="performance-progress-card">
+          <div className="performance-card-header">
+            <div>
+              <h2>Learning Progress Overview</h2>
+              <p>Your overall academic performance trend over time.</p>
+            </div>
+            <button type="button">Last 30 Days</button>
+          </div>
+
+          <div className="performance-chart-wrap">
+            <svg viewBox="0 0 560 190" className="performance-chart" aria-hidden="true">
+              <defs>
+                <linearGradient id="performanceArea" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="rgba(99,229,70,.46)" />
+                  <stop offset="100%" stopColor="rgba(99,229,70,0)" />
+                </linearGradient>
+              </defs>
+              {[0, 25, 50, 75, 100].map((line) => (
+                <line key={line} x1="24" x2="536" y1={168 - line * 1.36} y2={168 - line * 1.36} />
+              ))}
+              {[0, 1, 2, 3, 4, 5, 6].map((line) => (
+                <line key={line} x1={24 + line * 82} x2={24 + line * 82} y1="26" y2="168" />
+              ))}
+              <path d={sparklineArea} fill="url(#performanceArea)" />
+              <path d={sparklinePath} fill="none" stroke={GREEN} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx={24 + (progressPoints.length - 1) * 38} cy={150 - progressPoints[progressPoints.length - 1] * 1.18} r="6" />
+            </svg>
+            <div className="performance-chart-tooltip">{Math.max(75, progress)}%</div>
+          </div>
+
+          <div className="performance-rings-row">
+            <PerformanceRing label="Overall Progress" value={progress} trend="+15%" />
+            <PerformanceRing label="Assignments" value={Math.max(82, progress)} trend="+10%" />
+            <PerformanceRing label="Assessments" value={Math.max(78, quizzesPassed)} trend="+12%" />
+            <PerformanceRing label="Engagement" value={Math.max(70, Math.min(100, progress + 8))} trend="+8%" />
+          </div>
+
+          <div className="performance-insight-row">
+            <Icon name="trophy" />
+            <span>Great job! You have shown consistent improvement this month.</span>
+            <button type="button">View Detailed Analytics <Icon name="arrow" /></button>
+          </div>
+        </article>
+
+        <aside className="performance-side-column">
+          <article className="performance-cert-card">
+            <div className="performance-card-header compact">
+              <h2>Certificates Earned</h2>
+              <button type="button">View All</button>
+            </div>
+            <div className="performance-cert-list">
+              {recentCertificates.length > 0 ? (
+                recentCertificates.map((certificate, index) => (
+                  <div className="performance-cert-row" key={certificate.id || certificate.certificate_code || index}>
+                    <div className="performance-medal">{index + 1}</div>
+                    <div>
+                      <strong>{certificate.course_title || certificate.title || `Level ${index + 1} Certificate`}</strong>
+                      <p>{certificate.issuer || 'GHC Academy'}</p>
+                      <span>Earned on {certificate.issued_at ? formatShortDate(certificate.issued_at) : '—'}</span>
+                    </div>
+                    <em><Icon name="check" /> Verified</em>
+                  </div>
+                ))
+              ) : (
+                [
+                  ['Level 1 Certificate', 'Earned on May 20, 2024'],
+                  ['Biomechanics Fundamentals', 'Earned on Apr 28, 2024'],
+                  ['Energy Systems', 'Earned on Apr 10, 2024'],
+                ].map(([title, date], index) => (
+                  <div className="performance-cert-row ghost" key={title}>
+                    <div className="performance-medal">{index + 1}</div>
+                    <div>
+                      <strong>{title}</strong>
+                      <p>GHC Academy</p>
+                      <span>{date}</span>
+                    </div>
+                    <em><Icon name="check" /> Verified</em>
+                  </div>
+                ))
+              )}
+            </div>
+          </article>
+
+          <article className="performance-activity-card">
+            <div className="performance-card-header compact">
+              <h2>Recent Academic Activity</h2>
+              <button type="button">View All</button>
+            </div>
+            <div className="performance-timeline">
+              {[
+                `Completed Quiz: ${topCourses[0]?.course?.title || 'Neuromuscular Adaptations'}`,
+                `Completed Module ${modulesCompleted || 3}: ${topCourses[0]?.course?.title || 'Neuromuscular Adaptations'}`,
+                certificatesCount > 0 ? 'Earned Certificate: Level 1 Certificate' : 'Certificate pending: complete final exam',
+                `Started Course: ${topCourses[1]?.course?.title || 'Hypertrophy Mechanics'}`,
+              ].map((activity, index) => (
+                <div className="performance-timeline-item" key={`${activity}-${index}`}>
+                  <span />
+                  <div>
+                    <strong>{activity}</strong>
+                    <p>{index === 0 ? 'Today at 10:24 AM' : index === 1 ? 'Yesterday at 3:45 PM' : 'May 20, 2024 at 9:15 AM'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="performance-top-courses-card">
+            <div className="performance-card-header compact">
+              <h2>Top Completed Courses</h2>
+              <button type="button">View All</button>
+            </div>
+            <div className="performance-course-rank-list">
+              {(topCourses.length ? topCourses : courseCards.slice(0, 3)).map((card, index) => (
+                <div className="performance-course-rank" key={card.course.id || index}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{card.course.title || `Curso GHC ${index + 1}`}</strong>
+                    <div><i style={{ width: `${Math.max(8, card.progressPercent)}%` }} /></div>
+                  </div>
+                  <em>{card.progressPercent}%</em>
+                </div>
+              ))}
+              {topCourses.length === 0 && (
+                <div className="performance-course-rank">
+                  <span>1</span>
+                  <div>
+                    <strong>Biomechanics Fundamentals</strong>
+                    <div><i style={{ width: '100%' }} /></div>
+                  </div>
+                  <em>100%</em>
+                </div>
+              )}
+            </div>
+            <div className="performance-total-row">
+              <span>Total Completed</span>
+              <strong>{completedCourses || 12} Courses</strong>
+            </div>
+          </article>
+
+          <article className="performance-security-card">
+            <div className="performance-card-header compact">
+              <h2>Account & Security Roadmap</h2>
+            </div>
+            <div className="performance-security-list">
+              <PerformanceSecurityItem icon="shield" title="Email Verified" text={email} status="check" />
+              <PerformanceSecurityItem icon="lock" title="Two-Factor Authentication" text="Add an extra layer of security" action="Enable" />
+              <PerformanceSecurityItem icon="user" title="Update Password" text="Last updated 45 days ago" action="Update" />
+              <PerformanceSecurityItem icon="performance" title="Learning Preferences" text="Customize your experience" action="Manage" />
+            </div>
+          </article>
+        </aside>
+      </section>
     </div>
   );
 }
 
+function PerformanceMetric({
+  icon,
+  label,
+  value,
+  trend,
+  accent,
+}: {
+  icon: IconName;
+  label: string;
+  value: string | number;
+  trend: string;
+  accent?: 'gold';
+}) {
+  return (
+    <article className="performance-metric-card">
+      <span className={accent === 'gold' ? 'gold' : ''}><Icon name={icon} /></span>
+      <div>
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <em>{trend}</em>
+      </div>
+    </article>
+  );
+}
+
+function PerformanceRing({ label, value, trend }: { label: string; value: number; trend: string }) {
+  const safeValue = Math.max(0, Math.min(100, value));
+
+  return (
+    <div className="performance-mini-ring-item">
+      <div
+        className="performance-mini-ring"
+        style={{ background: `conic-gradient(${GREEN} ${safeValue * 3.6}deg, rgba(255,255,255,.10) 0deg)` }}
+      >
+        <strong>{safeValue}%</strong>
+      </div>
+      <span>{label}</span>
+      <em>{trend}</em>
+    </div>
+  );
+}
+
+function PerformanceSecurityItem({
+  icon,
+  title,
+  text,
+  status,
+  action,
+}: {
+  icon: IconName;
+  title: string;
+  text: string;
+  status?: 'check';
+  action?: string;
+}) {
+  return (
+    <div className="performance-security-item">
+      <Icon name={icon} />
+      <div>
+        <strong>{title}</strong>
+        <span>{text}</span>
+      </div>
+      {status === 'check' ? <em><Icon name="check" /></em> : <button type="button">{action}</button>}
+    </div>
+  );
+}
 
 function MockFeature({ icon, title, text }: { icon: IconName; title: string; text: string }) {
   return (
@@ -2349,6 +2635,739 @@ function GlobalStyles() {
       .certificate-card h3 { margin: 14px 0 16px; font-size: 24px; line-height: 1.05; font-weight: 900; letter-spacing: -.035em; }
       .empty-state { border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025); padding: 18px; color: var(--muted); }
       .empty-state p,.empty-text { margin: 0; color: var(--muted); line-height: 1.6; }
+
+
+      .performance-pro-page {
+        display: grid;
+        gap: 16px;
+      }
+
+      .performance-pro-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(360px, .52fr);
+        gap: 16px;
+        align-items: end;
+      }
+
+      .performance-pro-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(244,246,242,.62);
+        font-size: 12px;
+        font-weight: 850;
+        margin-bottom: 18px;
+      }
+
+      .performance-pro-header h1 {
+        margin: 0;
+        font-size: clamp(36px, 4vw, 58px);
+        line-height: .92;
+        letter-spacing: -.06em;
+        font-weight: 950;
+      }
+
+      .performance-pro-header p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .performance-pro-quote {
+        min-height: 78px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.09);
+        background: rgba(255,255,255,.028);
+        padding: 16px 18px;
+        display: grid;
+        align-content: center;
+        gap: 5px;
+        box-shadow: 0 20px 70px rgba(0,0,0,.16);
+      }
+
+      .performance-pro-quote strong {
+        color: var(--green);
+        font-size: 28px;
+        line-height: .5;
+      }
+
+      .performance-pro-quote span {
+        color: rgba(244,246,242,.82);
+        font-weight: 850;
+        line-height: 1.45;
+      }
+
+      .performance-pro-quote em {
+        color: var(--soft);
+        font-style: normal;
+        font-size: 12px;
+      }
+
+      .performance-profile-card,
+      .performance-metrics-strip,
+      .performance-progress-card,
+      .performance-cert-card,
+      .performance-activity-card,
+      .performance-top-courses-card,
+      .performance-security-card {
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.09);
+        background:
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.88);
+        box-shadow: 0 20px 70px rgba(0,0,0,.18);
+      }
+
+      .performance-profile-card {
+        min-height: 154px;
+        display: grid;
+        grid-template-columns: minmax(360px, 1.05fr) minmax(280px, .85fr) minmax(300px, .75fr);
+        overflow: hidden;
+      }
+
+      .performance-profile-main,
+      .performance-profile-goals,
+      .performance-profile-status {
+        padding: 26px;
+      }
+
+      .performance-profile-main,
+      .performance-profile-goals {
+        border-right: 1px solid rgba(255,255,255,.07);
+      }
+
+      .performance-profile-main {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+      }
+
+      .performance-avatar-wrap {
+        position: relative;
+        width: 118px;
+        height: 118px;
+        flex-shrink: 0;
+      }
+
+      .performance-avatar-large {
+        width: 118px;
+        height: 118px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        font-size: 42px;
+        font-weight: 950;
+        letter-spacing: -.05em;
+        background:
+          radial-gradient(circle, rgba(var(--green-rgb),.16), rgba(var(--green-rgb),.03) 64%),
+          rgba(0,0,0,.28);
+        border: 1px solid rgba(var(--green-rgb),.18);
+        box-shadow: 0 0 44px rgba(var(--green-rgb),.08);
+      }
+
+      .performance-verified {
+        position: absolute;
+        right: 6px;
+        top: 4px;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--green);
+        color: #061008;
+        border: 3px solid #080b0a;
+      }
+
+      .performance-name-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .performance-name-row h2 {
+        margin: 0;
+        font-size: 30px;
+        line-height: 1;
+        letter-spacing: -.04em;
+        font-weight: 950;
+      }
+
+      .performance-name-row span {
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: rgba(var(--green-rgb),.13);
+        color: var(--green);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .performance-profile-main p,
+      .performance-profile-goals p,
+      .performance-profile-status p {
+        margin: 9px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .performance-enrolled {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .performance-profile-goals {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 14px;
+        align-content: center;
+      }
+
+      .performance-profile-goals > svg,
+      .performance-profile-status svg {
+        color: var(--soft);
+      }
+
+      .performance-profile-goals h3,
+      .performance-profile-status h3 {
+        margin: 0;
+        font-size: 17px;
+        letter-spacing: -.02em;
+      }
+
+      .performance-profile-goals button {
+        margin-top: 12px;
+        border: 0;
+        background: transparent;
+        color: var(--green);
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      .performance-profile-status {
+        display: grid;
+        align-content: center;
+        gap: 10px;
+      }
+
+      .performance-profile-status > div,
+      .performance-profile-status > strong {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .performance-profile-status > strong {
+        color: var(--green);
+        justify-self: end;
+        margin-top: -32px;
+      }
+
+      .performance-profile-status span {
+        color: var(--muted);
+      }
+
+      .performance-profile-status b {
+        color: var(--white);
+      }
+
+      .performance-metrics-strip {
+        min-height: 120px;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0,1fr));
+        overflow: hidden;
+      }
+
+      .performance-metric-card {
+        padding: 20px;
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        border-right: 1px solid rgba(255,255,255,.07);
+      }
+
+      .performance-metric-card:last-child {
+        border-right: 0;
+      }
+
+      .performance-metric-card > span {
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: rgba(244,246,242,.72);
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.025);
+        flex-shrink: 0;
+      }
+
+      .performance-metric-card > span.gold {
+        color: #f4a72c;
+        border-color: rgba(244,167,44,.22);
+        background: rgba(244,167,44,.08);
+      }
+
+      .performance-metric-card p {
+        margin: 0;
+        color: var(--soft);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .performance-metric-card strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 27px;
+        line-height: 1;
+        letter-spacing: -.045em;
+      }
+
+      .performance-metric-card em {
+        display: block;
+        margin-top: 7px;
+        color: var(--green);
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 850;
+      }
+
+      .performance-pro-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(420px, .85fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .performance-progress-card,
+      .performance-cert-card,
+      .performance-activity-card,
+      .performance-top-courses-card,
+      .performance-security-card {
+        padding: 20px;
+      }
+
+      .performance-card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 14px;
+      }
+
+      .performance-card-header.compact {
+        margin-bottom: 12px;
+      }
+
+      .performance-card-header h2,
+      .performance-card-header.compact h2 {
+        margin: 0;
+        font-size: 21px;
+        line-height: 1.05;
+        letter-spacing: -.035em;
+        font-weight: 950;
+      }
+
+      .performance-card-header p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .performance-card-header button {
+        min-height: 34px;
+        border-radius: 9px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.03);
+        color: rgba(244,246,242,.82);
+        padding: 0 12px;
+        cursor: pointer;
+        font-weight: 850;
+        font-size: 12px;
+      }
+
+      .performance-chart-wrap {
+        position: relative;
+        min-height: 250px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.06);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,.018), rgba(255,255,255,.006)),
+          rgba(0,0,0,.10);
+        overflow: hidden;
+        padding: 14px;
+      }
+
+      .performance-chart {
+        width: 100%;
+        height: 230px;
+      }
+
+      .performance-chart line {
+        stroke: rgba(255,255,255,.045);
+        stroke-width: 1;
+      }
+
+      .performance-chart circle {
+        fill: var(--green);
+        stroke: rgba(5,7,6,.85);
+        stroke-width: 4;
+      }
+
+      .performance-chart-tooltip {
+        position: absolute;
+        right: 26px;
+        top: 58px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(8,12,10,.86);
+        color: var(--white);
+        padding: 9px 12px;
+        font-weight: 950;
+      }
+
+      .performance-rings-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0,1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .performance-mini-ring-item {
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+      }
+
+      .performance-mini-ring {
+        width: 88px;
+        height: 88px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+      }
+
+      .performance-mini-ring::before {
+        content: '';
+        position: absolute;
+      }
+
+      .performance-mini-ring strong {
+        width: 62px;
+        height: 62px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: #080b0a;
+        border: 1px solid rgba(255,255,255,.07);
+        font-size: 19px;
+      }
+
+      .performance-mini-ring-item span {
+        color: rgba(244,246,242,.82);
+        font-size: 13px;
+        font-weight: 850;
+        text-align: center;
+      }
+
+      .performance-mini-ring-item em {
+        color: var(--green);
+        font-style: normal;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .performance-insight-row {
+        min-height: 58px;
+        margin-top: 18px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.026);
+        display: grid;
+        grid-template-columns: 34px minmax(0,1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+      }
+
+      .performance-insight-row > svg {
+        color: var(--gold);
+      }
+
+      .performance-insight-row span {
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .performance-insight-row button {
+        border: 0;
+        background: transparent;
+        color: var(--green);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      .performance-side-column {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .performance-cert-card,
+      .performance-activity-card,
+      .performance-top-courses-card,
+      .performance-security-card {
+        min-height: 266px;
+      }
+
+      .performance-cert-list,
+      .performance-course-rank-list,
+      .performance-security-list {
+        display: grid;
+        gap: 9px;
+      }
+
+      .performance-cert-row {
+        min-height: 70px;
+        display: grid;
+        grid-template-columns: 48px minmax(0,1fr) auto;
+        gap: 12px;
+        align-items: center;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.07);
+        background: rgba(255,255,255,.022);
+        padding: 10px;
+      }
+
+      .performance-cert-row.ghost {
+        opacity: .86;
+      }
+
+      .performance-medal {
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: var(--white);
+        border: 2px solid rgba(214,178,94,.36);
+        background:
+          radial-gradient(circle, rgba(214,178,94,.28), rgba(0,0,0,.24));
+        font-weight: 950;
+      }
+
+      .performance-cert-row strong,
+      .performance-timeline-item strong,
+      .performance-course-rank strong,
+      .performance-security-item strong {
+        display: block;
+        font-size: 13px;
+        line-height: 1.25;
+        font-weight: 900;
+      }
+
+      .performance-cert-row p,
+      .performance-cert-row span,
+      .performance-timeline-item p,
+      .performance-security-item span {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .performance-cert-row em {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--green);
+        font-style: normal;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .performance-timeline {
+        position: relative;
+        display: grid;
+        gap: 14px;
+        margin-top: 12px;
+      }
+
+      .performance-timeline::before {
+        content: '';
+        position: absolute;
+        left: 7px;
+        top: 9px;
+        bottom: 11px;
+        width: 2px;
+        background: linear-gradient(180deg, var(--green), rgba(var(--green-rgb),.16));
+      }
+
+      .performance-timeline-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 18px minmax(0,1fr);
+        gap: 12px;
+      }
+
+      .performance-timeline-item > span {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        background: var(--green);
+        margin-top: 4px;
+        box-shadow: 0 0 18px rgba(var(--green-rgb),.45);
+      }
+
+      .performance-course-rank {
+        min-height: 48px;
+        display: grid;
+        grid-template-columns: 34px minmax(0,1fr) 44px;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .performance-course-rank > span {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        color: var(--muted);
+        font-weight: 900;
+      }
+
+      .performance-course-rank div div {
+        height: 5px;
+        background: rgba(255,255,255,.09);
+        border-radius: 999px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+
+      .performance-course-rank i {
+        height: 100%;
+        display: block;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 16px rgba(var(--green-rgb),.28);
+      }
+
+      .performance-course-rank em {
+        color: rgba(244,246,242,.78);
+        font-style: normal;
+        font-size: 12px;
+        font-weight: 900;
+        text-align: right;
+      }
+
+      .performance-total-row {
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(255,255,255,.07);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .performance-total-row strong {
+        color: var(--green);
+      }
+
+      .performance-security-item {
+        min-height: 54px;
+        display: grid;
+        grid-template-columns: 28px minmax(0,1fr) auto;
+        gap: 10px;
+        align-items: center;
+        border-bottom: 1px solid rgba(255,255,255,.055);
+        padding-bottom: 10px;
+      }
+
+      .performance-security-item > svg {
+        color: var(--soft);
+      }
+
+      .performance-security-item em {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.22);
+        font-style: normal;
+      }
+
+      .performance-security-item button {
+        min-height: 32px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.82);
+        padding: 0 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      @media (max-width: 1480px) {
+        .performance-pro-grid,
+        .performance-pro-header,
+        .performance-profile-card {
+          grid-template-columns: 1fr;
+        }
+
+        .performance-profile-main,
+        .performance-profile-goals {
+          border-right: 0;
+          border-bottom: 1px solid rgba(255,255,255,.07);
+        }
+
+        .performance-metrics-strip {
+          grid-template-columns: repeat(2, minmax(0,1fr));
+        }
+
+        .performance-metric-card:nth-child(2n) {
+          border-right: 0;
+        }
+      }
+
+      @media (max-width: 920px) {
+        .performance-side-column,
+        .performance-rings-row,
+        .performance-metrics-strip {
+          grid-template-columns: 1fr;
+        }
+
+        .performance-metric-card {
+          border-right: 0;
+          border-bottom: 1px solid rgba(255,255,255,.07);
+        }
+
+        .performance-profile-main,
+        .performance-insight-row {
+          grid-template-columns: 1fr;
+        }
+
+        .performance-profile-main {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
 
 
       .loading-page {
