@@ -4913,6 +4913,188 @@ function GlobalStyles() {
         margin-top: 2px;
       }
 
+
+
+      /* AJUSTES PREMIUM V2 - respiración visual, tarjetas y rendimiento en portátil */
+      .exam-simulator-card {
+        grid-template-columns: minmax(520px, .98fr) minmax(300px, .72fr);
+        gap: 18px;
+      }
+
+      .exam-meta-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        max-width: 640px;
+        gap: 14px;
+      }
+
+      .mock-meta-item {
+        min-height: 92px;
+        padding: 16px;
+        border-color: rgba(var(--green-rgb), .12);
+        background:
+          radial-gradient(circle at 12% 18%, rgba(var(--green-rgb), .08), transparent 34%),
+          rgba(255,255,255,.032);
+      }
+
+      .mock-meta-item strong {
+        font-size: 16px;
+        line-height: 1.22;
+        letter-spacing: -.01em;
+      }
+
+      .mock-meta-item span {
+        white-space: normal;
+      }
+
+      .cert-final-issued,
+      .cert-final-locked {
+        grid-template-columns: minmax(320px, .95fr) minmax(420px, 1.05fr);
+        gap: 22px;
+        align-items: stretch;
+      }
+
+      .cert-final-card-art,
+      .cert-final-locked-art {
+        min-height: 260px;
+      }
+
+      .cert-final-card-content {
+        align-content: center;
+        padding: 8px 4px;
+        gap: 12px;
+      }
+
+      .cert-final-card-content h3 {
+        font-size: clamp(22px, 2vw, 30px);
+        line-height: 1.04;
+        max-width: 100%;
+      }
+
+      .cert-final-card-content p {
+        font-size: 15px;
+        line-height: 1.62;
+      }
+
+      .cert-final-locked-art {
+        filter: grayscale(.78);
+        opacity: .86;
+      }
+
+      .cert-final-locked-art::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,.04), rgba(0,0,0,.18));
+        pointer-events: none;
+      }
+
+      .performance-side-column {
+        align-items: start;
+      }
+
+      .performance-course-rank-list {
+        gap: 12px;
+      }
+
+      .performance-course-rank {
+        min-height: 66px;
+        grid-template-columns: 42px minmax(0, 1fr) 62px;
+        gap: 14px;
+        padding: 10px 8px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.065);
+        background: rgba(255,255,255,.018);
+      }
+
+      .performance-course-rank strong {
+        font-size: 14px;
+        line-height: 1.25;
+        letter-spacing: -.015em;
+      }
+
+      .performance-course-rank em {
+        font-size: 13px;
+      }
+
+      .performance-security-list {
+        gap: 12px;
+      }
+
+      .performance-security-item {
+        min-height: 66px;
+        border: 1px solid rgba(255,255,255,.065);
+        border-radius: 12px;
+        background: rgba(255,255,255,.018);
+        padding: 12px;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+      }
+
+      .performance-security-item strong {
+        font-size: 14px;
+        line-height: 1.25;
+      }
+
+      .performance-security-item span {
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .performance-cert-list {
+        gap: 12px;
+      }
+
+      .performance-cert-row {
+        min-height: 86px;
+        grid-template-columns: 52px minmax(0, 1fr) auto;
+        align-items: center;
+        padding: 14px;
+      }
+
+      .performance-cert-row em {
+        grid-column: auto;
+        justify-self: end;
+        margin-top: 0;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 1480px) {
+        .exam-simulator-card {
+          grid-template-columns: 1fr;
+        }
+
+        .exam-laptop-visual {
+          min-height: 210px;
+        }
+
+        .exam-meta-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          max-width: none;
+        }
+
+        .performance-side-column {
+          grid-template-columns: 1fr;
+        }
+
+        .performance-cert-card,
+        .performance-activity-card,
+        .performance-top-courses-card,
+        .performance-security-card {
+          min-height: auto;
+        }
+      }
+
+      @media (max-width: 1180px) {
+        .cert-final-issued,
+        .cert-final-locked {
+          grid-template-columns: 1fr;
+        }
+
+        .cert-final-card-art,
+        .cert-final-locked-art {
+          min-height: 230px;
+        }
+      }
+
       @media (max-width: 1320px) {
         .student-page { grid-template-columns: 102px minmax(0, 1fr); }
         .nav-item span,.user-card > div:nth-child(2) { display: none; }
