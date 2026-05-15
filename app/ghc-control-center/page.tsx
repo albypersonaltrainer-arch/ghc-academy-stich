@@ -1,1012 +1,1267 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import GHCLogo from "../components/GHCLogo";
 
-type NavItem = {
-  label: string;
-  icon: string;
-  active?: boolean;
-};
+type AnyRecord = Record<string, any>;
 
-type StatCard = {
+type AdminTab =
+  | "panel"
+  | "alumnos"
+  | "cursos"
+  | "contenido"
+  | "ventas"
+  | "analitica"
+  | "certificados"
+  | "comunicaciones"
+  | "seguridad"
+  | "studio"
+  | "ajustes";
+
+type GuardState = "checking" | "allowed" | "denied";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+);
+
+const GREEN = "#63E546";
+
+const adminTabs: { id: AdminTab; label: string; icon: string }[] = [
+  { id: "panel", label: "Panel", icon: "⌂" },
+  { id: "alumnos", label: "Alumnos", icon: "◎" },
+  { id: "cursos", label: "Cursos", icon: "▱" },
+  { id: "contenido", label: "Contenido", icon: "▤" },
+  { id: "ventas", label: "Ventas", icon: "◷" },
+  { id: "analitica", label: "Analítica", icon: "⌁" },
+  { id: "certificados", label: "Certificados", icon: "✦" },
+  { id: "comunicaciones", label: "Comunicaciones", icon: "✉" },
+  { id: "seguridad", label: "Seguridad", icon: "◇" },
+  { id: "studio", label: "Studio", icon: "▣" },
+  { id: "ajustes", label: "Ajustes", icon: "⚙" },
+];
+
+export default function Page() {
+  const router = useRouter();
+  const [guardState, setGuardState] = useState<GuardState>("checking");
+  const [adminUser, setAdminUser] = useState<AnyRecord | null>(null);
+  const [profile, setProfile] = useState<AnyRecord | null>(null);
+  const [activeTab, setActiveTab] = useState<AdminTab>("panel");
+
+  useEffect(() => {
+    async function protectAdminRoute() {
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+
+        if (userError || !userData.user) {
+          router.replace("/acceso");
+          return;
+        }
+
+        const user = userData.user as AnyRecord;
+        setAdminUser(user);
+
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error(profileError);
+          setGuardState("denied");
+          router.replace("/alumno");
+          return;
+        }
+
+        const role = String(profileData?.role || "").toLowerCase();
+        const allowedRoles = ["admin", "superadmin", "owner"];
+
+        if (!allowedRoles.includes(role)) {
+          setGuardState("denied");
+          router.replace("/alumno");
+          return;
+        }
+
+        setProfile(profileData || null);
+        setGuardState("allowed");
+      } catch (error) {
+        console.error(error);
+        setGuardState("denied");
+        router.replace("/alumno");
+      }
+    }
+
+    protectAdminRoute();
+  }, [router]);
+
+  const displayName =
+    profile?.full_name ||
+    adminUser?.user_metadata?.full_name ||
+    adminUser?.email ||
+    "Admin GHC";
+
+  const initials = getInitials(displayName);
+
+  const stats = useMemo(
+    () => ({
+      alumnosActivos: "2,458",
+      cursosPublicados: "24",
+      ingresosMes: "$248,760",
+      tasaFinalizacion: "68.3%",
+      pendientes: "18",
+    }),
+    []
+  );
+
+  if (guardState === "checking") {
+    return (
+      <main className="admin-loading">
+        <GlobalStyles />
+        <Background />
+        <section className="admin-loading-card">
+          <GHCLogo size="md" showText tagline={false} />
+          <p>Verificando acceso administrativo...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (guardState !== "allowed") {
+    return null;
+  }
+
+  return (
+    <main className="admin-page">
+      <GlobalStyles />
+      <Background />
+
+      <aside className="admin-sidebar">
+        <div>
+          <div className="admin-logo">
+            <GHCLogo size="md" showText tagline={false} />
+          </div>
+
+          <nav className="admin-nav" aria-label="Navegación administrador">
+            {adminTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={activeTab === tab.id ? "admin-nav-item active" : "admin-nav-item"}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span className="admin-nav-icon">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="admin-sidebar-bottom">
+          <div className="support-card">
+            <span className="support-icon">◉</span>
+            <div>
+              <strong>Soporte GHC</strong>
+              <p>Centro de ayuda</p>
+            </div>
+            <button type="button">Abrir soporte</button>
+          </div>
+
+          <div className="admin-user-card">
+            <span>{initials}</span>
+            <div>
+              <strong>{shortName(displayName)}</strong>
+              <p>Administrador</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section className="admin-shell">
+        <header className="admin-topbar">
+          <div className="breadcrumb">
+            <span>⌂</span>
+            <span>Administración</span>
+            <span>›</span>
+            <strong>{getTabLabel(activeTab)}</strong>
+          </div>
+
+          <div className="topbar-actions">
+            <button type="button" className="icon-btn">♢</button>
+            <div className="topbar-user">
+              <span>{initials}</span>
+              <div>
+                <strong>{shortName(displayName)}</strong>
+                <p>Administrador</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {activeTab === "panel" ? <PanelAdmin stats={stats} /> : <ComingSoon tab={activeTab} />}
+      </section>
+    </main>
+  );
+}
+
+function PanelAdmin({ stats }: { stats: AnyRecord }) {
+  return (
+    <div className="panel-page">
+      <section className="admin-hero">
+        <div>
+          <h1>Panel de control</h1>
+          <p>Gestiona y haz crecer tu academia desde un único lugar.</p>
+        </div>
+        <div className="hero-athlete" aria-hidden="true" />
+      </section>
+
+      <section className="kpi-grid">
+        <KpiCard title="Alumnos activos" value={stats.alumnosActivos} trend="+18.6%" icon="◎" />
+        <KpiCard title="Cursos publicados" value={stats.cursosPublicados} trend="+9.1%" icon="▱" />
+        <KpiCard title="Ingresos del mes" value={stats.ingresosMes} trend="+16.4%" icon="$" />
+        <KpiCard title="Tasa de finalización" value={stats.tasaFinalizacion} trend="+6.7%" icon="✓" />
+        <KpiCard title="Pendientes" value={stats.pendientes} trend="-5.2%" icon="◷" danger />
+      </section>
+
+      <section className="admin-main-grid">
+        <article className="growth-card">
+          <div className="card-head">
+            <div>
+              <h2>Crecimiento de la academia</h2>
+              <p>Alumnos activos e ingresos acumulados durante el mes.</p>
+            </div>
+            <button type="button">Este mes</button>
+          </div>
+
+          <div className="chart-area">
+            <svg viewBox="0 0 900 260" aria-hidden="true">
+              <defs>
+                <linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor={GREEN} stopOpacity="0.42" />
+                  <stop offset="100%" stopColor={GREEN} stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52"
+                fill="none"
+                stroke={GREEN}
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z"
+                fill="url(#adminChartGradient)"
+              />
+              <path
+                d="M30 185 L110 208 L190 174 L270 142 L350 118 L430 78 L510 108 L590 82 L670 98 L750 62 L850 88"
+                fill="none"
+                stroke="rgba(244,246,242,.42)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+
+          <div className="chart-summary">
+            <MiniMetric label="Nuevos alumnos" value="186" trend="+24.3%" />
+            <MiniMetric label="Ingresos acumulados" value="$248,760" trend="+16.4%" />
+            <MiniMetric label="Cursos completados" value="1,326" trend="+12.7%" />
+            <MiniMetric label="Certificados emitidos" value="964" trend="+9.4%" />
+          </div>
+        </article>
+
+        <article className="quick-actions-card">
+          <h2>Acciones rápidas</h2>
+          <div className="quick-actions-grid">
+            <QuickAction icon="▱" title="Crear curso" text="Añade un nuevo curso" />
+            <QuickAction icon="＋" title="Añadir módulo" text="Crea contenido educativo" />
+            <QuickAction icon="✦" title="Emitir certificado" text="Reconoce logros" />
+            <QuickAction icon="➤" title="Enviar comunicado" text="Informa a tu comunidad" />
+          </div>
+        </article>
+
+        <article className="activity-card">
+          <div className="card-head compact">
+            <h2>Actividad reciente</h2>
+            <button type="button">Ver todo</button>
+          </div>
+          <ActivityItem icon="◎" title="María González completó Biomecánica Funcional" label="Alumno" time="Hace 5 min" />
+          <ActivityItem icon="▱" title="Nuevo curso publicado: Adaptaciones Neuromusculares" label="Curso" time="Hace 15 min" />
+          <ActivityItem icon="$" title="Pago recibido: Suscripción Pro Anual" label="Venta" time="Hace 28 min" />
+          <ActivityItem icon="✦" title="Certificado emitido a Laura Méndez" label="Certificados" time="Hace 45 min" />
+          <ActivityItem icon="✉" title="Comunicado enviado: Nuevos cursos disponibles" label="Comunicaciones" time="Hace 1 h" />
+        </article>
+
+        <article className="platform-card">
+          <h2>Estado de la plataforma</h2>
+          <div className="platform-body">
+            <div className="shield">✓</div>
+            <div className="status-list">
+              <StatusRow label="Plataforma web" />
+              <StatusRow label="Sistema de pagos" />
+              <StatusRow label="Entrega de email" />
+              <StatusRow label="Almacenamiento" />
+            </div>
+          </div>
+          <div className="platform-progress">
+            <span>Todos los sistemas operativos</span>
+            <strong>100%</strong>
+          </div>
+        </article>
+
+        <article className="review-card">
+          <div className="card-head compact">
+            <h2>Revisiones pendientes</h2>
+            <button type="button">Ver todas</button>
+          </div>
+          <ReviewItem title="Curso: Hipertrofia Avanzada" text="Contenido pendiente de revisión" tag="Alta" />
+          <ReviewItem title="Comentario de Ana Ruiz" text="En Biomecánica Funcional" tag="Media" />
+          <ReviewItem title="Certificado: Javier Torres" text="Verificación de requisitos" tag="Media" />
+          <ReviewItem title="Actualización de módulo: Fuerza Máxima" text="Cambios pendientes de publicación" tag="Baja" />
+        </article>
+
+        <article className="studio-card">
+          <div>
+            <h2>Todo tu contenido, editable desde el panel</h2>
+            <p>Edita cursos, módulos, páginas y comunicaciones desde Studio GHC. Sin código, sin límites.</p>
+            <button type="button">Ir a Studio ↗</button>
+          </div>
+          <div className="studio-visual" aria-hidden="true">
+            <div />
+            <span />
+            <span />
+          </div>
+        </article>
+      </section>
+    </div>
+  );
+}
+
+function KpiCard({
+  title,
+  value,
+  trend,
+  icon,
+  danger = false,
+}: {
   title: string;
   value: string;
   trend: string;
-  trendTone?: "good" | "bad" | "neutral";
   icon: string;
-  spark?: "up" | "soft" | "flat" | "danger";
-};
-
-type ActivityItem = {
-  icon: string;
-  title: string;
-  category: string;
-  time: string;
-};
-
-type PendingItem = {
-  icon: string;
-  title: string;
-  detail: string;
-  priority: "Alta" | "Media" | "Baja";
-  time: string;
-};
-
-type AuthState = "checking" | "authorized" | "unauthorized" | "error";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
-
-const ADMIN_ROLES = new Set(["admin", "superadmin", "owner"]);
-
-function normalizeRole(value: unknown) {
-  return String(value || "").trim().toLowerCase();
-}
-
-
-const navItems: NavItem[] = [
-  { label: "Panel", icon: "⌂", active: true },
-  { label: "Alumnos", icon: "◎" },
-  { label: "Cursos", icon: "▱" },
-  { label: "Contenido", icon: "▤" },
-  { label: "Ventas", icon: "◷" },
-  { label: "Analítica", icon: "▥" },
-  { label: "Certificados", icon: "◇" },
-  { label: "Comunicaciones", icon: "✉" },
-  { label: "Seguridad", icon: "⬡" },
-  { label: "Studio", icon: "▧" },
-  { label: "Ajustes", icon: "⚙" },
-];
-
-const stats: StatCard[] = [
-  {
-    title: "Alumnos activos",
-    value: "2,458",
-    trend: "+18.6% vs. mes anterior",
-    icon: "◎",
-    spark: "up",
-  },
-  {
-    title: "Cursos publicados",
-    value: "24",
-    trend: "+9.1% vs. mes anterior",
-    icon: "▱",
-    spark: "soft",
-  },
-  {
-    title: "Ingresos del mes",
-    value: "$248,760",
-    trend: "+16.4% vs. mes anterior",
-    icon: "$",
-    spark: "up",
-  },
-  {
-    title: "Tasa de finalización",
-    value: "68.3%",
-    trend: "+6.7% vs. mes anterior",
-    icon: "✓",
-    spark: "flat",
-  },
-  {
-    title: "Pendientes",
-    value: "18",
-    trend: "-5.2% vs. mes anterior",
-    trendTone: "bad",
-    icon: "◷",
-    spark: "danger",
-  },
-];
-
-const recentActivity: ActivityItem[] = [
-  {
-    icon: "◎",
-    title: "María González completó Biomecánica Funcional",
-    category: "Alumno",
-    time: "Hace 5 min",
-  },
-  {
-    icon: "▱",
-    title: "Nuevo curso publicado: Adaptaciones Neuromusculares",
-    category: "Curso",
-    time: "Hace 15 min",
-  },
-  {
-    icon: "$",
-    title: "Pago recibido: Suscripción Pro Anual",
-    category: "Venta",
-    time: "Hace 28 min",
-  },
-  {
-    icon: "◇",
-    title: "Certificado emitido a Laura Méndez",
-    category: "Certificados",
-    time: "Hace 45 min",
-  },
-  {
-    icon: "✉",
-    title: "Comunicado enviado: Nuevos cursos disponibles",
-    category: "Comunicaciones",
-    time: "Hace 1 h",
-  },
-];
-
-const pendingReviews: PendingItem[] = [
-  {
-    icon: "▤",
-    title: "Curso: Hipertrofia Avanzada",
-    detail: "Contenido pendiente de revisión",
-    priority: "Alta",
-    time: "Hace 1 h",
-  },
-  {
-    icon: "☰",
-    title: "Comentario de Ana Ruiz",
-    detail: "En Biomecánica Funcional",
-    priority: "Media",
-    time: "Hace 3 h",
-  },
-  {
-    icon: "◇",
-    title: "Certificado: Javier Torres",
-    detail: "Verificación de requisitos",
-    priority: "Media",
-    time: "Hace 5 h",
-  },
-  {
-    icon: "↻",
-    title: "Actualización de módulo: Fuerza Máxima",
-    detail: "Cambios pendientes de publicación",
-    priority: "Baja",
-    time: "Hace 12 h",
-  },
-];
-
-const quickActions = [
-  { icon: "▱", title: "Crear curso", detail: "Añade un nuevo curso" },
-  { icon: "⊞", title: "Añadir módulo", detail: "Crea contenido educativo" },
-  { icon: "◇", title: "Emitir certificado", detail: "Reconoce logros" },
-  { icon: "✈", title: "Enviar comunicado", detail: "Informa a tu comunidad" },
-];
-
-function Sparkline({ tone = "up" }: { tone?: StatCard["spark"] }) {
-  const path =
-    tone === "danger"
-      ? "M2 28 C18 24 28 31 42 27 C56 23 66 32 80 27 C96 21 104 28 118 26 C134 24 140 37 154 31"
-      : tone === "flat"
-        ? "M2 29 C20 29 32 28 46 28 C62 27 72 28 86 27 C104 26 120 27 154 24"
-        : tone === "soft"
-          ? "M2 30 C20 31 32 25 46 27 C62 24 74 28 86 24 C104 18 124 23 154 17"
-          : "M2 31 C18 28 28 25 40 27 C54 29 68 16 82 19 C98 21 110 14 124 12 C138 10 146 8 154 5";
-
+  danger?: boolean;
+}) {
   return (
-    <svg
-      className={tone === "danger" ? "admin-spark danger" : "admin-spark"}
-      viewBox="0 0 156 42"
-      aria-hidden="true"
-    >
-      <path d={path} />
-    </svg>
-  );
-}
-
-function Sidebar() {
-  return (
-    <aside className="admin-sidebar">
-      <div>
-        <div className="admin-logo-wrap">
-          <GHCLogo size="md" showText tagline={false} />
-        </div>
-
-        <p className="admin-sidebar-label">Administración</p>
-
-        <nav className="admin-nav" aria-label="Administración GHC Academy">
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              className={
-                item.active ? "admin-nav-item active" : "admin-nav-item"
-              }
-            >
-              <span className="admin-nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </nav>
+    <article className={danger ? "kpi-card danger" : "kpi-card"}>
+      <div className="kpi-top">
+        <span>{title}</span>
+        <em>{icon}</em>
       </div>
-
-      <div className="admin-sidebar-bottom">
-        <div className="admin-support-card">
-          <span className="admin-support-icon">◉</span>
-          <div>
-            <strong>Soporte GHC</strong>
-            <p>Centro de ayuda</p>
-          </div>
-          <button type="button">Abrir soporte</button>
-        </div>
-
-        <div className="admin-profile-card">
-          <span>AD</span>
-          <div>
-            <strong>Admin GHC</strong>
-            <p>Administrador</p>
-          </div>
-          <em>⌄</em>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function StatCardItem({ item }: { item: StatCard }) {
-  const tone = item.trendTone || "good";
-
-  return (
-    <article
-      className={tone === "bad" ? "admin-stat-card is-bad" : "admin-stat-card"}
-    >
-      <div className="admin-stat-head">
-        <span>{item.title}</span>
-        <i>{item.icon}</i>
-      </div>
-      <strong>{item.value}</strong>
-      <p className={tone === "bad" ? "bad" : ""}>{item.trend}</p>
-      <Sparkline tone={item.spark} />
+      <strong>{value}</strong>
+      <p>{trend} <span>vs. mes anterior</span></p>
+      <div className="sparkline" />
     </article>
   );
 }
 
-function ActivityPanel() {
+function MiniMetric({ label, value, trend }: { label: string; value: string; trend: string }) {
   return (
-    <section className="admin-card admin-activity-card">
-      <div className="admin-card-head">
-        <div>
-          <h2>Actividad reciente</h2>
-          <p>Eventos recientes de la plataforma</p>
-        </div>
-        <button type="button">Ver todo</button>
-      </div>
-
-      <div className="admin-activity-list">
-        {recentActivity.map((item) => (
-          <article key={item.title} className="admin-activity-row">
-            <span>{item.icon}</span>
-            <div>
-              <strong>{item.title}</strong>
-              <p>{item.category}</p>
-            </div>
-            <time>{item.time}</time>
-          </article>
-        ))}
-      </div>
-    </section>
+    <div className="mini-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <em>{trend}</em>
+    </div>
   );
 }
 
-function PlatformStatus() {
-  const services = [
-    "Plataforma web",
-    "Sistema de pagos",
-    "Entrega de email",
-    "Almacenamiento",
-  ];
-
+function QuickAction({ icon, title, text }: { icon: string; title: string; text: string }) {
   return (
-    <section className="admin-card admin-platform-card">
-      <div className="admin-card-head compact">
-        <div>
-          <h2>Estado de la plataforma</h2>
-          <p>Sistemas operativos y servicios críticos</p>
-        </div>
-      </div>
-
-      <div className="admin-platform-body">
-        <div className="admin-shield">✓</div>
-        <div className="admin-service-list">
-          {services.map((service) => (
-            <div key={service}>
-              <span>{service}</span>
-              <strong>Operativo</strong>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="admin-platform-footer">
-        <span>Todos los sistemas operativos</span>
-        <strong>100%</strong>
-      </div>
-      <div className="admin-progress-track">
-        <div style={{ width: "100%" }} />
-      </div>
-    </section>
-  );
-}
-
-function PendingReviews() {
-  return (
-    <section className="admin-card admin-pending-card">
-      <div className="admin-card-head compact">
-        <div>
-          <h2>Revisiones pendientes</h2>
-          <p>Tareas que requieren atención</p>
-        </div>
-        <button type="button">Ver todas</button>
-      </div>
-
-      <div className="admin-pending-list">
-        {pendingReviews.map((item) => (
-          <article key={item.title} className="admin-pending-row">
-            <span>{item.icon}</span>
-            <div>
-              <strong>{item.title}</strong>
-              <p>{item.detail}</p>
-            </div>
-            <b className={`priority priority-${item.priority.toLowerCase()}`}>
-              {item.priority}
-            </b>
-            <time>{item.time}</time>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function QuickActions() {
-  return (
-    <section className="admin-card admin-quick-card">
-      <h2>Acciones rápidas</h2>
-      <div className="admin-quick-grid">
-        {quickActions.map((action) => (
-          <button
-            key={action.title}
-            type="button"
-            className="admin-quick-action"
-          >
-            <span>{action.icon}</span>
-            <div>
-              <strong>{action.title}</strong>
-              <p>{action.detail}</p>
-            </div>
-            <em>›</em>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function GrowthChart() {
-  return (
-    <section className="admin-card admin-growth-card">
-      <div className="admin-card-head">
-        <div>
-          <h2>Crecimiento de la academia</h2>
-          <p>Alumnos activos e ingresos acumulados</p>
-        </div>
-        <button type="button">Este mes ⌄</button>
-      </div>
-
-      <div className="admin-chart-wrap">
-        <div className="chart-legend">
-          <span>
-            <i /> Alumnos activos
-          </span>
-          <span>
-            <i className="muted" /> Ingresos ($)
-          </span>
-        </div>
-        <svg
-          className="admin-growth-chart"
-          viewBox="0 0 900 270"
-          aria-hidden="true"
-        >
-          <defs>
-            <linearGradient id="greenArea" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="rgba(99,229,70,.42)" />
-              <stop offset="100%" stopColor="rgba(99,229,70,0)" />
-            </linearGradient>
-          </defs>
-          <path
-            className="grid-line"
-            d="M40 220 H860 M40 170 H860 M40 120 H860 M40 70 H860"
-          />
-          <path
-            className="grid-line vertical"
-            d="M40 42 V220 M210 42 V220 M380 42 V220 M550 42 V220 M720 42 V220 M860 42 V220"
-          />
-          <path
-            className="gray-line"
-            d="M40 158 C90 172 112 146 150 156 C196 166 230 126 278 118 C328 108 350 82 402 72 C450 62 486 98 532 86 C580 76 612 102 662 91 C710 78 740 44 786 58 C828 70 846 50 860 42"
-          />
-          <path
-            className="green-area"
-            d="M40 215 C90 204 116 184 152 186 C198 187 230 148 278 142 C326 136 360 120 408 100 C456 80 500 108 548 98 C596 87 628 112 668 103 C716 92 744 70 788 82 C824 93 842 59 860 70 V220 H40 Z"
-          />
-          <path
-            className="green-line"
-            d="M40 215 C90 204 116 184 152 186 C198 187 230 148 278 142 C326 136 360 120 408 100 C456 80 500 108 548 98 C596 87 628 112 668 103 C716 92 744 70 788 82 C824 93 842 59 860 70"
-          />
-          <circle className="green-point" cx="860" cy="70" r="6" />
-        </svg>
-        <div className="admin-chart-tooltip">
-          <strong>31 May</strong>
-          <span>
-            <i /> Alumnos 2,458
-          </span>
-          <span>
-            <i className="muted" /> Ingresos $248,760
-          </span>
-        </div>
-      </div>
-
-      <div className="admin-chart-metrics">
-        <div>
-          <span>Nuevos alumnos</span>
-          <strong>186</strong>
-          <em>+24.3%</em>
-        </div>
-        <div>
-          <span>Ingresos acumulados</span>
-          <strong>$248,760</strong>
-          <em>+16.4%</em>
-        </div>
-        <div>
-          <span>Cursos completados</span>
-          <strong>1,326</strong>
-          <em>+12.7%</em>
-        </div>
-        <div>
-          <span>Certificados emitidos</span>
-          <strong>964</strong>
-          <em>+9.4%</em>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function StudioPanel() {
-  return (
-    <section className="admin-card admin-studio-card">
+    <button type="button" className="quick-action">
+      <span>{icon}</span>
       <div>
-        <h2>Todo tu contenido, editable desde el panel</h2>
-        <p>
-          Edita cursos, módulos, páginas y más con Studio GHC. Sin código, sin
-          límites.
-        </p>
-        <button type="button">Ir a Studio ↗</button>
+        <strong>{title}</strong>
+        <p>{text}</p>
       </div>
-      <div className="admin-studio-visual" aria-hidden="true">
-        <span />
-        <i />
-        <b />
+      <em>›</em>
+    </button>
+  );
+}
+
+function ActivityItem({
+  icon,
+  title,
+  label,
+  time,
+}: {
+  icon: string;
+  title: string;
+  label: string;
+  time: string;
+}) {
+  return (
+    <div className="activity-item">
+      <span>{icon}</span>
+      <div>
+        <strong>{title}</strong>
+        <p>{label}</p>
       </div>
+      <em>{time}</em>
+    </div>
+  );
+}
+
+function StatusRow({ label }: { label: string }) {
+  return (
+    <div className="status-row">
+      <span>{label}</span>
+      <strong>Operativo</strong>
+    </div>
+  );
+}
+
+function ReviewItem({ title, text, tag }: { title: string; text: string; tag: string }) {
+  return (
+    <div className="review-item">
+      <span>▣</span>
+      <div>
+        <strong>{title}</strong>
+        <p>{text}</p>
+      </div>
+      <em>{tag}</em>
+    </div>
+  );
+}
+
+function ComingSoon({ tab }: { tab: AdminTab }) {
+  return (
+    <section className="coming-soon">
+      <h1>{getTabLabel(tab)}</h1>
+      <p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador.</p>
     </section>
   );
+}
+
+function Background() {
+  return (
+    <div className="admin-background" aria-hidden="true">
+      <div className="admin-orb one" />
+      <div className="admin-orb two" />
+      <div className="admin-grid-texture" />
+    </div>
+  );
+}
+
+function getTabLabel(tab: AdminTab) {
+  const found = adminTabs.find((item) => item.id === tab);
+  return found?.label || "Panel";
+}
+
+function getInitials(name: string) {
+  return String(name)
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function shortName(name: string) {
+  return String(name).split("@")[0].split(" ")[0] || "Admin";
 }
 
 function GlobalStyles() {
   return (
     <style>{`
       :root {
-        --admin-bg: #050706;
-        --admin-bg-2: #080b0a;
-        --admin-card: rgba(11, 15, 13, .88);
-        --admin-card-2: rgba(13, 18, 16, .94);
-        --admin-border: rgba(237, 245, 235, .085);
-        --admin-border-strong: rgba(99, 229, 70, .28);
-        --admin-green: #63E546;
-        --admin-green-deep: #22D65B;
-        --admin-text: #F3F6EF;
-        --admin-muted: rgba(243, 246, 239, .62);
-        --admin-soft: rgba(243, 246, 239, .42);
-        --admin-danger: #ff4d57;
-        --admin-warning: #e4a72f;
+        --green: #63e546;
+        --green-soft: rgba(99,229,70,.14);
+        --bg: #050706;
+        --panel: rgba(10, 14, 12, .88);
+        --panel-2: rgba(13, 18, 16, .96);
+        --line: rgba(255,255,255,.085);
+        --white: #f4f6f2;
+        --muted: rgba(244,246,242,.64);
+        --soft: rgba(244,246,242,.42);
+        --danger: #ff5757;
+        --warning: #f7c948;
       }
 
       * { box-sizing: border-box; }
-      html, body { margin: 0; background: var(--admin-bg); }
-      body { color: var(--admin-text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-      button { font: inherit; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+      }
+
+      body {
+        color: var(--white);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button, input, select {
+        font: inherit;
+      }
 
       .admin-page {
         min-height: 100vh;
         display: grid;
-        grid-template-columns: 252px minmax(0, 1fr);
-        background:
-          radial-gradient(circle at 74% -8%, rgba(99,229,70,.10), transparent 34%),
-          radial-gradient(circle at 8% 18%, rgba(255,255,255,.045), transparent 30%),
-          var(--admin-bg);
-        color: var(--admin-text);
-        overflow: hidden;
+        grid-template-columns: 280px minmax(0, 1fr);
+        background: var(--bg);
+        color: var(--white);
+        position: relative;
       }
 
-      .admin-page::before {
-        content: '';
+      .admin-loading {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--white);
+        position: relative;
+      }
+
+      .admin-loading-card {
+        position: relative;
+        z-index: 2;
+        width: min(560px, calc(100vw - 40px));
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.025));
+        padding: 34px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.45);
+      }
+
+      .admin-loading-card p {
+        margin: 20px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .admin-background {
         position: fixed;
         inset: 0;
         pointer-events: none;
+        overflow: hidden;
+        z-index: 0;
+      }
+
+      .admin-orb {
+        position: absolute;
+        width: 520px;
+        height: 520px;
+        border-radius: 999px;
+        filter: blur(110px);
+      }
+
+      .admin-orb.one {
+        left: -180px;
+        top: -180px;
+        background: rgba(99,229,70,.09);
+      }
+
+      .admin-orb.two {
+        right: -240px;
+        top: 120px;
+        background: rgba(255,255,255,.055);
+      }
+
+      .admin-grid-texture {
+        position: absolute;
+        inset: 0;
         background-image:
-          linear-gradient(rgba(255,255,255,.020) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,.020) 1px, transparent 1px);
+          linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
         background-size: 42px 42px;
-        opacity: .48;
-        mask-image: radial-gradient(circle at 58% 35%, black, transparent 80%);
+        opacity: .5;
+        mask-image: radial-gradient(circle at center, black 0%, transparent 84%);
       }
 
       .admin-sidebar {
-        position: relative;
+        position: sticky;
+        top: 0;
+        height: 100vh;
         z-index: 2;
-        min-height: 100vh;
-        padding: 24px 18px;
-        border-right: 1px solid rgba(255,255,255,.065);
-        background: linear-gradient(180deg, rgba(4,7,6,.98), rgba(5,8,7,.94));
+        border-right: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(5,8,7,.97), rgba(3,5,4,.94));
+        padding: 22px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
       }
 
-      .admin-logo-wrap { min-height: 54px; display: flex; align-items: center; margin-bottom: 28px; }
-      .admin-sidebar-label { margin: 0 0 16px; color: var(--admin-soft); text-transform: uppercase; letter-spacing: .16em; font-size: 11px; font-weight: 800; }
-      .admin-nav { display: grid; gap: 5px; }
-
-      .admin-nav-item {
-        position: relative;
-        min-height: 48px;
-        border: 1px solid transparent;
-        border-radius: 0;
-        background: transparent;
-        color: rgba(243,246,239,.70);
+      .admin-logo {
+        min-height: 58px;
         display: flex;
         align-items: center;
-        gap: 14px;
+        margin-bottom: 24px;
+      }
+
+      .admin-nav {
+        display: grid;
+        gap: 6px;
+      }
+
+      .admin-nav-item {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: rgba(244,246,242,.65);
+        border-radius: 12px;
         padding: 0 13px;
-        cursor: default;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
         text-align: left;
+        transition: .18s ease;
+      }
+
+      .admin-nav-item:hover {
+        color: var(--white);
+        background: rgba(255,255,255,.035);
       }
 
       .admin-nav-item.active {
-        color: var(--admin-green);
-        background: linear-gradient(90deg, rgba(99,229,70,.18), rgba(99,229,70,.045) 68%, transparent);
-        box-shadow: inset 3px 0 0 var(--admin-green);
+        color: var(--green);
+        background: linear-gradient(90deg, rgba(99,229,70,.15), rgba(99,229,70,.035));
+        border-color: rgba(99,229,70,.16);
+        box-shadow: inset 3px 0 0 var(--green);
       }
 
       .admin-nav-icon {
-        width: 23px;
-        height: 23px;
-        display: grid;
-        place-items: center;
+        width: 24px;
         color: currentColor;
+        font-weight: 900;
+        display: inline-flex;
+        justify-content: center;
       }
 
-      .admin-sidebar-bottom { display: grid; gap: 14px; }
-      .admin-support-card,
-      .admin-profile-card {
-        border: 1px solid var(--admin-border);
-        background: rgba(255,255,255,.035);
+      .admin-sidebar-bottom {
+        display: grid;
+        gap: 14px;
+      }
+
+      .support-card,
+      .admin-user-card {
+        border: 1px solid var(--line);
         border-radius: 18px;
+        background: rgba(255,255,255,.035);
         padding: 16px;
       }
 
-      .admin-support-card {
+      .support-card {
         display: grid;
-        grid-template-columns: 40px 1fr;
+        grid-template-columns: 40px minmax(0,1fr);
         gap: 12px;
       }
 
-      .admin-support-icon,
-      .admin-profile-card > span {
-        width: 42px;
-        height: 42px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        color: var(--admin-green);
-        background: rgba(99,229,70,.08);
-        border: 1px solid rgba(99,229,70,.18);
-        font-weight: 900;
-      }
-
-      .admin-support-card strong,
-      .admin-profile-card strong { display: block; font-size: 15px; }
-      .admin-support-card p,
-      .admin-profile-card p { margin: 4px 0 0; color: var(--admin-muted); font-size: 12px; }
-      .admin-support-card button {
+      .support-card button {
         grid-column: 1 / -1;
-        min-height: 40px;
-        border: 1px solid rgba(99,229,70,.30);
-        border-radius: 12px;
-        color: var(--admin-green);
+        min-height: 38px;
+        border-radius: 10px;
+        border: 1px solid rgba(99,229,70,.28);
+        color: var(--green);
         background: rgba(99,229,70,.06);
+        cursor: pointer;
         font-weight: 850;
       }
 
-      .admin-profile-card { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center; }
-      .admin-profile-card em { color: var(--admin-soft); font-style: normal; }
+      .support-icon,
+      .admin-user-card > span {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(99,229,70,.1);
+        color: var(--green);
+        border: 1px solid rgba(99,229,70,.18);
+        font-weight: 950;
+      }
+
+      .support-card p,
+      .admin-user-card p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .admin-user-card {
+        display: grid;
+        grid-template-columns: 42px minmax(0,1fr);
+        gap: 12px;
+        align-items: center;
+      }
 
       .admin-shell {
         position: relative;
         z-index: 1;
         min-width: 0;
-        padding: 0 18px 18px;
-        display: grid;
-        grid-template-rows: 72px 1fr;
+        padding: 18px 20px 28px;
       }
 
       .admin-topbar {
-        min-height: 72px;
-        border-bottom: 1px solid rgba(255,255,255,.055);
+        min-height: 54px;
+        border-bottom: 1px solid var(--line);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 20px;
+        gap: 18px;
+        margin-bottom: 18px;
       }
 
-      .admin-breadcrumb { display: flex; align-items: center; gap: 10px; color: var(--admin-muted); font-size: 13px; }
-      .admin-breadcrumb strong { color: var(--admin-text); }
-      .admin-user { display: flex; align-items: center; gap: 14px; }
-      .admin-bell { position: relative; color: rgba(243,246,239,.65); font-size: 22px; }
-      .admin-bell::after { content: ''; position: absolute; right: 0; top: 0; width: 7px; height: 7px; border-radius: 999px; background: var(--admin-green); }
-      .admin-user-badge { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; background: rgba(99,229,70,.12); color: var(--admin-green); font-weight: 950; }
-      .admin-user-text { display: grid; gap: 2px; }
-      .admin-user-text strong { font-size: 14px; }
-      .admin-user-text span { color: var(--admin-muted); font-size: 12px; }
+      .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 850;
+      }
 
-      .admin-content { display: grid; gap: 14px; padding-top: 18px; min-width: 0; }
+      .breadcrumb strong {
+        color: var(--white);
+      }
+
+      .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .icon-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--white);
+        background: rgba(255,255,255,.035);
+        cursor: pointer;
+      }
+
+      .topbar-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .topbar-user > span {
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(99,229,70,.11);
+        color: var(--green);
+        font-weight: 950;
+      }
+
+      .topbar-user p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .panel-page {
+        display: grid;
+        gap: 16px;
+      }
 
       .admin-hero {
-        position: relative;
+        min-height: 112px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background:
+          linear-gradient(90deg, rgba(9,13,11,.98), rgba(9,13,11,.78)),
+          radial-gradient(circle at 80% 20%, rgba(99,229,70,.13), transparent 30%);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px;
         overflow: hidden;
-        border: 1px solid var(--admin-border);
-        border-radius: 24px;
-        background:
-          radial-gradient(circle at 82% 6%, rgba(99,229,70,.10), transparent 30%),
-          linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.020)),
-          rgba(8,12,10,.92);
-        min-height: 250px;
-        padding: 26px;
-      }
-
-      .admin-hero::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 140px;
-        width: 280px;
-        height: 180px;
-        background:
-          radial-gradient(circle at center, rgba(255,255,255,.16), transparent 4%),
-          linear-gradient(135deg, transparent 0%, rgba(99,229,70,.08) 45%, transparent 46%);
-        transform: skewX(-18deg);
-        opacity: .6;
-      }
-
-      .admin-athlete {
-        position: absolute;
-        right: 168px;
-        top: 18px;
-        width: 240px;
-        height: 116px;
-        opacity: .62;
-        background:
-          radial-gradient(ellipse at 52% 50%, rgba(255,255,255,.38), transparent 42%),
-          linear-gradient(118deg, transparent 12%, rgba(255,255,255,.34) 14%, transparent 18%, transparent 42%, rgba(255,255,255,.20) 44%, transparent 48%);
-        filter: blur(.1px) grayscale(1);
-        clip-path: polygon(7% 76%, 28% 57%, 43% 52%, 58% 20%, 71% 22%, 58% 43%, 86% 58%, 82% 68%, 55% 55%, 38% 71%, 17% 88%);
-      }
-
-      .admin-hero-copy { position: relative; z-index: 1; max-width: 680px; }
-      .admin-hero h1 { margin: 8px 0 8px; font-size: clamp(34px, 4vw, 48px); letter-spacing: -.045em; line-height: .98; }
-      .admin-kicker { margin: 0; color: var(--admin-green); letter-spacing: .11em; text-transform: uppercase; font-size: 12px; font-weight: 950; }
-      .admin-hero-copy > p:last-child { margin: 0; color: var(--admin-muted); line-height: 1.65; }
-
-      .admin-stats-row {
         position: relative;
-        z-index: 1;
+      }
+
+      .admin-hero h1 {
+        margin: 0;
+        font-size: clamp(32px, 4vw, 48px);
+        line-height: .94;
+        letter-spacing: -.055em;
+        font-weight: 950;
+      }
+
+      .admin-hero p {
+        margin: 12px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .hero-athlete {
+        width: 320px;
+        height: 120px;
+        opacity: .55;
+        background:
+          radial-gradient(circle at 45% 50%, rgba(244,246,242,.18), transparent 22%),
+          radial-gradient(circle at 58% 42%, rgba(244,246,242,.12), transparent 18%),
+          radial-gradient(circle at 70% 34%, rgba(244,246,242,.1), transparent 14%),
+          linear-gradient(120deg, transparent 20%, rgba(99,229,70,.18), transparent 60%);
+        clip-path: polygon(4% 70%, 22% 48%, 40% 55%, 58% 20%, 83% 30%, 100% 14%, 85% 42%, 66% 40%, 50% 70%, 26% 65%, 8% 88%);
+      }
+
+      .kpi-grid {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 12px;
-        margin-top: 24px;
       }
 
-      .admin-stat-card {
-        min-height: 118px;
-        border: 1px solid var(--admin-border);
-        border-radius: 16px;
-        background: rgba(0,0,0,.16);
-        padding: 15px;
-        position: relative;
+      .kpi-card,
+      .growth-card,
+      .quick-actions-card,
+      .activity-card,
+      .platform-card,
+      .review-card,
+      .studio-card,
+      .coming-soon {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: 0 22px 70px rgba(0,0,0,.18);
+      }
+
+      .kpi-card {
+        min-height: 132px;
+        padding: 16px;
         overflow: hidden;
       }
 
-      .admin-stat-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--admin-muted); font-size: 13px; }
-      .admin-stat-head i { font-style: normal; color: var(--admin-green); font-weight: 950; font-size: 20px; }
-      .admin-stat-card strong { display: block; margin-top: 11px; font-size: 30px; line-height: 1; letter-spacing: -.04em; }
-      .admin-stat-card p { margin: 8px 0 0; color: var(--admin-green); font-size: 12px; font-weight: 800; }
-      .admin-stat-card p.bad { color: var(--admin-danger); }
-      .admin-spark { position: absolute; right: 12px; bottom: 10px; width: 112px; height: 34px; }
-      .admin-spark path { fill: none; stroke: var(--admin-green); stroke-width: 3; stroke-linecap: round; opacity: .9; }
-      .admin-spark.danger path { stroke: var(--admin-danger); }
+      .kpi-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 13px;
+      }
 
-      .admin-main-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(390px, .9fr); gap: 14px; }
-      .admin-left-stack,
-      .admin-right-stack { display: grid; gap: 14px; align-content: start; min-width: 0; }
-      .admin-card { border: 1px solid var(--admin-border); border-radius: 20px; background: var(--admin-card); box-shadow: 0 22px 70px rgba(0,0,0,.18); }
-      .admin-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px 0; }
-      .admin-card-head.compact { padding-bottom: 0; }
-      .admin-card h2 { margin: 0; font-size: 19px; letter-spacing: -.025em; }
-      .admin-card p { margin: 5px 0 0; color: var(--admin-muted); font-size: 13px; line-height: 1.45; }
-      .admin-card-head button { min-height: 34px; border-radius: 10px; border: 1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.035); color: var(--admin-text); padding: 0 12px; }
-
-      .admin-growth-card { min-height: 385px; }
-      .admin-chart-wrap { position: relative; min-height: 255px; margin: 8px 20px 0; }
-      .chart-legend { display: flex; gap: 24px; color: var(--admin-muted); font-size: 12px; margin-bottom: 2px; }
-      .chart-legend span { display: inline-flex; align-items: center; gap: 8px; }
-      .chart-legend i { width: 9px; height: 9px; border-radius: 999px; background: var(--admin-green); }
-      .chart-legend i.muted { background: rgba(255,255,255,.38); }
-      .admin-growth-chart { width: 100%; height: 250px; display: block; }
-      .grid-line { stroke: rgba(255,255,255,.07); stroke-width: 1; }
-      .grid-line.vertical { opacity: .65; }
-      .green-area { fill: url(#greenArea); }
-      .green-line { fill: none; stroke: var(--admin-green); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
-      .gray-line { fill: none; stroke: rgba(255,255,255,.42); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-      .green-point { fill: var(--admin-green); filter: drop-shadow(0 0 8px rgba(99,229,70,.8)); }
-      .admin-chart-tooltip { position: absolute; right: 42px; top: 34px; min-width: 150px; border: 1px solid rgba(255,255,255,.10); background: rgba(5,7,6,.88); border-radius: 12px; padding: 11px; box-shadow: 0 18px 40px rgba(0,0,0,.35); display: grid; gap: 6px; }
-      .admin-chart-tooltip strong { font-size: 12px; }
-      .admin-chart-tooltip span { color: var(--admin-muted); font-size: 12px; display: flex; align-items: center; gap: 7px; }
-      .admin-chart-tooltip i { width: 8px; height: 8px; border-radius: 999px; background: var(--admin-green); }
-      .admin-chart-tooltip i.muted { background: rgba(255,255,255,.38); }
-      .admin-chart-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid rgba(255,255,255,.07); margin: 0 20px 18px; }
-      .admin-chart-metrics div { padding: 14px 16px; border-right: 1px solid rgba(255,255,255,.06); }
-      .admin-chart-metrics div:last-child { border-right: 0; }
-      .admin-chart-metrics span { color: var(--admin-muted); font-size: 12px; display: block; }
-      .admin-chart-metrics strong { display: inline-block; margin-top: 7px; font-size: 19px; letter-spacing: -.02em; }
-      .admin-chart-metrics em { margin-left: 10px; color: var(--admin-green); font-size: 12px; font-style: normal; font-weight: 900; }
-
-      .admin-bottom-grid { display: grid; grid-template-columns: .88fr 1fr; gap: 14px; }
-      .admin-platform-card,
-      .admin-pending-card { min-height: 214px; }
-      .admin-platform-body { display: grid; grid-template-columns: 112px 1fr; gap: 18px; align-items: center; padding: 14px 20px; }
-      .admin-shield { width: 94px; height: 100px; display: grid; place-items: center; color: var(--admin-green); font-size: 44px; font-weight: 950; background: radial-gradient(circle at center, rgba(99,229,70,.20), rgba(99,229,70,.05)); clip-path: polygon(50% 0%, 92% 18%, 84% 78%, 50% 100%, 16% 78%, 8% 18%); }
-      .admin-service-list { display: grid; gap: 12px; }
-      .admin-service-list div { display: flex; justify-content: space-between; gap: 14px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.06); padding-bottom: 7px; }
-      .admin-service-list span { color: var(--admin-muted); }
-      .admin-service-list strong { color: var(--admin-green); font-size: 12px; }
-      .admin-service-list strong::before { content: '●'; margin-right: 7px; }
-      .admin-platform-footer { display: flex; justify-content: space-between; margin: 0 20px 8px; color: var(--admin-muted); font-size: 12px; }
-      .admin-progress-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.09); margin: 0 20px 18px; overflow: hidden; }
-      .admin-progress-track div { height: 100%; border-radius: inherit; background: var(--admin-green); box-shadow: 0 0 20px rgba(99,229,70,.45); }
-
-      .admin-pending-list { display: grid; gap: 6px; padding: 14px 20px 18px; }
-      .admin-pending-row { min-height: 40px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 52px 58px; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,.055); padding: 6px 0; }
-      .admin-pending-row > span { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; color: var(--admin-muted); background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.06); }
-      .admin-pending-row strong { display: block; font-size: 13px; }
-      .admin-pending-row p { margin: 2px 0 0; font-size: 12px; }
-      .admin-pending-row time { color: var(--admin-soft); font-size: 11px; text-align: right; }
-      .priority { justify-self: start; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 900; }
-      .priority-alta { color: #ff7b81; background: rgba(255,77,87,.09); }
-      .priority-media { color: var(--admin-warning); background: rgba(228,167,47,.09); }
-      .priority-baja { color: var(--admin-green); background: rgba(99,229,70,.08); }
-
-      .admin-quick-card { padding: 18px 20px; }
-      .admin-quick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
-      .admin-quick-action { min-height: 70px; display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; align-items: center; border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.026); color: var(--admin-text); padding: 12px; text-align: left; }
-      .admin-quick-action > span { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; color: var(--admin-green); background: rgba(99,229,70,.07); border: 1px solid rgba(99,229,70,.16); font-size: 24px; }
-      .admin-quick-action strong { font-size: 14px; }
-      .admin-quick-action p { margin: 3px 0 0; font-size: 12px; }
-      .admin-quick-action em { color: var(--admin-soft); font-style: normal; font-size: 22px; }
-
-      .admin-activity-card { min-height: 290px; }
-      .admin-activity-list { padding: 14px 20px 18px; display: grid; gap: 7px; }
-      .admin-activity-row { min-height: 42px; display: grid; grid-template-columns: 34px 1fr 72px; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,.055); padding: 6px 0; }
-      .admin-activity-row > span { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; color: var(--admin-green); background: rgba(99,229,70,.07); }
-      .admin-activity-row strong { font-size: 13px; }
-      .admin-activity-row p { margin: 2px 0 0; font-size: 12px; }
-      .admin-activity-row time { color: var(--admin-soft); font-size: 11px; text-align: right; }
-
-      .admin-studio-card { min-height: 140px; padding: 18px 20px; display: grid; grid-template-columns: 1fr 210px; gap: 16px; align-items: center; overflow: hidden; position: relative; }
-      .admin-studio-card::before { content: ''; position: absolute; inset: auto 30px -80px auto; width: 260px; height: 160px; background: radial-gradient(circle, rgba(99,229,70,.13), transparent 70%); }
-      .admin-studio-card h2 { font-size: 20px; }
-      .admin-studio-card button { margin-top: 14px; min-height: 40px; padding: 0 18px; border-radius: 11px; border: 1px solid rgba(99,229,70,.28); background: rgba(99,229,70,.07); color: var(--admin-green); font-weight: 900; }
-      .admin-studio-visual { height: 92px; border: 1px solid rgba(255,255,255,.09); border-radius: 14px; background: linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.018)); display: grid; grid-template-columns: 1fr 1.2fr; gap: 8px; padding: 12px; position: relative; z-index: 1; }
-      .admin-studio-visual span { display: block; border-radius: 9px; border: 1px solid rgba(99,229,70,.24); background: rgba(99,229,70,.07); }
-      .admin-studio-visual i,
-      .admin-studio-visual b { display: block; border-radius: 8px; background: rgba(255,255,255,.08); }
-      .admin-studio-visual b { grid-column: 2; height: 18px; align-self: end; }
-
-      .admin-gate-page {
-        grid-template-columns: 1fr;
+      .kpi-top em {
+        width: 34px;
+        height: 34px;
+        border-radius: 11px;
+        display: grid;
         place-items: center;
-        padding: 28px;
+        background: rgba(99,229,70,.09);
+        color: var(--green);
+        border: 1px solid rgba(99,229,70,.14);
+        font-style: normal;
+        font-weight: 950;
       }
 
-      .admin-gate-card {
-        width: min(640px, calc(100vw - 48px));
-        border: 1px solid rgba(255,255,255,.1);
-        border-radius: 24px;
-        background: radial-gradient(circle at top right, rgba(99,229,70,.12), transparent 38%), rgba(9,13,11,.92);
-        box-shadow: 0 28px 90px rgba(0,0,0,.42);
-        padding: 30px;
+      .kpi-card.danger .kpi-top em {
+        color: var(--danger);
+        background: rgba(255,87,87,.08);
+        border-color: rgba(255,87,87,.16);
       }
 
-      .admin-gate-card h1 {
-        margin: 14px 0 10px;
-        font-size: clamp(34px, 5vw, 58px);
-        line-height: .95;
-        letter-spacing: -.055em;
+      .kpi-card > strong {
+        display: block;
+        margin-top: 12px;
+        font-size: 30px;
+        letter-spacing: -.045em;
       }
 
-      .admin-gate-card > p:last-child {
-        color: var(--admin-muted);
-        line-height: 1.65;
+      .kpi-card p {
+        margin: 6px 0 0;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .kpi-card.danger p {
+        color: var(--danger);
+      }
+
+      .kpi-card p span {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .sparkline {
+        height: 28px;
+        margin-top: 12px;
+        background: linear-gradient(90deg, rgba(99,229,70,.12), rgba(99,229,70,.5), rgba(99,229,70,.18));
+        clip-path: polygon(0 64%, 12% 50%, 22% 58%, 34% 34%, 47% 46%, 62% 24%, 78% 28%, 100% 8%, 100% 100%, 0 100%);
+        opacity: .75;
+      }
+
+      .danger .sparkline {
+        background: linear-gradient(90deg, rgba(255,87,87,.12), rgba(255,87,87,.55), rgba(255,87,87,.18));
+      }
+
+      .admin-main-grid {
+        display: grid;
+        grid-template-columns: 1.18fr .95fr;
+        gap: 14px;
+      }
+
+      .growth-card {
+        padding: 18px;
+        min-height: 360px;
+      }
+
+      .card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+
+      .card-head.compact {
+        align-items: center;
+      }
+
+      .card-head h2,
+      .quick-actions-card h2,
+      .platform-card h2,
+      .studio-card h2,
+      .coming-soon h1 {
         margin: 0;
+        font-size: 21px;
+        line-height: 1.05;
+        letter-spacing: -.035em;
       }
 
-      @media (max-width: 1380px) {
-        .admin-page { grid-template-columns: 92px minmax(0,1fr); }
-        .admin-sidebar { padding: 20px 12px; }
-        .admin-sidebar-label,
-        .admin-nav-item span:last-child,
-        .admin-support-card div,
-        .admin-profile-card div,
-        .admin-profile-card em { display: none; }
-        .admin-nav-item { justify-content: center; padding: 0; }
-        .admin-support-card { grid-template-columns: 1fr; justify-items: center; }
-        .admin-support-card button { display: none; }
+      .card-head p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .card-head button {
+        min-height: 34px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        color: var(--white);
+        padding: 0 12px;
+        cursor: pointer;
+      }
+
+      .chart-area {
+        min-height: 230px;
+        border: 1px solid rgba(255,255,255,.06);
+        border-radius: 16px;
+        background:
+          linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+        background-size: 50px 50px;
+        overflow: hidden;
+      }
+
+      .chart-area svg {
+        width: 100%;
+        height: 230px;
+        display: block;
+      }
+
+      .chart-summary {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      .mini-metric {
+        padding: 13px 14px;
+        border-right: 1px solid var(--line);
+      }
+
+      .mini-metric:last-child {
+        border-right: 0;
+      }
+
+      .mini-metric span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .mini-metric strong {
+        display: inline-block;
+        margin-top: 5px;
+        font-size: 19px;
+      }
+
+      .mini-metric em {
+        color: var(--green);
+        margin-left: 8px;
+        font-style: normal;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .quick-actions-card,
+      .activity-card,
+      .platform-card,
+      .review-card,
+      .studio-card {
+        padding: 18px;
+      }
+
+      .quick-actions-grid {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .quick-action {
+        min-height: 72px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.028);
+        color: var(--white);
+        display: grid;
+        grid-template-columns: 42px minmax(0,1fr) 18px;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .quick-action > span,
+      .activity-item > span,
+      .review-item > span {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: rgba(99,229,70,.09);
+        color: var(--green);
+        border: 1px solid rgba(99,229,70,.16);
+        font-weight: 950;
+      }
+
+      .quick-action p,
+      .activity-item p,
+      .review-item p,
+      .studio-card p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .quick-action em {
+        color: var(--muted);
+        font-style: normal;
+        font-size: 22px;
+      }
+
+      .activity-card {
+        min-height: 285px;
+      }
+
+      .activity-item,
+      .review-item {
+        display: grid;
+        grid-template-columns: 40px minmax(0,1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 0;
+        border-top: 1px solid rgba(255,255,255,.055);
+      }
+
+      .activity-item em {
+        color: var(--muted);
+        font-style: normal;
+        font-size: 12px;
+      }
+
+      .platform-card {
+        min-height: 230px;
+      }
+
+      .platform-body {
+        display: grid;
+        grid-template-columns: 112px minmax(0,1fr);
+        gap: 18px;
+        align-items: center;
+        margin-top: 18px;
+      }
+
+      .shield {
+        width: 106px;
+        height: 106px;
+        border-radius: 30px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        font-size: 44px;
+        background: radial-gradient(circle, rgba(99,229,70,.2), rgba(99,229,70,.04));
+        border: 1px solid rgba(99,229,70,.18);
+      }
+
+      .status-list {
+        display: grid;
+        gap: 11px;
+      }
+
+      .status-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+      }
+
+      .status-row strong {
+        color: var(--green);
+      }
+
+      .platform-progress {
+        margin-top: 18px;
+        display: flex;
+        justify-content: space-between;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        color: var(--muted);
+      }
+
+      .platform-progress strong {
+        color: var(--white);
+      }
+
+      .review-item em {
+        border-radius: 999px;
+        padding: 5px 8px;
+        background: rgba(247,201,72,.1);
+        color: var(--warning);
+        font-style: normal;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .review-item:first-of-type em {
+        color: var(--danger);
+        background: rgba(255,87,87,.1);
+      }
+
+      .review-item:last-child em {
+        color: var(--green);
+        background: rgba(99,229,70,.1);
+      }
+
+      .studio-card {
+        grid-column: 2 / 3;
+        display: grid;
+        grid-template-columns: minmax(0,1fr) 180px;
+        gap: 18px;
+        align-items: center;
+        background:
+          radial-gradient(circle at 78% 50%, rgba(99,229,70,.11), transparent 34%),
+          var(--panel);
+      }
+
+      .studio-card button {
+        margin-top: 14px;
+        min-height: 42px;
+        border-radius: 10px;
+        border: 1px solid rgba(99,229,70,.32);
+        background: rgba(99,229,70,.08);
+        color: var(--green);
+        font-weight: 900;
+        cursor: pointer;
+        padding: 0 16px;
+      }
+
+      .studio-visual {
+        height: 104px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        padding: 16px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .studio-visual div,
+      .studio-visual span {
+        border-radius: 8px;
+        background: rgba(255,255,255,.12);
+      }
+
+      .studio-visual div {
+        height: 36px;
+        position: relative;
+      }
+
+      .studio-visual div:after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        border-left: 10px solid var(--green);
+        border-top: 7px solid transparent;
+        border-bottom: 7px solid transparent;
+      }
+
+      .studio-visual span {
+        height: 9px;
+      }
+
+      .coming-soon {
+        min-height: 420px;
+        padding: 34px;
+        display: grid;
+        align-content: center;
+      }
+
+      .coming-soon p {
+        max-width: 720px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      @media (max-width: 1280px) {
+        .kpi-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .admin-main-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .studio-card {
+          grid-column: auto;
+        }
+      }
+
+      @media (max-width: 980px) {
+        .admin-page {
+          grid-template-columns: 1fr;
+        }
+
+        .admin-sidebar {
+          position: relative;
+          height: auto;
+        }
+
+        .chart-summary,
+        .quick-actions-grid {
+          grid-template-columns: 1fr;
+        }
       }
     `}</style>
-  );
-}
-
-function AdminGateScreen({ title, message }: { title: string; message: string }) {
-  return (
-    <main className="admin-page admin-gate-page">
-      <GlobalStyles />
-      <section className="admin-gate-card">
-        <GHCLogo size="md" showText tagline={false} />
-        <p className="admin-kicker">GHC Control Center</p>
-        <h1>{title}</h1>
-        <p>{message}</p>
-      </section>
-    </main>
-  );
-}
-
-export default function Page() {
-  const router = useRouter();
-  const [authState, setAuthState] = useState<AuthState>("checking");
-  const [authMessage, setAuthMessage] = useState("Verificando permisos de administrador...");
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function verifyAdminAccess() {
-      if (!supabase) {
-        if (!isMounted) return;
-        setAuthMessage("Faltan las variables de Supabase en Vercel.");
-        setAuthState("error");
-        return;
-      }
-
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-
-      if (userError || !userData.user) {
-        router.replace("/acceso?next=/ghc-control-center");
-        return;
-      }
-
-      const user = userData.user;
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("id,email,role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const profileRole = normalizeRole(profileData?.role);
-      const metadataRole = normalizeRole(user.user_metadata?.role || user.app_metadata?.role);
-      const isAdmin = ADMIN_ROLES.has(profileRole) || ADMIN_ROLES.has(metadataRole);
-
-      if (!isMounted) return;
-
-      if (profileError) {
-        setAuthMessage("No se pudo comprobar el rol del administrador.");
-        setAuthState("error");
-        return;
-      }
-
-      if (!isAdmin) {
-        setAuthMessage("Esta zona está reservada exclusivamente para administración GHC.");
-        setAuthState("unauthorized");
-        setTimeout(() => router.replace("/alumno"), 900);
-        return;
-      }
-
-      setAuthState("authorized");
-    }
-
-    verifyAdminAccess();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
-  if (authState === "checking") {
-    return <AdminGateScreen title="Acceso administrador" message={authMessage} />;
-  }
-
-  if (authState === "unauthorized" || authState === "error") {
-    return <AdminGateScreen title="Acceso restringido" message={authMessage} />;
-  }
-
-  return (
-    <main className="admin-page">
-      <GlobalStyles />
-      <Sidebar />
-
-      <section className="admin-shell">
-        <header className="admin-topbar">
-          <div className="admin-breadcrumb">
-            <span>⌂</span>
-            <span>Administración</span>
-            <span>›</span>
-            <strong>Panel</strong>
-          </div>
-
-          <div className="admin-user">
-            <span className="admin-bell">♧</span>
-            <span className="admin-user-badge">AD</span>
-            <span className="admin-user-text">
-              <strong>Admin GHC</strong>
-              <span>Administrador</span>
-            </span>
-          </div>
-        </header>
-
-        <div className="admin-content">
-          <section className="admin-hero">
-            <div className="admin-athlete" aria-hidden="true" />
-            <div className="admin-hero-copy">
-              <p className="admin-kicker">Panel operativo</p>
-              <h1>Panel de control</h1>
-              <p>
-                Gestiona y haz crecer tu academia desde un único lugar.
-                Supervisa alumnos, cursos, ingresos, certificaciones y tareas
-                críticas con una experiencia premium.
-              </p>
-            </div>
-
-            <div className="admin-stats-row">
-              {stats.map((stat) => (
-                <StatCardItem key={stat.title} item={stat} />
-              ))}
-            </div>
-          </section>
-
-          <section className="admin-main-grid">
-            <div className="admin-left-stack">
-              <GrowthChart />
-
-              <div className="admin-bottom-grid">
-                <PlatformStatus />
-                <PendingReviews />
-              </div>
-            </div>
-
-            <div className="admin-right-stack">
-              <QuickActions />
-              <ActivityPanel />
-              <StudioPanel />
-            </div>
-          </section>
-        </div>
-      </section>
-    </main>
   );
 }
