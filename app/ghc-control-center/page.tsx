@@ -22,14 +22,37 @@ type AdminTab =
   | "ajustes";
 
 type GuardState = "checking" | "allowed" | "denied";
+type CourseViewMode = "grid" | "list";
+type CourseStatusFilter = "all" | "published" | "draft" | "hidden";
 
 type DashboardData = {
   profiles: AnyRecord[];
   courses: AnyRecord[];
+  modules: AnyRecord[];
+  lessons: AnyRecord[];
   certificates: AnyRecord[];
   courseCompletions: AnyRecord[];
   moduleCompletions: AnyRecord[];
   lessonProgress: AnyRecord[];
+};
+
+type CourseAdminView = {
+  course: AnyRecord;
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  status: string;
+  statusLabel: string;
+  level: string;
+  category: string;
+  price: string;
+  modulesCount: number;
+  lessonsCount: number;
+  enrollmentsCount: number;
+  updatedAt: string;
+  image: string;
+  progressHint: number;
 };
 
 const supabase = createClient(
@@ -57,6 +80,8 @@ const adminTabs: { id: AdminTab; label: string; helper: string; icon: string }[]
 const emptyDashboardData: DashboardData = {
   profiles: [],
   courses: [],
+  modules: [],
+  lessons: [],
   certificates: [],
   courseCompletions: [],
   moduleCompletions: [],
@@ -71,6 +96,9 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState<AdminTab>("panel");
   const [dashboardData, setDashboardData] = useState<DashboardData>(emptyDashboardData);
   const [systemMessage, setSystemMessage] = useState("");
+  const [courseSearch, setCourseSearch] = useState("");
+  const [courseStatusFilter, setCourseStatusFilter] = useState<CourseStatusFilter>("all");
+  const [courseViewMode, setCourseViewMode] = useState<CourseViewMode>("grid");
 
   useEffect(() => {
     async function protectAndLoad() {
@@ -131,8 +159,37 @@ export default function Page() {
   const initials = getInitials(displayName);
 
   const dashboardStats = useMemo(() => buildDashboardStats(dashboardData), [dashboardData]);
+  const courseViews = useMemo(() => buildCourseAdminViews(dashboardData), [dashboardData]);
   const recentActivity = useMemo(() => buildRecentActivity(dashboardData), [dashboardData]);
   const priorityTasks = useMemo(() => buildPriorityTasks(dashboardData), [dashboardData]);
+
+  const filteredCourseViews = useMemo(() => {
+    const query = courseSearch.trim().toLowerCase();
+
+    return courseViews.filter((item) => {
+      const matchesSearch =
+        !query ||
+        [
+          item.title,
+          item.subtitle,
+          item.description,
+          item.category,
+          item.level,
+          item.statusLabel,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+
+      const matchesStatus =
+        courseStatusFilter === "all" ||
+        (courseStatusFilter === "published" && item.status === "published") ||
+        (courseStatusFilter === "draft" && item.status === "draft") ||
+        (courseStatusFilter === "hidden" && item.status === "hidden");
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [courseViews, courseSearch, courseStatusFilter]);
 
   if (guardState === "checking") {
     return (
@@ -169,7 +226,10 @@ export default function Page() {
                 key={tab.id}
                 type="button"
                 className={activeTab === tab.id ? "admin-nav-item active" : "admin-nav-item"}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setSystemMessage("");
+                }}
               >
                 <span className="admin-nav-icon">{tab.icon}</span>
                 <span>
@@ -212,8 +272,8 @@ export default function Page() {
 
           <div className="topbar-actions">
             <div className="admin-search">Buscar alumnos, cursos, certificados...</div>
-            <button type="button" className="create-btn">+ Crear</button>
-            <button type="button" className="studio-top-btn">Studio GHC</button>
+            <button type="button" className="create-btn" onClick={() => setSystemMessage("La creación real se conectará por módulo. Empezaremos por Cursos y Contenido.")}>+ Crear</button>
+            <button type="button" className="studio-top-btn" onClick={() => setActiveTab("studio")}>Studio GHC</button>
             <button type="button" className="icon-btn">♢</button>
 
             <div className="topbar-user">
@@ -236,19 +296,37 @@ export default function Page() {
             setActiveTab={setActiveTab}
             setSystemMessage={setSystemMessage}
           />
-        ) : (
-          <ComingSoon tab={activeTab} />
-        )}
+        ) : null}
+
+        {activeTab === "cursos" ? (
+          <CursosAdmin
+            stats={dashboardStats}
+            courseViews={filteredCourseViews}
+            allCourseViews={courseViews}
+            search={courseSearch}
+            setSearch={setCourseSearch}
+            statusFilter={courseStatusFilter}
+            setStatusFilter={setCourseStatusFilter}
+            viewMode={courseViewMode}
+            setViewMode={setCourseViewMode}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
-  const [profiles, courses, certificates, courseCompletions, moduleCompletions, lessonProgress] =
+  const [profiles, courses, modules, lessons, certificates, courseCompletions, moduleCompletions, lessonProgress] =
     await Promise.all([
       safeSelect("profiles", "*"),
       safeSelect("courses", "*"),
+      safeSelect("modules", "*"),
+      safeSelect("lessons", "*"),
       safeSelect("certificates", "*"),
       safeSelect("course_completions", "*"),
       safeSelect("module_completions", "*"),
@@ -258,6 +336,8 @@ async function loadDashboardData(): Promise<DashboardData> {
   return {
     profiles,
     courses,
+    modules,
+    lessons,
     certificates,
     courseCompletions,
     moduleCompletions,
@@ -288,15 +368,10 @@ function buildDashboardStats(data: DashboardData) {
   });
 
   const visibleCourses = data.courses.filter(isVisibleCourse);
-  const publishedCourses = visibleCourses.filter((course) => {
-    const status = String(course.status || "").toLowerCase();
-    return !status || ["published", "publicado", "active", "activo", "preview", "demo"].includes(status);
-  });
 
-  const draftCourses = data.courses.filter((course) => {
-    const status = String(course.status || "").toLowerCase();
-    return ["draft", "borrador"].includes(status);
-  });
+  const publishedCourses = visibleCourses.filter((course) => normalizeCourseStatus(course) === "published");
+  const draftCourses = data.courses.filter((course) => normalizeCourseStatus(course) === "draft");
+  const hiddenCourses = data.courses.filter((course) => normalizeCourseStatus(course) === "hidden");
 
   const validCertificates = data.certificates.filter((certificate) => {
     const status = String(certificate.status || "valid").toLowerCase();
@@ -315,14 +390,54 @@ function buildDashboardStats(data: DashboardData) {
   return {
     studentsTotal: students.length,
     activeStudents: students.length,
+    coursesTotal: data.courses.length,
     publishedCourses: publishedCourses.length,
     draftCourses: draftCourses.length,
+    hiddenCourses: hiddenCourses.length,
     certificates: validCertificates.length,
+    modules: data.modules.length,
+    lessons: data.lessons.length,
     moduleCompletions: data.moduleCompletions.length,
     lessonProgress: data.lessonProgress.length,
     completionRate: Math.min(100, completionRate),
     pendingReviews: draftCourses.length + Math.max(0, data.certificates.length - validCertificates.length),
   };
+}
+
+function buildCourseAdminViews(data: DashboardData): CourseAdminView[] {
+  return data.courses
+    .map((course, index) => {
+      const id = String(course.id || `course-${index}`);
+      const courseModules = data.modules.filter((module) => String(module.course_id) === id);
+      const moduleIds = new Set(courseModules.map((module) => String(module.id)));
+      const courseLessons = data.lessons.filter((lesson) => moduleIds.has(String(lesson.module_id)));
+      const completions = data.courseCompletions.filter((item) => String(item.course_id) === id);
+      const status = normalizeCourseStatus(course);
+
+      return {
+        course,
+        id,
+        title: String(course.title || course.name || "Curso GHC Academy"),
+        subtitle: String(course.subtitle || course.short_description || "Formación premium basada en ciencia y aplicación real."),
+        description: String(course.description || course.summary || "Curso preparado para edición, maquetación y publicación desde el panel administrador."),
+        status,
+        statusLabel: getCourseStatusLabel(status),
+        level: String(course.level || course.difficulty || "Sin nivel"),
+        category: String(course.category || course.course_type || course.type || course.area || "Sin categoría"),
+        price: formatCoursePrice(course),
+        modulesCount: courseModules.length,
+        lessonsCount: courseLessons.length,
+        enrollmentsCount: completions.length,
+        updatedAt: formatShortDate(course.updated_at || course.created_at || course.published_at),
+        image: getCourseImage(course),
+        progressHint: Math.min(100, Math.round(((courseLessons.length || courseModules.length || index + 1) / 12) * 100)),
+      };
+    })
+    .sort((a, b) => {
+      if (a.status === "draft" && b.status !== "draft") return -1;
+      if (a.status !== "draft" && b.status === "draft") return 1;
+      return a.title.localeCompare(b.title);
+    });
 }
 
 function buildRecentActivity(data: DashboardData) {
@@ -376,9 +491,7 @@ function buildRecentActivity(data: DashboardData) {
 }
 
 function buildPriorityTasks(data: DashboardData) {
-  const draftCourses = data.courses.filter((course) =>
-    ["draft", "borrador"].includes(String(course.status || "").toLowerCase())
-  );
+  const draftCourses = data.courses.filter((course) => normalizeCourseStatus(course) === "draft");
 
   const pendingCertificates = data.certificates.filter((certificate) =>
     ["pending", "pendiente", "review", "revision"].includes(String(certificate.status || "").toLowerCase())
@@ -389,7 +502,7 @@ function buildPriorityTasks(data: DashboardData) {
   draftCourses.slice(0, 2).forEach((course) => {
     tasks.push({
       title: course.title || "Curso en borrador",
-      text: "Pendiente de revisión o publicación",
+      text: "Pendiente de maquetación, revisión o publicación",
       tag: "Curso",
     });
   });
@@ -410,8 +523,8 @@ function buildPriorityTasks(data: DashboardData) {
         tag: "OK",
       },
       {
-        title: "Pagos y accesos",
-        text: "Pendiente conectar Stripe/SumUp para métricas reales",
+        title: "Cursos en preparación",
+        text: "Puedes empezar a maquetar borradores desde la pestaña Cursos",
         tag: "Próximo",
       },
     ];
@@ -567,6 +680,265 @@ function PanelAdmin({
   );
 }
 
+function CursosAdmin({
+  stats,
+  courseViews,
+  allCourseViews,
+  search,
+  setSearch,
+  statusFilter,
+  setStatusFilter,
+  viewMode,
+  setViewMode,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  stats: ReturnType<typeof buildDashboardStats>;
+  courseViews: CourseAdminView[];
+  allCourseViews: CourseAdminView[];
+  search: string;
+  setSearch: (value: string) => void;
+  statusFilter: CourseStatusFilter;
+  setStatusFilter: (value: CourseStatusFilter) => void;
+  viewMode: CourseViewMode;
+  setViewMode: (value: CourseViewMode) => void;
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const totalLessons = allCourseViews.reduce((acc, item) => acc + item.lessonsCount, 0);
+  const totalModules = allCourseViews.reduce((acc, item) => acc + item.modulesCount, 0);
+  const totalEnrollments = allCourseViews.reduce((acc, item) => acc + item.enrollmentsCount, 0);
+
+  return (
+    <div className="courses-admin-page">
+      <section className="courses-hero">
+        <div>
+          <p className="admin-kicker">Gestión académica y comercial</p>
+          <h1>Cursos</h1>
+          <p>Maqueta, revisa y publica cursos desde el panel sin depender del código. Empieza con borradores aunque el contenido final todavía no esté terminado.</p>
+        </div>
+
+        <div className="courses-hero-panel">
+          <span>Editor visual preparado</span>
+          <strong>Catálogo, módulos, precios y visibilidad</strong>
+          <p>La base queda lista para conectar creación, edición y publicación real por fases.</p>
+          <button type="button" onClick={() => setSystemMessage("El formulario real de creación será el siguiente paso funcional de Cursos.")}>
+            + Crear curso
+          </button>
+        </div>
+      </section>
+
+      <section className="course-stats-grid">
+        <CourseStat label="Total cursos" value={stats.coursesTotal} helper="Base Supabase" />
+        <CourseStat label="Publicados" value={stats.publishedCourses} helper="Visibles o activos" />
+        <CourseStat label="Borradores" value={stats.draftCourses} helper="Para maquetar" />
+        <CourseStat label="Módulos" value={totalModules} helper="Estructura académica" />
+        <CourseStat label="Lecciones" value={totalLessons} helper="Contenido cargado" />
+        <CourseStat label="Matrículas" value={totalEnrollments} helper="Completions registradas" />
+      </section>
+
+      <section className="course-toolbar">
+        <label className="course-search">
+          <span>⌕</span>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar por título, categoría, nivel o estado..."
+          />
+        </label>
+
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as CourseStatusFilter)}>
+          <option value="all">Todos los estados</option>
+          <option value="published">Publicados</option>
+          <option value="draft">Borradores</option>
+          <option value="hidden">Ocultos</option>
+        </select>
+
+        <div className="course-view-toggle">
+          <button type="button" className={viewMode === "grid" ? "active" : ""} onClick={() => setViewMode("grid")}>Grid</button>
+          <button type="button" className={viewMode === "list" ? "active" : ""} onClick={() => setViewMode("list")}>Lista</button>
+        </div>
+      </section>
+
+      <section className="courses-layout">
+        <div className="courses-main-column">
+          <div className="section-title-row">
+            <div>
+              <h2>Biblioteca de cursos</h2>
+              <p>{courseViews.length} resultados preparados para gestión.</p>
+            </div>
+            <button type="button" onClick={() => setSystemMessage("Más adelante conectaremos edición masiva de estados y orden del catálogo.")}>
+              Gestionar catálogo
+            </button>
+          </div>
+
+          {courseViews.length === 0 ? (
+            <article className="courses-empty">
+              <span>▱</span>
+              <h3>No hay cursos que coincidan con los filtros</h3>
+              <p>Cuando crees o importes cursos, aparecerán aquí como borradores, publicados u ocultos.</p>
+            </article>
+          ) : (
+            <div className={viewMode === "grid" ? "admin-course-grid" : "admin-course-list"}>
+              {courseViews.map((item, index) => (
+                <AdminCourseCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  viewMode={viewMode}
+                  setActiveTab={setActiveTab}
+                  setSystemMessage={setSystemMessage}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <aside className="courses-side-column">
+          <article className="course-side-card">
+            <h2>Acciones de cursos</h2>
+            <button type="button" onClick={() => setSystemMessage("Siguiente fase: formulario real para crear cursos en Supabase.")}>
+              + Crear nuevo curso
+            </button>
+            <button type="button" onClick={() => setActiveTab("contenido")}>
+              Gestionar contenido
+            </button>
+            <button type="button" onClick={() => setSystemMessage("Más adelante conectaremos plantillas de curso reutilizables.")}>
+              Crear desde plantilla
+            </button>
+            <button type="button" onClick={() => setSystemMessage("La vista pública se revisará después de alinear landing y catálogo.")}>
+              Vista pública del catálogo
+            </button>
+          </article>
+
+          <article className="course-side-card">
+            <h2>Estado del catálogo</h2>
+            <div className="catalog-ring">
+              <strong>{stats.publishedCourses}</strong>
+              <span>publicados</span>
+            </div>
+            <div className="catalog-status-list">
+              <StatusRow label="Publicados" value={formatNumber(stats.publishedCourses)} />
+              <StatusRow label="Borradores" value={formatNumber(stats.draftCourses)} warning={stats.draftCourses > 0} />
+              <StatusRow label="Ocultos" value={formatNumber(stats.hiddenCourses)} />
+            </div>
+          </article>
+
+          <article className="course-side-card">
+            <h2>Próximos pasos</h2>
+            <div className="course-next-list">
+              <span>1</span>
+              <p>Crear formulario real para añadir cursos sin tocar código.</p>
+              <span>2</span>
+              <p>Conectar edición de título, precio, categoría, nivel e imagen.</p>
+              <span>3</span>
+              <p>Pasar a Contenido para módulos, lecciones y recursos.</p>
+            </div>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function AdminCourseCard({
+  item,
+  index,
+  viewMode,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  item: CourseAdminView;
+  index: number;
+  viewMode: CourseViewMode;
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <article className={viewMode === "grid" ? "admin-course-card" : "admin-course-card list"}>
+      <div
+        className="admin-course-cover"
+        style={{ backgroundImage: getCourseBackground(item, index) }}
+      >
+        <span className={`course-status-pill ${item.status}`}>{item.statusLabel}</span>
+      </div>
+
+      <div className="admin-course-body">
+        <div className="course-title-row">
+          <div>
+            <h3>{item.title}</h3>
+            <p>{item.subtitle}</p>
+          </div>
+          <button type="button" onClick={() => setSystemMessage(`Opciones rápidas para: ${item.title}`)}>•••</button>
+        </div>
+
+        <div className="course-info-grid">
+          <CourseInfo label="Categoría" value={item.category} />
+          <CourseInfo label="Nivel" value={item.level} />
+          <CourseInfo label="Precio" value={item.price} />
+          <CourseInfo label="Actualizado" value={item.updatedAt} />
+        </div>
+
+        <div className="course-build-row">
+          <div>
+            <strong>{item.modulesCount}</strong>
+            <span>Módulos</span>
+          </div>
+          <div>
+            <strong>{item.lessonsCount}</strong>
+            <span>Lecciones</span>
+          </div>
+          <div>
+            <strong>{item.enrollmentsCount}</strong>
+            <span>Matrículas</span>
+          </div>
+        </div>
+
+        <div className="course-progress-block">
+          <div>
+            <span>Preparación estimada</span>
+            <strong>{item.progressHint}%</strong>
+          </div>
+          <div className="course-progress-track">
+            <div style={{ width: `${item.progressHint}%` }} />
+          </div>
+        </div>
+
+        <div className="admin-course-actions">
+          <button type="button" onClick={() => setSystemMessage(`Siguiente fase: editar ficha de ${item.title}.`)}>
+            Editar curso
+          </button>
+          <button type="button" onClick={() => setActiveTab("contenido")}>
+            Gestionar contenido
+          </button>
+          <button type="button" onClick={() => setSystemMessage("La vista pública se ajustará cuando pasemos catálogo y landing a la estética Alumno.")}>
+            Vista previa
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function CourseInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="course-info-box">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function CourseStat({ label, value, helper }: { label: string; value: number; helper: string }) {
+  return (
+    <article className="course-stat-card">
+      <span>{label}</span>
+      <strong>{formatNumber(value)}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
 function KpiCard({
   title,
   value,
@@ -694,15 +1066,86 @@ function Background() {
 }
 
 function isVisibleCourse(course: AnyRecord) {
-  const status = String(course.status || "").toLowerCase();
+  return normalizeCourseStatus(course) !== "hidden";
+}
 
-  if (!status) return true;
+function normalizeCourseStatus(course: AnyRecord): "published" | "draft" | "hidden" {
+  const status = String(course.status || course.visibility || "").toLowerCase();
 
-  return ["published", "publicado", "active", "activo", "preview", "demo"].includes(status);
+  if (["draft", "borrador"].includes(status)) return "draft";
+  if (["hidden", "oculto", "archived", "archivado", "inactive", "inactivo"].includes(status)) return "hidden";
+  if (course.is_published === false || course.published === false) return "draft";
+
+  return "published";
+}
+
+function getCourseStatusLabel(status: string) {
+  if (status === "draft") return "Borrador";
+  if (status === "hidden") return "Oculto";
+  return "Publicado";
+}
+
+function formatCoursePrice(course: AnyRecord) {
+  const raw = course.price ?? course.amount ?? course.sale_price ?? null;
+  const currency = String(course.currency || "€");
+
+  if (raw === null || raw === undefined || raw === "") return "Sin precio";
+
+  const numeric = Number(raw);
+
+  if (Number.isFinite(numeric)) {
+    if (currency === "EUR" || currency === "eur" || currency === "€") return `${numeric.toLocaleString("es-ES")}€`;
+    if (currency === "USD" || currency === "usd" || currency === "$") return `$${numeric.toLocaleString("es-ES")}`;
+    return `${numeric.toLocaleString("es-ES")} ${currency}`;
+  }
+
+  return String(raw);
+}
+
+function getCourseImage(course: AnyRecord) {
+  return (
+    course?.cover_image ||
+    course?.cover_image_url ||
+    course?.image ||
+    course?.image_url ||
+    course?.thumbnail ||
+    course?.thumbnail_url ||
+    ""
+  );
+}
+
+function getCourseBackground(item: CourseAdminView, index: number) {
+  const realImage = item.image;
+
+  const fallbacks = [
+    "https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80",
+  ];
+
+  const selected = realImage || fallbacks[index % fallbacks.length];
+
+  return `linear-gradient(180deg, rgba(5,7,6,0.08), rgba(5,7,6,0.92)), url(${selected})`;
 }
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("es-ES").format(value || 0);
+}
+
+function formatShortDate(value?: string | null) {
+  if (!value) return "Sin fecha";
+
+  try {
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(value));
+  } catch {
+    return "Sin fecha";
+  }
 }
 
 function formatRelative(value?: string | null) {
@@ -1110,12 +1553,14 @@ function GlobalStyles() {
         padding: 14px 16px;
       }
 
-      .panel-page {
+      .panel-page,
+      .courses-admin-page {
         display: grid;
         gap: 16px;
       }
 
-      .admin-hero {
+      .admin-hero,
+      .courses-hero {
         min-height: 128px;
         border: 1px solid var(--line);
         border-radius: 22px;
@@ -1140,7 +1585,8 @@ function GlobalStyles() {
         font-weight: 950;
       }
 
-      .admin-hero h1 {
+      .admin-hero h1,
+      .courses-hero h1 {
         margin: 0;
         font-size: clamp(36px, 4vw, 54px);
         line-height: .94;
@@ -1148,11 +1594,12 @@ function GlobalStyles() {
         font-weight: 950;
       }
 
-      .admin-hero p:not(.admin-kicker) {
+      .admin-hero p:not(.admin-kicker),
+      .courses-hero p:not(.admin-kicker) {
         margin: 12px 0 0;
         color: var(--muted);
         line-height: 1.6;
-        max-width: 720px;
+        max-width: 760px;
       }
 
       .hero-athlete {
@@ -1165,6 +1612,46 @@ function GlobalStyles() {
           radial-gradient(circle at 70% 34%, rgba(244,246,242,.1), transparent 14%),
           linear-gradient(120deg, transparent 20%, rgba(99,229,70,.18), transparent 60%);
         clip-path: polygon(4% 70%, 22% 48%, 40% 55%, 58% 20%, 83% 30%, 100% 14%, 85% 42%, 66% 40%, 50% 70%, 26% 65%, 8% 88%);
+      }
+
+      .courses-hero-panel {
+        width: 360px;
+        border-radius: 18px;
+        border: 1px solid rgba(99,229,70,.2);
+        background: rgba(99,229,70,.055);
+        padding: 18px;
+      }
+
+      .courses-hero-panel span {
+        color: var(--green);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .16em;
+        font-weight: 950;
+      }
+
+      .courses-hero-panel strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 20px;
+        line-height: 1.12;
+      }
+
+      .courses-hero-panel p {
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 13px;
+      }
+
+      .courses-hero-panel button {
+        min-height: 40px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--green);
+        color: #061008;
+        font-weight: 950;
+        padding: 0 16px;
+        cursor: pointer;
       }
 
       .kpi-grid {
@@ -1180,7 +1667,12 @@ function GlobalStyles() {
       .platform-card,
       .review-card,
       .studio-card,
-      .coming-soon {
+      .coming-soon,
+      .course-stat-card,
+      .course-toolbar,
+      .admin-course-card,
+      .courses-empty,
+      .course-side-card {
         border: 1px solid var(--line);
         border-radius: 18px;
         background: var(--panel);
@@ -1290,20 +1782,24 @@ function GlobalStyles() {
       .quick-actions-card h2,
       .platform-card h2,
       .studio-card h2,
-      .coming-soon h1 {
+      .coming-soon h1,
+      .section-title-row h2,
+      .course-side-card h2 {
         margin: 0;
         font-size: 21px;
         line-height: 1.05;
         letter-spacing: -.035em;
       }
 
-      .card-head p {
+      .card-head p,
+      .section-title-row p {
         margin: 6px 0 0;
         color: var(--muted);
         font-size: 13px;
       }
 
-      .card-head button {
+      .card-head button,
+      .section-title-row button {
         min-height: 34px;
         border-radius: 10px;
         border: 1px solid var(--line);
@@ -1582,6 +2078,436 @@ function GlobalStyles() {
         height: 9px;
       }
 
+      .course-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .course-stat-card {
+        padding: 16px;
+        min-height: 118px;
+      }
+
+      .course-stat-card span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .course-stat-card strong {
+        display: block;
+        margin-top: 9px;
+        font-size: 30px;
+        letter-spacing: -.045em;
+      }
+
+      .course-stat-card p {
+        color: var(--muted);
+        margin: 6px 0 0;
+        font-size: 12px;
+      }
+
+      .course-toolbar {
+        min-height: 62px;
+        padding: 10px;
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) 210px auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .course-search {
+        min-height: 42px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 14px;
+        color: var(--muted);
+      }
+
+      .course-search input {
+        flex: 1;
+        min-width: 0;
+        height: 40px;
+        background: transparent;
+        border: 0;
+        outline: 0;
+        color: var(--white);
+      }
+
+      .course-toolbar select {
+        min-height: 42px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        color: var(--white);
+        padding: 0 14px;
+      }
+
+      .course-toolbar option {
+        background: #080b0a;
+        color: var(--white);
+      }
+
+      .course-view-toggle {
+        height: 42px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        padding: 4px;
+        display: flex;
+        gap: 4px;
+      }
+
+      .course-view-toggle button {
+        border: 0;
+        border-radius: 999px;
+        padding: 0 14px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-weight: 900;
+      }
+
+      .course-view-toggle button.active {
+        background: rgba(99,229,70,.14);
+        color: var(--green);
+      }
+
+      .courses-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 14px;
+        align-items: start;
+      }
+
+      .courses-main-column,
+      .courses-side-column {
+        display: grid;
+        gap: 14px;
+      }
+
+      .section-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .admin-course-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+        gap: 14px;
+      }
+
+      .admin-course-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .admin-course-card {
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: 168px 1fr;
+      }
+
+      .admin-course-card.list {
+        grid-template-columns: 310px minmax(0, 1fr);
+        grid-template-rows: 1fr;
+      }
+
+      .admin-course-cover {
+        position: relative;
+        min-height: 168px;
+        background-size: cover;
+        background-position: center;
+        filter: grayscale(.55) contrast(1.06) brightness(.78);
+      }
+
+      .course-status-pill {
+        position: absolute;
+        left: 14px;
+        top: 14px;
+        border-radius: 999px;
+        padding: 7px 10px;
+        font-size: 10px;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        border: 1px solid rgba(99,229,70,.28);
+        background: rgba(99,229,70,.12);
+        color: var(--green);
+      }
+
+      .course-status-pill.draft {
+        border-color: rgba(247,201,72,.28);
+        background: rgba(247,201,72,.1);
+        color: var(--warning);
+      }
+
+      .course-status-pill.hidden {
+        border-color: rgba(255,255,255,.12);
+        background: rgba(255,255,255,.055);
+        color: var(--muted);
+      }
+
+      .admin-course-body {
+        padding: 16px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .course-title-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .course-title-row h3 {
+        margin: 0;
+        font-size: 23px;
+        line-height: 1.05;
+        letter-spacing: -.035em;
+      }
+
+      .course-title-row p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.45;
+        font-size: 13px;
+      }
+
+      .course-title-row button {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .course-info-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .course-info-box {
+        border: 1px solid rgba(255,255,255,.07);
+        border-radius: 12px;
+        background: rgba(0,0,0,.16);
+        padding: 10px;
+        min-width: 0;
+      }
+
+      .course-info-box span {
+        display: block;
+        color: var(--soft);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        font-weight: 900;
+      }
+
+      .course-info-box strong {
+        display: block;
+        margin-top: 5px;
+        color: var(--white);
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .course-build-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .course-build-row div {
+        border-radius: 12px;
+        border: 1px solid rgba(99,229,70,.13);
+        background: rgba(99,229,70,.045);
+        padding: 11px;
+      }
+
+      .course-build-row strong {
+        display: block;
+        font-size: 24px;
+        line-height: 1;
+      }
+
+      .course-build-row span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      .course-progress-block {
+        display: grid;
+        gap: 8px;
+      }
+
+      .course-progress-block > div:first-child {
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .course-progress-block strong {
+        color: var(--green);
+      }
+
+      .course-progress-track {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.1);
+        overflow: hidden;
+      }
+
+      .course-progress-track div {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 20px rgba(99,229,70,.28);
+      }
+
+      .admin-course-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+      }
+
+      .admin-course-actions button {
+        min-height: 38px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        color: var(--white);
+        cursor: pointer;
+        font-weight: 850;
+        font-size: 12px;
+      }
+
+      .admin-course-actions button:first-child {
+        background: var(--green);
+        color: #061008;
+        border-color: transparent;
+      }
+
+      .courses-empty {
+        padding: 28px;
+        text-align: center;
+      }
+
+      .courses-empty span {
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 14px;
+        color: var(--green);
+        border: 1px solid rgba(99,229,70,.2);
+        background: rgba(99,229,70,.07);
+        font-size: 28px;
+      }
+
+      .courses-empty h3 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .courses-empty p {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .course-side-card {
+        padding: 18px;
+      }
+
+      .course-side-card > button {
+        width: 100%;
+        min-height: 42px;
+        margin-top: 10px;
+        border-radius: 11px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        color: var(--white);
+        cursor: pointer;
+        font-weight: 850;
+      }
+
+      .course-side-card > button:first-of-type {
+        background: var(--green);
+        color: #061008;
+        border-color: transparent;
+      }
+
+      .catalog-ring {
+        width: 138px;
+        height: 138px;
+        border-radius: 999px;
+        margin: 18px auto;
+        display: grid;
+        place-items: center;
+        align-content: center;
+        border: 12px solid rgba(99,229,70,.22);
+        box-shadow: inset 0 0 0 2px rgba(255,255,255,.04);
+      }
+
+      .catalog-ring strong {
+        font-size: 38px;
+        line-height: 1;
+      }
+
+      .catalog-ring span {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      .catalog-status-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .course-next-list {
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr);
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .course-next-list span {
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(99,229,70,.1);
+        color: var(--green);
+        border: 1px solid rgba(99,229,70,.18);
+        font-weight: 950;
+      }
+
+      .course-next-list p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.45;
+        font-size: 13px;
+      }
+
       .coming-soon {
         min-height: 420px;
         padding: 34px;
@@ -1593,6 +2519,20 @@ function GlobalStyles() {
         max-width: 720px;
         color: var(--muted);
         line-height: 1.7;
+      }
+
+      @media (max-width: 1460px) {
+        .course-stats-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .courses-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .courses-side-column {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
       }
 
       @media (max-width: 1380px) {
@@ -1631,8 +2571,30 @@ function GlobalStyles() {
 
         .chart-summary,
         .quick-actions-grid,
-        .kpi-grid {
+        .kpi-grid,
+        .course-stats-grid,
+        .courses-side-column,
+        .course-info-grid,
+        .course-build-row,
+        .admin-course-actions {
           grid-template-columns: 1fr;
+        }
+
+        .admin-course-card.list {
+          grid-template-columns: 1fr;
+        }
+
+        .course-toolbar {
+          grid-template-columns: 1fr;
+        }
+
+        .courses-hero {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .courses-hero-panel {
+          width: 100%;
         }
       }
     `}</style>
