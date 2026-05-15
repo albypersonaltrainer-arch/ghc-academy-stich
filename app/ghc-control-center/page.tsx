@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import GHCLogo from "../components/GHCLogo";
@@ -10,18 +9,28 @@ type AnyRecord = Record<string, any>;
 
 type AdminTab =
   | "panel"
-  | "alumnos"
   | "cursos"
   | "contenido"
-  | "ventas"
-  | "analitica"
+  | "alumnos"
+  | "examenes"
   | "certificados"
+  | "pagos"
   | "comunicaciones"
+  | "analitica"
   | "seguridad"
   | "studio"
   | "ajustes";
 
 type GuardState = "checking" | "allowed" | "denied";
+
+type DashboardData = {
+  profiles: AnyRecord[];
+  courses: AnyRecord[];
+  certificates: AnyRecord[];
+  courseCompletions: AnyRecord[];
+  moduleCompletions: AnyRecord[];
+  lessonProgress: AnyRecord[];
+};
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -30,19 +39,29 @@ const supabase = createClient(
 
 const GREEN = "#63E546";
 
-const adminTabs: { id: AdminTab; label: string; icon: string }[] = [
-  { id: "panel", label: "Panel", icon: "⌂" },
-  { id: "alumnos", label: "Alumnos", icon: "◎" },
-  { id: "cursos", label: "Cursos", icon: "▱" },
-  { id: "contenido", label: "Contenido", icon: "▤" },
-  { id: "ventas", label: "Ventas", icon: "◷" },
-  { id: "analitica", label: "Analítica", icon: "⌁" },
-  { id: "certificados", label: "Certificados", icon: "✦" },
-  { id: "comunicaciones", label: "Comunicaciones", icon: "✉" },
-  { id: "seguridad", label: "Seguridad", icon: "◇" },
-  { id: "studio", label: "Studio", icon: "▣" },
-  { id: "ajustes", label: "Ajustes", icon: "⚙" },
+const adminTabs: { id: AdminTab; label: string; helper: string; icon: string }[] = [
+  { id: "panel", label: "Panel", helper: "Control", icon: "⌂" },
+  { id: "cursos", label: "Cursos", helper: "Catálogo", icon: "▱" },
+  { id: "contenido", label: "Contenido", helper: "Módulos", icon: "▤" },
+  { id: "alumnos", label: "Alumnos", helper: "Usuarios", icon: "◎" },
+  { id: "examenes", label: "Exámenes", helper: "Evaluación", icon: "◈" },
+  { id: "certificados", label: "Certificados", helper: "Credenciales", icon: "✦" },
+  { id: "pagos", label: "Pagos y accesos", helper: "Ventas", icon: "◷" },
+  { id: "comunicaciones", label: "Comunicaciones", helper: "Avisos", icon: "✉" },
+  { id: "analitica", label: "Analítica", helper: "Datos", icon: "⌁" },
+  { id: "seguridad", label: "Seguridad", helper: "Accesos", icon: "◇" },
+  { id: "studio", label: "Studio GHC", helper: "Editor", icon: "▣" },
+  { id: "ajustes", label: "Ajustes", helper: "Sistema", icon: "⚙" },
 ];
+
+const emptyDashboardData: DashboardData = {
+  profiles: [],
+  courses: [],
+  certificates: [],
+  courseCompletions: [],
+  moduleCompletions: [],
+  lessonProgress: [],
+};
 
 export default function Page() {
   const router = useRouter();
@@ -50,9 +69,11 @@ export default function Page() {
   const [adminUser, setAdminUser] = useState<AnyRecord | null>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>("panel");
+  const [dashboardData, setDashboardData] = useState<DashboardData>(emptyDashboardData);
+  const [systemMessage, setSystemMessage] = useState("");
 
   useEffect(() => {
-    async function protectAdminRoute() {
+    async function protectAndLoad() {
       try {
         const { data: userData, error: userError } = await supabase.auth.getUser();
 
@@ -88,6 +109,9 @@ export default function Page() {
 
         setProfile(profileData || null);
         setGuardState("allowed");
+
+        const loadedData = await loadDashboardData();
+        setDashboardData(loadedData);
       } catch (error) {
         console.error(error);
         setGuardState("denied");
@@ -95,7 +119,7 @@ export default function Page() {
       }
     }
 
-    protectAdminRoute();
+    protectAndLoad();
   }, [router]);
 
   const displayName =
@@ -106,16 +130,9 @@ export default function Page() {
 
   const initials = getInitials(displayName);
 
-  const stats = useMemo(
-    () => ({
-      alumnosActivos: "2,458",
-      cursosPublicados: "24",
-      ingresosMes: "$248,760",
-      tasaFinalizacion: "68.3%",
-      pendientes: "18",
-    }),
-    []
-  );
+  const dashboardStats = useMemo(() => buildDashboardStats(dashboardData), [dashboardData]);
+  const recentActivity = useMemo(() => buildRecentActivity(dashboardData), [dashboardData]);
+  const priorityTasks = useMemo(() => buildPriorityTasks(dashboardData), [dashboardData]);
 
   if (guardState === "checking") {
     return (
@@ -124,6 +141,7 @@ export default function Page() {
         <Background />
         <section className="admin-loading-card">
           <GHCLogo size="md" showText tagline={false} />
+          <h1>GHC Control Center</h1>
           <p>Verificando acceso administrativo...</p>
         </section>
       </main>
@@ -154,7 +172,10 @@ export default function Page() {
                 onClick={() => setActiveTab(tab.id)}
               >
                 <span className="admin-nav-icon">{tab.icon}</span>
-                <span>{tab.label}</span>
+                <span>
+                  <strong>{tab.label}</strong>
+                  <small>{tab.helper}</small>
+                </span>
               </button>
             ))}
           </nav>
@@ -165,7 +186,7 @@ export default function Page() {
             <span className="support-icon">◉</span>
             <div>
               <strong>Soporte GHC</strong>
-              <p>Centro de ayuda</p>
+              <p>Centro de ayuda interno</p>
             </div>
             <button type="button">Abrir soporte</button>
           </div>
@@ -190,7 +211,11 @@ export default function Page() {
           </div>
 
           <div className="topbar-actions">
+            <div className="admin-search">Buscar alumnos, cursos, certificados...</div>
+            <button type="button" className="create-btn">+ Crear</button>
+            <button type="button" className="studio-top-btn">Studio GHC</button>
             <button type="button" className="icon-btn">♢</button>
+
             <div className="topbar-user">
               <span>{initials}</span>
               <div>
@@ -201,29 +226,230 @@ export default function Page() {
           </div>
         </header>
 
-        {activeTab === "panel" ? <PanelAdmin stats={stats} /> : <ComingSoon tab={activeTab} />}
+        {systemMessage && <div className="admin-notice">{systemMessage}</div>}
+
+        {activeTab === "panel" ? (
+          <PanelAdmin
+            stats={dashboardStats}
+            recentActivity={recentActivity}
+            priorityTasks={priorityTasks}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : (
+          <ComingSoon tab={activeTab} />
+        )}
       </section>
     </main>
   );
 }
 
-function PanelAdmin({ stats }: { stats: AnyRecord }) {
+async function loadDashboardData(): Promise<DashboardData> {
+  const [profiles, courses, certificates, courseCompletions, moduleCompletions, lessonProgress] =
+    await Promise.all([
+      safeSelect("profiles", "*"),
+      safeSelect("courses", "*"),
+      safeSelect("certificates", "*"),
+      safeSelect("course_completions", "*"),
+      safeSelect("module_completions", "*"),
+      safeSelect("lesson_progress", "*"),
+    ]);
+
+  return {
+    profiles,
+    courses,
+    certificates,
+    courseCompletions,
+    moduleCompletions,
+    lessonProgress,
+  };
+}
+
+async function safeSelect(table: string, columns: string): Promise<AnyRecord[]> {
+  try {
+    const { data, error } = await supabase.from(table).select(columns);
+
+    if (error) {
+      console.warn(`[GHC Admin] No se pudo cargar ${table}:`, error.message);
+      return [];
+    }
+
+    return Array.isArray(data) ? (data as AnyRecord[]) : [];
+  } catch (error) {
+    console.warn(`[GHC Admin] Error leyendo ${table}:`, error);
+    return [];
+  }
+}
+
+function buildDashboardStats(data: DashboardData) {
+  const students = data.profiles.filter((profile) => {
+    const role = String(profile.role || "student").toLowerCase();
+    return !["admin", "superadmin", "owner"].includes(role);
+  });
+
+  const visibleCourses = data.courses.filter(isVisibleCourse);
+  const publishedCourses = visibleCourses.filter((course) => {
+    const status = String(course.status || "").toLowerCase();
+    return !status || ["published", "publicado", "active", "activo", "preview", "demo"].includes(status);
+  });
+
+  const draftCourses = data.courses.filter((course) => {
+    const status = String(course.status || "").toLowerCase();
+    return ["draft", "borrador"].includes(status);
+  });
+
+  const validCertificates = data.certificates.filter((certificate) => {
+    const status = String(certificate.status || "valid").toLowerCase();
+    return !["revoked", "revocado", "cancelled", "cancelado"].includes(status);
+  });
+
+  const completedCourses = data.courseCompletions.filter(
+    (item) => item.completed === true || String(item.status || "").toLowerCase() === "completed"
+  );
+
+  const completionRate =
+    students.length > 0 && publishedCourses.length > 0
+      ? Math.round((completedCourses.length / Math.max(students.length, 1)) * 100)
+      : 0;
+
+  return {
+    studentsTotal: students.length,
+    activeStudents: students.length,
+    publishedCourses: publishedCourses.length,
+    draftCourses: draftCourses.length,
+    certificates: validCertificates.length,
+    moduleCompletions: data.moduleCompletions.length,
+    lessonProgress: data.lessonProgress.length,
+    completionRate: Math.min(100, completionRate),
+    pendingReviews: draftCourses.length + Math.max(0, data.certificates.length - validCertificates.length),
+  };
+}
+
+function buildRecentActivity(data: DashboardData) {
+  const items: { icon: string; title: string; label: string; time: string }[] = [];
+
+  data.certificates.slice(0, 2).forEach((certificate) => {
+    items.push({
+      icon: "✦",
+      title: `Certificado emitido${certificate.course_title ? ` · ${certificate.course_title}` : ""}`,
+      label: "Certificados",
+      time: formatRelative(certificate.issued_at || certificate.created_at),
+    });
+  });
+
+  data.courses.slice(0, 2).forEach((course) => {
+    items.push({
+      icon: "▱",
+      title: `Curso disponible · ${course.title || "Curso GHC Academy"}`,
+      label: "Cursos",
+      time: formatRelative(course.updated_at || course.created_at),
+    });
+  });
+
+  data.profiles.slice(0, 2).forEach((profile) => {
+    items.push({
+      icon: "◎",
+      title: `Alumno registrado · ${profile.full_name || profile.email || "Nuevo alumno"}`,
+      label: "Alumnos",
+      time: formatRelative(profile.created_at),
+    });
+  });
+
+  if (items.length === 0) {
+    return [
+      {
+        icon: "◎",
+        title: "Panel conectado y preparado para actividad real",
+        label: "Sistema",
+        time: "Ahora",
+      },
+      {
+        icon: "▱",
+        title: "Los eventos aparecerán cuando haya actividad en Supabase",
+        label: "Actividad",
+        time: "Próximamente",
+      },
+    ];
+  }
+
+  return items.slice(0, 5);
+}
+
+function buildPriorityTasks(data: DashboardData) {
+  const draftCourses = data.courses.filter((course) =>
+    ["draft", "borrador"].includes(String(course.status || "").toLowerCase())
+  );
+
+  const pendingCertificates = data.certificates.filter((certificate) =>
+    ["pending", "pendiente", "review", "revision"].includes(String(certificate.status || "").toLowerCase())
+  );
+
+  const tasks: { title: string; text: string; tag: string }[] = [];
+
+  draftCourses.slice(0, 2).forEach((course) => {
+    tasks.push({
+      title: course.title || "Curso en borrador",
+      text: "Pendiente de revisión o publicación",
+      tag: "Curso",
+    });
+  });
+
+  pendingCertificates.slice(0, 2).forEach((certificate) => {
+    tasks.push({
+      title: certificate.course_title || "Certificado pendiente",
+      text: "Revisar requisitos antes de emitir",
+      tag: "Certificado",
+    });
+  });
+
+  if (tasks.length === 0) {
+    return [
+      {
+        title: "Sin incidencias críticas",
+        text: "No hay revisiones urgentes detectadas en este momento",
+        tag: "OK",
+      },
+      {
+        title: "Pagos y accesos",
+        text: "Pendiente conectar Stripe/SumUp para métricas reales",
+        tag: "Próximo",
+      },
+    ];
+  }
+
+  return tasks;
+}
+
+function PanelAdmin({
+  stats,
+  recentActivity,
+  priorityTasks,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  stats: ReturnType<typeof buildDashboardStats>;
+  recentActivity: { icon: string; title: string; label: string; time: string }[];
+  priorityTasks: { title: string; text: string; tag: string }[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
   return (
     <div className="panel-page">
       <section className="admin-hero">
         <div>
+          <p className="admin-kicker">GHC Academy Control Center</p>
           <h1>Panel de control</h1>
-          <p>Gestiona y haz crecer tu academia desde un único lugar.</p>
+          <p>Gestiona cursos, alumnos, accesos, certificados y crecimiento desde una cabina premium.</p>
         </div>
         <div className="hero-athlete" aria-hidden="true" />
       </section>
 
       <section className="kpi-grid">
-        <KpiCard title="Alumnos activos" value={stats.alumnosActivos} trend="+18.6%" icon="◎" />
-        <KpiCard title="Cursos publicados" value={stats.cursosPublicados} trend="+9.1%" icon="▱" />
-        <KpiCard title="Ingresos del mes" value={stats.ingresosMes} trend="+16.4%" icon="$" />
-        <KpiCard title="Tasa de finalización" value={stats.tasaFinalizacion} trend="+6.7%" icon="✓" />
-        <KpiCard title="Pendientes" value={stats.pendientes} trend="-5.2%" icon="◷" danger />
+        <KpiCard title="Alumnos activos" value={formatNumber(stats.activeStudents)} trend="Base real Supabase" icon="◎" />
+        <KpiCard title="Cursos publicados" value={formatNumber(stats.publishedCourses)} trend={`${stats.draftCourses} borradores`} icon="▱" />
+        <KpiCard title="Ingresos del mes" value="Próximo" trend="Stripe/SumUp pendiente" icon="$" muted />
+        <KpiCard title="Tasa de finalización" value={`${stats.completionRate}%`} trend="Según cursos completados" icon="✓" />
+        <KpiCard title="Pendientes" value={formatNumber(stats.pendingReviews)} trend="Revisiones abiertas" icon="◷" danger={stats.pendingReviews > 0} />
       </section>
 
       <section className="admin-main-grid">
@@ -231,7 +457,7 @@ function PanelAdmin({ stats }: { stats: AnyRecord }) {
           <div className="card-head">
             <div>
               <h2>Crecimiento de la academia</h2>
-              <p>Alumnos activos e ingresos acumulados durante el mes.</p>
+              <p>Vista operativa del avance académico y actividad general.</p>
             </div>
             <button type="button">Este mes</button>
           </div>
@@ -268,33 +494,32 @@ function PanelAdmin({ stats }: { stats: AnyRecord }) {
           </div>
 
           <div className="chart-summary">
-            <MiniMetric label="Nuevos alumnos" value="186" trend="+24.3%" />
-            <MiniMetric label="Ingresos acumulados" value="$248,760" trend="+16.4%" />
-            <MiniMetric label="Cursos completados" value="1,326" trend="+12.7%" />
-            <MiniMetric label="Certificados emitidos" value="964" trend="+9.4%" />
+            <MiniMetric label="Alumnos registrados" value={formatNumber(stats.studentsTotal)} trend="real" />
+            <MiniMetric label="Lecciones completadas" value={formatNumber(stats.lessonProgress)} trend="real" />
+            <MiniMetric label="Módulos completados" value={formatNumber(stats.moduleCompletions)} trend="real" />
+            <MiniMetric label="Certificados emitidos" value={formatNumber(stats.certificates)} trend="real" />
           </div>
         </article>
 
         <article className="quick-actions-card">
           <h2>Acciones rápidas</h2>
           <div className="quick-actions-grid">
-            <QuickAction icon="▱" title="Crear curso" text="Añade un nuevo curso" />
-            <QuickAction icon="＋" title="Añadir módulo" text="Crea contenido educativo" />
-            <QuickAction icon="✦" title="Emitir certificado" text="Reconoce logros" />
-            <QuickAction icon="➤" title="Enviar comunicado" text="Informa a tu comunidad" />
+            <QuickAction icon="▱" title="Crear curso" text="Ficha comercial y publicación" onClick={() => setActiveTab("cursos")} />
+            <QuickAction icon="＋" title="Añadir módulo" text="Contenido académico" onClick={() => setActiveTab("contenido")} />
+            <QuickAction icon="✦" title="Emitir certificado" text="Credenciales oficiales" onClick={() => setActiveTab("certificados")} />
+            <QuickAction icon="➤" title="Enviar comunicado" text="Avisos a alumnos" onClick={() => setActiveTab("comunicaciones")} />
           </div>
         </article>
 
         <article className="activity-card">
           <div className="card-head compact">
             <h2>Actividad reciente</h2>
-            <button type="button">Ver todo</button>
+            <button type="button" onClick={() => setSystemMessage("Más adelante conectaremos el histórico completo de actividad.")}>Ver todo</button>
           </div>
-          <ActivityItem icon="◎" title="María González completó Biomecánica Funcional" label="Alumno" time="Hace 5 min" />
-          <ActivityItem icon="▱" title="Nuevo curso publicado: Adaptaciones Neuromusculares" label="Curso" time="Hace 15 min" />
-          <ActivityItem icon="$" title="Pago recibido: Suscripción Pro Anual" label="Venta" time="Hace 28 min" />
-          <ActivityItem icon="✦" title="Certificado emitido a Laura Méndez" label="Certificados" time="Hace 45 min" />
-          <ActivityItem icon="✉" title="Comunicado enviado: Nuevos cursos disponibles" label="Comunicaciones" time="Hace 1 h" />
+
+          {recentActivity.map((item, index) => (
+            <ActivityItem key={`${item.title}-${index}`} icon={item.icon} title={item.title} label={item.label} time={item.time} />
+          ))}
         </article>
 
         <article className="platform-card">
@@ -302,34 +527,34 @@ function PanelAdmin({ stats }: { stats: AnyRecord }) {
           <div className="platform-body">
             <div className="shield">✓</div>
             <div className="status-list">
-              <StatusRow label="Plataforma web" />
-              <StatusRow label="Sistema de pagos" />
-              <StatusRow label="Entrega de email" />
-              <StatusRow label="Almacenamiento" />
+              <StatusRow label="Supabase Auth" value="Operativo" />
+              <StatusRow label="Ruta privada admin" value="Activa" />
+              <StatusRow label="Rol administrador" value="Verificado" />
+              <StatusRow label="Pagos" value="Pendiente" warning />
             </div>
           </div>
           <div className="platform-progress">
-            <span>Todos los sistemas operativos</span>
-            <strong>100%</strong>
+            <span>Base administrativa inicial</span>
+            <strong>Activa</strong>
           </div>
         </article>
 
         <article className="review-card">
           <div className="card-head compact">
-            <h2>Revisiones pendientes</h2>
-            <button type="button">Ver todas</button>
+            <h2>Tareas prioritarias</h2>
+            <button type="button" onClick={() => setSystemMessage("Las tareas reales se conectarán por módulo del administrador.")}>Ver todas</button>
           </div>
-          <ReviewItem title="Curso: Hipertrofia Avanzada" text="Contenido pendiente de revisión" tag="Alta" />
-          <ReviewItem title="Comentario de Ana Ruiz" text="En Biomecánica Funcional" tag="Media" />
-          <ReviewItem title="Certificado: Javier Torres" text="Verificación de requisitos" tag="Media" />
-          <ReviewItem title="Actualización de módulo: Fuerza Máxima" text="Cambios pendientes de publicación" tag="Baja" />
+
+          {priorityTasks.map((item, index) => (
+            <ReviewItem key={`${item.title}-${index}`} title={item.title} text={item.text} tag={item.tag} />
+          ))}
         </article>
 
         <article className="studio-card">
           <div>
             <h2>Todo tu contenido, editable desde el panel</h2>
-            <p>Edita cursos, módulos, páginas y comunicaciones desde Studio GHC. Sin código, sin límites.</p>
-            <button type="button">Ir a Studio ↗</button>
+            <p>Studio GHC será el editor visual para landing, catálogo, textos, banners, checkout y experiencia pública. Sin tocar código para la mayoría de cambios.</p>
+            <button type="button" onClick={() => setActiveTab("studio")}>Ir a Studio ↗</button>
           </div>
           <div className="studio-visual" aria-hidden="true">
             <div />
@@ -348,21 +573,23 @@ function KpiCard({
   trend,
   icon,
   danger = false,
+  muted = false,
 }: {
   title: string;
   value: string;
   trend: string;
   icon: string;
   danger?: boolean;
+  muted?: boolean;
 }) {
   return (
-    <article className={danger ? "kpi-card danger" : "kpi-card"}>
+    <article className={danger ? "kpi-card danger" : muted ? "kpi-card muted" : "kpi-card"}>
       <div className="kpi-top">
         <span>{title}</span>
         <em>{icon}</em>
       </div>
       <strong>{value}</strong>
-      <p>{trend} <span>vs. mes anterior</span></p>
+      <p>{trend}</p>
       <div className="sparkline" />
     </article>
   );
@@ -378,9 +605,19 @@ function MiniMetric({ label, value, trend }: { label: string; value: string; tre
   );
 }
 
-function QuickAction({ icon, title, text }: { icon: string; title: string; text: string }) {
+function QuickAction({
+  icon,
+  title,
+  text,
+  onClick,
+}: {
+  icon: string;
+  title: string;
+  text: string;
+  onClick: () => void;
+}) {
   return (
-    <button type="button" className="quick-action">
+    <button type="button" className="quick-action" onClick={onClick}>
       <span>{icon}</span>
       <div>
         <strong>{title}</strong>
@@ -414,11 +651,11 @@ function ActivityItem({
   );
 }
 
-function StatusRow({ label }: { label: string }) {
+function StatusRow({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
   return (
-    <div className="status-row">
+    <div className={warning ? "status-row warning" : "status-row"}>
       <span>{label}</span>
-      <strong>Operativo</strong>
+      <strong>{value}</strong>
     </div>
   );
 }
@@ -439,8 +676,9 @@ function ReviewItem({ title, text, tag }: { title: string; text: string; tag: st
 function ComingSoon({ tab }: { tab: AdminTab }) {
   return (
     <section className="coming-soon">
+      <p className="admin-kicker">Módulo administrador</p>
       <h1>{getTabLabel(tab)}</h1>
-      <p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador.</p>
+      <p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador. La arquitectura ya queda preparada para hacerla funcional por fases.</p>
     </section>
   );
 }
@@ -453,6 +691,43 @@ function Background() {
       <div className="admin-grid-texture" />
     </div>
   );
+}
+
+function isVisibleCourse(course: AnyRecord) {
+  const status = String(course.status || "").toLowerCase();
+
+  if (!status) return true;
+
+  return ["published", "publicado", "active", "activo", "preview", "demo"].includes(status);
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("es-ES").format(value || 0);
+}
+
+function formatRelative(value?: string | null) {
+  if (!value) return "Reciente";
+
+  try {
+    const date = new Date(value);
+    const diff = Date.now() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (minutes < 1) return "Ahora";
+    if (minutes < 60) return `Hace ${minutes} min`;
+    if (hours < 24) return `Hace ${hours} h`;
+    if (days < 7) return `Hace ${days} días`;
+
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  } catch {
+    return "Reciente";
+  }
 }
 
 function getTabLabel(tab: AdminTab) {
@@ -511,7 +786,7 @@ function GlobalStyles() {
       .admin-page {
         min-height: 100vh;
         display: grid;
-        grid-template-columns: 280px minmax(0, 1fr);
+        grid-template-columns: 292px minmax(0, 1fr);
         background: var(--bg);
         color: var(--white);
         position: relative;
@@ -537,8 +812,15 @@ function GlobalStyles() {
         box-shadow: 0 30px 90px rgba(0,0,0,.45);
       }
 
+      .admin-loading-card h1 {
+        margin: 18px 0 0;
+        font-size: 38px;
+        line-height: .95;
+        letter-spacing: -.055em;
+      }
+
       .admin-loading-card p {
-        margin: 20px 0 0;
+        margin: 16px 0 0;
         color: var(--muted);
         font-size: 16px;
       }
@@ -609,11 +891,11 @@ function GlobalStyles() {
 
       .admin-nav-item {
         width: 100%;
-        min-height: 46px;
+        min-height: 47px;
         border: 1px solid transparent;
         background: transparent;
         color: rgba(244,246,242,.65);
-        border-radius: 12px;
+        border-radius: 13px;
         padding: 0 13px;
         display: flex;
         align-items: center;
@@ -641,6 +923,19 @@ function GlobalStyles() {
         font-weight: 900;
         display: inline-flex;
         justify-content: center;
+      }
+
+      .admin-nav-item strong {
+        display: block;
+        font-size: 13px;
+        line-height: 1.05;
+      }
+
+      .admin-nav-item small {
+        display: block;
+        margin-top: 3px;
+        color: var(--soft);
+        font-size: 11px;
       }
 
       .admin-sidebar-bottom {
@@ -704,11 +999,11 @@ function GlobalStyles() {
         position: relative;
         z-index: 1;
         min-width: 0;
-        padding: 18px 20px 28px;
+        padding: 18px 20px 30px;
       }
 
       .admin-topbar {
-        min-height: 54px;
+        min-height: 58px;
         border-bottom: 1px solid var(--line);
         display: flex;
         align-items: center;
@@ -724,6 +1019,7 @@ function GlobalStyles() {
         color: var(--muted);
         font-size: 13px;
         font-weight: 850;
+        white-space: nowrap;
       }
 
       .breadcrumb strong {
@@ -733,7 +1029,43 @@ function GlobalStyles() {
       .topbar-actions {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .admin-search {
+        width: 320px;
+        max-width: 32vw;
+        height: 40px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.035);
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        font-size: 13px;
+      }
+
+      .create-btn,
+      .studio-top-btn {
+        min-height: 40px;
+        border-radius: 999px;
+        padding: 0 16px;
+        cursor: pointer;
+        font-weight: 900;
+      }
+
+      .create-btn {
+        border: 0;
+        background: var(--green);
+        color: #061008;
+      }
+
+      .studio-top-btn {
+        border: 1px solid rgba(99,229,70,.24);
+        background: rgba(99,229,70,.07);
+        color: var(--green);
       }
 
       .icon-btn {
@@ -769,44 +1101,64 @@ function GlobalStyles() {
         font-size: 12px;
       }
 
+      .admin-notice {
+        margin-bottom: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(99,229,70,.2);
+        background: rgba(99,229,70,.055);
+        color: var(--muted);
+        padding: 14px 16px;
+      }
+
       .panel-page {
         display: grid;
         gap: 16px;
       }
 
       .admin-hero {
-        min-height: 112px;
+        min-height: 128px;
         border: 1px solid var(--line);
-        border-radius: 20px;
+        border-radius: 22px;
         background:
-          linear-gradient(90deg, rgba(9,13,11,.98), rgba(9,13,11,.78)),
+          linear-gradient(90deg, rgba(9,13,11,.98), rgba(9,13,11,.76)),
           radial-gradient(circle at 80% 20%, rgba(99,229,70,.13), transparent 30%);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 24px;
+        padding: 26px;
         overflow: hidden;
         position: relative;
+        box-shadow: 0 28px 90px rgba(0,0,0,.22);
+      }
+
+      .admin-kicker {
+        margin: 0 0 10px;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .18em;
+        font-size: 11px;
+        font-weight: 950;
       }
 
       .admin-hero h1 {
         margin: 0;
-        font-size: clamp(32px, 4vw, 48px);
+        font-size: clamp(36px, 4vw, 54px);
         line-height: .94;
-        letter-spacing: -.055em;
+        letter-spacing: -.06em;
         font-weight: 950;
       }
 
-      .admin-hero p {
+      .admin-hero p:not(.admin-kicker) {
         margin: 12px 0 0;
         color: var(--muted);
         line-height: 1.6;
+        max-width: 720px;
       }
 
       .hero-athlete {
-        width: 320px;
-        height: 120px;
-        opacity: .55;
+        width: 360px;
+        height: 130px;
+        opacity: .62;
         background:
           radial-gradient(circle at 45% 50%, rgba(244,246,242,.18), transparent 22%),
           radial-gradient(circle at 58% 42%, rgba(244,246,242,.12), transparent 18%),
@@ -836,7 +1188,7 @@ function GlobalStyles() {
       }
 
       .kpi-card {
-        min-height: 132px;
+        min-height: 136px;
         padding: 16px;
         overflow: hidden;
       }
@@ -868,10 +1220,15 @@ function GlobalStyles() {
         border-color: rgba(255,87,87,.16);
       }
 
+      .kpi-card.muted .kpi-top em {
+        color: var(--soft);
+        background: rgba(255,255,255,.045);
+      }
+
       .kpi-card > strong {
         display: block;
         margin-top: 12px;
-        font-size: 30px;
+        font-size: 29px;
         letter-spacing: -.045em;
       }
 
@@ -886,9 +1243,8 @@ function GlobalStyles() {
         color: var(--danger);
       }
 
-      .kpi-card p span {
+      .kpi-card.muted p {
         color: var(--muted);
-        font-weight: 500;
       }
 
       .sparkline {
@@ -903,6 +1259,10 @@ function GlobalStyles() {
         background: linear-gradient(90deg, rgba(255,87,87,.12), rgba(255,87,87,.55), rgba(255,87,87,.18));
       }
 
+      .muted .sparkline {
+        background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.18), rgba(255,255,255,.07));
+      }
+
       .admin-main-grid {
         display: grid;
         grid-template-columns: 1.18fr .95fr;
@@ -911,7 +1271,7 @@ function GlobalStyles() {
 
       .growth-card {
         padding: 18px;
-        min-height: 360px;
+        min-height: 370px;
       }
 
       .card-head {
@@ -982,6 +1342,7 @@ function GlobalStyles() {
       .mini-metric {
         padding: 13px 14px;
         border-right: 1px solid var(--line);
+        min-width: 0;
       }
 
       .mini-metric:last-child {
@@ -1004,8 +1365,10 @@ function GlobalStyles() {
         color: var(--green);
         margin-left: 8px;
         font-style: normal;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .08em;
       }
 
       .quick-actions-card,
@@ -1024,7 +1387,7 @@ function GlobalStyles() {
       }
 
       .quick-action {
-        min-height: 72px;
+        min-height: 76px;
         border-radius: 14px;
         border: 1px solid var(--line);
         background: rgba(255,255,255,.028);
@@ -1036,6 +1399,11 @@ function GlobalStyles() {
         padding: 12px;
         cursor: pointer;
         text-align: left;
+      }
+
+      .quick-action:hover {
+        border-color: rgba(99,229,70,.24);
+        background: rgba(99,229,70,.055);
       }
 
       .quick-action > span,
@@ -1069,7 +1437,7 @@ function GlobalStyles() {
       }
 
       .activity-card {
-        min-height: 285px;
+        min-height: 290px;
       }
 
       .activity-item,
@@ -1128,6 +1496,10 @@ function GlobalStyles() {
         color: var(--green);
       }
 
+      .status-row.warning strong {
+        color: var(--warning);
+      }
+
       .platform-progress {
         margin-top: 18px;
         display: flex;
@@ -1144,21 +1516,11 @@ function GlobalStyles() {
       .review-item em {
         border-radius: 999px;
         padding: 5px 8px;
-        background: rgba(247,201,72,.1);
-        color: var(--warning);
+        background: rgba(99,229,70,.1);
+        color: var(--green);
         font-style: normal;
         font-size: 11px;
         font-weight: 900;
-      }
-
-      .review-item:first-of-type em {
-        color: var(--danger);
-        background: rgba(255,87,87,.1);
-      }
-
-      .review-item:last-child em {
-        color: var(--green);
-        background: rgba(99,229,70,.1);
       }
 
       .studio-card {
@@ -1227,15 +1589,15 @@ function GlobalStyles() {
         align-content: center;
       }
 
-      .coming-soon p {
+      .coming-soon p:not(.admin-kicker) {
         max-width: 720px;
         color: var(--muted);
         line-height: 1.7;
       }
 
-      @media (max-width: 1280px) {
+      @media (max-width: 1380px) {
         .kpi-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .admin-main-grid {
@@ -1247,7 +1609,7 @@ function GlobalStyles() {
         }
       }
 
-      @media (max-width: 980px) {
+      @media (max-width: 1080px) {
         .admin-page {
           grid-template-columns: 1fr;
         }
@@ -1257,8 +1619,19 @@ function GlobalStyles() {
           height: auto;
         }
 
+        .topbar-actions {
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .admin-search {
+          width: 100%;
+          max-width: none;
+        }
+
         .chart-summary,
-        .quick-actions-grid {
+        .quick-actions-grid,
+        .kpi-grid {
           grid-template-columns: 1fr;
         }
       }
