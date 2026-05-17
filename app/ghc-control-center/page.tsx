@@ -782,7 +782,7 @@ function ProductionCheck({ label, done = false }: { label: string; done?: boolea
   );
 }
 
-function createPlaceholderModules() {
+function createPlaceholderModules(): AnyRecord[] {
   return [
     { id: "placeholder-1", title: "Fundamentos y contexto" },
     { id: "placeholder-2", title: "Desarrollo del contenido principal" },
