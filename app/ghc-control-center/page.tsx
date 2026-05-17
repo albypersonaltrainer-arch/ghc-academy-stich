@@ -2403,15 +2403,15 @@ type FinanceRow = {
 };
 
 function buildFinanceRows(paymentRows: ReturnType<typeof buildPaymentRows>, courseViews: CourseAdminView[], studentViews: StudentAdminView[]): FinanceRow[] {
-  const baseRows = paymentRows.map((row, index) => {
-    const gateway = index % 3 === 0 ? "stripe" : index % 3 === 1 ? "sumup" : "manual";
+  const baseRows: FinanceRow[] = paymentRows.map((row, index) => {
+    const gateway: FinanceRow["gateway"] = index % 3 === 0 ? "stripe" : index % 3 === 1 ? "sumup" : "manual";
     const gross = parseAmount(row.amount) || [497, 197, 97, 47, 297, 697][index % 6];
     const fee = gateway === "stripe" ? gross * 0.029 + 0.3 : gateway === "sumup" ? gross * 0.0169 : 0;
     const isRefunded = index === 4;
     const isPending = row.statusTone === "pending";
     const isFailed = row.statusTone === "risk";
     const refund = isRefunded ? Math.round(gross * 0.25) : 0;
-    const status = isRefunded ? "refunded" : isFailed ? "failed" : isPending ? "pending" : "paid";
+    const status: FinanceRow["status"] = isRefunded ? "refunded" : isFailed ? "failed" : isPending ? "pending" : "paid";
     const statusLabel = status === "refunded" ? "Reembolsado" : status === "failed" ? "Fallido" : status === "pending" ? "Pendiente" : "Pagado";
     const reference = `GHC-PAY-2026-${String(320001 + index).padStart(6, "0")}`;
 
