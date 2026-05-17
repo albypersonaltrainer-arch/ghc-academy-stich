@@ -24,6 +24,7 @@ type AdminTab =
 type GuardState = "checking" | "allowed" | "denied";
 type CourseViewMode = "grid" | "list";
 type CourseStatusFilter = "all" | "published" | "draft" | "hidden";
+type PaymentSubTab = "resumen" | "transacciones" | "accesos" | "becas" | "finanzas" | "reportes";
 
 type DashboardData = {
   profiles: AnyRecord[];
@@ -150,6 +151,12 @@ export default function Page() {
   const [courseViewMode, setCourseViewMode] = useState<CourseViewMode>("grid");
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [paymentSubTab, setPaymentSubTab] = useState<PaymentSubTab>("resumen");
+  const [financeSearch, setFinanceSearch] = useState("");
+  const [financeGateway, setFinanceGateway] = useState("all");
+  const [financeStatus, setFinanceStatus] = useState("all");
+  const [financeAmountMin, setFinanceAmountMin] = useState("");
+  const [financeAmountMax, setFinanceAmountMax] = useState("");
 
   useEffect(() => {
     async function protectAndLoad() {
@@ -405,6 +412,18 @@ export default function Page() {
             dashboardData={dashboardData}
             courseViews={courseViews}
             studentViews={studentViews}
+            paymentSubTab={paymentSubTab}
+            setPaymentSubTab={setPaymentSubTab}
+            financeSearch={financeSearch}
+            setFinanceSearch={setFinanceSearch}
+            financeGateway={financeGateway}
+            setFinanceGateway={setFinanceGateway}
+            financeStatus={financeStatus}
+            setFinanceStatus={setFinanceStatus}
+            financeAmountMin={financeAmountMin}
+            setFinanceAmountMin={setFinanceAmountMin}
+            financeAmountMax={financeAmountMax}
+            setFinanceAmountMax={setFinanceAmountMax}
             setActiveTab={setActiveTab}
             setSystemMessage={setSystemMessage}
           />
@@ -1763,12 +1782,36 @@ function PagosAdmin({
   dashboardData,
   courseViews,
   studentViews,
+  paymentSubTab,
+  setPaymentSubTab,
+  financeSearch,
+  setFinanceSearch,
+  financeGateway,
+  setFinanceGateway,
+  financeStatus,
+  setFinanceStatus,
+  financeAmountMin,
+  setFinanceAmountMin,
+  financeAmountMax,
+  setFinanceAmountMax,
   setActiveTab,
   setSystemMessage,
 }: {
   dashboardData: DashboardData;
   courseViews: CourseAdminView[];
   studentViews: StudentAdminView[];
+  paymentSubTab: PaymentSubTab;
+  setPaymentSubTab: (tab: PaymentSubTab) => void;
+  financeSearch: string;
+  setFinanceSearch: (value: string) => void;
+  financeGateway: string;
+  setFinanceGateway: (value: string) => void;
+  financeStatus: string;
+  setFinanceStatus: (value: string) => void;
+  financeAmountMin: string;
+  setFinanceAmountMin: (value: string) => void;
+  financeAmountMax: string;
+  setFinanceAmountMax: (value: string) => void;
   setActiveTab: (tab: AdminTab) => void;
   setSystemMessage: (message: string) => void;
 }) {
@@ -1779,21 +1822,38 @@ function PagosAdmin({
   const estimatedRevenue = commercialStudents.length > 0 ? commercialStudents.length * 197 : 0;
 
   const paymentRows = buildPaymentRows(studentViews, courseViews);
-  const financeSummary = buildFinanceSummary(commercialStudents.length, courseViews.length);
-  const courseFinanceRows = buildCourseFinanceRows(courseViews);
+  const financeRows = buildFinanceRows(paymentRows, courseViews, studentViews);
+  const filteredFinanceRows = filterFinanceRows({
+    rows: financeRows,
+    search: financeSearch,
+    gateway: financeGateway,
+    status: financeStatus,
+    min: financeAmountMin,
+    max: financeAmountMax,
+  });
+
+  const financeTotals = buildFinanceTotals(filteredFinanceRows);
+  const paymentTabs: { id: PaymentSubTab; label: string; helper: string }[] = [
+    { id: "resumen", label: "Resumen", helper: "Vista general" },
+    { id: "transacciones", label: "Transacciones", helper: "Operaciones" },
+    { id: "accesos", label: "Accesos", helper: "Permisos" },
+    { id: "becas", label: "Becas", helper: "Fidelización" },
+    { id: "finanzas", label: "Finanzas", helper: "Contabilidad" },
+    { id: "reportes", label: "Reportes", helper: "Exportación" },
+  ];
 
   return (
     <div className="payments-admin-page">
       <section className="payments-hero">
         <div>
-          <p className="admin-kicker">Ventas, accesos y fidelización</p>
+          <p className="admin-kicker">Pagos, accesos y finanzas</p>
           <h1>Pagos y accesos</h1>
-          <p>Controla compras, accesos manuales, becas, cuotas y bloqueos desde una vista comercial conectada con alumnos y cursos.</p>
+          <p>Controla ventas, transacciones, accesos, becas, comisiones, ingresos netos y reportes contables desde una misma cabina.</p>
         </div>
 
         <div className="payments-hero-panel">
-          <span>Integraciones preparadas</span>
-          <strong>Stripe + SumUp + accesos manuales</strong>
+          <span>Módulo comercial preparado</span>
+          <strong>Stripe + SumUp + accesos manuales + finanzas</strong>
           <p>La conexión real de cobros se hará con seguridad. De momento dejamos la arquitectura lista.</p>
           <button type="button" onClick={() => setSystemMessage("Stripe y SumUp se conectarán cuando activemos el módulo de pagos reales.")}>
             Preparar pasarelas
@@ -1801,9 +1861,100 @@ function PagosAdmin({
         </div>
       </section>
 
+      <section className="payment-tabs">
+        {paymentTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={paymentSubTab === tab.id ? "active" : ""}
+            onClick={() => {
+              setPaymentSubTab(tab.id);
+              setSystemMessage("");
+            }}
+          >
+            <strong>{tab.label}</strong>
+            <span>{tab.helper}</span>
+          </button>
+        ))}
+      </section>
+
+      {paymentSubTab === "resumen" ? (
+        <PaymentSummaryView
+          estimatedRevenue={estimatedRevenue}
+          commercialStudents={commercialStudents.length}
+          highValueStudents={highValueStudents}
+          blockedStudents={blockedStudents}
+          manualAccessCandidates={manualAccessCandidates}
+          paymentRows={paymentRows}
+          setActiveTab={setActiveTab}
+          setPaymentSubTab={setPaymentSubTab}
+          setSystemMessage={setSystemMessage}
+        />
+      ) : null}
+
+      {paymentSubTab === "transacciones" ? (
+        <PaymentTransactionsView paymentRows={paymentRows} setPaymentSubTab={setPaymentSubTab} setSystemMessage={setSystemMessage} />
+      ) : null}
+
+      {paymentSubTab === "accesos" ? (
+        <PaymentAccessView studentViews={studentViews} courseViews={courseViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} />
+      ) : null}
+
+      {paymentSubTab === "becas" ? (
+        <PaymentScholarshipsView highValueStudents={highValueStudents} studentViews={studentViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} />
+      ) : null}
+
+      {paymentSubTab === "finanzas" ? (
+        <PaymentFinanceView
+          financeRows={filteredFinanceRows}
+          totals={financeTotals}
+          search={financeSearch}
+          setSearch={setFinanceSearch}
+          gateway={financeGateway}
+          setGateway={setFinanceGateway}
+          status={financeStatus}
+          setStatus={setFinanceStatus}
+          amountMin={financeAmountMin}
+          setAmountMin={setFinanceAmountMin}
+          amountMax={financeAmountMax}
+          setAmountMax={setFinanceAmountMax}
+          setSystemMessage={setSystemMessage}
+        />
+      ) : null}
+
+      {paymentSubTab === "reportes" ? (
+        <PaymentReportsView totals={financeTotals} setPaymentSubTab={setPaymentSubTab} setSystemMessage={setSystemMessage} />
+      ) : null}
+    </div>
+  );
+}
+
+function PaymentSummaryView({
+  estimatedRevenue,
+  commercialStudents,
+  highValueStudents,
+  blockedStudents,
+  manualAccessCandidates,
+  paymentRows,
+  setActiveTab,
+  setPaymentSubTab,
+  setSystemMessage,
+}: {
+  estimatedRevenue: number;
+  commercialStudents: number;
+  highValueStudents: number;
+  blockedStudents: number;
+  manualAccessCandidates: number;
+  paymentRows: ReturnType<typeof buildPaymentRows>;
+  setActiveTab: (tab: AdminTab) => void;
+  setPaymentSubTab: (tab: PaymentSubTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <>
       <section className="payment-stats-grid">
         <CourseStat label="Ingresos estimados" value={estimatedRevenue} helper="Simulación hasta conectar pagos" />
-        <CourseStat label="Alumnos con acceso" value={commercialStudents.length} helper="Cursos activos o certificados" />
+        <CourseStat label="Alumnos con acceso" value={commercialStudents} helper="Cursos activos o certificados" />
         <CourseStat label="Alto valor" value={highValueStudents} helper="Candidatos a fidelización" />
         <CourseStat label="Accesos bloqueados" value={blockedStudents} helper="Riesgo comercial" />
         <CourseStat label="Accesos manuales" value={manualAccessCandidates} helper="Becas / cortesías futuras" />
@@ -1817,7 +1968,7 @@ function PagosAdmin({
                 <h2>Resumen comercial</h2>
                 <p>Visión preparada para compras, cuotas, becas y accesos por alumno.</p>
               </div>
-              <button type="button" onClick={() => setSystemMessage("El informe financiero real se activará al conectar Stripe/SumUp.")}>Ver informe</button>
+              <button type="button" onClick={() => setPaymentSubTab("finanzas")}>Entrar en finanzas</button>
             </div>
 
             <div className="payment-chart-card">
@@ -1841,76 +1992,12 @@ function PagosAdmin({
             </div>
           </article>
 
-          <article className="finance-card">
-            <div className="card-head">
-              <div>
-                <h2>Finanzas y contabilidad</h2>
-                <p>Preparado para calcular ingresos brutos, comisiones, reembolsos, neto y ventas por curso.</p>
-              </div>
-              <button type="button" onClick={() => setSystemMessage("La exportación contable se activará cuando conectemos las transacciones reales.")}>Exportar</button>
-            </div>
-
-            <div className="finance-summary-grid">
-              <FinanceMetric label="Ingresos brutos" value={financeSummary.gross} helper="ventas antes de comisiones" />
-              <FinanceMetric label="Comisiones" value={financeSummary.fees} helper="Stripe/SumUp estimado" tone="warning" />
-              <FinanceMetric label="Reembolsos" value={financeSummary.refunds} helper="pendiente conectar" tone="muted" />
-              <FinanceMetric label="Ingresos netos" value={financeSummary.net} helper="bruto - comisiones" />
-            </div>
-
-            <div className="course-finance-table">
-              <div className="course-finance-head">
-                <span>Curso</span>
-                <span>Ventas</span>
-                <span>Bruto</span>
-                <span>Comisiones</span>
-                <span>Neto</span>
-              </div>
-              {courseFinanceRows.map((row) => (
-                <div key={row.id} className="course-finance-row">
-                  <div>
-                    <strong>{row.title}</strong>
-                    <p>{row.category}</p>
-                  </div>
-                  <span>{row.sales}</span>
-                  <strong>{row.gross}</strong>
-                  <span>{row.fees}</span>
-                  <strong>{row.net}</strong>
-                </div>
-              ))}
-            </div>
-          </article>
-
           <article className="payments-table-card">
             <div className="card-head compact">
               <h2>Operaciones recientes</h2>
-              <button type="button" onClick={() => setSystemMessage("El historial real aparecerá cuando conectemos compras y accesos.")}>Ver todas</button>
+              <button type="button" onClick={() => setPaymentSubTab("transacciones")}>Ver transacciones</button>
             </div>
-
-            <div className="payments-table">
-              <div className="payments-table-head">
-                <span>Alumno</span>
-                <span>Curso / acceso</span>
-                <span>Importe</span>
-                <span>Estado</span>
-                <span>Acción</span>
-              </div>
-
-              {paymentRows.map((row) => (
-                <div key={row.id} className="payments-table-row">
-                  <div>
-                    <strong>{row.student}</strong>
-                    <p>{row.email}</p>
-                  </div>
-                  <div>
-                    <strong>{row.course}</strong>
-                    <p>{row.kind}</p>
-                  </div>
-                  <strong>{row.amount}</strong>
-                  <span className={`payment-status ${row.statusTone}`}>{row.status}</span>
-                  <button type="button" onClick={() => setSystemMessage(row.actionMessage)}>{row.action}</button>
-                </div>
-              ))}
-            </div>
+            <PaymentRowsTable rows={paymentRows} setSystemMessage={setSystemMessage} />
           </article>
         </div>
 
@@ -1931,13 +2018,6 @@ function PagosAdmin({
             <GatewayRow name="Cuotas" status="Diseñado" active />
           </article>
 
-          <article className="payment-side-card accounting-actions">
-            <h2>Reportes contables</h2>
-            <button type="button" onClick={() => setSystemMessage("Preparado para exportar CSV mensual de ventas, comisiones y neto.")}>Exportar CSV mensual</button>
-            <button type="button" onClick={() => setSystemMessage("Preparado para generar Excel contable cuando tengamos transacciones reales.")}>Exportar Excel</button>
-            <button type="button" onClick={() => setSystemMessage("La conciliación se hará comparando pedidos, pasarela y accesos activos.")}>Conciliar pagos</button>
-          </article>
-
           <article className="payment-side-card">
             <h2>Fidelización comercial</h2>
             <p>Desde aquí se alimentará el bloque “Relación comercial y fidelización” de cada alumno.</p>
@@ -1950,100 +2030,510 @@ function PagosAdmin({
               <strong>Preparado</strong>
             </div>
           </article>
-
-          <article className="payment-side-card">
-            <h2>Reglas de acceso</h2>
-            <div className="payment-rules">
-              <StatusRow label="Pago completado" value="Acceso activo" />
-              <StatusRow label="Pago fallido" value="Bloqueo" warning />
-              <StatusRow label="Beca / regalo" value="Manual" />
-              <StatusRow label="Plan 3 cuotas" value="Preparado" />
-            </div>
-          </article>
         </aside>
       </section>
+    </>
+  );
+}
+
+function PaymentRowsTable({
+  rows,
+  setSystemMessage,
+}: {
+  rows: ReturnType<typeof buildPaymentRows>;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <div className="payments-table">
+      <div className="payments-table-head">
+        <span>Alumno</span>
+        <span>Curso / acceso</span>
+        <span>Importe</span>
+        <span>Estado</span>
+        <span>Acción</span>
+      </div>
+
+      {rows.map((row) => (
+        <div key={row.id} className="payments-table-row">
+          <div>
+            <strong>{row.student}</strong>
+            <p>{row.email}</p>
+          </div>
+          <div>
+            <strong>{row.course}</strong>
+            <p>{row.kind}</p>
+          </div>
+          <strong>{row.amount}</strong>
+          <span className={`payment-status ${row.statusTone}`}>{row.status}</span>
+          <button type="button" onClick={() => setSystemMessage(row.actionMessage)}>{row.action}</button>
+        </div>
+      ))}
     </div>
   );
 }
 
-
-function buildFinanceSummary(commercialStudentsCount: number, courseCount: number) {
-  const grossNumber = Math.max(0, commercialStudentsCount * 197 + courseCount * 49);
-  const feesNumber = Math.round(grossNumber * 0.029 + Math.max(0, commercialStudentsCount) * 0.3);
-  const refundsNumber = 0;
-  const netNumber = Math.max(0, grossNumber - feesNumber - refundsNumber);
-
-  return {
-    gross: formatMoney(grossNumber),
-    fees: `-${formatMoney(feesNumber)}`,
-    refunds: formatMoney(refundsNumber),
-    net: formatMoney(netNumber),
-  };
+function PaymentTransactionsView({
+  paymentRows,
+  setPaymentSubTab,
+  setSystemMessage,
+}: {
+  paymentRows: ReturnType<typeof buildPaymentRows>;
+  setPaymentSubTab: (tab: PaymentSubTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <section className="payments-full-panel">
+      <div className="card-head">
+        <div>
+          <h2>Transacciones</h2>
+          <p>Operaciones de pago, accesos y compras. El histórico real se conectará con Stripe/SumUp.</p>
+        </div>
+        <button type="button" onClick={() => setPaymentSubTab("finanzas")}>Ver finanzas</button>
+      </div>
+      <PaymentRowsTable rows={paymentRows} setSystemMessage={setSystemMessage} />
+    </section>
+  );
 }
 
-function buildCourseFinanceRows(courseViews: CourseAdminView[]) {
-  const rows = courseViews.slice(0, 5).map((course, index) => {
-    const sales = Math.max(0, course.enrollmentsCount || Math.max(1, index + 1));
-    const unitPrice = getCoursePriceNumber(course.course) || 97;
-    const grossNumber = sales * unitPrice;
-    const feesNumber = Math.round(grossNumber * 0.029 + sales * 0.3);
-    const netNumber = Math.max(0, grossNumber - feesNumber);
+function PaymentAccessView({
+  studentViews,
+  courseViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  studentViews: StudentAdminView[];
+  courseViews: CourseAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const active = studentViews.filter((student) => student.activeCourses > 0).length;
+  const blocked = studentViews.filter((student) => student.status === "blocked").length;
+
+  return (
+    <section className="payments-detail-grid">
+      <article className="payments-full-panel">
+        <div className="card-head">
+          <div>
+            <h2>Accesos por alumno y curso</h2>
+            <p>Control operativo de accesos activos, bloqueados, gratuitos y manuales.</p>
+          </div>
+          <button type="button" onClick={() => setActiveTab("alumnos")}>Ir a alumnos</button>
+        </div>
+
+        <div className="payment-access-grid">
+          <CourseStat label="Accesos activos" value={active} helper="Alumnos con cursos" />
+          <CourseStat label="Bloqueados" value={blocked} helper="Revisar pagos" />
+          <CourseStat label="Cursos disponibles" value={courseViews.length} helper="Catálogo" />
+        </div>
+
+        <div className="access-rules-list">
+          <StatusRow label="Pago completado" value="Acceso activo" />
+          <StatusRow label="Pago fallido" value="Bloqueo" warning />
+          <StatusRow label="Beca / regalo" value="Manual" />
+          <StatusRow label="Plan 3 cuotas" value="Preparado" />
+        </div>
+      </article>
+
+      <article className="payment-side-card">
+        <h2>Acciones</h2>
+        <button type="button" onClick={() => setSystemMessage("Conceder acceso manual se conectará en la fase de permisos por curso.")}>Conceder acceso</button>
+        <button type="button" onClick={() => setSystemMessage("Revocar acceso requerirá registro interno y motivo.")}>Revocar acceso</button>
+        <button type="button" onClick={() => setSystemMessage("Pausar acceso se conectará con cuotas y pagos pendientes.")}>Pausar acceso</button>
+      </article>
+    </section>
+  );
+}
+
+function PaymentScholarshipsView({
+  highValueStudents,
+  studentViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  highValueStudents: number;
+  studentViews: StudentAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const candidates = studentViews.filter((student) => student.commercialTier !== "Inicial").slice(0, 4);
+
+  return (
+    <section className="payments-detail-grid">
+      <article className="payments-full-panel">
+        <div className="card-head">
+          <div>
+            <h2>Becas, descuentos y fidelización</h2>
+            <p>Premia alumnos comprometidos, reactiva usuarios y concede accesos especiales con control interno.</p>
+          </div>
+          <button type="button" onClick={() => setActiveTab("comunicaciones")}>Campañas</button>
+        </div>
+
+        <div className="payment-access-grid">
+          <CourseStat label="Candidatos" value={highValueStudents} helper="Alto compromiso" />
+          <CourseStat label="Becas activas" value={0} helper="Por conectar" />
+          <CourseStat label="Descuentos" value={0} helper="Por conectar" />
+        </div>
+
+        <div className="scholarship-list">
+          {candidates.length ? candidates.map((student) => (
+            <div key={student.id} className="scholarship-row">
+              <span>{student.initials}</span>
+              <div>
+                <strong>{student.name}</strong>
+                <p>{student.commercialTier} · {student.riskLabel}</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage(`Preparado para premiar a ${student.name} con beca, descuento o curso gratuito.`)}>Premiar</button>
+            </div>
+          )) : (
+            <div className="scholarship-row">
+              <span>GHC</span>
+              <div>
+                <strong>Sin candidatos todavía</strong>
+                <p>Cuando haya actividad real, aparecerán alumnos con alto compromiso.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("Fidelización quedará conectada con Alumnos, Pagos y Comunicaciones.")}>Preparado</button>
+            </div>
+          )}
+        </div>
+      </article>
+
+      <article className="payment-side-card">
+        <h2>Tipos de premio</h2>
+        <button type="button" onClick={() => setSystemMessage("Curso gratuito con trazabilidad interna.")}>Curso gratuito</button>
+        <button type="button" onClick={() => setSystemMessage("Beca total o parcial con motivo registrado.")}>Beca</button>
+        <button type="button" onClick={() => setSystemMessage("Descuento personalizado conectado con Comunicaciones.")}>Descuento</button>
+      </article>
+    </section>
+  );
+}
+
+function PaymentFinanceView({
+  financeRows,
+  totals,
+  search,
+  setSearch,
+  gateway,
+  setGateway,
+  status,
+  setStatus,
+  amountMin,
+  setAmountMin,
+  amountMax,
+  setAmountMax,
+  setSystemMessage,
+}: {
+  financeRows: FinanceRow[];
+  totals: ReturnType<typeof buildFinanceTotals>;
+  search: string;
+  setSearch: (value: string) => void;
+  gateway: string;
+  setGateway: (value: string) => void;
+  status: string;
+  setStatus: (value: string) => void;
+  amountMin: string;
+  setAmountMin: (value: string) => void;
+  amountMax: string;
+  setAmountMax: (value: string) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <section className="finance-page">
+      <div className="finance-hero-card">
+        <div>
+          <p className="admin-kicker">Finanzas y contabilidad</p>
+          <h2>Detalle contable de operaciones</h2>
+          <p>Busca por alumno, email, curso, referencia, importe, pasarela, estado o rango de fecha. Preparado para Stripe/SumUp y exportación contable.</p>
+        </div>
+        <div className="finance-export-actions">
+          <button type="button" onClick={() => setSystemMessage("Exportación CSV preparada para conectar con datos reales.")}>Exportar CSV</button>
+          <button type="button" onClick={() => setSystemMessage("Exportación Excel preparada para conectar con datos reales.")}>Exportar Excel</button>
+          <button type="button" onClick={() => setSystemMessage("La conciliación se conectará con referencias reales de pasarela.")}>Conciliar</button>
+        </div>
+      </div>
+
+      <section className="finance-stats-grid">
+        <FinanceMetric label="Ingresos brutos" value={formatCurrency(totals.gross)} />
+        <FinanceMetric label="Comisiones" value={`-${formatCurrency(totals.fees)}`} warning />
+        <FinanceMetric label="Reembolsos" value={`-${formatCurrency(totals.refunds)}`} danger />
+        <FinanceMetric label="Ingresos netos" value={formatCurrency(totals.net)} accent />
+        <FinanceMetric label="Ticket medio" value={formatCurrency(totals.averageTicket)} />
+      </section>
+
+      <section className="finance-filters">
+        <label className="finance-search">
+          <span>⌕</span>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Alumno, email, curso, referencia, código de operación..."
+          />
+        </label>
+
+        <select value={gateway} onChange={(event) => setGateway(event.target.value)}>
+          <option value="all">Todas las pasarelas</option>
+          <option value="stripe">Stripe</option>
+          <option value="sumup">SumUp</option>
+          <option value="manual">Manual</option>
+        </select>
+
+        <select value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="all">Todos los estados</option>
+          <option value="paid">Pagado</option>
+          <option value="pending">Pendiente</option>
+          <option value="failed">Fallido</option>
+          <option value="refunded">Reembolsado</option>
+        </select>
+
+        <input value={amountMin} onChange={(event) => setAmountMin(event.target.value)} placeholder="Importe mín." />
+        <input value={amountMax} onChange={(event) => setAmountMax(event.target.value)} placeholder="Importe máx." />
+      </section>
+
+      <article className="finance-table-card">
+        <div className="card-head compact">
+          <h2>Movimientos contables</h2>
+          <button type="button" onClick={() => setSystemMessage("Más adelante se abrirá el detalle de operación con referencia de pasarela.")}>Ver detalle</button>
+        </div>
+
+        <div className="finance-table">
+          <div className="finance-table-head">
+            <span>Fecha</span>
+            <span>Alumno</span>
+            <span>Producto</span>
+            <span>Referencia</span>
+            <span>Pasarela</span>
+            <span>Bruto</span>
+            <span>Comisión</span>
+            <span>Reembolso</span>
+            <span>Neto</span>
+            <span>Estado</span>
+          </div>
+
+          {financeRows.map((row) => (
+            <div key={row.id} className="finance-table-row">
+              <span>{row.date}</span>
+              <div>
+                <strong>{row.student}</strong>
+                <p>{row.email}</p>
+              </div>
+              <div>
+                <strong>{row.product}</strong>
+                <p>{row.course}</p>
+              </div>
+              <code>{row.reference}</code>
+              <span className={`gateway-pill ${row.gateway}`}>{row.gatewayLabel}</span>
+              <strong>{formatCurrency(row.gross)}</strong>
+              <span className="fee-value">-{formatCurrency(row.fee)}</span>
+              <span className="refund-value">{row.refund ? `-${formatCurrency(row.refund)}` : "—"}</span>
+              <strong className="net-value">{formatCurrency(row.net)}</strong>
+              <span className={`finance-status ${row.status}`}>{row.statusLabel}</span>
+            </div>
+          ))}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function PaymentReportsView({
+  totals,
+  setPaymentSubTab,
+  setSystemMessage,
+}: {
+  totals: ReturnType<typeof buildFinanceTotals>;
+  setPaymentSubTab: (tab: PaymentSubTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <section className="payments-detail-grid">
+      <article className="payments-full-panel">
+        <div className="card-head">
+          <div>
+            <h2>Reportes financieros</h2>
+            <p>Informes mensuales, exportación contable y preparación para conciliación fiscal.</p>
+          </div>
+          <button type="button" onClick={() => setPaymentSubTab("finanzas")}>Ir a finanzas</button>
+        </div>
+
+        <div className="reports-grid">
+          <ReportCard title="Informe mensual" text="Resumen de bruto, comisiones, reembolsos y neto." action="Generar" onClick={() => setSystemMessage("Informe mensual preparado para conectar.")} />
+          <ReportCard title="Exportación contable" text="CSV/Excel para asesoría, conciliación o archivo interno." action="Exportar" onClick={() => setSystemMessage("Exportación contable preparada.")} />
+          <ReportCard title="Ventas por curso" text="Ranking de cursos por ventas, neto y ticket medio." action="Ver ranking" onClick={() => setSystemMessage("Ranking financiero se conectará con pagos reales.")} />
+          <ReportCard title="Comisiones pasarela" text="Detalle Stripe/SumUp por fecha, curso y referencia." action="Ver comisiones" onClick={() => setSystemMessage("Comisiones se calcularán desde la pasarela.")} />
+        </div>
+
+        <div className="report-summary-strip">
+          <MiniMetric label="Bruto filtrado" value={formatCurrency(totals.gross)} trend="resumen" />
+          <MiniMetric label="Comisiones" value={`-${formatCurrency(totals.fees)}`} trend="pasarela" />
+          <MiniMetric label="Reembolsos" value={`-${formatCurrency(totals.refunds)}`} trend="control" />
+          <MiniMetric label="Neto" value={formatCurrency(totals.net)} trend="contable" />
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function ReportCard({ title, text, action, onClick }: { title: string; text: string; action: string; onClick: () => void }) {
+  return (
+    <button type="button" className="report-card" onClick={onClick}>
+      <span>▣</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
+      <em>{action} ›</em>
+    </button>
+  );
+}
+
+type FinanceRow = {
+  id: string;
+  date: string;
+  student: string;
+  email: string;
+  product: string;
+  course: string;
+  reference: string;
+  gateway: "stripe" | "sumup" | "manual";
+  gatewayLabel: string;
+  gross: number;
+  fee: number;
+  refund: number;
+  net: number;
+  status: "paid" | "pending" | "failed" | "refunded";
+  statusLabel: string;
+  searchable: string;
+};
+
+function buildFinanceRows(paymentRows: ReturnType<typeof buildPaymentRows>, courseViews: CourseAdminView[], studentViews: StudentAdminView[]): FinanceRow[] {
+  const baseRows = paymentRows.map((row, index) => {
+    const gateway = index % 3 === 0 ? "stripe" : index % 3 === 1 ? "sumup" : "manual";
+    const gross = parseAmount(row.amount) || [497, 197, 97, 47, 297, 697][index % 6];
+    const fee = gateway === "stripe" ? gross * 0.029 + 0.3 : gateway === "sumup" ? gross * 0.0169 : 0;
+    const isRefunded = index === 4;
+    const isPending = row.statusTone === "pending";
+    const isFailed = row.statusTone === "risk";
+    const refund = isRefunded ? Math.round(gross * 0.25) : 0;
+    const status = isRefunded ? "refunded" : isFailed ? "failed" : isPending ? "pending" : "paid";
+    const statusLabel = status === "refunded" ? "Reembolsado" : status === "failed" ? "Fallido" : status === "pending" ? "Pendiente" : "Pagado";
+    const reference = `GHC-PAY-2026-${String(320001 + index).padStart(6, "0")}`;
 
     return {
-      id: course.id,
-      title: course.title,
-      category: course.category,
-      sales: String(sales),
-      gross: formatMoney(grossNumber),
-      fees: `-${formatMoney(feesNumber)}`,
-      net: formatMoney(netNumber),
+      id: row.id,
+      date: `${String(12 + index).padStart(2, "0")}/05/2026`,
+      student: row.student,
+      email: row.email,
+      product: row.course,
+      course: row.kind,
+      reference,
+      gateway,
+      gatewayLabel: gateway === "stripe" ? "Stripe" : gateway === "sumup" ? "SumUp" : "Manual",
+      gross: Math.round(gross * 100) / 100,
+      fee: Math.round(fee * 100) / 100,
+      refund,
+      net: Math.max(0, Math.round((gross - fee - refund) * 100) / 100),
+      status,
+      statusLabel,
+      searchable: "",
     };
   });
 
-  if (rows.length > 0) return rows;
-
-  return [
+  const rows = baseRows.length ? baseRows : [
     {
-      id: "finance-empty-course",
-      title: "Sin ventas registradas",
-      category: "Conecta Stripe/SumUp para datos reales",
-      sales: "—",
-      gross: "—",
-      fees: "—",
-      net: "—",
+      id: "finance-demo-1",
+      date: "12/05/2026",
+      student: "Operación preparada",
+      email: "pagos@ghcacademy.net",
+      product: courseViews[0]?.title || "Curso GHC Academy",
+      course: "Datos pendientes de pasarela real",
+      reference: "GHC-PAY-2026-320001",
+      gateway: "manual" as const,
+      gatewayLabel: "Manual",
+      gross: 0,
+      fee: 0,
+      refund: 0,
+      net: 0,
+      status: "pending" as const,
+      statusLabel: "Pendiente",
+      searchable: "",
     },
   ];
+
+  return rows.map((row) => ({
+    ...row,
+    searchable: [
+      row.student,
+      row.email,
+      row.product,
+      row.course,
+      row.reference,
+      row.gatewayLabel,
+      row.statusLabel,
+      row.gross,
+      row.net,
+    ].join(" ").toLowerCase(),
+  }));
 }
 
-function getCoursePriceNumber(course: AnyRecord) {
-  const raw = course.price ?? course.amount ?? course.sale_price ?? null;
-  const numeric = Number(raw);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
-function formatMoney(value: number) {
-  return `${new Intl.NumberFormat("es-ES").format(Math.round(value || 0))}€`;
-}
-
-function FinanceMetric({
-  label,
-  value,
-  helper,
-  tone = "green",
+function filterFinanceRows({
+  rows,
+  search,
+  gateway,
+  status,
+  min,
+  max,
 }: {
-  label: string;
-  value: string;
-  helper: string;
-  tone?: "green" | "warning" | "muted";
+  rows: FinanceRow[];
+  search: string;
+  gateway: string;
+  status: string;
+  min: string;
+  max: string;
 }) {
+  const query = search.trim().toLowerCase();
+  const minValue = Number(min);
+  const maxValue = Number(max);
+
+  return rows.filter((row) => {
+    const queryOk = !query || row.searchable.includes(query);
+    const gatewayOk = gateway === "all" || row.gateway === gateway;
+    const statusOk = status === "all" || row.status === status;
+    const minOk = !min || !Number.isFinite(minValue) || row.gross >= minValue;
+    const maxOk = !max || !Number.isFinite(maxValue) || row.gross <= maxValue;
+    return queryOk && gatewayOk && statusOk && minOk && maxOk;
+  });
+}
+
+function buildFinanceTotals(rows: FinanceRow[]) {
+  const gross = rows.reduce((acc, row) => acc + row.gross, 0);
+  const fees = rows.reduce((acc, row) => acc + row.fee, 0);
+  const refunds = rows.reduce((acc, row) => acc + row.refund, 0);
+  const net = rows.reduce((acc, row) => acc + row.net, 0);
+  return {
+    gross,
+    fees,
+    refunds,
+    net,
+    averageTicket: rows.length ? gross / rows.length : 0,
+  };
+}
+
+function parseAmount(value: string) {
+  const cleaned = String(value || "").replace(/[^\d,.]/g, "").replace(/\./g, "").replace(",", ".");
+  const numeric = Number(cleaned);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(value || 0);
+}
+
+function FinanceMetric({ label, value, accent = false, warning = false, danger = false }: { label: string; value: string; accent?: boolean; warning?: boolean; danger?: boolean }) {
   return (
-    <div className={`finance-metric ${tone}`}>
+    <article className={accent ? "finance-metric accent" : warning ? "finance-metric warning" : danger ? "finance-metric danger" : "finance-metric"}>
       <span>{label}</span>
       <strong>{value}</strong>
-      <p>{helper}</p>
-    </div>
+    </article>
   );
 }
+
 
 function buildPaymentRows(studentViews: StudentAdminView[], courseViews: CourseAdminView[]) {
   const rows = studentViews.slice(0, 6).map((student, index) => {
@@ -2308,7 +2798,11 @@ function GlobalStyles() {
       .payments-admin-page{display:grid;gap:16px}.payments-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.payments-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.payments-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.payments-hero-panel{width:390px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.payments-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.payments-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.payments-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.payments-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.payment-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.payments-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.payments-main-column,.payments-side-column{display:grid;gap:14px}.payments-overview-card,.payments-table-card,.payment-side-card,.finance-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.payment-chart-card{min-height:240px;border-radius:16px;border:1px solid rgba(255,255,255,.06);background:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:50px 50px;overflow:hidden}.payment-chart-card svg{width:100%;height:240px;display:block}.payment-breakdown{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}.payments-table{display:grid;gap:9px}.payments-table-head,.payments-table-row{display:grid;grid-template-columns:1.1fr 1.35fr 110px 110px 110px;gap:12px;align-items:center}.payments-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.payments-table-row{min-height:76px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.payments-table-row strong{display:block}.payments-table-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.payments-table-row>button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.payment-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.payment-status.pending{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.payment-status.risk{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.payment-side-card h2{margin:0 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.payment-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.payment-side-card>button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.payment-side-card>button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.gateway-row,.loyalty-payment-list{display:grid;gap:10px}.gateway-row{grid-template-columns:minmax(0,1fr) auto;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding:11px 0;color:var(--muted)}.gateway-row strong{color:var(--warning)}.gateway-row strong.active{color:var(--green)}.loyalty-payment-list{grid-template-columns:minmax(0,1fr) auto;margin-top:14px}.loyalty-payment-list span{color:var(--muted)}.loyalty-payment-list strong{color:var(--green)}.payment-rules{display:grid;gap:10px;margin-top:12px}.finance-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}.finance-metric{border-radius:14px;border:1px solid rgba(99,229,70,.16);background:rgba(99,229,70,.055);padding:14px;min-height:104px}.finance-metric span{display:block;color:var(--muted);font-size:12px;font-weight:850}.finance-metric strong{display:block;margin-top:8px;font-size:26px;letter-spacing:-.04em}.finance-metric p{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.35}.finance-metric.warning{border-color:rgba(247,201,72,.18);background:rgba(247,201,72,.055)}.finance-metric.warning strong{color:var(--warning)}.finance-metric.muted{border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.026)}.finance-metric.muted strong{color:var(--muted)}.course-finance-table{display:grid;gap:8px}.course-finance-head,.course-finance-row{display:grid;grid-template-columns:minmax(0,1.35fr) 72px 110px 110px 110px;gap:12px;align-items:center}.course-finance-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.course-finance-row{min-height:62px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:11px 12px}.course-finance-row strong{display:block}.course-finance-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.course-finance-row span{color:var(--muted);font-size:13px}.accounting-actions button:first-of-type{background:rgba(255,255,255,.035)!important;color:var(--white)!important;border-color:var(--line)!important}
 
 
-      @media(max-width:1460px){.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+
+      .payment-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.payment-tabs button{min-height:66px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.028);color:var(--muted);cursor:pointer;text-align:left;padding:12px 14px}.payment-tabs button strong{display:block;color:var(--white);font-size:14px}.payment-tabs button span{display:block;margin-top:4px;font-size:11px;color:var(--soft)}.payment-tabs button.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.08);box-shadow:inset 0 0 0 1px rgba(99,229,70,.08)}.payment-tabs button.active strong{color:var(--green)}.payments-full-panel,.finance-hero-card,.finance-table-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.payments-detail-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}.payment-access-grid,.finance-stats-grid,.reports-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.access-rules-list{display:grid;gap:10px;margin-top:16px;max-width:620px}.scholarship-list{display:grid;gap:10px;margin-top:16px}.scholarship-row{min-height:68px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px}.scholarship-row>span{width:44px;height:44px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.18);color:var(--green);font-weight:950}.scholarship-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.scholarship-row button{min-height:36px;border-radius:10px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;cursor:pointer}.finance-page{display:grid;gap:14px}.finance-hero-card{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;background:radial-gradient(circle at 80% 20%,rgba(99,229,70,.11),transparent 34%),var(--panel)}.finance-hero-card h2{margin:0;font-size:30px;line-height:.98;letter-spacing:-.05em}.finance-hero-card p{color:var(--muted);line-height:1.6;max-width:780px}.finance-export-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.finance-export-actions button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px;font-weight:850;cursor:pointer}.finance-export-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}.finance-stats-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.finance-metric{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.026);padding:16px;min-height:104px}.finance-metric span{color:var(--muted);font-size:12px;font-weight:850}.finance-metric strong{display:block;margin-top:10px;font-size:26px;letter-spacing:-.04em}.finance-metric.accent strong{color:var(--green)}.finance-metric.warning strong{color:var(--warning)}.finance-metric.danger strong{color:var(--danger)}.finance-filters{display:grid;grid-template-columns:minmax(280px,1fr) 170px 160px 130px 130px;gap:10px;border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:10px}.finance-search{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.finance-search input,.finance-filters input,.finance-filters select{width:100%;min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px;outline:0}.finance-search input{border:0;background:transparent;padding:0}.finance-filters option{background:#080b0a;color:var(--white)}.finance-table{display:grid;gap:8px;overflow-x:auto}.finance-table-head,.finance-table-row{display:grid;grid-template-columns:90px 1.15fr 1.2fr 150px 90px 90px 90px 90px 90px 100px;gap:10px;align-items:center;min-width:1180px}.finance-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 10px}.finance-table-row{min-height:72px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:11px}.finance-table-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.finance-table-row code{color:var(--green);font-size:12px;white-space:normal;word-break:break-word}.gateway-pill,.finance-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.gateway-pill{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);color:var(--white)}.gateway-pill.stripe{border-color:rgba(99,229,70,.24);color:var(--green);background:rgba(99,229,70,.08)}.gateway-pill.sumup{border-color:rgba(247,201,72,.24);color:var(--warning);background:rgba(247,201,72,.08)}.fee-value{color:var(--warning)}.refund-value{color:var(--danger)}.net-value{color:var(--green)}.finance-status{border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.finance-status.pending{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.finance-status.failed,.finance-status.refunded{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.report-card{min-height:160px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.026);color:var(--white);display:grid;gap:8px;text-align:left;padding:16px;cursor:pointer}.report-card span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.report-card p{color:var(--muted);line-height:1.45;margin:0}.report-card em{color:var(--green);font-style:normal;font-weight:900}.report-summary-strip{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}
+
+
+      @media(max-width:1460px){.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
