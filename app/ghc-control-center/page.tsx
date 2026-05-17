@@ -400,7 +400,17 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "pagos" ? (
+          <PagosAdmin
+            dashboardData={dashboardData}
+            courseViews={courseViews}
+            studentViews={studentViews}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
@@ -1749,6 +1759,217 @@ function CertificateRule({ label, done = false }: { label: string; done?: boolea
   );
 }
 
+function PagosAdmin({
+  dashboardData,
+  courseViews,
+  studentViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  dashboardData: DashboardData;
+  courseViews: CourseAdminView[];
+  studentViews: StudentAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const commercialStudents = studentViews.filter((student) => student.activeCourses > 0 || student.certificates > 0);
+  const blockedStudents = studentViews.filter((student) => student.status === "blocked").length;
+  const highValueStudents = studentViews.filter((student) => student.commercialTier !== "Inicial").length;
+  const manualAccessCandidates = Math.max(0, courseViews.filter((course) => course.status === "draft").length);
+  const estimatedRevenue = commercialStudents.length > 0 ? commercialStudents.length * 197 : 0;
+
+  const paymentRows = buildPaymentRows(studentViews, courseViews);
+
+  return (
+    <div className="payments-admin-page">
+      <section className="payments-hero">
+        <div>
+          <p className="admin-kicker">Ventas, accesos y fidelización</p>
+          <h1>Pagos y accesos</h1>
+          <p>Controla compras, accesos manuales, becas, cuotas y bloqueos desde una vista comercial conectada con alumnos y cursos.</p>
+        </div>
+
+        <div className="payments-hero-panel">
+          <span>Integraciones preparadas</span>
+          <strong>Stripe + SumUp + accesos manuales</strong>
+          <p>La conexión real de cobros se hará con seguridad. De momento dejamos la arquitectura lista.</p>
+          <button type="button" onClick={() => setSystemMessage("Stripe y SumUp se conectarán cuando activemos el módulo de pagos reales.")}>
+            Preparar pasarelas
+          </button>
+        </div>
+      </section>
+
+      <section className="payment-stats-grid">
+        <CourseStat label="Ingresos estimados" value={estimatedRevenue} helper="Simulación hasta conectar pagos" />
+        <CourseStat label="Alumnos con acceso" value={commercialStudents.length} helper="Cursos activos o certificados" />
+        <CourseStat label="Alto valor" value={highValueStudents} helper="Candidatos a fidelización" />
+        <CourseStat label="Accesos bloqueados" value={blockedStudents} helper="Riesgo comercial" />
+        <CourseStat label="Accesos manuales" value={manualAccessCandidates} helper="Becas / cortesías futuras" />
+      </section>
+
+      <section className="payments-layout">
+        <div className="payments-main-column">
+          <article className="payments-overview-card">
+            <div className="card-head">
+              <div>
+                <h2>Resumen comercial</h2>
+                <p>Visión preparada para compras, cuotas, becas y accesos por alumno.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("El informe financiero real se activará al conectar Stripe/SumUp.")}>Ver informe</button>
+            </div>
+
+            <div className="payment-chart-card">
+              <svg viewBox="0 0 920 260" aria-hidden="true">
+                <defs>
+                  <linearGradient id="paymentChartGradient" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={GREEN} stopOpacity="0.38" />
+                    <stop offset="100%" stopColor={GREEN} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d="M30 215 L115 190 L200 198 L285 150 L370 138 L455 108 L540 118 L625 84 L710 96 L795 58 L890 42" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M30 215 L115 190 L200 198 L285 150 L370 138 L455 108 L540 118 L625 84 L710 96 L795 58 L890 42 L890 252 L30 252 Z" fill="url(#paymentChartGradient)" />
+              </svg>
+            </div>
+
+            <div className="payment-breakdown">
+              <MiniMetric label="Pagos completados" value="Próximo" trend="Stripe" />
+              <MiniMetric label="Pagos pendientes" value="Próximo" trend="SumUp" />
+              <MiniMetric label="Becas activas" value="0" trend="manual" />
+              <MiniMetric label="Accesos gratuitos" value="0" trend="manual" />
+            </div>
+          </article>
+
+          <article className="payments-table-card">
+            <div className="card-head compact">
+              <h2>Operaciones recientes</h2>
+              <button type="button" onClick={() => setSystemMessage("El historial real aparecerá cuando conectemos compras y accesos.")}>Ver todas</button>
+            </div>
+
+            <div className="payments-table">
+              <div className="payments-table-head">
+                <span>Alumno</span>
+                <span>Curso / acceso</span>
+                <span>Importe</span>
+                <span>Estado</span>
+                <span>Acción</span>
+              </div>
+
+              {paymentRows.map((row) => (
+                <div key={row.id} className="payments-table-row">
+                  <div>
+                    <strong>{row.student}</strong>
+                    <p>{row.email}</p>
+                  </div>
+                  <div>
+                    <strong>{row.course}</strong>
+                    <p>{row.kind}</p>
+                  </div>
+                  <strong>{row.amount}</strong>
+                  <span className={`payment-status ${row.statusTone}`}>{row.status}</span>
+                  <button type="button" onClick={() => setSystemMessage(row.actionMessage)}>{row.action}</button>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+
+        <aside className="payments-side-column">
+          <article className="payment-side-card">
+            <h2>Acciones rápidas</h2>
+            <button type="button" onClick={() => setSystemMessage("Conceder acceso manual se conectará a la tabla de accesos por curso.")}>Conceder acceso manual</button>
+            <button type="button" onClick={() => setSystemMessage("Las becas se registrarán como acceso especial con motivo interno.")}>Aplicar beca</button>
+            <button type="button" onClick={() => setSystemMessage("Los descuentos personalizados se conectarán con Comunicaciones y Marketing.")}>Crear descuento</button>
+            <button type="button" onClick={() => setActiveTab("alumnos")}>Ver alumno</button>
+          </article>
+
+          <article className="payment-side-card gateways">
+            <h2>Pasarelas</h2>
+            <GatewayRow name="Stripe" status="Pendiente" />
+            <GatewayRow name="SumUp" status="Pendiente" />
+            <GatewayRow name="Accesos manuales" status="Preparado" active />
+            <GatewayRow name="Cuotas" status="Diseñado" active />
+          </article>
+
+          <article className="payment-side-card">
+            <h2>Fidelización comercial</h2>
+            <p>Desde aquí se alimentará el bloque “Relación comercial y fidelización” de cada alumno.</p>
+            <div className="loyalty-payment-list">
+              <span>Alto valor</span>
+              <strong>{highValueStudents}</strong>
+              <span>Candidatos a curso gratuito</span>
+              <strong>{Math.max(0, highValueStudents - 1)}</strong>
+              <span>Seguimiento comercial</span>
+              <strong>Preparado</strong>
+            </div>
+          </article>
+
+          <article className="payment-side-card">
+            <h2>Reglas de acceso</h2>
+            <div className="payment-rules">
+              <StatusRow label="Pago completado" value="Acceso activo" />
+              <StatusRow label="Pago fallido" value="Bloqueo" warning />
+              <StatusRow label="Beca / regalo" value="Manual" />
+              <StatusRow label="Plan 3 cuotas" value="Preparado" />
+            </div>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function buildPaymentRows(studentViews: StudentAdminView[], courseViews: CourseAdminView[]) {
+  const rows = studentViews.slice(0, 6).map((student, index) => {
+    const course = courseViews[index % Math.max(courseViews.length, 1)];
+    const hasAccess = student.activeCourses > 0 || student.certificates > 0;
+    const isRisk = student.status === "blocked" || student.riskTone === "red";
+
+    return {
+      id: student.id,
+      student: student.name,
+      email: student.email,
+      course: course?.title || student.latestCourse || "Curso GHC Academy",
+      kind: hasAccess ? "Acceso activo / compra registrada" : "Sin compra registrada",
+      amount: student.totalInvested,
+      status: isRisk ? "Revisar" : hasAccess ? "Activo" : "Pendiente",
+      statusTone: isRisk ? "risk" : hasAccess ? "active" : "pending",
+      action: isRisk ? "Reactivar" : hasAccess ? "Gestionar" : "Asignar",
+      actionMessage: isRisk
+        ? "La reactivación se conectará con Pagos y accesos."
+        : hasAccess
+          ? "La gestión detallada se conectará con el historial comercial del alumno."
+          : "La asignación manual de acceso se conectará en la siguiente fase.",
+    };
+  });
+
+  if (rows.length > 0) return rows;
+
+  return [
+    {
+      id: "empty-payment-1",
+      student: "Sin alumnos comerciales",
+      email: "Pagos no conectados todavía",
+      course: "Acceso manual preparado",
+      kind: "Becas, regalos y desbloqueos futuros",
+      amount: "—",
+      status: "Preparado",
+      statusTone: "active",
+      action: "Configurar",
+      actionMessage: "Cuando haya alumnos y pagos, aparecerán aquí las operaciones reales.",
+    },
+  ];
+}
+
+function GatewayRow({ name, status, active = false }: { name: string; status: string; active?: boolean }) {
+  return (
+    <div className="gateway-row">
+      <span>{name}</span>
+      <strong className={active ? "active" : ""}>{status}</strong>
+    </div>
+  );
+}
+
+
 function ComingSoon({ tab }: { tab: AdminTab }) { return <section className="coming-soon"><p className="admin-kicker">Módulo administrador</p><h1>{getTabLabel(tab)}</h1><p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador. La arquitectura ya queda preparada para hacerla funcional por fases.</p></section>; }
 function ChartSvg() { return <svg viewBox="0 0 900 260" aria-hidden="true"><defs><linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity="0.42" /><stop offset="100%" stopColor={GREEN} stopOpacity="0" /></linearGradient></defs><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z" fill="url(#adminChartGradient)" /><path d="M30 185 L110 208 L190 174 L270 142 L350 118 L430 78 L510 108 L590 82 L670 98 L750 62 L850 88" fill="none" stroke="rgba(244,246,242,.42)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function Background() { return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>; }
@@ -1956,7 +2177,11 @@ function GlobalStyles() {
       }
       .certificate-preview-seal{display:none!important;}
 
-      @media(max-width:1460px){.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+
+      .payments-admin-page{display:grid;gap:16px}.payments-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.payments-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.payments-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.payments-hero-panel{width:390px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.payments-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.payments-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.payments-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.payments-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.payment-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.payments-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.payments-main-column,.payments-side-column{display:grid;gap:14px}.payments-overview-card,.payments-table-card,.payment-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.payment-chart-card{min-height:240px;border-radius:16px;border:1px solid rgba(255,255,255,.06);background:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:50px 50px;overflow:hidden}.payment-chart-card svg{width:100%;height:240px;display:block}.payment-breakdown{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}.payments-table{display:grid;gap:9px}.payments-table-head,.payments-table-row{display:grid;grid-template-columns:1.1fr 1.35fr 110px 110px 110px;gap:12px;align-items:center}.payments-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.payments-table-row{min-height:76px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.payments-table-row strong{display:block}.payments-table-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.payments-table-row>button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.payment-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.payment-status.pending{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.payment-status.risk{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.payment-side-card h2{margin:0 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.payment-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.payment-side-card>button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.payment-side-card>button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.gateway-row,.loyalty-payment-list{display:grid;gap:10px}.gateway-row{grid-template-columns:minmax(0,1fr) auto;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding:11px 0;color:var(--muted)}.gateway-row strong{color:var(--warning)}.gateway-row strong.active{color:var(--green)}.loyalty-payment-list{grid-template-columns:minmax(0,1fr) auto;margin-top:14px}.loyalty-payment-list span{color:var(--muted)}.loyalty-payment-list strong{color:var(--green)}.payment-rules{display:grid;gap:10px;margin-top:12px}
+
+
+      @media(max-width:1460px){.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
