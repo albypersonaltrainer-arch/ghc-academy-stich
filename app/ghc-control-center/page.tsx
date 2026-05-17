@@ -287,7 +287,17 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "contenido" ? (
+          <ContenidoAdmin
+            stats={dashboardStats}
+            courseViews={courseViews}
+            dashboardData={dashboardData}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
@@ -597,6 +607,189 @@ function QuickAction({ icon, title, text, onClick }: { icon: string; title: stri
 function ActivityItem({ icon, title, label, time }: { icon: string; title: string; label: string; time: string }) { return <div className="activity-item"><span>{icon}</span><div><strong>{title}</strong><p>{label}</p></div><em>{time}</em></div>; }
 function StatusRow({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) { return <div className={warning ? "status-row warning" : "status-row"}><span>{label}</span><strong>{value}</strong></div>; }
 function ReviewItem({ title, text, tag }: { title: string; text: string; tag: string }) { return <div className="review-item"><span>▣</span><div><strong>{title}</strong><p>{text}</p></div><em>{tag}</em></div>; }
+
+function ContenidoAdmin({
+  stats,
+  courseViews,
+  dashboardData,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  stats: ReturnType<typeof buildDashboardStats>;
+  courseViews: CourseAdminView[];
+  dashboardData: DashboardData;
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const productionCourses = courseViews.filter((course) => course.status !== "published");
+  const focusCourse = productionCourses[0] || courseViews[0] || null;
+  const focusModules = focusCourse
+    ? dashboardData.modules.filter((module) => String(module.course_id) === focusCourse.id)
+    : [];
+  const focusModuleIds = new Set(focusModules.map((module) => String(module.id)));
+  const focusLessons = dashboardData.lessons.filter((lesson) => focusModuleIds.has(String(lesson.module_id)));
+  const pendingLessons = Math.max(0, (focusModules.length || 6) * 6 - focusLessons.length);
+
+  return (
+    <div className="content-admin-page">
+      <section className="content-hero">
+        <div>
+          <p className="admin-kicker">Centro de producción académica</p>
+          <h1>Contenido</h1>
+          <p>
+            Organiza documentos fuente, estructura módulos y convierte Word/PDF en lecciones premium antes de publicar.
+          </p>
+        </div>
+        <div className="content-hero-panel">
+          <span>Word / PDF → Curso premium</span>
+          <strong>Maquetación, revisión y publicación guiada</strong>
+          <p>Este espacio nace como taller interno para preparar cursos aunque el material aún esté sin maquetar.</p>
+          <button type="button" onClick={() => setSystemMessage("El importador Word/PDF quedará conectado más adelante a la Factoría IA de Cursos GHC.")}>Importar documento</button>
+        </div>
+      </section>
+
+      <section className="content-stats-grid">
+        <CourseStat label="Cursos en producción" value={productionCourses.length} helper="Borradores u ocultos" />
+        <CourseStat label="Módulos creados" value={stats.modules} helper="Estructura Supabase" />
+        <CourseStat label="Lecciones creadas" value={stats.lessons} helper="Contenido cargado" />
+        <CourseStat label="Lecciones pendientes" value={pendingLessons} helper="Estimación de maquetación" />
+      </section>
+
+      <section className="content-layout">
+        <div className="content-main-column">
+          <article className="production-board-card">
+            <div className="card-head">
+              <div>
+                <h2>Cursos en maquetación</h2>
+                <p>Prioriza borradores, estructura módulos y prepara el curso para revisión académica.</p>
+              </div>
+              <button type="button" onClick={() => setActiveTab("cursos")}>Ver cursos</button>
+            </div>
+
+            <div className="production-course-list">
+              {(productionCourses.length ? productionCourses : courseViews.slice(0, 3)).map((course, index) => (
+                <div className={index === 0 ? "production-course active" : "production-course"} key={course.id}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{course.title}</strong>
+                    <p>{course.statusLabel} · {course.modulesCount} módulos · {course.lessonsCount} lecciones</p>
+                  </div>
+                  <em>{course.progressHint}%</em>
+                </div>
+              ))}
+
+              {courseViews.length === 0 ? (
+                <div className="production-course active">
+                  <span>1</span>
+                  <div>
+                    <strong>Primer curso GHC Academy</strong>
+                    <p>Pendiente de crear desde Cursos o importar desde Word/PDF.</p>
+                  </div>
+                  <em>0%</em>
+                </div>
+              ) : null}
+            </div>
+          </article>
+
+          <article className="module-map-card">
+            <div className="card-head compact">
+              <h2>Mapa de módulos</h2>
+              <button type="button" onClick={() => setSystemMessage("Siguiente fase: crear y ordenar módulos reales desde este panel.")}>+ Añadir módulo</button>
+            </div>
+
+            <div className="module-map-list">
+              {(focusModules.length ? focusModules : createPlaceholderModules()).map((module, index) => {
+                const moduleLessons = focusLessons.filter((lesson) => String(lesson.module_id) === String(module.id));
+                return (
+                  <div className={index === 0 ? "module-map-row current" : "module-map-row"} key={module.id || `placeholder-${index}`}>
+                    <div className="module-index">M{index + 1}</div>
+                    <div>
+                      <strong>{module.title || module.name || `Módulo ${index + 1}`}</strong>
+                      <p>{moduleLessons.length || (index + 3)} lecciones · {index === 0 ? "En maquetación" : index === 1 ? "Pendiente de dividir" : "Preparado"}</p>
+                    </div>
+                    <button type="button" onClick={() => setSystemMessage("La edición detallada de módulos se conectará en la siguiente fase.")}>Editar</button>
+                  </div>
+                );
+              })}
+            </div>
+          </article>
+
+          <article className="source-docs-card">
+            <div className="card-head compact">
+              <h2>Documentos fuente</h2>
+              <button type="button" onClick={() => setSystemMessage("Subida real de Word/PDF pendiente de conectar con Storage y Content Factory.")}>Subir fuente</button>
+            </div>
+            <div className="source-doc-grid">
+              <SourceDoc type="DOCX" title="Documento Word del curso" status="Pendiente de dividir" />
+              <SourceDoc type="PDF" title="PDF base / manual académico" status="Pendiente de adaptar" />
+              <SourceDoc type="NOTAS" title="Notas del autor y bibliografía" status="Preparado para curación" />
+            </div>
+          </article>
+        </div>
+
+        <aside className="content-side-column">
+          <article className="content-side-card importer">
+            <span>Importador preparado</span>
+            <h2>Word / PDF</h2>
+            <p>Convierte documentos fuente en módulos, lecciones, recursos y checklist de revisión.</p>
+            <button type="button" onClick={() => setSystemMessage("Este importador será la puerta de entrada de GHC Content Factory.")}>Preparar importador</button>
+          </article>
+
+          <article className="content-side-card">
+            <h2>Checklist de producción</h2>
+            <ProductionCheck label="Documento fuente recibido" done />
+            <ProductionCheck label="Estructura del curso definida" done={focusModules.length > 0} />
+            <ProductionCheck label="Módulos creados" done={focusModules.length > 0} />
+            <ProductionCheck label="Lecciones maquetadas" done={focusLessons.length > 0} />
+            <ProductionCheck label="Recursos revisados" />
+            <ProductionCheck label="Exámenes preparados" />
+            <ProductionCheck label="Vista alumno aprobada" />
+          </article>
+
+          <article className="content-side-card">
+            <h2>Factoría IA</h2>
+            <p>Reservado para conectar GHC Content Factory: investigación, guiones, audio, vídeo, podcast, exámenes y paquetes listos para revisión.</p>
+            <div className="factory-tags">
+              <span>Guiones vídeo</span>
+              <span>Audio curso</span>
+              <span>Podcast</span>
+              <span>Mini cursos</span>
+              <span>Exámenes IA</span>
+            </div>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function SourceDoc({ type, title, status }: { type: string; title: string; status: string }) {
+  return (
+    <div className="source-doc-card">
+      <span>{type}</span>
+      <strong>{title}</strong>
+      <p>{status}</p>
+    </div>
+  );
+}
+
+function ProductionCheck({ label, done = false }: { label: string; done?: boolean }) {
+  return (
+    <div className={done ? "production-check done" : "production-check"}>
+      <span>{done ? "✓" : "○"}</span>
+      <p>{label}</p>
+    </div>
+  );
+}
+
+function createPlaceholderModules() {
+  return [
+    { id: "placeholder-1", title: "Fundamentos y contexto" },
+    { id: "placeholder-2", title: "Desarrollo del contenido principal" },
+    { id: "placeholder-3", title: "Aplicación práctica y evaluación" },
+  ];
+}
+
 function ComingSoon({ tab }: { tab: AdminTab }) { return <section className="coming-soon"><p className="admin-kicker">Módulo administrador</p><h1>{getTabLabel(tab)}</h1><p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador. La arquitectura ya queda preparada para hacerla funcional por fases.</p></section>; }
 function ChartSvg() { return <svg viewBox="0 0 900 260" aria-hidden="true"><defs><linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity="0.42" /><stop offset="100%" stopColor={GREEN} stopOpacity="0" /></linearGradient></defs><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z" fill="url(#adminChartGradient)" /><path d="M30 185 L110 208 L190 174 L270 142 L350 118 L430 78 L510 108 L590 82 L670 98 L750 62 L850 88" fill="none" stroke="rgba(244,246,242,.42)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function Background() { return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>; }
@@ -629,8 +822,10 @@ function GlobalStyles() {
       .admin-main-grid{display:grid;grid-template-columns:1.18fr .95fr;gap:14px}.growth-card{padding:18px;min-height:370px}.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}.card-head.compact{align-items:center}.card-head h2,.quick-actions-card h2,.platform-card h2,.studio-card h2,.coming-soon h1,.section-title-row h2,.course-side-card h2{margin:0;font-size:21px;line-height:1.05;letter-spacing:-.035em}.card-head p,.section-title-row p{margin:6px 0 0;color:var(--muted);font-size:13px}.card-head button,.section-title-row button{min-height:34px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 12px;cursor:pointer}.chart-area{min-height:230px;border:1px solid rgba(255,255,255,.06);border-radius:16px;background:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:50px 50px;overflow:hidden}.chart-area svg{width:100%;height:230px;display:block}.chart-summary{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}.mini-metric{padding:13px 14px;border-right:1px solid var(--line);min-width:0}.mini-metric:last-child{border-right:0}.mini-metric span{display:block;color:var(--muted);font-size:12px}.mini-metric strong{display:inline-block;margin-top:5px;font-size:19px}.mini-metric em{color:var(--green);margin-left:8px;font-style:normal;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
       .quick-actions-card,.activity-card,.platform-card,.review-card,.studio-card{padding:18px}.quick-actions-grid{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.quick-action{min-height:76px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.028);color:var(--white);display:grid;grid-template-columns:42px minmax(0,1fr) 18px;gap:12px;align-items:center;padding:12px;cursor:pointer;text-align:left}.quick-action:hover{border-color:rgba(99,229,70,.24);background:rgba(99,229,70,.055)}.quick-action>span,.activity-item>span,.review-item>span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.quick-action p,.activity-item p,.review-item p,.studio-card p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.45}.quick-action em{color:var(--muted);font-style:normal;font-size:22px}.activity-card{min-height:290px}.activity-item,.review-item{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.055)}.activity-item em{color:var(--muted);font-style:normal;font-size:12px}.platform-card{min-height:230px}.platform-body{display:grid;grid-template-columns:112px minmax(0,1fr);gap:18px;align-items:center;margin-top:18px}.shield{width:106px;height:106px;border-radius:30px;display:grid;place-items:center;color:var(--green);font-size:44px;background:radial-gradient(circle,rgba(99,229,70,.2),rgba(99,229,70,.04));border:1px solid rgba(99,229,70,.18)}.status-list{display:grid;gap:11px}.status-row{display:flex;justify-content:space-between;gap:12px;color:var(--muted)}.status-row strong{color:var(--green)}.status-row.warning strong{color:var(--warning)}.platform-progress{margin-top:18px;display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:14px;color:var(--muted)}.platform-progress strong{color:var(--white)}.review-item em{border-radius:999px;padding:5px 8px;background:rgba(99,229,70,.1);color:var(--green);font-style:normal;font-size:11px;font-weight:900}.studio-card{grid-column:2/3;display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:18px;align-items:center;background:radial-gradient(circle at 78% 50%,rgba(99,229,70,.11),transparent 34%),var(--panel)}.studio-card button{margin-top:14px;min-height:42px;border-radius:10px;border:1px solid rgba(99,229,70,.32);background:rgba(99,229,70,.08);color:var(--green);font-weight:900;cursor:pointer;padding:0 16px}.studio-visual{height:104px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:16px;display:grid;gap:10px}.studio-visual div,.studio-visual span{border-radius:8px;background:rgba(255,255,255,.12)}.studio-visual div{height:36px;position:relative}.studio-visual div:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-left:10px solid var(--green);border-top:7px solid transparent;border-bottom:7px solid transparent}.studio-visual span{height:9px}
       .course-stats-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.course-stat-card{padding:16px;min-height:118px}.course-stat-card span{color:var(--muted);font-size:12px;font-weight:800}.course-stat-card strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.course-stat-card p{color:var(--muted);margin:6px 0 0;font-size:12px}.course-toolbar{min-height:62px;padding:10px;display:grid;grid-template-columns:minmax(260px,1fr) 210px auto;gap:10px;align-items:center}.course-search{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.course-search input{flex:1;min-width:0;height:40px;background:transparent;border:0;outline:0;color:var(--white)}.course-toolbar select{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px}.course-toolbar option{background:#080b0a;color:var(--white)}.course-view-toggle{height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:4px;display:flex;gap:4px}.course-view-toggle button{border:0;border-radius:999px;padding:0 14px;background:transparent;color:var(--muted);cursor:pointer;font-weight:900}.course-view-toggle button.active{background:rgba(99,229,70,.14);color:var(--green)}.courses-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}.courses-main-column,.courses-side-column{display:grid;gap:14px}.section-title-row{display:flex;justify-content:space-between;align-items:center;gap:18px}.admin-course-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px}.admin-course-list{display:grid;gap:12px}.admin-course-card{overflow:hidden;display:grid;grid-template-rows:168px 1fr}.admin-course-card.list{grid-template-columns:310px minmax(0,1fr);grid-template-rows:1fr}.admin-course-cover{position:relative;min-height:168px;background-size:cover;background-position:center;filter:grayscale(.55) contrast(1.06) brightness(.78)}.course-status-pill{position:absolute;left:14px;top:14px;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.12em;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.12);color:var(--green)}.course-status-pill.draft{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.course-status-pill.hidden{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.055);color:var(--muted)}.admin-course-body{padding:16px;display:grid;gap:14px}.course-title-row{display:flex;justify-content:space-between;gap:12px}.course-title-row h3{margin:0;font-size:23px;line-height:1.05;letter-spacing:-.035em}.course-title-row p{margin:8px 0 0;color:var(--muted);line-height:1.45;font-size:13px}.course-title-row button{width:36px;height:36px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--muted);cursor:pointer}
-      .course-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.course-info-box{border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(0,0,0,.16);padding:10px;min-width:0;min-height:62px}.course-info-box span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900;white-space:normal;overflow:visible;text-overflow:initial;line-height:1.2}.course-info-box strong{display:block;margin-top:5px;color:var(--white);font-size:13px;white-space:normal;overflow:visible;text-overflow:initial;line-height:1.25}.course-build-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.course-build-row div{border-radius:12px;border:1px solid rgba(99,229,70,.13);background:rgba(99,229,70,.045);padding:11px}.course-build-row strong{display:block;font-size:24px;line-height:1}.course-build-row span{display:block;color:var(--muted);font-size:12px;margin-top:4px}.course-progress-block{display:grid;gap:8px}.course-progress-block>div:first-child{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;font-weight:800}.course-progress-block strong{color:var(--green)}.course-progress-track{height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.course-progress-track div{height:100%;border-radius:999px;background:var(--green);box-shadow:0 0 20px rgba(99,229,70,.28)}.admin-course-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.admin-course-actions button{min-height:38px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850;font-size:12px}.admin-course-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}.courses-empty{padding:28px;text-align:center}.courses-empty span{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;margin:0 auto 14px;color:var(--green);border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.07);font-size:28px}.courses-empty h3{margin:0;font-size:24px}.courses-empty p{color:var(--muted);line-height:1.6}.course-side-card{padding:18px}.course-side-card>button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.course-side-card>button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.catalog-ring{width:138px;height:138px;border-radius:999px;margin:18px auto;display:grid;place-items:center;align-content:center;border:12px solid rgba(99,229,70,.22);box-shadow:inset 0 0 0 2px rgba(255,255,255,.04)}.catalog-ring strong{font-size:38px;line-height:1}.catalog-ring span{color:var(--muted);font-size:12px;margin-top:4px}.catalog-status-list{display:grid;gap:10px}.course-next-list{display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;margin-top:14px}.course-next-list span{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}.course-next-list p{margin:0;color:var(--muted);line-height:1.45;font-size:13px}.coming-soon{min-height:420px;padding:34px;display:grid;align-content:center}.coming-soon p:not(.admin-kicker){max-width:720px;color:var(--muted);line-height:1.7}
-      @media(max-width:1460px){.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+      .course-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.course-info-box{border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(0,0,0,.16);padding:10px;min-width:0;min-height:62px}.course-info-box span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900;white-space:normal;overflow:visible;text-overflow:initial;line-height:1.2}.course-info-box strong{display:block;margin-top:5px;color:var(--white);font-size:13px;white-space:normal;overflow:visible;text-overflow:initial;line-height:1.25}.course-build-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.course-build-row div{border-radius:12px;border:1px solid rgba(99,229,70,.13);background:rgba(99,229,70,.045);padding:11px}.course-build-row strong{display:block;font-size:24px;line-height:1}.course-build-row span{display:block;color:var(--muted);font-size:12px;margin-top:4px}.course-progress-block{display:grid;gap:8px}.course-progress-block>div:first-child{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;font-weight:800}.course-progress-block strong{color:var(--green)}.course-progress-track{height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.course-progress-track div{height:100%;border-radius:999px;background:var(--green);box-shadow:0 0 20px rgba(99,229,70,.28)}.admin-course-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.admin-course-actions button{min-height:38px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850;font-size:12px}.admin-course-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}.courses-empty{padding:28px;text-align:center}.courses-empty span{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;margin:0 auto 14px;color:var(--green);border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.07);font-size:28px}.courses-empty h3{margin:0;font-size:24px}.courses-empty p{color:var(--muted);line-height:1.6}.course-side-card{padding:18px}.course-side-card>button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.course-side-card>button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.catalog-ring{width:138px;height:138px;border-radius:999px;margin:18px auto;display:grid;place-items:center;align-content:center;border:12px solid rgba(99,229,70,.22);box-shadow:inset 0 0 0 2px rgba(255,255,255,.04)}.catalog-ring strong{font-size:38px;line-height:1}.catalog-ring span{color:var(--muted);font-size:12px;margin-top:4px}.catalog-status-list{display:grid;gap:10px}.course-next-list{display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;margin-top:14px}.course-next-list span{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}.course-next-list p{margin:0;color:var(--muted);line-height:1.45;font-size:13px}
+      .content-admin-page{display:grid;gap:16px}.content-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.content-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.content-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.content-hero-panel{width:380px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.content-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.content-hero-panel strong{display:block;margin-top:8px;font-size:20px;line-height:1.12}.content-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.content-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.content-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.content-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.content-main-column,.content-side-column{display:grid;gap:14px}.production-board-card,.module-map-card,.source-docs-card,.content-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.production-course-list{display:grid;gap:10px}.production-course{display:grid;grid-template-columns:38px minmax(0,1fr) 54px;gap:12px;align-items:center;min-height:70px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.028);padding:12px}.production-course.active{border-color:rgba(99,229,70,.26);background:rgba(99,229,70,.065)}.production-course>span{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--green);background:rgba(99,229,70,.09);border:1px solid rgba(99,229,70,.18);font-weight:950}.production-course strong{display:block}.production-course p{margin:5px 0 0;color:var(--muted);font-size:12px}.production-course em{font-style:normal;color:var(--green);font-weight:950}.module-map-list{display:grid;gap:10px}.module-map-row{display:grid;grid-template-columns:52px minmax(0,1fr) 82px;gap:12px;align-items:center;min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.module-map-row.current{border-color:rgba(99,229,70,.32);background:linear-gradient(90deg,rgba(99,229,70,.09),rgba(255,255,255,.024))}.module-index{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}.module-map-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.module-map-row button{min-height:36px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.source-doc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.source-doc-card{min-height:130px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:radial-gradient(circle at top right,rgba(99,229,70,.12),transparent 34%),rgba(255,255,255,.028);padding:16px;display:grid;align-content:center}.source-doc-card span{width:max-content;border-radius:999px;padding:6px 9px;background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.22);color:var(--green);font-size:10px;font-weight:950;letter-spacing:.12em}.source-doc-card strong{display:block;margin-top:14px;font-size:18px;line-height:1.1}.source-doc-card p{margin:8px 0 0;color:var(--muted);font-size:12px}.content-side-card.importer{background:radial-gradient(circle at 78% 20%,rgba(99,229,70,.16),transparent 34%),var(--panel)}.content-side-card>span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.content-side-card h2{margin:8px 0 0;font-size:22px;line-height:1.05;letter-spacing:-.035em}.content-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.content-side-card button{width:100%;min-height:42px;border-radius:11px;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.08);color:var(--green);cursor:pointer;font-weight:900}.production-check{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.055)}.production-check span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.12);color:var(--soft);font-weight:950}.production-check.done span{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.production-check p{margin:0;color:var(--muted)}.production-check.done p{color:var(--white)}.factory-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.factory-tags span{border-radius:999px;border:1px solid rgba(99,229,70,.18);background:rgba(99,229,70,.065);color:var(--green);padding:7px 9px;font-size:11px;font-weight:900}
+.coming-soon{min-height:420px;padding:34px;display:grid;align-content:center}.coming-soon p:not(.admin-kicker){max-width:720px;color:var(--muted);line-height:1.7}
+      @media(max-width:1460px){.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
