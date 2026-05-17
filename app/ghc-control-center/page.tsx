@@ -34,6 +34,10 @@ type DashboardData = {
   courseCompletions: AnyRecord[];
   moduleCompletions: AnyRecord[];
   lessonProgress: AnyRecord[];
+  exams: AnyRecord[];
+  examQuestions: AnyRecord[];
+  examResults: AnyRecord[];
+  examAttempts: AnyRecord[];
 };
 
 type CourseAdminView = {
@@ -110,6 +114,10 @@ const emptyDashboardData: DashboardData = {
   courseCompletions: [],
   moduleCompletions: [],
   lessonProgress: [],
+  exams: [],
+  examQuestions: [],
+  examResults: [],
+  examAttempts: [],
 };
 
 export default function Page() {
@@ -356,26 +364,64 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos", "contenido", "alumnos"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "examenes" ? (
+          <ExamenesAdmin
+            dashboardData={dashboardData}
+            courseViews={courseViews}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido", "alumnos", "examenes"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
-  const [profiles, courses, modules, lessons, certificates, courseCompletions, moduleCompletions, lessonProgress] =
-    await Promise.all([
-      safeSelect("profiles", "*"),
-      safeSelect("courses", "*"),
-      safeSelect("modules", "*"),
-      safeSelect("lessons", "*"),
-      safeSelect("certificates", "*"),
-      safeSelect("course_completions", "*"),
-      safeSelect("module_completions", "*"),
-      safeSelect("lesson_progress", "*"),
-    ]);
+  const [
+    profiles,
+    courses,
+    modules,
+    lessons,
+    certificates,
+    courseCompletions,
+    moduleCompletions,
+    lessonProgress,
+    exams,
+    examQuestions,
+    examResults,
+    examAttempts,
+  ] = await Promise.all([
+    safeSelect("profiles", "*"),
+    safeSelect("courses", "*"),
+    safeSelect("modules", "*"),
+    safeSelect("lessons", "*"),
+    safeSelect("certificates", "*"),
+    safeSelect("course_completions", "*"),
+    safeSelect("module_completions", "*"),
+    safeSelect("lesson_progress", "*"),
+    safeSelect("exams", "*"),
+    safeSelect("exam_questions", "*"),
+    safeSelect("exam_results", "*"),
+    safeSelect("exam_attempts", "*"),
+  ]);
 
-  return { profiles, courses, modules, lessons, certificates, courseCompletions, moduleCompletions, lessonProgress };
+  return {
+    profiles,
+    courses,
+    modules,
+    lessons,
+    certificates,
+    courseCompletions,
+    moduleCompletions,
+    lessonProgress,
+    exams,
+    examQuestions,
+    examResults,
+    examAttempts,
+  };
 }
 
 async function safeSelect(table: string, columns: string): Promise<AnyRecord[]> {
@@ -764,6 +810,252 @@ function QuickAction({ icon, title, text, onClick }: { icon: string; title: stri
 function ActivityItem({ icon, title, label, time }: { icon: string; title: string; label: string; time: string }) { return <div className="activity-item"><span>{icon}</span><div><strong>{title}</strong><p>{label}</p></div><em>{time}</em></div>; }
 function StatusRow({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) { return <div className={warning ? "status-row warning" : "status-row"}><span>{label}</span><strong>{value}</strong></div>; }
 function ReviewItem({ title, text, tag }: { title: string; text: string; tag: string }) { return <div className="review-item"><span>▣</span><div><strong>{title}</strong><p>{text}</p></div><em>{tag}</em></div>; }
+
+
+type ExamAdminView = {
+  id: string;
+  title: string;
+  courseTitle: string;
+  moduleTitle: string;
+  status: "published" | "draft" | "review" | "ai";
+  statusLabel: string;
+  questions: number;
+  attempts: number;
+  passScore: number;
+  duration: string;
+  difficulty: string;
+};
+
+function buildExamAdminViews(data: DashboardData, courseViews: CourseAdminView[]): ExamAdminView[] {
+  if (data.exams.length > 0) {
+    return data.exams.map((exam, index) => {
+      const course = courseViews.find((item) => String(item.id) === String(exam.course_id));
+      const module = data.modules.find((item) => String(item.id) === String(exam.module_id));
+      const questions = data.examQuestions.filter((item) => String(item.exam_id) === String(exam.id)).length;
+      const attempts = data.examAttempts.filter((item) => String(item.exam_id) === String(exam.id)).length;
+      const status = normalizeExamStatus(exam.status || exam.visibility || exam.review_status);
+
+      return {
+        id: String(exam.id || `exam-${index}`),
+        title: String(exam.title || exam.name || `Examen ${index + 1}`),
+        courseTitle: String(course?.title || exam.course_title || "Curso GHC Academy"),
+        moduleTitle: String(module?.title || module?.name || exam.module_title || "Módulo asociado"),
+        status,
+        statusLabel: getExamStatusLabel(status),
+        questions: questions || Number(exam.questions_count || exam.question_count || 0),
+        attempts,
+        passScore: Number(exam.pass_score || exam.minimum_score || exam.min_score || 70),
+        duration: exam.duration_minutes ? `${exam.duration_minutes} min` : String(exam.duration || "45 min"),
+        difficulty: String(exam.difficulty || exam.level || "Intermedio"),
+      };
+    });
+  }
+
+  const sourceModules = data.modules.length > 0 ? data.modules.slice(0, 5) : [
+    { id: "m1", title: "Fundamentos del curso" },
+    { id: "m2", title: "Aplicación práctica" },
+    { id: "m3", title: "Evaluación técnica" },
+  ];
+
+  return sourceModules.map((module, index) => {
+    const course = courseViews.find((item) => String(item.id) === String((module as AnyRecord).course_id));
+    const status: ExamAdminView["status"] = index === 0 ? "draft" : index === 1 ? "ai" : "review";
+    return {
+      id: String((module as AnyRecord).id || `module-exam-${index}`),
+      title: `Examen módulo ${index + 1}`,
+      courseTitle: course?.title || "Curso en maquetación",
+      moduleTitle: String((module as AnyRecord).title || (module as AnyRecord).name || `Módulo ${index + 1}`),
+      status,
+      statusLabel: getExamStatusLabel(status),
+      questions: index === 0 ? 12 : index === 1 ? 0 : 8,
+      attempts: 0,
+      passScore: 70,
+      duration: index === 0 ? "35 min" : "Pendiente",
+      difficulty: index === 2 ? "Avanzado" : "Intermedio",
+    };
+  });
+}
+
+function normalizeExamStatus(value: unknown): ExamAdminView["status"] {
+  const status = String(value || "").toLowerCase();
+  if (["published", "publicado", "active", "activo"].includes(status)) return "published";
+  if (["review", "revision", "pending", "pendiente"].includes(status)) return "review";
+  if (["ai", "ia", "generated", "borrador ia"].includes(status)) return "ai";
+  return "draft";
+}
+
+function getExamStatusLabel(status: ExamAdminView["status"]) {
+  if (status === "published") return "Publicado";
+  if (status === "review") return "Revisión";
+  if (status === "ai") return "Borrador IA";
+  return "Borrador";
+}
+
+function ExamenesAdmin({
+  dashboardData,
+  courseViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  dashboardData: DashboardData;
+  courseViews: CourseAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const examViews = buildExamAdminViews(dashboardData, courseViews);
+  const published = examViews.filter((exam) => exam.status === "published").length;
+  const review = examViews.filter((exam) => exam.status === "review" || exam.status === "ai").length;
+  const totalQuestions = dashboardData.examQuestions.length || examViews.reduce((acc, exam) => acc + exam.questions, 0);
+  const totalAttempts = dashboardData.examAttempts.length || examViews.reduce((acc, exam) => acc + exam.attempts, 0);
+  const averagePassScore = examViews.length
+    ? Math.round(examViews.reduce((acc, exam) => acc + exam.passScore, 0) / examViews.length)
+    : 70;
+
+  return (
+    <div className="exams-admin-page">
+      <section className="exams-hero">
+        <div>
+          <p className="admin-kicker">Evaluación, certificación y agentes IA</p>
+          <h1>Exámenes</h1>
+          <p>Gestiona exámenes por módulo, examen final, banco de preguntas y futuros borradores generados por agentes IA. La IA propone; tú revisas y apruebas.</p>
+        </div>
+        <div className="exams-hero-panel">
+          <span>Regla fija</span>
+          <strong>La IA nunca publica exámenes sola</strong>
+          <p>Borrador IA → revisión → aprobación admin → publicación.</p>
+          <button type="button" onClick={() => setSystemMessage("El generador IA se conectará más adelante con GHC Content Factory. De momento queda preparado como flujo de revisión.")}>Preparar borrador IA</button>
+        </div>
+      </section>
+
+      <section className="exam-stats-grid">
+        <ExamStat label="Exámenes activos" value={published} helper="Publicados" />
+        <ExamStat label="Banco de preguntas" value={totalQuestions} helper="Preguntas detectadas" />
+        <ExamStat label="Intentos registrados" value={totalAttempts} helper="Resultados futuros" />
+        <ExamStat label="Nota mínima media" value={`${averagePassScore}%`} helper="Criterio estándar" />
+        <ExamStat label="Pendientes revisión" value={review} helper="IA o admin" warning={review > 0} />
+      </section>
+
+      <section className="exams-layout">
+        <div className="exams-main-column">
+          <article className="exam-builder-card">
+            <div className="section-title-row">
+              <div>
+                <h2>Banco de preguntas y constructor</h2>
+                <p>Prepara preguntas por objetivo, dificultad, módulo y fuente. Luego podrán generarse borradores con agentes IA.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("La creación real de preguntas se conectará cuando definamos la estructura de base de datos de exámenes.")}>+ Crear pregunta</button>
+            </div>
+
+            <div className="question-builder-grid">
+              <div className="question-bank-card">
+                <h3>Categorías</h3>
+                {[
+                  ["Fisiología", 24],
+                  ["Biomecánica", 18],
+                  ["Programación", 12],
+                  ["Nutrición", 9],
+                ].map(([label, count]) => (
+                  <button key={String(label)} type="button" onClick={() => setSystemMessage(`Filtro preparado: ${label}`)}>
+                    <span>{label}</span>
+                    <strong>{count}</strong>
+                  </button>
+                ))}
+              </div>
+
+              <div className="question-draft-card">
+                <div className="draft-header">
+                  <span>Borrador de examen</span>
+                  <strong>Examen final · Certificación</strong>
+                  <p>90 preguntas · 70% mínimo · 2 intentos</p>
+                </div>
+                {["Pregunta tipo test", "Caso práctico", "Verdadero/Falso", "Pregunta de aplicación"].map((item, index) => (
+                  <div className="draft-question-row" key={item}>
+                    <span>{index + 1}</span>
+                    <div>
+                      <strong>{item}</strong>
+                      <p>Dificultad {index === 1 ? "alta" : "media"} · pendiente de revisión humana</p>
+                    </div>
+                    <em>{index === 1 ? "3 pts" : "1 pt"}</em>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </article>
+
+          <article className="exam-list-card">
+            <div className="section-title-row">
+              <div>
+                <h2>Exámenes por módulo</h2>
+                <p>{examViews.length} estructuras listas para revisión, publicación o conexión futura.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("La edición detallada del examen será el siguiente paso funcional cuando cerremos el diseño.")}>Gestionar</button>
+            </div>
+            <div className="exam-list">
+              {examViews.map((exam) => (
+                <div className="exam-row" key={exam.id}>
+                  <span className={`exam-status ${exam.status}`}>{exam.statusLabel}</span>
+                  <div>
+                    <strong>{exam.title}</strong>
+                    <p>{exam.courseTitle} · {exam.moduleTitle}</p>
+                  </div>
+                  <div><span>Preguntas</span><strong>{exam.questions}</strong></div>
+                  <div><span>Duración</span><strong>{exam.duration}</strong></div>
+                  <div><span>Nota mínima</span><strong>{exam.passScore}%</strong></div>
+                  <button type="button" onClick={() => setSystemMessage(`Preparado para editar: ${exam.title}`)}>Editar</button>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+
+        <aside className="exams-side-column">
+          <article className="exam-side-card ai-card">
+            <h2>Generador IA de exámenes</h2>
+            <p>Crea borradores a partir de módulos, lecciones, Word/PDF y materiales de GHC Content Factory.</p>
+            <div className="ai-flow">
+              <span>1</span><p>Analizar contenido fuente</p>
+              <span>2</span><p>Proponer preguntas y dificultad</p>
+              <span>3</span><p>Verificar coherencia y respuestas</p>
+              <span>4</span><p>Enviar a revisión de Alby</p>
+            </div>
+            <button type="button" onClick={() => setSystemMessage("Bloque IA preparado. La integración se hará cuando GHC Content Factory esté madura.")}>Ver flujo IA</button>
+          </article>
+
+          <article className="exam-side-card">
+            <h2>Examen final</h2>
+            <div className="final-exam-ring"><strong>70%</strong><span>mínimo</span></div>
+            <StatusRow label="Preguntas objetivo" value="90" />
+            <StatusRow label="Duración" value="2 horas" />
+            <StatusRow label="Intentos" value="2" />
+            <StatusRow label="Publicación" value="Manual" warning />
+          </article>
+
+          <article className="exam-side-card">
+            <h2>Estados de revisión</h2>
+            <div className="review-flow-list">
+              <span>Borrador IA</span>
+              <span>Pendiente de revisión</span>
+              <span>Requiere cambios</span>
+              <span>Aprobado por admin</span>
+              <span>Publicado</span>
+            </div>
+            <button type="button" onClick={() => setActiveTab("contenido")}>Volver a contenido</button>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function ExamStat({ label, value, helper, warning = false }: { label: string; value: string | number; helper: string; warning?: boolean }) {
+  return (
+    <article className={warning ? "exam-stat-card warning" : "exam-stat-card"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
 
 
 function AlumnosAdmin({
@@ -1192,8 +1484,10 @@ function GlobalStyles() {
       .content-admin-page{display:grid;gap:16px}.content-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.content-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.content-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.content-hero-panel{width:380px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.content-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.content-hero-panel strong{display:block;margin-top:8px;font-size:20px;line-height:1.12}.content-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.content-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.content-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.content-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.content-main-column,.content-side-column{display:grid;gap:14px}.production-board-card,.module-map-card,.source-docs-card,.content-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.production-course-list{display:grid;gap:10px}.production-course{display:grid;grid-template-columns:38px minmax(0,1fr) 54px;gap:12px;align-items:center;min-height:70px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.028);padding:12px}.production-course.active{border-color:rgba(99,229,70,.26);background:rgba(99,229,70,.065)}.production-course>span{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--green);background:rgba(99,229,70,.09);border:1px solid rgba(99,229,70,.18);font-weight:950}.production-course strong{display:block}.production-course p{margin:5px 0 0;color:var(--muted);font-size:12px}.production-course em{font-style:normal;color:var(--green);font-weight:950}.module-map-list{display:grid;gap:10px}.module-map-row{display:grid;grid-template-columns:52px minmax(0,1fr) 82px;gap:12px;align-items:center;min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.module-map-row.current{border-color:rgba(99,229,70,.32);background:linear-gradient(90deg,rgba(99,229,70,.09),rgba(255,255,255,.024))}.module-index{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}.module-map-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.module-map-row button{min-height:36px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.source-doc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.source-doc-card{min-height:130px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:radial-gradient(circle at top right,rgba(99,229,70,.12),transparent 34%),rgba(255,255,255,.028);padding:16px;display:grid;align-content:center}.source-doc-card span{width:max-content;border-radius:999px;padding:6px 9px;background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.22);color:var(--green);font-size:10px;font-weight:950;letter-spacing:.12em}.source-doc-card strong{display:block;margin-top:14px;font-size:18px;line-height:1.1}.source-doc-card p{margin:8px 0 0;color:var(--muted);font-size:12px}.content-side-card.importer{background:radial-gradient(circle at 78% 20%,rgba(99,229,70,.16),transparent 34%),var(--panel)}.content-side-card>span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.content-side-card h2{margin:8px 0 0;font-size:22px;line-height:1.05;letter-spacing:-.035em}.content-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.content-side-card button{width:100%;min-height:42px;border-radius:11px;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.08);color:var(--green);cursor:pointer;font-weight:900}.production-check{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.055)}.production-check span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.12);color:var(--soft);font-weight:950}.production-check.done span{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.production-check p{margin:0;color:var(--muted)}.production-check.done p{color:var(--white)}.factory-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.factory-tags span{border-radius:999px;border:1px solid rgba(99,229,70,.18);background:rgba(99,229,70,.065);color:var(--green);padding:7px 9px;font-size:11px;font-weight:900}
 
 .students-admin-page{display:grid;gap:16px}.students-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.students-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.students-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.students-hero-panel{width:390px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.students-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.students-hero-panel strong{display:block;margin-top:8px;font-size:20px;line-height:1.12}.students-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.students-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.student-stats-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.student-stat-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:16px;min-height:118px}.student-stat-card span{color:var(--muted);font-size:12px;font-weight:800}.student-stat-card strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.student-stat-card p{color:var(--muted);margin:6px 0 0;font-size:12px}.student-stat-card.danger strong{color:var(--danger)}.student-stat-card.warning strong{color:var(--warning)}.student-toolbar{min-height:62px;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:10px;display:grid;grid-template-columns:minmax(260px,1fr) auto auto;gap:10px;align-items:center}.student-search{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.student-search input{flex:1;min-width:0;height:40px;background:transparent;border:0;outline:0;color:var(--white)}.student-toolbar button{min-height:42px;border-radius:999px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;padding:0 14px;cursor:pointer}.students-layout{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:14px;align-items:start}.students-list-card,.student-detail-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.students-list{display:grid;gap:10px;margin-top:14px}.student-row{width:100%;min-height:86px;border-radius:15px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);color:var(--white);display:grid;grid-template-columns:46px minmax(0,1.25fr) 96px 128px 138px;gap:12px;align-items:center;padding:12px;text-align:left;cursor:pointer}.student-row:hover,.student-row.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.055)}.student-avatar{width:46px;height:46px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}.student-main-info strong{display:block;font-size:15px}.student-main-info p,.student-progress-mini span,.student-risk span,.student-commercial-mini span{margin:4px 0 0;color:var(--muted);font-size:12px}.student-progress-mini strong,.student-commercial-mini strong{display:block;color:var(--white);font-size:18px}.student-risk{border-radius:12px;padding:9px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025)}.student-risk strong{display:block;font-size:13px}.student-risk.green strong{color:var(--green)}.student-risk.yellow strong{color:var(--warning)}.student-risk.red strong{color:var(--danger)}.student-risk.muted strong{color:var(--muted)}.student-commercial-mini{border-left:1px solid rgba(255,255,255,.06);padding-left:12px}.students-empty{text-align:center;padding:28px}.students-empty span{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;margin:0 auto 14px;color:var(--green);border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.07);font-size:28px}.students-empty h3{margin:0;font-size:24px}.students-empty p{color:var(--muted);line-height:1.6}.student-detail-column{position:sticky;top:86px}.student-detail-head{display:grid;grid-template-columns:62px minmax(0,1fr);gap:14px;align-items:center}.student-detail-head>span{width:62px;height:62px;border-radius:20px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.2);font-size:22px;font-weight:950}.student-detail-head h2{margin:0;font-size:26px;letter-spacing:-.04em;line-height:1}.student-detail-head p:not(.admin-kicker){margin:6px 0 0;color:var(--muted);font-size:13px}.student-detail-section{margin-top:16px;border-top:1px solid rgba(255,255,255,.07);padding-top:16px}.student-detail-section h3{margin:0 0 12px;font-size:17px;letter-spacing:-.02em}.student-detail-grid,.commercial-grid,.follow-up-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.detail-metric{border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(0,0,0,.16);padding:10px;min-width:0}.detail-metric span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:900}.detail-metric strong{display:block;margin-top:5px;color:var(--white);font-size:14px;line-height:1.25;overflow:hidden;text-overflow:ellipsis}.student-progress-track{height:9px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:12px}.student-progress-track div{height:100%;border-radius:999px;background:var(--green);box-shadow:0 0 20px rgba(99,229,70,.28)}.student-note{color:var(--muted);font-size:13px;line-height:1.5}.student-note strong{color:var(--white)}.loyalty-actions,.follow-up-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}.loyalty-actions button,.follow-up-actions button{min-height:39px;border-radius:11px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;cursor:pointer}.follow-up-status{border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.026);padding:12px;margin-bottom:10px}.follow-up-status strong{display:block;font-size:18px}.follow-up-status span{display:block;margin-top:4px;color:var(--muted);font-size:12px}.follow-up-status.green strong{color:var(--green)}.follow-up-status.yellow strong{color:var(--warning)}.follow-up-status.red strong{color:var(--danger)}.follow-up-status.muted strong{color:var(--muted)}
+
+.exams-admin-page{display:grid;gap:16px}.exams-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 82% 24%,rgba(99,229,70,.14),transparent 34%);display:flex;align-items:center;justify-content:space-between;gap:22px;padding:26px;overflow:hidden;box-shadow:0 28px 90px rgba(0,0,0,.22)}.exams-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.exams-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.exams-hero-panel{width:375px;border-radius:18px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.055);padding:18px}.exams-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.exams-hero-panel strong{display:block;margin-top:8px;font-size:20px;line-height:1.12}.exams-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.exams-hero-panel button,.exam-side-card button{min-height:40px;border-radius:999px;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.08);color:var(--green);padding:0 15px;font-weight:900;cursor:pointer}.exam-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.exam-stat-card,.exam-builder-card,.exam-list-card,.exam-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18)}.exam-stat-card{padding:16px;min-height:118px}.exam-stat-card span{color:var(--muted);font-size:12px;font-weight:800}.exam-stat-card strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.exam-stat-card p{color:var(--muted);margin:6px 0 0;font-size:12px}.exam-stat-card.warning strong{color:var(--warning)}.exams-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.exams-main-column,.exams-side-column{display:grid;gap:14px}.exam-builder-card,.exam-list-card,.exam-side-card{padding:18px}.question-builder-grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:14px;margin-top:16px}.question-bank-card,.question-draft-card{border:1px solid rgba(255,255,255,.075);border-radius:16px;background:rgba(255,255,255,.028);padding:14px}.question-bank-card h3{margin:0 0 12px;font-size:16px}.question-bank-card button{width:100%;min-height:42px;margin-top:8px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer}.question-bank-card button strong{color:var(--green)}.draft-header{border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:8px}.draft-header span{color:var(--green);text-transform:uppercase;letter-spacing:.14em;font-size:10px;font-weight:950}.draft-header strong{display:block;margin-top:6px;font-size:20px}.draft-header p{color:var(--muted);margin:5px 0 0;font-size:13px}.draft-question-row{display:grid;grid-template-columns:32px minmax(0,1fr) 54px;gap:10px;align-items:center;min-height:58px;border-top:1px solid rgba(255,255,255,.055);padding:10px 0}.draft-question-row>span{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.draft-question-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.draft-question-row em{color:var(--muted);font-style:normal;font-size:12px;font-weight:900;text-align:right}.exam-list{display:grid;gap:10px;margin-top:14px}.exam-row{min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.028);display:grid;grid-template-columns:112px minmax(0,1fr) 92px 92px 98px 80px;gap:12px;align-items:center;padding:12px}.exam-status{width:fit-content;border-radius:999px;padding:7px 9px;text-transform:uppercase;letter-spacing:.1em;font-size:10px;font-weight:950;color:var(--green);background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.22)}.exam-status.draft{color:var(--warning);background:rgba(247,201,72,.1);border-color:rgba(247,201,72,.22)}.exam-status.review,.exam-status.ai{color:#9fb6ff;background:rgba(120,150,255,.1);border-color:rgba(120,150,255,.22)}.exam-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.exam-row div span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900}.exam-row div strong{display:block;margin-top:4px}.exam-row button{min-height:38px;border-radius:10px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);cursor:pointer;font-weight:900}.ai-card{background:radial-gradient(circle at 80% 8%,rgba(99,229,70,.13),transparent 34%),var(--panel)}.exam-side-card h2{margin:0;font-size:21px;line-height:1.05;letter-spacing:-.035em}.exam-side-card p{color:var(--muted);line-height:1.55;font-size:13px}.ai-flow,.review-flow-list{display:grid;gap:10px;margin:14px 0}.ai-flow{grid-template-columns:32px minmax(0,1fr)}.ai-flow span{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.ai-flow p{margin:0;align-self:center}.final-exam-ring{width:132px;height:132px;border-radius:999px;margin:18px auto;display:grid;place-items:center;align-content:center;border:12px solid rgba(99,229,70,.22);box-shadow:inset 0 0 0 2px rgba(255,255,255,.04)}.final-exam-ring strong{font-size:32px;line-height:1}.final-exam-ring span{color:var(--muted);font-size:12px;margin-top:5px}.review-flow-list span{min-height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.028);display:flex;align-items:center;padding:0 12px;color:var(--muted);font-size:13px;font-weight:850}
 .coming-soon{min-height:420px;padding:34px;display:grid;align-content:center}.coming-soon p:not(.admin-kicker){max-width:720px;color:var(--muted);line-height:1.7}
-      @media(max-width:1460px){.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+      @media(max-width:1460px){.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
