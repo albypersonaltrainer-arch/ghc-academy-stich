@@ -1779,6 +1779,8 @@ function PagosAdmin({
   const estimatedRevenue = commercialStudents.length > 0 ? commercialStudents.length * 197 : 0;
 
   const paymentRows = buildPaymentRows(studentViews, courseViews);
+  const financeSummary = buildFinanceSummary(commercialStudents.length, courseViews.length);
+  const courseFinanceRows = buildCourseFinanceRows(courseViews);
 
   return (
     <div className="payments-admin-page">
@@ -1839,6 +1841,45 @@ function PagosAdmin({
             </div>
           </article>
 
+          <article className="finance-card">
+            <div className="card-head">
+              <div>
+                <h2>Finanzas y contabilidad</h2>
+                <p>Preparado para calcular ingresos brutos, comisiones, reembolsos, neto y ventas por curso.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("La exportación contable se activará cuando conectemos las transacciones reales.")}>Exportar</button>
+            </div>
+
+            <div className="finance-summary-grid">
+              <FinanceMetric label="Ingresos brutos" value={financeSummary.gross} helper="ventas antes de comisiones" />
+              <FinanceMetric label="Comisiones" value={financeSummary.fees} helper="Stripe/SumUp estimado" tone="warning" />
+              <FinanceMetric label="Reembolsos" value={financeSummary.refunds} helper="pendiente conectar" tone="muted" />
+              <FinanceMetric label="Ingresos netos" value={financeSummary.net} helper="bruto - comisiones" />
+            </div>
+
+            <div className="course-finance-table">
+              <div className="course-finance-head">
+                <span>Curso</span>
+                <span>Ventas</span>
+                <span>Bruto</span>
+                <span>Comisiones</span>
+                <span>Neto</span>
+              </div>
+              {courseFinanceRows.map((row) => (
+                <div key={row.id} className="course-finance-row">
+                  <div>
+                    <strong>{row.title}</strong>
+                    <p>{row.category}</p>
+                  </div>
+                  <span>{row.sales}</span>
+                  <strong>{row.gross}</strong>
+                  <span>{row.fees}</span>
+                  <strong>{row.net}</strong>
+                </div>
+              ))}
+            </div>
+          </article>
+
           <article className="payments-table-card">
             <div className="card-head compact">
               <h2>Operaciones recientes</h2>
@@ -1890,6 +1931,13 @@ function PagosAdmin({
             <GatewayRow name="Cuotas" status="Diseñado" active />
           </article>
 
+          <article className="payment-side-card accounting-actions">
+            <h2>Reportes contables</h2>
+            <button type="button" onClick={() => setSystemMessage("Preparado para exportar CSV mensual de ventas, comisiones y neto.")}>Exportar CSV mensual</button>
+            <button type="button" onClick={() => setSystemMessage("Preparado para generar Excel contable cuando tengamos transacciones reales.")}>Exportar Excel</button>
+            <button type="button" onClick={() => setSystemMessage("La conciliación se hará comparando pedidos, pasarela y accesos activos.")}>Conciliar pagos</button>
+          </article>
+
           <article className="payment-side-card">
             <h2>Fidelización comercial</h2>
             <p>Desde aquí se alimentará el bloque “Relación comercial y fidelización” de cada alumno.</p>
@@ -1914,6 +1962,85 @@ function PagosAdmin({
           </article>
         </aside>
       </section>
+    </div>
+  );
+}
+
+
+function buildFinanceSummary(commercialStudentsCount: number, courseCount: number) {
+  const grossNumber = Math.max(0, commercialStudentsCount * 197 + courseCount * 49);
+  const feesNumber = Math.round(grossNumber * 0.029 + Math.max(0, commercialStudentsCount) * 0.3);
+  const refundsNumber = 0;
+  const netNumber = Math.max(0, grossNumber - feesNumber - refundsNumber);
+
+  return {
+    gross: formatMoney(grossNumber),
+    fees: `-${formatMoney(feesNumber)}`,
+    refunds: formatMoney(refundsNumber),
+    net: formatMoney(netNumber),
+  };
+}
+
+function buildCourseFinanceRows(courseViews: CourseAdminView[]) {
+  const rows = courseViews.slice(0, 5).map((course, index) => {
+    const sales = Math.max(0, course.enrollmentsCount || Math.max(1, index + 1));
+    const unitPrice = getCoursePriceNumber(course.course) || 97;
+    const grossNumber = sales * unitPrice;
+    const feesNumber = Math.round(grossNumber * 0.029 + sales * 0.3);
+    const netNumber = Math.max(0, grossNumber - feesNumber);
+
+    return {
+      id: course.id,
+      title: course.title,
+      category: course.category,
+      sales: String(sales),
+      gross: formatMoney(grossNumber),
+      fees: `-${formatMoney(feesNumber)}`,
+      net: formatMoney(netNumber),
+    };
+  });
+
+  if (rows.length > 0) return rows;
+
+  return [
+    {
+      id: "finance-empty-course",
+      title: "Sin ventas registradas",
+      category: "Conecta Stripe/SumUp para datos reales",
+      sales: "—",
+      gross: "—",
+      fees: "—",
+      net: "—",
+    },
+  ];
+}
+
+function getCoursePriceNumber(course: AnyRecord) {
+  const raw = course.price ?? course.amount ?? course.sale_price ?? null;
+  const numeric = Number(raw);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatMoney(value: number) {
+  return `${new Intl.NumberFormat("es-ES").format(Math.round(value || 0))}€`;
+}
+
+function FinanceMetric({
+  label,
+  value,
+  helper,
+  tone = "green",
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  tone?: "green" | "warning" | "muted";
+}) {
+  return (
+    <div className={`finance-metric ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <p>{helper}</p>
     </div>
   );
 }
@@ -2178,10 +2305,10 @@ function GlobalStyles() {
       .certificate-preview-seal{display:none!important;}
 
 
-      .payments-admin-page{display:grid;gap:16px}.payments-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.payments-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.payments-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.payments-hero-panel{width:390px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.payments-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.payments-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.payments-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.payments-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.payment-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.payments-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.payments-main-column,.payments-side-column{display:grid;gap:14px}.payments-overview-card,.payments-table-card,.payment-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.payment-chart-card{min-height:240px;border-radius:16px;border:1px solid rgba(255,255,255,.06);background:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:50px 50px;overflow:hidden}.payment-chart-card svg{width:100%;height:240px;display:block}.payment-breakdown{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}.payments-table{display:grid;gap:9px}.payments-table-head,.payments-table-row{display:grid;grid-template-columns:1.1fr 1.35fr 110px 110px 110px;gap:12px;align-items:center}.payments-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.payments-table-row{min-height:76px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.payments-table-row strong{display:block}.payments-table-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.payments-table-row>button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.payment-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.payment-status.pending{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.payment-status.risk{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.payment-side-card h2{margin:0 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.payment-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.payment-side-card>button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.payment-side-card>button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.gateway-row,.loyalty-payment-list{display:grid;gap:10px}.gateway-row{grid-template-columns:minmax(0,1fr) auto;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding:11px 0;color:var(--muted)}.gateway-row strong{color:var(--warning)}.gateway-row strong.active{color:var(--green)}.loyalty-payment-list{grid-template-columns:minmax(0,1fr) auto;margin-top:14px}.loyalty-payment-list span{color:var(--muted)}.loyalty-payment-list strong{color:var(--green)}.payment-rules{display:grid;gap:10px;margin-top:12px}
+      .payments-admin-page{display:grid;gap:16px}.payments-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.payments-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.payments-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.payments-hero-panel{width:390px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.payments-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.payments-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.payments-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.payments-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.payment-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.payments-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.payments-main-column,.payments-side-column{display:grid;gap:14px}.payments-overview-card,.payments-table-card,.payment-side-card,.finance-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.payment-chart-card{min-height:240px;border-radius:16px;border:1px solid rgba(255,255,255,.06);background:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:50px 50px;overflow:hidden}.payment-chart-card svg{width:100%;height:240px;display:block}.payment-breakdown{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}.payments-table{display:grid;gap:9px}.payments-table-head,.payments-table-row{display:grid;grid-template-columns:1.1fr 1.35fr 110px 110px 110px;gap:12px;align-items:center}.payments-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.payments-table-row{min-height:76px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.payments-table-row strong{display:block}.payments-table-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.payments-table-row>button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.payment-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.payment-status.pending{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.payment-status.risk{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.payment-side-card h2{margin:0 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.payment-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.payment-side-card>button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.payment-side-card>button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.gateway-row,.loyalty-payment-list{display:grid;gap:10px}.gateway-row{grid-template-columns:minmax(0,1fr) auto;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding:11px 0;color:var(--muted)}.gateway-row strong{color:var(--warning)}.gateway-row strong.active{color:var(--green)}.loyalty-payment-list{grid-template-columns:minmax(0,1fr) auto;margin-top:14px}.loyalty-payment-list span{color:var(--muted)}.loyalty-payment-list strong{color:var(--green)}.payment-rules{display:grid;gap:10px;margin-top:12px}.finance-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}.finance-metric{border-radius:14px;border:1px solid rgba(99,229,70,.16);background:rgba(99,229,70,.055);padding:14px;min-height:104px}.finance-metric span{display:block;color:var(--muted);font-size:12px;font-weight:850}.finance-metric strong{display:block;margin-top:8px;font-size:26px;letter-spacing:-.04em}.finance-metric p{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.35}.finance-metric.warning{border-color:rgba(247,201,72,.18);background:rgba(247,201,72,.055)}.finance-metric.warning strong{color:var(--warning)}.finance-metric.muted{border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.026)}.finance-metric.muted strong{color:var(--muted)}.course-finance-table{display:grid;gap:8px}.course-finance-head,.course-finance-row{display:grid;grid-template-columns:minmax(0,1.35fr) 72px 110px 110px 110px;gap:12px;align-items:center}.course-finance-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.course-finance-row{min-height:62px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:11px 12px}.course-finance-row strong{display:block}.course-finance-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.course-finance-row span{color:var(--muted);font-size:13px}.accounting-actions button:first-of-type{background:rgba(255,255,255,.035)!important;color:var(--white)!important;border-color:var(--line)!important}
 
 
-      @media(max-width:1460px){.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+      @media(max-width:1460px){.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
