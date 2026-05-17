@@ -55,6 +55,30 @@ type CourseAdminView = {
   progressHint: number;
 };
 
+type StudentAdminView = {
+  id: string;
+  profile: AnyRecord;
+  name: string;
+  email: string;
+  initials: string;
+  status: "active" | "inactive" | "risk" | "blocked";
+  statusLabel: string;
+  progress: number;
+  completedLessons: number;
+  completedCourses: number;
+  activeCourses: number;
+  certificates: number;
+  lastActivity: string;
+  inactiveDays: number | null;
+  riskLabel: string;
+  riskTone: "green" | "yellow" | "red" | "muted";
+  totalInvested: string;
+  commercialTier: string;
+  commercialHint: string;
+  latestCourse: string;
+  followUpStatus: string;
+};
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
@@ -99,6 +123,8 @@ export default function Page() {
   const [courseSearch, setCourseSearch] = useState("");
   const [courseStatusFilter, setCourseStatusFilter] = useState<CourseStatusFilter>("all");
   const [courseViewMode, setCourseViewMode] = useState<CourseViewMode>("grid");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState("");
 
   useEffect(() => {
     async function protectAndLoad() {
@@ -149,6 +175,7 @@ export default function Page() {
   const initials = getInitials(displayName);
   const dashboardStats = useMemo(() => buildDashboardStats(dashboardData), [dashboardData]);
   const courseViews = useMemo(() => buildCourseAdminViews(dashboardData), [dashboardData]);
+  const studentViews = useMemo(() => buildStudentAdminViews(dashboardData, courseViews), [dashboardData, courseViews]);
   const recentActivity = useMemo(() => buildRecentActivity(dashboardData), [dashboardData]);
   const priorityTasks = useMemo(() => buildPriorityTasks(dashboardData), [dashboardData]);
 
@@ -166,6 +193,24 @@ export default function Page() {
       return matchesSearch && matchesStatus;
     });
   }, [courseViews, courseSearch, courseStatusFilter]);
+
+
+  const filteredStudentViews = useMemo(() => {
+    const query = studentSearch.trim().toLowerCase();
+    return studentViews.filter((student) => {
+      if (!query) return true;
+      return [student.name, student.email, student.statusLabel, student.riskLabel, student.commercialTier]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [studentViews, studentSearch]);
+
+  const selectedStudent =
+    filteredStudentViews.find((student) => student.id === selectedStudentId) ||
+    filteredStudentViews[0] ||
+    studentViews[0] ||
+    null;
 
   if (guardState === "checking") {
     return (
@@ -297,7 +342,21 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos", "contenido"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "alumnos" ? (
+          <AlumnosAdmin
+            stats={dashboardStats}
+            students={filteredStudentViews}
+            allStudents={studentViews}
+            selectedStudent={selectedStudent}
+            search={studentSearch}
+            setSearch={setStudentSearch}
+            setSelectedStudentId={setSelectedStudentId}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido", "alumnos"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
@@ -400,6 +459,104 @@ function buildCourseAdminViews(data: DashboardData): CourseAdminView[] {
       if (a.status !== "draft" && b.status === "draft") return 1;
       return a.title.localeCompare(b.title);
     });
+}
+
+
+function buildStudentAdminViews(data: DashboardData, courseViews: CourseAdminView[]): StudentAdminView[] {
+  const students = data.profiles.filter((profile) => {
+    const role = String(profile.role || "student").toLowerCase();
+    return !["admin", "superadmin", "owner"].includes(role);
+  });
+
+  return students
+    .map((profile, index) => {
+      const id = String(profile.id || profile.user_id || `student-${index}`);
+      const studentLessons = data.lessonProgress.filter((item) => String(item.user_id) === id);
+      const studentCompletedCourses = data.courseCompletions.filter((item) => String(item.user_id) === id);
+      const studentCertificates = data.certificates.filter((item) => String(item.user_id) === id);
+      const activeCourseIds = new Set<string>();
+
+      studentLessons.forEach((item) => {
+        if (item.course_id) activeCourseIds.add(String(item.course_id));
+      });
+      studentCompletedCourses.forEach((item) => {
+        if (item.course_id) activeCourseIds.add(String(item.course_id));
+      });
+      studentCertificates.forEach((item) => {
+        if (item.course_id) activeCourseIds.add(String(item.course_id));
+      });
+
+      const completedLessons = studentLessons.filter(
+        (item) => item.completed === true || String(item.status || "").toLowerCase() === "completed"
+      ).length;
+
+      const progress = data.lessons.length > 0 ? Math.min(100, Math.round((completedLessons / data.lessons.length) * 100)) : 0;
+      const lastActivityRaw = profile.last_sign_in_at || profile.last_seen_at || profile.updated_at || profile.created_at || null;
+      const inactiveDays = getInactiveDays(lastActivityRaw);
+      const risk = getStudentRisk(inactiveDays, progress);
+      const latestCourse = getLatestCourseName(activeCourseIds, courseViews);
+      const name = String(profile.full_name || profile.name || profile.display_name || profile.email || `Alumno ${index + 1}`);
+      const email = String(profile.email || "Email no registrado");
+      const blocked = ["blocked", "suspended", "bloqueado", "suspendido"].includes(String(profile.status || "").toLowerCase());
+
+      return {
+        id,
+        profile,
+        name,
+        email,
+        initials: getInitials(name),
+        status: (blocked ? "blocked" : risk.status) as StudentAdminView["status"],
+        statusLabel: blocked ? "Bloqueado" : risk.statusLabel,
+        progress,
+        completedLessons,
+        completedCourses: studentCompletedCourses.length,
+        activeCourses: activeCourseIds.size,
+        certificates: studentCertificates.length,
+        lastActivity: formatRelative(lastActivityRaw),
+        inactiveDays,
+        riskLabel: risk.label,
+        riskTone: risk.tone,
+        totalInvested: "Pendiente",
+        commercialTier: studentCertificates.length > 0 || studentCompletedCourses.length > 1 ? "Alumno comprometido" : "Por clasificar",
+        commercialHint: "Conectar con Pagos y accesos",
+        latestCourse,
+        followUpStatus: risk.tone === "red" ? "Requiere contacto" : risk.tone === "yellow" ? "Seguimiento recomendado" : "Sin alerta",
+      };
+    })
+    .sort((a, b) => {
+      const toneOrder = { red: 0, yellow: 1, muted: 2, green: 3 } as Record<string, number>;
+      return toneOrder[a.riskTone] - toneOrder[b.riskTone] || a.name.localeCompare(b.name);
+    });
+}
+
+function getInactiveDays(value?: string | null) {
+  if (!value) return null;
+  try {
+    const date = new Date(value);
+    const diff = Date.now() - date.getTime();
+    return Math.max(0, Math.floor(diff / 86400000));
+  } catch {
+    return null;
+  }
+}
+
+function getStudentRisk(inactiveDays: number | null, progress: number): {
+  status: "active" | "inactive" | "risk";
+  statusLabel: string;
+  label: string;
+  tone: "green" | "yellow" | "red" | "muted";
+} {
+  if (inactiveDays === null) return { status: "inactive", statusLabel: "Sin actividad", label: "Sin datos de acceso", tone: "muted" };
+  if (inactiveDays >= 21) return { status: "risk", statusLabel: "Riesgo", label: `Inactivo ${inactiveDays} días`, tone: "red" };
+  if (inactiveDays >= 7) return { status: "inactive", statusLabel: "En pausa", label: `Inactivo ${inactiveDays} días`, tone: "yellow" };
+  if (progress >= 80) return { status: "active", statusLabel: "Avanzado", label: "Alto compromiso", tone: "green" };
+  return { status: "active", statusLabel: "Activo", label: "Actividad reciente", tone: "green" };
+}
+
+function getLatestCourseName(activeCourseIds: Set<string>, courseViews: CourseAdminView[]) {
+  const firstId = Array.from(activeCourseIds)[0];
+  if (!firstId) return "Sin curso activo detectado";
+  return courseViews.find((course) => course.id === firstId)?.title || "Curso GHC Academy";
 }
 
 function buildRecentActivity(data: DashboardData) {
@@ -607,6 +764,215 @@ function QuickAction({ icon, title, text, onClick }: { icon: string; title: stri
 function ActivityItem({ icon, title, label, time }: { icon: string; title: string; label: string; time: string }) { return <div className="activity-item"><span>{icon}</span><div><strong>{title}</strong><p>{label}</p></div><em>{time}</em></div>; }
 function StatusRow({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) { return <div className={warning ? "status-row warning" : "status-row"}><span>{label}</span><strong>{value}</strong></div>; }
 function ReviewItem({ title, text, tag }: { title: string; text: string; tag: string }) { return <div className="review-item"><span>▣</span><div><strong>{title}</strong><p>{text}</p></div><em>{tag}</em></div>; }
+
+
+function AlumnosAdmin({
+  stats,
+  students,
+  allStudents,
+  selectedStudent,
+  search,
+  setSearch,
+  setSelectedStudentId,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  stats: ReturnType<typeof buildDashboardStats>;
+  students: StudentAdminView[];
+  allStudents: StudentAdminView[];
+  selectedStudent: StudentAdminView | null;
+  search: string;
+  setSearch: (value: string) => void;
+  setSelectedStudentId: (value: string) => void;
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const riskStudents = allStudents.filter((student) => student.riskTone === "red").length;
+  const followUpStudents = allStudents.filter((student) => student.riskTone === "yellow").length;
+  const certifiedStudents = allStudents.filter((student) => student.certificates > 0).length;
+  const engagedStudents = allStudents.filter((student) => student.progress >= 70 || student.certificates > 0).length;
+
+  return (
+    <div className="students-admin-page">
+      <section className="students-hero">
+        <div>
+          <p className="admin-kicker">Gestión de relación con el alumno</p>
+          <h1>Alumnos</h1>
+          <p>Supervisa progreso, accesos, certificados, fidelización y riesgo de abandono desde una ficha completa del alumno.</p>
+        </div>
+        <div className="students-hero-panel">
+          <span>Seguimiento inteligente</span>
+          <strong>Académico + comercial + fidelización</strong>
+          <p>Preparado para detectar alumnos comprometidos, premiarlos y contactar con quienes se queden parados.</p>
+          <button type="button" onClick={() => setSystemMessage("Más adelante conectaremos mensajes personalizados desde Comunicaciones.")}>Contactar alumno</button>
+        </div>
+      </section>
+
+      <section className="student-stats-grid">
+        <StudentStat label="Alumnos totales" value={allStudents.length} helper="Perfiles no admin" />
+        <StudentStat label="Activos" value={stats.activeStudents} helper="Base Supabase" />
+        <StudentStat label="Riesgo abandono" value={riskStudents} helper="Inactividad alta" danger />
+        <StudentStat label="Seguimiento" value={followUpStudents} helper="Pausa reciente" warning />
+        <StudentStat label="Certificados" value={certifiedStudents} helper="Con credencial" />
+        <StudentStat label="Comprometidos" value={engagedStudents} helper="Candidatos a premio" />
+      </section>
+
+      <section className="student-toolbar">
+        <label className="student-search">
+          <span>⌕</span>
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar alumno, email, estado o fidelización..." />
+        </label>
+        <button type="button" onClick={() => setSystemMessage("La asignación manual de cursos se conectará desde Pagos y accesos.")}>Asignar curso</button>
+        <button type="button" onClick={() => setActiveTab("comunicaciones")}>Campaña de seguimiento</button>
+      </section>
+
+      <section className="students-layout">
+        <article className="students-list-card">
+          <div className="section-title-row">
+            <div>
+              <h2>Listado de alumnos</h2>
+              <p>{students.length} alumnos encontrados.</p>
+            </div>
+            <button type="button" onClick={() => setSystemMessage("Más adelante conectaremos exportación CSV y segmentación avanzada.")}>Exportar</button>
+          </div>
+
+          <div className="students-list">
+            {students.length === 0 ? (
+              <div className="students-empty">
+                <span>◎</span>
+                <h3>No hay alumnos que coincidan</h3>
+                <p>Cuando haya registros o cambies la búsqueda, aparecerán aquí.</p>
+              </div>
+            ) : (
+              students.map((student) => (
+                <button
+                  key={student.id}
+                  type="button"
+                  className={selectedStudent?.id === student.id ? "student-row active" : "student-row"}
+                  onClick={() => setSelectedStudentId(student.id)}
+                >
+                  <span className="student-avatar">{student.initials}</span>
+                  <div className="student-main-info">
+                    <strong>{student.name}</strong>
+                    <p>{student.email}</p>
+                  </div>
+                  <div className="student-progress-mini">
+                    <strong>{student.progress}%</strong>
+                    <span>progreso</span>
+                  </div>
+                  <div className={`student-risk ${student.riskTone}`}>
+                    <strong>{student.statusLabel}</strong>
+                    <span>{student.riskLabel}</span>
+                  </div>
+                  <div className="student-commercial-mini">
+                    <strong>{student.totalInvested}</strong>
+                    <span>{student.commercialTier}</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </article>
+
+        <aside className="student-detail-column">
+          {selectedStudent ? (
+            <StudentDetailCard student={selectedStudent} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} />
+          ) : (
+            <article className="student-detail-card">
+              <h2>Sin alumno seleccionado</h2>
+              <p>Selecciona un alumno para ver su perfil académico, relación comercial y seguimiento.</p>
+            </article>
+          )}
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function StudentDetailCard({
+  student,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  student: StudentAdminView;
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <article className="student-detail-card">
+      <div className="student-detail-head">
+        <span>{student.initials}</span>
+        <div>
+          <p className="admin-kicker">Ficha del alumno</p>
+          <h2>{student.name}</h2>
+          <p>{student.email}</p>
+        </div>
+      </div>
+
+      <div className="student-detail-section">
+        <h3>Perfil académico</h3>
+        <div className="student-detail-grid">
+          <DetailMetric label="Progreso" value={`${student.progress}%`} />
+          <DetailMetric label="Cursos activos" value={student.activeCourses} />
+          <DetailMetric label="Cursos completados" value={student.completedCourses} />
+          <DetailMetric label="Certificados" value={student.certificates} />
+        </div>
+        <div className="student-progress-track"><div style={{ width: `${student.progress}%` }} /></div>
+        <p className="student-note">Último curso detectado: <strong>{student.latestCourse}</strong></p>
+      </div>
+
+      <div className="student-detail-section commercial">
+        <h3>Relación comercial y fidelización</h3>
+        <div className="commercial-grid">
+          <DetailMetric label="Total invertido" value={student.totalInvested} />
+          <DetailMetric label="Nivel" value={student.commercialTier} />
+          <DetailMetric label="Estado pagos" value={student.commercialHint} />
+          <DetailMetric label="Acceso" value={student.statusLabel} />
+        </div>
+        <div className="loyalty-actions">
+          <button type="button" onClick={() => setSystemMessage("Más adelante conectaremos concesión de curso gratuito desde Pagos y accesos.")}>Curso gratuito</button>
+          <button type="button" onClick={() => setSystemMessage("Más adelante conectaremos becas y descuentos personalizados.")}>Beca / descuento</button>
+          <button type="button" onClick={() => setSystemMessage("Más adelante podremos marcar alumnos destacados para fidelización.")}>Alumno destacado</button>
+        </div>
+      </div>
+
+      <div className="student-detail-section follow-up">
+        <h3>Seguimiento y riesgo de abandono</h3>
+        <div className={`follow-up-status ${student.riskTone}`}>
+          <strong>{student.riskLabel}</strong>
+          <span>{student.followUpStatus}</span>
+        </div>
+        <div className="follow-up-grid">
+          <DetailMetric label="Última actividad" value={student.lastActivity} />
+          <DetailMetric label="Días inactivo" value={student.inactiveDays === null ? "Sin datos" : student.inactiveDays} />
+        </div>
+        <div className="follow-up-actions">
+          <button type="button" onClick={() => setActiveTab("comunicaciones")}>Enviar mensaje de ayuda</button>
+          <button type="button" onClick={() => setSystemMessage("Alumno marcado como contactado. Próximamente guardaremos este estado en Supabase.")}>Marcar contactado</button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="detail-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function StudentStat({ label, value, helper, danger = false, warning = false }: { label: string; value: number; helper: string; danger?: boolean; warning?: boolean }) {
+  return (
+    <article className={danger ? "student-stat-card danger" : warning ? "student-stat-card warning" : "student-stat-card"}>
+      <span>{label}</span>
+      <strong>{formatNumber(value)}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
 
 function ContenidoAdmin({
   stats,
@@ -824,8 +1190,10 @@ function GlobalStyles() {
       .course-stats-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.course-stat-card{padding:16px;min-height:118px}.course-stat-card span{color:var(--muted);font-size:12px;font-weight:800}.course-stat-card strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.course-stat-card p{color:var(--muted);margin:6px 0 0;font-size:12px}.course-toolbar{min-height:62px;padding:10px;display:grid;grid-template-columns:minmax(260px,1fr) 210px auto;gap:10px;align-items:center}.course-search{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.course-search input{flex:1;min-width:0;height:40px;background:transparent;border:0;outline:0;color:var(--white)}.course-toolbar select{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px}.course-toolbar option{background:#080b0a;color:var(--white)}.course-view-toggle{height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:4px;display:flex;gap:4px}.course-view-toggle button{border:0;border-radius:999px;padding:0 14px;background:transparent;color:var(--muted);cursor:pointer;font-weight:900}.course-view-toggle button.active{background:rgba(99,229,70,.14);color:var(--green)}.courses-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}.courses-main-column,.courses-side-column{display:grid;gap:14px}.section-title-row{display:flex;justify-content:space-between;align-items:center;gap:18px}.admin-course-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px}.admin-course-list{display:grid;gap:12px}.admin-course-card{overflow:hidden;display:grid;grid-template-rows:168px 1fr}.admin-course-card.list{grid-template-columns:310px minmax(0,1fr);grid-template-rows:1fr}.admin-course-cover{position:relative;min-height:168px;background-size:cover;background-position:center;filter:grayscale(.55) contrast(1.06) brightness(.78)}.course-status-pill{position:absolute;left:14px;top:14px;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.12em;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.12);color:var(--green)}.course-status-pill.draft{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.course-status-pill.hidden{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.055);color:var(--muted)}.admin-course-body{padding:16px;display:grid;gap:14px}.course-title-row{display:flex;justify-content:space-between;gap:12px}.course-title-row h3{margin:0;font-size:23px;line-height:1.05;letter-spacing:-.035em}.course-title-row p{margin:8px 0 0;color:var(--muted);line-height:1.45;font-size:13px}.course-title-row button{width:36px;height:36px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--muted);cursor:pointer}
       .course-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.course-info-box{border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(0,0,0,.16);padding:10px;min-width:0;min-height:62px}.course-info-box span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900;white-space:normal;overflow:visible;text-overflow:initial;line-height:1.2}.course-info-box strong{display:block;margin-top:5px;color:var(--white);font-size:13px;white-space:normal;overflow:visible;text-overflow:initial;line-height:1.25}.course-build-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.course-build-row div{border-radius:12px;border:1px solid rgba(99,229,70,.13);background:rgba(99,229,70,.045);padding:11px}.course-build-row strong{display:block;font-size:24px;line-height:1}.course-build-row span{display:block;color:var(--muted);font-size:12px;margin-top:4px}.course-progress-block{display:grid;gap:8px}.course-progress-block>div:first-child{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;font-weight:800}.course-progress-block strong{color:var(--green)}.course-progress-track{height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.course-progress-track div{height:100%;border-radius:999px;background:var(--green);box-shadow:0 0 20px rgba(99,229,70,.28)}.admin-course-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.admin-course-actions button{min-height:38px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850;font-size:12px}.admin-course-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}.courses-empty{padding:28px;text-align:center}.courses-empty span{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;margin:0 auto 14px;color:var(--green);border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.07);font-size:28px}.courses-empty h3{margin:0;font-size:24px}.courses-empty p{color:var(--muted);line-height:1.6}.course-side-card{padding:18px}.course-side-card>button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.course-side-card>button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.catalog-ring{width:138px;height:138px;border-radius:999px;margin:18px auto;display:grid;place-items:center;align-content:center;border:12px solid rgba(99,229,70,.22);box-shadow:inset 0 0 0 2px rgba(255,255,255,.04)}.catalog-ring strong{font-size:38px;line-height:1}.catalog-ring span{color:var(--muted);font-size:12px;margin-top:4px}.catalog-status-list{display:grid;gap:10px}.course-next-list{display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;margin-top:14px}.course-next-list span{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}.course-next-list p{margin:0;color:var(--muted);line-height:1.45;font-size:13px}
       .content-admin-page{display:grid;gap:16px}.content-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.content-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.content-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.content-hero-panel{width:380px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.content-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.content-hero-panel strong{display:block;margin-top:8px;font-size:20px;line-height:1.12}.content-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.content-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.content-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.content-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.content-main-column,.content-side-column{display:grid;gap:14px}.production-board-card,.module-map-card,.source-docs-card,.content-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.production-course-list{display:grid;gap:10px}.production-course{display:grid;grid-template-columns:38px minmax(0,1fr) 54px;gap:12px;align-items:center;min-height:70px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.028);padding:12px}.production-course.active{border-color:rgba(99,229,70,.26);background:rgba(99,229,70,.065)}.production-course>span{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--green);background:rgba(99,229,70,.09);border:1px solid rgba(99,229,70,.18);font-weight:950}.production-course strong{display:block}.production-course p{margin:5px 0 0;color:var(--muted);font-size:12px}.production-course em{font-style:normal;color:var(--green);font-weight:950}.module-map-list{display:grid;gap:10px}.module-map-row{display:grid;grid-template-columns:52px minmax(0,1fr) 82px;gap:12px;align-items:center;min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.module-map-row.current{border-color:rgba(99,229,70,.32);background:linear-gradient(90deg,rgba(99,229,70,.09),rgba(255,255,255,.024))}.module-index{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}.module-map-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.module-map-row button{min-height:36px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.source-doc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.source-doc-card{min-height:130px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:radial-gradient(circle at top right,rgba(99,229,70,.12),transparent 34%),rgba(255,255,255,.028);padding:16px;display:grid;align-content:center}.source-doc-card span{width:max-content;border-radius:999px;padding:6px 9px;background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.22);color:var(--green);font-size:10px;font-weight:950;letter-spacing:.12em}.source-doc-card strong{display:block;margin-top:14px;font-size:18px;line-height:1.1}.source-doc-card p{margin:8px 0 0;color:var(--muted);font-size:12px}.content-side-card.importer{background:radial-gradient(circle at 78% 20%,rgba(99,229,70,.16),transparent 34%),var(--panel)}.content-side-card>span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.content-side-card h2{margin:8px 0 0;font-size:22px;line-height:1.05;letter-spacing:-.035em}.content-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.content-side-card button{width:100%;min-height:42px;border-radius:11px;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.08);color:var(--green);cursor:pointer;font-weight:900}.production-check{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.055)}.production-check span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.12);color:var(--soft);font-weight:950}.production-check.done span{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.production-check p{margin:0;color:var(--muted)}.production-check.done p{color:var(--white)}.factory-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.factory-tags span{border-radius:999px;border:1px solid rgba(99,229,70,.18);background:rgba(99,229,70,.065);color:var(--green);padding:7px 9px;font-size:11px;font-weight:900}
+
+.students-admin-page{display:grid;gap:16px}.students-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.students-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.students-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.students-hero-panel{width:390px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.students-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.students-hero-panel strong{display:block;margin-top:8px;font-size:20px;line-height:1.12}.students-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.students-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.student-stats-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.student-stat-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:16px;min-height:118px}.student-stat-card span{color:var(--muted);font-size:12px;font-weight:800}.student-stat-card strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.student-stat-card p{color:var(--muted);margin:6px 0 0;font-size:12px}.student-stat-card.danger strong{color:var(--danger)}.student-stat-card.warning strong{color:var(--warning)}.student-toolbar{min-height:62px;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:10px;display:grid;grid-template-columns:minmax(260px,1fr) auto auto;gap:10px;align-items:center}.student-search{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.student-search input{flex:1;min-width:0;height:40px;background:transparent;border:0;outline:0;color:var(--white)}.student-toolbar button{min-height:42px;border-radius:999px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;padding:0 14px;cursor:pointer}.students-layout{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:14px;align-items:start}.students-list-card,.student-detail-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.students-list{display:grid;gap:10px;margin-top:14px}.student-row{width:100%;min-height:86px;border-radius:15px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);color:var(--white);display:grid;grid-template-columns:46px minmax(0,1.25fr) 96px 128px 138px;gap:12px;align-items:center;padding:12px;text-align:left;cursor:pointer}.student-row:hover,.student-row.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.055)}.student-avatar{width:46px;height:46px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}.student-main-info strong{display:block;font-size:15px}.student-main-info p,.student-progress-mini span,.student-risk span,.student-commercial-mini span{margin:4px 0 0;color:var(--muted);font-size:12px}.student-progress-mini strong,.student-commercial-mini strong{display:block;color:var(--white);font-size:18px}.student-risk{border-radius:12px;padding:9px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025)}.student-risk strong{display:block;font-size:13px}.student-risk.green strong{color:var(--green)}.student-risk.yellow strong{color:var(--warning)}.student-risk.red strong{color:var(--danger)}.student-risk.muted strong{color:var(--muted)}.student-commercial-mini{border-left:1px solid rgba(255,255,255,.06);padding-left:12px}.students-empty{text-align:center;padding:28px}.students-empty span{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;margin:0 auto 14px;color:var(--green);border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.07);font-size:28px}.students-empty h3{margin:0;font-size:24px}.students-empty p{color:var(--muted);line-height:1.6}.student-detail-column{position:sticky;top:86px}.student-detail-head{display:grid;grid-template-columns:62px minmax(0,1fr);gap:14px;align-items:center}.student-detail-head>span{width:62px;height:62px;border-radius:20px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.2);font-size:22px;font-weight:950}.student-detail-head h2{margin:0;font-size:26px;letter-spacing:-.04em;line-height:1}.student-detail-head p:not(.admin-kicker){margin:6px 0 0;color:var(--muted);font-size:13px}.student-detail-section{margin-top:16px;border-top:1px solid rgba(255,255,255,.07);padding-top:16px}.student-detail-section h3{margin:0 0 12px;font-size:17px;letter-spacing:-.02em}.student-detail-grid,.commercial-grid,.follow-up-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.detail-metric{border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(0,0,0,.16);padding:10px;min-width:0}.detail-metric span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:900}.detail-metric strong{display:block;margin-top:5px;color:var(--white);font-size:14px;line-height:1.25;overflow:hidden;text-overflow:ellipsis}.student-progress-track{height:9px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:12px}.student-progress-track div{height:100%;border-radius:999px;background:var(--green);box-shadow:0 0 20px rgba(99,229,70,.28)}.student-note{color:var(--muted);font-size:13px;line-height:1.5}.student-note strong{color:var(--white)}.loyalty-actions,.follow-up-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}.loyalty-actions button,.follow-up-actions button{min-height:39px;border-radius:11px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;cursor:pointer}.follow-up-status{border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.026);padding:12px;margin-bottom:10px}.follow-up-status strong{display:block;font-size:18px}.follow-up-status span{display:block;margin-top:4px;color:var(--muted);font-size:12px}.follow-up-status.green strong{color:var(--green)}.follow-up-status.yellow strong{color:var(--warning)}.follow-up-status.red strong{color:var(--danger)}.follow-up-status.muted strong{color:var(--muted)}
 .coming-soon{min-height:420px;padding:34px;display:grid;align-content:center}.coming-soon p:not(.admin-kicker){max-width:720px;color:var(--muted);line-height:1.7}
-      @media(max-width:1460px){.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+      @media(max-width:1460px){.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
