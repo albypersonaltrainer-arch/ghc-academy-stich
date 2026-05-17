@@ -25,6 +25,7 @@ type GuardState = "checking" | "allowed" | "denied";
 type CourseViewMode = "grid" | "list";
 type CourseStatusFilter = "all" | "published" | "draft" | "hidden";
 type PaymentSubTab = "resumen" | "transacciones" | "accesos" | "becas" | "finanzas" | "reportes";
+type CommunicationSubTab = "mensajes" | "automatizaciones" | "audiencias" | "campanas" | "publicidad" | "plantillas";
 
 type DashboardData = {
   profiles: AnyRecord[];
@@ -157,6 +158,8 @@ export default function Page() {
   const [financeStatus, setFinanceStatus] = useState("all");
   const [financeAmountMin, setFinanceAmountMin] = useState("");
   const [financeAmountMax, setFinanceAmountMax] = useState("");
+  const [communicationSubTab, setCommunicationSubTab] = useState<CommunicationSubTab>("mensajes");
+  const [communicationSearch, setCommunicationSearch] = useState("");
 
   useEffect(() => {
     async function protectAndLoad() {
@@ -429,7 +432,21 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "comunicaciones" ? (
+          <ComunicacionesAdmin
+            dashboardData={dashboardData}
+            courseViews={courseViews}
+            studentViews={studentViews}
+            communicationSubTab={communicationSubTab}
+            setCommunicationSubTab={setCommunicationSubTab}
+            communicationSearch={communicationSearch}
+            setCommunicationSearch={setCommunicationSearch}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos", "comunicaciones"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
@@ -2587,6 +2604,625 @@ function GatewayRow({ name, status, active = false }: { name: string; status: st
 }
 
 
+function ComunicacionesAdmin({
+  dashboardData,
+  courseViews,
+  studentViews,
+  communicationSubTab,
+  setCommunicationSubTab,
+  communicationSearch,
+  setCommunicationSearch,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  dashboardData: DashboardData;
+  courseViews: CourseAdminView[];
+  studentViews: StudentAdminView[];
+  communicationSubTab: CommunicationSubTab;
+  setCommunicationSubTab: (tab: CommunicationSubTab) => void;
+  communicationSearch: string;
+  setCommunicationSearch: (value: string) => void;
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const inactiveStudents = studentViews.filter((student) => student.riskTone === "yellow" || student.riskTone === "red");
+  const highValueStudents = studentViews.filter((student) => student.commercialTier !== "Inicial");
+  const certifiedStudents = studentViews.filter((student) => student.certificates > 0);
+  const messageRows = buildCommunicationRows(studentViews, courseViews);
+  const filteredMessageRows = filterCommunicationRows(messageRows, communicationSearch);
+
+  const tabs: { id: CommunicationSubTab; label: string; helper: string }[] = [
+    { id: "mensajes", label: "Mensajes", helper: "Emails y avisos" },
+    { id: "automatizaciones", label: "Automatizaciones", helper: "Flujos" },
+    { id: "audiencias", label: "Audiencias", helper: "Segmentos" },
+    { id: "campanas", label: "Campañas", helper: "Marketing" },
+    { id: "publicidad", label: "Publicidad externa", helper: "Meta / Google" },
+    { id: "plantillas", label: "Plantillas", helper: "Mensajes base" },
+  ];
+
+  return (
+    <div className="communications-admin-page">
+      <section className="communications-hero">
+        <div>
+          <p className="admin-kicker">Comunicaciones, marketing y seguimiento</p>
+          <h1>Comunicaciones</h1>
+          <p>Contacta alumnos, automatiza recordatorios, reactiva inactivos, premia perfiles de alto valor y prepara integraciones con Meta, Instagram y Google Ads.</p>
+        </div>
+
+        <div className="communications-hero-panel">
+          <span>Conexión futura</span>
+          <strong>Alumnos + Pagos + Analítica + Ads</strong>
+          <p>Mensajes internos ahora. Campañas externas, retargeting y conversiones cuando conectemos píxeles y eventos.</p>
+          <button type="button" onClick={() => setCommunicationSubTab("publicidad")}>Ver publicidad</button>
+        </div>
+      </section>
+
+      <section className="communication-stats-grid">
+        <CourseStat label="Alumnos activos" value={studentViews.length} helper="Base de comunicación" />
+        <CourseStat label="Riesgo abandono" value={inactiveStudents.length} helper="Seguimiento necesario" />
+        <CourseStat label="Alto valor" value={highValueStudents.length} helper="Fidelización" />
+        <CourseStat label="Con certificado" value={certifiedStudents.length} helper="Upsell avanzado" />
+        <CourseStat label="Cursos" value={courseViews.length} helper="Campañas por producto" />
+      </section>
+
+      <section className="communication-tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={communicationSubTab === tab.id ? "active" : ""}
+            onClick={() => {
+              setCommunicationSubTab(tab.id);
+              setSystemMessage("");
+            }}
+          >
+            <strong>{tab.label}</strong>
+            <span>{tab.helper}</span>
+          </button>
+        ))}
+      </section>
+
+      {communicationSubTab === "mensajes" ? (
+        <CommunicationMessagesView
+          search={communicationSearch}
+          setSearch={setCommunicationSearch}
+          rows={filteredMessageRows}
+          setCommunicationSubTab={setCommunicationSubTab}
+          setSystemMessage={setSystemMessage}
+        />
+      ) : null}
+
+      {communicationSubTab === "automatizaciones" ? (
+        <CommunicationAutomationsView setCommunicationSubTab={setCommunicationSubTab} setSystemMessage={setSystemMessage} />
+      ) : null}
+
+      {communicationSubTab === "audiencias" ? (
+        <CommunicationAudiencesView
+          inactiveStudents={inactiveStudents.length}
+          highValueStudents={highValueStudents.length}
+          certifiedStudents={certifiedStudents.length}
+          courseViews={courseViews}
+          setActiveTab={setActiveTab}
+          setSystemMessage={setSystemMessage}
+        />
+      ) : null}
+
+      {communicationSubTab === "campanas" ? (
+        <CommunicationCampaignsView courseViews={courseViews} setCommunicationSubTab={setCommunicationSubTab} setSystemMessage={setSystemMessage} />
+      ) : null}
+
+      {communicationSubTab === "publicidad" ? (
+        <CommunicationAdsView setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} />
+      ) : null}
+
+      {communicationSubTab === "plantillas" ? (
+        <CommunicationTemplatesView setSystemMessage={setSystemMessage} />
+      ) : null}
+    </div>
+  );
+}
+
+function CommunicationMessagesView({
+  search,
+  setSearch,
+  rows,
+  setCommunicationSubTab,
+  setSystemMessage,
+}: {
+  search: string;
+  setSearch: (value: string) => void;
+  rows: CommunicationRow[];
+  setCommunicationSubTab: (tab: CommunicationSubTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <section className="communications-layout">
+      <div className="communications-main-column">
+        <article className="message-composer-card">
+          <div className="card-head">
+            <div>
+              <h2>Crear mensaje</h2>
+              <p>Email, aviso interno o mensaje de seguimiento. Nada se envía sin aprobación del admin.</p>
+            </div>
+            <button type="button" onClick={() => setSystemMessage("El envío real se conectará cuando configuremos proveedor de email/WhatsApp.")}>Guardar borrador</button>
+          </div>
+
+          <div className="message-channel-grid">
+            <button type="button" className="active">Email</button>
+            <button type="button">Aviso interno</button>
+            <button type="button">WhatsApp futuro</button>
+            <button type="button">Push futuro</button>
+          </div>
+
+          <label className="message-field">
+            <span>Asunto</span>
+            <input defaultValue="¿Necesitas ayuda para continuar tu curso?" />
+          </label>
+
+          <label className="message-field">
+            <span>Mensaje</span>
+            <textarea defaultValue={"Hola {{nombre}},\n\nHemos visto que llevas unos días sin avanzar en tu formación. Si necesitas ayuda para retomar el curso, estamos aquí para acompañarte.\n\nUn abrazo,\nGHC Academy"} />
+          </label>
+
+          <div className="message-actions">
+            <button type="button" onClick={() => setSystemMessage("Vista previa preparada. La plantilla real se conectará con Comunicaciones.")}>Vista previa</button>
+            <button type="button" onClick={() => setSystemMessage("El envío quedará siempre sujeto a aprobación manual.")}>Preparar envío</button>
+          </div>
+        </article>
+
+        <article className="communications-table-card">
+          <div className="card-head compact">
+            <h2>Mensajes y seguimientos preparados</h2>
+            <button type="button" onClick={() => setCommunicationSubTab("automatizaciones")}>Ver automatizaciones</button>
+          </div>
+
+          <label className="communication-search">
+            <span>⌕</span>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por alumno, tipo, estado o motivo..." />
+          </label>
+
+          <div className="communication-table">
+            <div className="communication-table-head">
+              <span>Destinatario</span>
+              <span>Motivo</span>
+              <span>Canal</span>
+              <span>Estado</span>
+              <span>Acción</span>
+            </div>
+            {rows.map((row) => (
+              <div key={row.id} className="communication-table-row">
+                <div>
+                  <strong>{row.name}</strong>
+                  <p>{row.email}</p>
+                </div>
+                <div>
+                  <strong>{row.reason}</strong>
+                  <p>{row.detail}</p>
+                </div>
+                <span className={`channel-pill ${row.channelTone}`}>{row.channel}</span>
+                <span className={`communication-status ${row.statusTone}`}>{row.status}</span>
+                <button type="button" onClick={() => setSystemMessage(row.actionMessage)}>{row.action}</button>
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
+
+      <aside className="communications-side-column">
+        <article className="communication-side-card preview">
+          <span>Vista previa</span>
+          <h2>Mensaje de ayuda</h2>
+          <p>Plantilla humana, profesional y cercana para alumnos con inactividad reciente.</p>
+          <div className="email-preview-card">
+            <strong>GHC Academy</strong>
+            <h3>Estamos aquí para ayudarte</h3>
+            <p>Retoma tu curso cuando quieras. Si necesitas orientación, podemos ayudarte a continuar.</p>
+            <button type="button">Volver al curso</button>
+          </div>
+        </article>
+
+        <article className="communication-side-card">
+          <h2>Acciones rápidas</h2>
+          <button type="button" onClick={() => setCommunicationSubTab("audiencias")}>Crear audiencia</button>
+          <button type="button" onClick={() => setCommunicationSubTab("plantillas")}>Editar plantilla</button>
+          <button type="button" onClick={() => setCommunicationSubTab("publicidad")}>Preparar retargeting</button>
+        </article>
+      </aside>
+    </section>
+  );
+}
+
+function CommunicationAutomationsView({
+  setCommunicationSubTab,
+  setSystemMessage,
+}: {
+  setCommunicationSubTab: (tab: CommunicationSubTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const automations = [
+    ["Bienvenida alumno", "Se activa al registrarse o comprar un curso.", "Preparada"],
+    ["Inactividad 7 días", "Mensaje amable de ayuda y acompañamiento.", "Preparada"],
+    ["Inactividad 15 días", "Seguimiento personalizado y posible apoyo.", "Preparada"],
+    ["Pago fallido", "Aviso de recuperación de acceso.", "Pendiente pagos"],
+    ["Certificado emitido", "Aviso y enlace de descarga/verificación.", "Preparada"],
+    ["Alumno alto valor", "Premio, descuento o curso gratuito.", "Fidelización"],
+  ];
+
+  return (
+    <section className="communications-full-panel">
+      <div className="card-head">
+        <div>
+          <h2>Automatizaciones</h2>
+          <p>Flujos preparados para seguimiento, fidelización y recuperación. Siempre revisables por el administrador.</p>
+        </div>
+        <button type="button" onClick={() => setCommunicationSubTab("mensajes")}>Crear mensaje</button>
+      </div>
+
+      <div className="automation-grid">
+        {automations.map(([title, text, status]) => (
+          <article key={title} className="automation-card">
+            <span>⚡</span>
+            <strong>{title}</strong>
+            <p>{text}</p>
+            <em>{status}</em>
+            <button type="button" onClick={() => setSystemMessage(`Automatización preparada: ${title}.`)}>
+              Configurar
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CommunicationAudiencesView({
+  inactiveStudents,
+  highValueStudents,
+  certifiedStudents,
+  courseViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  inactiveStudents: number;
+  highValueStudents: number;
+  certifiedStudents: number;
+  courseViews: CourseAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <section className="communications-layout">
+      <div className="communications-main-column">
+        <article className="communications-full-panel">
+          <div className="card-head">
+            <div>
+              <h2>Audiencias inteligentes</h2>
+              <p>Segmentos preparados para mensajes internos, campañas y publicidad externa.</p>
+            </div>
+            <button type="button" onClick={() => setActiveTab("alumnos")}>Ver alumnos</button>
+          </div>
+
+          <div className="audience-grid">
+            <AudienceCard title="Inactivos recientes" value={inactiveStudents} text="Alumnos sin actividad o riesgo de abandono." />
+            <AudienceCard title="Alto valor" value={highValueStudents} text="Candidatos a beca, premio o curso gratuito." />
+            <AudienceCard title="Con certificado" value={certifiedStudents} text="Perfectos para upsell a cursos avanzados." />
+            <AudienceCard title="Interesados por curso" value={courseViews.length} text="Segmentos por curso o categoría." />
+          </div>
+        </article>
+
+        <article className="communications-full-panel">
+          <h2>Constructor de segmento</h2>
+          <div className="segment-builder-grid">
+            <SegmentRule label="Último acceso" value="Más de 7 días" />
+            <SegmentRule label="Curso comprado" value="Sí" />
+            <SegmentRule label="Progreso" value="Menos del 25%" />
+            <SegmentRule label="Certificado" value="No emitido" />
+            <SegmentRule label="Total invertido" value="Mayor de 0€" />
+            <SegmentRule label="Estado comercial" value="Activo" />
+          </div>
+          <button type="button" className="segment-main-action" onClick={() => setSystemMessage("El guardado de segmentos se conectará más adelante.")}>
+            Guardar audiencia
+          </button>
+        </article>
+      </div>
+
+      <aside className="communications-side-column">
+        <article className="communication-side-card">
+          <h2>Uso futuro</h2>
+          <p>Estas audiencias alimentarán emails, mensajes internos, descuentos, retargeting Meta/Google y analítica de conversión.</p>
+        </article>
+      </aside>
+    </section>
+  );
+}
+
+function CommunicationCampaignsView({
+  courseViews,
+  setCommunicationSubTab,
+  setSystemMessage,
+}: {
+  courseViews: CourseAdminView[];
+  setCommunicationSubTab: (tab: CommunicationSubTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <section className="communications-layout">
+      <div className="communications-main-column">
+        <article className="communications-full-panel">
+          <div className="card-head">
+            <div>
+              <h2>Campañas</h2>
+              <p>Promociones internas y futuras campañas conectadas a marketing externo.</p>
+            </div>
+            <button type="button" onClick={() => setCommunicationSubTab("publicidad")}>Publicidad externa</button>
+          </div>
+
+          <div className="campaign-grid">
+            {courseViews.slice(0, 4).map((course) => (
+              <article key={course.id} className="campaign-card">
+                <span>▱</span>
+                <strong>{course.title}</strong>
+                <p>{course.category} · {course.level}</p>
+                <button type="button" onClick={() => setSystemMessage(`Campaña preparada para ${course.title}.`)}>
+                  Crear campaña
+                </button>
+              </article>
+            ))}
+            {courseViews.length === 0 ? (
+              <article className="campaign-card">
+                <span>GHC</span>
+                <strong>Sin cursos todavía</strong>
+                <p>Cuando haya cursos, podrás crear campañas por producto.</p>
+                <button type="button" onClick={() => setSystemMessage("Campañas preparadas para cuando existan cursos.")}>Preparado</button>
+              </article>
+            ) : null}
+          </div>
+        </article>
+      </div>
+
+      <aside className="communications-side-column">
+        <article className="communication-side-card">
+          <h2>Objetivos de campaña</h2>
+          <button type="button" onClick={() => setSystemMessage("Campaña de captación preparada.")}>Captar alumnos</button>
+          <button type="button" onClick={() => setSystemMessage("Campaña de upsell preparada.")}>Vender curso avanzado</button>
+          <button type="button" onClick={() => setSystemMessage("Campaña de recuperación preparada.")}>Recuperar abandono</button>
+        </article>
+      </aside>
+    </section>
+  );
+}
+
+function CommunicationAdsView({
+  setActiveTab,
+  setSystemMessage,
+}: {
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <section className="communications-layout">
+      <div className="communications-main-column">
+        <article className="ads-connection-card">
+          <div>
+            <p className="admin-kicker">Publicidad externa preparada</p>
+            <h2>Meta, Instagram y Google Ads</h2>
+            <p>Prepara píxeles, eventos, audiencias, UTM y medición de conversiones para saber qué campaña vende más y qué curso convierte mejor.</p>
+          </div>
+          <button type="button" onClick={() => setSystemMessage("Las conexiones reales a Meta/Google se harán con credenciales y seguridad más adelante.")}>
+            Preparar integraciones
+          </button>
+        </article>
+
+        <article className="communications-full-panel">
+          <div className="card-head compact">
+            <h2>Eventos y conversiones</h2>
+            <button type="button" onClick={() => setActiveTab("analitica")}>Ver analítica</button>
+          </div>
+
+          <div className="ads-event-grid">
+            <AdEvent title="PageView" text="Visitas a landing y catálogo." status="Preparado" />
+            <AdEvent title="ViewContent" text="Visita a página de curso." status="Preparado" />
+            <AdEvent title="Lead" text="Registro o descarga recurso." status="Futuro" />
+            <AdEvent title="InitiateCheckout" text="Inicio de compra." status="Pendiente pagos" />
+            <AdEvent title="Purchase" text="Compra completada." status="Pendiente pagos" />
+            <AdEvent title="CertificateEarned" text="Certificado obtenido." status="GHC propio" />
+          </div>
+        </article>
+
+        <article className="communications-full-panel">
+          <div className="card-head compact">
+            <h2>Audiencias de retargeting</h2>
+            <button type="button" onClick={() => setSystemMessage("La exportación de audiencias se conectará con consentimientos y privacidad.")}>Preparar audiencia</button>
+          </div>
+
+          <div className="retargeting-list">
+            <RetargetingRow title="Visitó curso y no compró" channel="Meta / Google" />
+            <RetargetingRow title="Abandonó checkout" channel="Meta / Email" />
+            <RetargetingRow title="Compró curso base" channel="Upsell avanzado" />
+            <RetargetingRow title="Obtuvo certificado" channel="Campaña premium" />
+          </div>
+        </article>
+      </div>
+
+      <aside className="communications-side-column">
+        <article className="communication-side-card">
+          <h2>Estado integraciones</h2>
+          <GatewayRow name="Meta Pixel" status="Pendiente" />
+          <GatewayRow name="Google Ads" status="Pendiente" />
+          <GatewayRow name="Google Analytics" status="Pendiente" />
+          <GatewayRow name="UTM tracking" status="Preparado" active />
+        </article>
+
+        <article className="communication-side-card">
+          <h2>Privacidad</h2>
+          <p>Antes de activar publicidad externa revisaremos cookies, consentimiento, política de privacidad y eventos permitidos.</p>
+        </article>
+      </aside>
+    </section>
+  );
+}
+
+function CommunicationTemplatesView({ setSystemMessage }: { setSystemMessage: (message: string) => void }) {
+  const templates = [
+    ["Bienvenida", "Primer contacto tras registro o compra."],
+    ["Inactividad 7 días", "Ayuda suave para retomar el curso."],
+    ["Pago fallido", "Recuperación sin tono agresivo."],
+    ["Certificado emitido", "Aviso de logro y descarga."],
+    ["Alumno alto valor", "Premio o invitación especial."],
+    ["Nuevo curso", "Promoción interna a alumnos interesados."],
+  ];
+
+  return (
+    <section className="communications-full-panel">
+      <div className="card-head">
+        <div>
+          <h2>Plantillas</h2>
+          <p>Biblioteca base de mensajes GHC, preparada para email, avisos internos y futuras campañas.</p>
+        </div>
+        <button type="button" onClick={() => setSystemMessage("Editor de plantillas pendiente de conectar.")}>Crear plantilla</button>
+      </div>
+
+      <div className="template-grid">
+        {templates.map(([title, text]) => (
+          <button key={title} type="button" className="template-card" onClick={() => setSystemMessage(`Plantilla preparada: ${title}.`)}>
+            <span>✉</span>
+            <strong>{title}</strong>
+            <p>{text}</p>
+            <em>Editar ›</em>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+type CommunicationRow = {
+  id: string;
+  name: string;
+  email: string;
+  reason: string;
+  detail: string;
+  channel: string;
+  channelTone: "email" | "internal" | "ads";
+  status: string;
+  statusTone: "ready" | "draft" | "risk";
+  action: string;
+  actionMessage: string;
+  searchable: string;
+};
+
+function buildCommunicationRows(studentViews: StudentAdminView[], courseViews: CourseAdminView[]): CommunicationRow[] {
+  const rows = studentViews.slice(0, 8).map((student, index) => {
+    const risk = student.riskTone === "yellow" || student.riskTone === "red";
+    const highValue = student.commercialTier !== "Inicial";
+    const hasCertificate = student.certificates > 0;
+    const course = courseViews[index % Math.max(courseViews.length, 1)]?.title || student.latestCourse || "Curso GHC Academy";
+
+    const reason = risk
+      ? "Seguimiento por inactividad"
+      : highValue
+        ? "Fidelización alumno alto valor"
+        : hasCertificate
+          ? "Upsell tras certificado"
+          : "Mensaje informativo";
+
+    const detail = risk
+      ? `${student.riskLabel} · ${course}`
+      : highValue
+        ? `${student.commercialTier} · premio/descuento`
+        : hasCertificate
+          ? "Proponer curso avanzado"
+          : "Comunicación general";
+
+    return {
+      id: student.id,
+      name: student.name,
+      email: student.email,
+      reason,
+      detail,
+      channel: risk ? "Email" : highValue ? "Interno" : "Email",
+      channelTone: risk ? "email" : highValue ? "internal" : "email",
+      status: risk ? "Preparado" : "Borrador",
+      statusTone: risk ? "ready" : "draft",
+      action: risk ? "Contactar" : "Preparar",
+      actionMessage: risk
+        ? `Mensaje de ayuda preparado para ${student.name}.`
+        : `Mensaje en borrador para ${student.name}.`,
+      searchable: "",
+    };
+  });
+
+  if (rows.length > 0) {
+    return rows.map((row) => ({
+      ...row,
+      searchable: [row.name, row.email, row.reason, row.detail, row.channel, row.status].join(" ").toLowerCase(),
+    }));
+  }
+
+  return [
+    {
+      id: "communication-empty-1",
+      name: "Sin alumnos todavía",
+      email: "Cuando haya alumnos, aparecerán aquí.",
+      reason: "Sistema preparado",
+      detail: "Seguimiento, campañas y marketing",
+      channel: "Interno",
+      channelTone: "internal",
+      status: "Preparado",
+      statusTone: "ready",
+      action: "Configurar",
+      actionMessage: "Comunicaciones está preparada para alumnos reales.",
+      searchable: "sin alumnos preparado seguimiento campañas marketing",
+    },
+  ];
+}
+
+function filterCommunicationRows(rows: CommunicationRow[], search: string) {
+  const query = search.trim().toLowerCase();
+  if (!query) return rows;
+  return rows.filter((row) => row.searchable.includes(query));
+}
+
+function AudienceCard({ title, value, text }: { title: string; value: number; text: string }) {
+  return (
+    <article className="audience-card">
+      <strong>{value}</strong>
+      <span>{title}</span>
+      <p>{text}</p>
+    </article>
+  );
+}
+
+function SegmentRule({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="segment-rule">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function AdEvent({ title, text, status }: { title: string; text: string; status: string }) {
+  return (
+    <article className="ad-event">
+      <span>◉</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
+      <em>{status}</em>
+    </article>
+  );
+}
+
+function RetargetingRow({ title, channel }: { title: string; channel: string }) {
+  return (
+    <div className="retargeting-row">
+      <span>{title}</span>
+      <strong>{channel}</strong>
+    </div>
+  );
+}
+
+
 function ComingSoon({ tab }: { tab: AdminTab }) { return <section className="coming-soon"><p className="admin-kicker">Módulo administrador</p><h1>{getTabLabel(tab)}</h1><p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador. La arquitectura ya queda preparada para hacerla funcional por fases.</p></section>; }
 function ChartSvg() { return <svg viewBox="0 0 900 260" aria-hidden="true"><defs><linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity="0.42" /><stop offset="100%" stopColor={GREEN} stopOpacity="0" /></linearGradient></defs><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z" fill="url(#adminChartGradient)" /><path d="M30 185 L110 208 L190 174 L270 142 L350 118 L430 78 L510 108 L590 82 L670 98 L750 62 L850 88" fill="none" stroke="rgba(244,246,242,.42)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function Background() { return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>; }
@@ -2874,7 +3510,11 @@ function GlobalStyles() {
       }
 
 
-      @media(max-width:1460px){.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+
+      .communications-admin-page{display:grid;gap:16px}.communications-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.communications-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.communications-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.communications-hero-panel{width:410px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.communications-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.communications-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.communications-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.communications-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.communication-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.communication-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.communication-tabs button{min-height:66px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.028);color:var(--muted);cursor:pointer;text-align:left;padding:12px 14px}.communication-tabs button strong{display:block;color:var(--white);font-size:14px}.communication-tabs button span{display:block;margin-top:4px;font-size:11px;color:var(--soft)}.communication-tabs button.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.08);box-shadow:inset 0 0 0 1px rgba(99,229,70,.08)}.communication-tabs button.active strong{color:var(--green)}.communications-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.communications-main-column,.communications-side-column{display:grid;gap:14px}.message-composer-card,.communications-table-card,.communication-side-card,.communications-full-panel,.ads-connection-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.message-channel-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}.message-channel-grid button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.message-channel-grid button.active{background:rgba(99,229,70,.12);color:var(--green);border-color:rgba(99,229,70,.28)}.message-field{display:grid;gap:7px;margin-top:12px}.message-field span{color:var(--muted);font-size:12px;font-weight:850}.message-field input,.message-field textarea{width:100%;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:12px 14px;outline:0}.message-field textarea{min-height:170px;resize:vertical;line-height:1.55}.message-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.message-actions button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px;font-weight:850;cursor:pointer}.message-actions button:last-child{background:var(--green);color:#061008;border-color:transparent}.communication-search{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted);margin-bottom:12px}.communication-search input{flex:1;min-width:0;height:40px;border:0;background:transparent;color:var(--white);outline:0}.communication-table{display:grid;gap:9px}.communication-table-head,.communication-table-row{display:grid;grid-template-columns:1.2fr 1.35fr 100px 110px 110px;gap:12px;align-items:center}.communication-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.communication-table-row{min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.communication-table-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.communication-table-row button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.channel-pill,.communication-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.channel-pill.internal{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.055);color:var(--white)}.channel-pill.ads{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.communication-status.draft{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.055);color:var(--muted)}.communication-status.risk{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.communication-side-card>span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.communication-side-card h2{margin:8px 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.communication-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.communication-side-card button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.communication-side-card button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.email-preview-card{border-radius:16px;border:1px solid rgba(99,229,70,.18);background:radial-gradient(circle at 82% 20%,rgba(99,229,70,.18),transparent 34%),rgba(255,255,255,.035);padding:16px}.email-preview-card h3{font-size:26px;line-height:1.05;margin:12px 0;color:var(--green);letter-spacing:-.04em}.email-preview-card button{width:auto;background:var(--green);color:#061008;border:0;padding:0 16px}.automation-grid,.audience-grid,.campaign-grid,.ads-event-grid,.template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.automation-card,.audience-card,.campaign-card,.ad-event,.template-card,.report-card{border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.026);padding:16px;color:var(--white);text-align:left}.automation-card span,.campaign-card span,.ad-event span,.template-card span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.automation-card strong,.audience-card strong,.campaign-card strong,.ad-event strong,.template-card strong{display:block;margin-top:10px;font-size:18px}.automation-card p,.campaign-card p,.ad-event p,.template-card p,.audience-card p{color:var(--muted);line-height:1.45;font-size:13px}.automation-card em,.ad-event em,.template-card em{color:var(--green);font-style:normal;font-size:12px;font-weight:900}.automation-card button,.campaign-card button{min-height:36px;border-radius:10px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;cursor:pointer}.audience-card strong{font-size:34px;line-height:1;color:var(--green)}.audience-card span{display:block;margin-top:8px;font-weight:900}.segment-builder-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.segment-rule{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:13px}.segment-rule span{color:var(--muted);font-size:12px}.segment-rule strong{display:block;margin-top:6px}.segment-main-action{margin-top:14px;min-height:42px;border-radius:999px;border:0;background:var(--green);color:#061008;font-weight:950;padding:0 16px}.ads-connection-card{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;background:radial-gradient(circle at 82% 22%,rgba(99,229,70,.16),transparent 34%),var(--panel)}.ads-connection-card h2{margin:0;font-size:30px;line-height:.98;letter-spacing:-.05em}.ads-connection-card p{color:var(--muted);line-height:1.6;max-width:760px}.ads-connection-card button{min-height:42px;border-radius:999px;border:0;background:var(--green);color:#061008;font-weight:950;padding:0 16px;white-space:nowrap}.retargeting-list{display:grid;gap:10px}.retargeting-row{min-height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;color:var(--muted)}.retargeting-row strong{color:var(--green)}.template-card{cursor:pointer}.template-card em{display:block;margin-top:auto}
+
+
+      @media(max-width:1460px){.communication-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.communication-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.communications-layout{grid-template-columns:1fr}.communications-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.communication-table-head,.communication-table-row{grid-template-columns:1fr}.segment-builder-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.communications-hero{align-items:stretch;flex-direction:column}.communications-hero-panel{width:100%}.communication-tabs,.communication-stats-grid,.communications-side-column,.message-channel-grid,.segment-builder-grid{grid-template-columns:1fr}.ads-connection-card{flex-direction:column}.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
