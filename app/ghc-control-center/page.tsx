@@ -446,7 +446,17 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos", "comunicaciones"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "analitica" ? (
+          <AnaliticaAdmin
+            dashboardData={dashboardData}
+            courseViews={courseViews}
+            studentViews={studentViews}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos", "comunicaciones", "analitica"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
@@ -3223,6 +3233,265 @@ function RetargetingRow({ title, channel }: { title: string; channel: string }) 
 }
 
 
+function AnaliticaAdmin({
+  dashboardData,
+  courseViews,
+  studentViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  dashboardData: DashboardData;
+  courseViews: CourseAdminView[];
+  studentViews: StudentAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const analytics = buildAnalyticsSnapshot(dashboardData, courseViews, studentViews);
+  const topCourses = buildTopCourseAnalytics(courseViews);
+  const riskStudents = studentViews.filter((student) => student.riskTone === "yellow" || student.riskTone === "red");
+  const highValueStudents = studentViews.filter((student) => student.commercialTier !== "Inicial");
+
+  return (
+    <div className="analytics-admin-page">
+      <section className="analytics-hero">
+        <div>
+          <p className="admin-kicker">Inteligencia académica y comercial</p>
+          <h1>Analítica</h1>
+          <p>Mide progreso, ventas, retención, certificados, abandono y oportunidades para tomar mejores decisiones en GHC Academy.</p>
+        </div>
+
+        <div className="analytics-hero-panel">
+          <span>Panel estratégico</span>
+          <strong>Datos académicos + ventas + comunicaciones</strong>
+          <p>Lectura unificada para saber qué cursos funcionan, dónde se pierde gente y qué oportunidades de crecimiento hay.</p>
+          <button type="button" onClick={() => setSystemMessage("Los informes avanzados se conectarán cuando tengamos datos reales de pagos, campañas y progreso.")}>
+            Preparar informe
+          </button>
+        </div>
+      </section>
+
+      <section className="analytics-stats-grid">
+        <AnalyticsMetric label="Alumnos activos" value={analytics.activeStudents} helper="Base real Supabase" />
+        <AnalyticsMetric label="Finalización" value={`${analytics.completionRate}%`} helper="Cursos completados" />
+        <AnalyticsMetric label="Certificados" value={analytics.certificates} helper="Emitidos / válidos" />
+        <AnalyticsMetric label="Riesgo abandono" value={riskStudents.length} helper="Seguimiento recomendado" warning />
+        <AnalyticsMetric label="Alto valor" value={highValueStudents.length} helper="Fidelización" accent />
+      </section>
+
+      <section className="analytics-layout">
+        <div className="analytics-main-column">
+          <article className="analytics-growth-card">
+            <div className="card-head">
+              <div>
+                <h2>Tendencia general</h2>
+                <p>Progreso académico, actividad y crecimiento operativo de la academia.</p>
+              </div>
+              <button type="button">Últimos 30 días</button>
+            </div>
+
+            <div className="analytics-chart-area">
+              <svg viewBox="0 0 960 300" aria-hidden="true">
+                <defs>
+                  <linearGradient id="analyticsGreen" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={GREEN} stopOpacity="0.42" />
+                    <stop offset="100%" stopColor={GREEN} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d="M36 248 L120 220 L204 226 L288 180 L372 160 L456 122 L540 140 L624 108 L708 118 L792 82 L924 60" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M36 248 L120 220 L204 226 L288 180 L372 160 L456 122 L540 140 L624 108 L708 118 L792 82 L924 60 L924 286 L36 286 Z" fill="url(#analyticsGreen)" />
+                <path d="M36 218 L120 230 L204 204 L288 196 L372 170 L456 142 L540 154 L624 126 L708 138 L792 110 L924 92" fill="none" stroke="rgba(244,246,242,.42)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+
+            <div className="analytics-summary-strip">
+              <MiniMetric label="Lecciones completadas" value={formatNumber(analytics.lessonProgress)} trend="real" />
+              <MiniMetric label="Módulos completados" value={formatNumber(analytics.moduleCompletions)} trend="real" />
+              <MiniMetric label="Cursos activos" value={formatNumber(analytics.coursesTotal)} trend="catálogo" />
+              <MiniMetric label="Contenido total" value={formatNumber(analytics.lessonsTotal)} trend="lecciones" />
+            </div>
+          </article>
+
+          <article className="analytics-table-card">
+            <div className="card-head compact">
+              <h2>Cursos con mayor potencial</h2>
+              <button type="button" onClick={() => setActiveTab("cursos")}>Ver cursos</button>
+            </div>
+
+            <div className="analytics-course-table">
+              <div className="analytics-course-head">
+                <span>Curso</span>
+                <span>Estado</span>
+                <span>Módulos</span>
+                <span>Lecciones</span>
+                <span>Potencial</span>
+                <span>Acción</span>
+              </div>
+
+              {topCourses.map((course) => (
+                <div key={course.id} className="analytics-course-row">
+                  <div>
+                    <strong>{course.title}</strong>
+                    <p>{course.category} · {course.level}</p>
+                  </div>
+                  <span className={`analytics-status ${course.status}`}>{course.statusLabel}</span>
+                  <strong>{course.modulesCount}</strong>
+                  <strong>{course.lessonsCount}</strong>
+                  <div className="potential-bar">
+                    <div style={{ width: `${course.potential}%` }} />
+                    <span>{course.potential}%</span>
+                  </div>
+                  <button type="button" onClick={() => setSystemMessage(`Análisis preparado para ${course.title}.`)}>
+                    Analizar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <section className="analytics-bottom-grid">
+            <article className="analytics-insight-card">
+              <h2>Embudo académico</h2>
+              <FunnelRow label="Alumnos registrados" value={analytics.activeStudents} percent={100} />
+              <FunnelRow label="Con progreso" value={analytics.studentsWithProgress} percent={analytics.progressPercent} />
+              <FunnelRow label="Cursos completados" value={analytics.completedCourses} percent={analytics.completionRate} />
+              <FunnelRow label="Certificados" value={analytics.certificates} percent={analytics.certificatePercent} />
+            </article>
+
+            <article className="analytics-insight-card">
+              <h2>Alertas clave</h2>
+              <InsightAlert title="Riesgo de abandono" text={`${riskStudents.length} alumnos necesitan seguimiento.`} tone="warning" />
+              <InsightAlert title="Fidelización" text={`${highValueStudents.length} alumnos podrían recibir premio o acceso especial.`} tone="green" />
+              <InsightAlert title="Pagos" text="Pendiente conectar Stripe/SumUp para ingreso neto real." tone="muted" />
+              <InsightAlert title="Marketing" text="Publicidad externa preparada para Meta/Google." tone="green" />
+            </article>
+          </section>
+        </div>
+
+        <aside className="analytics-side-column">
+          <article className="analytics-side-card">
+            <h2>Oportunidades</h2>
+            <OpportunityItem label="Reactivar alumnos inactivos" action="Comunicaciones" onClick={() => setActiveTab("comunicaciones")} />
+            <OpportunityItem label="Premiar alumnos de alto valor" action="Alumnos" onClick={() => setActiveTab("alumnos")} />
+            <OpportunityItem label="Crear upsell tras certificado" action="Certificados" onClick={() => setActiveTab("certificados")} />
+            <OpportunityItem label="Medir ventas por curso" action="Finanzas" onClick={() => setActiveTab("pagos")} />
+          </article>
+
+          <article className="analytics-side-card">
+            <h2>Decisiones recomendadas</h2>
+            <p>La analítica debe ayudarte a decidir qué curso lanzar, qué alumno recuperar, qué campaña enviar y dónde invertir en publicidad.</p>
+            <div className="decision-tags">
+              <span>Retención</span>
+              <span>Ventas</span>
+              <span>Progreso</span>
+              <span>Fidelización</span>
+              <span>Ads</span>
+            </div>
+          </article>
+
+          <article className="analytics-side-card">
+            <h2>Reportes preparados</h2>
+            <button type="button" onClick={() => setSystemMessage("Informe académico mensual preparado para conectar.")}>Informe académico</button>
+            <button type="button" onClick={() => setSystemMessage("Informe comercial preparado para conectar con Finanzas.")}>Informe comercial</button>
+            <button type="button" onClick={() => setSystemMessage("Informe de campañas preparado para Comunicaciones.")}>Informe marketing</button>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function buildAnalyticsSnapshot(data: DashboardData, courseViews: CourseAdminView[], studentViews: StudentAdminView[]) {
+  const completedCourses = data.courseCompletions.filter(
+    (item) => item.completed === true || String(item.status || "").toLowerCase() === "completed"
+  ).length;
+
+  const studentsWithProgress = studentViews.filter((student) => student.progress > 0).length;
+  const activeStudents = studentViews.length;
+  const certificates = data.certificates.filter((certificate) => {
+    const status = String(certificate.status || "valid").toLowerCase();
+    return !["revoked", "revocado", "cancelled", "cancelado"].includes(status);
+  }).length;
+
+  const completionRate = activeStudents ? Math.min(100, Math.round((completedCourses / activeStudents) * 100)) : 0;
+  const progressPercent = activeStudents ? Math.round((studentsWithProgress / activeStudents) * 100) : 0;
+  const certificatePercent = activeStudents ? Math.round((certificates / activeStudents) * 100) : 0;
+
+  return {
+    activeStudents,
+    studentsWithProgress,
+    progressPercent,
+    completedCourses,
+    completionRate,
+    certificates,
+    certificatePercent,
+    moduleCompletions: data.moduleCompletions.length,
+    lessonProgress: data.lessonProgress.length,
+    coursesTotal: courseViews.length,
+    lessonsTotal: data.lessons.length,
+  };
+}
+
+function buildTopCourseAnalytics(courseViews: CourseAdminView[]) {
+  return courseViews.slice(0, 6).map((course, index) => ({
+    ...course,
+    potential: Math.min(100, Math.max(22, course.progressHint + (index % 3) * 8)),
+  }));
+}
+
+function AnalyticsMetric({
+  label,
+  value,
+  helper,
+  accent = false,
+  warning = false,
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+  accent?: boolean;
+  warning?: boolean;
+}) {
+  return (
+    <article className={accent ? "analytics-metric accent" : warning ? "analytics-metric warning" : "analytics-metric"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
+function FunnelRow({ label, value, percent }: { label: string; value: number; percent: number }) {
+  return (
+    <div className="funnel-row">
+      <div>
+        <strong>{label}</strong>
+        <span>{formatNumber(value)}</span>
+      </div>
+      <div className="funnel-track"><div style={{ width: `${Math.min(100, Math.max(6, percent))}%` }} /></div>
+      <em>{percent}%</em>
+    </div>
+  );
+}
+
+function InsightAlert({ title, text, tone }: { title: string; text: string; tone: "green" | "warning" | "muted" }) {
+  return (
+    <div className={`insight-alert ${tone}`}>
+      <strong>{title}</strong>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function OpportunityItem({ label, action, onClick }: { label: string; action: string; onClick: () => void }) {
+  return (
+    <button type="button" className="opportunity-item" onClick={onClick}>
+      <span>{label}</span>
+      <strong>{action} ›</strong>
+    </button>
+  );
+}
+
+
 function ComingSoon({ tab }: { tab: AdminTab }) { return <section className="coming-soon"><p className="admin-kicker">Módulo administrador</p><h1>{getTabLabel(tab)}</h1><p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador. La arquitectura ya queda preparada para hacerla funcional por fases.</p></section>; }
 function ChartSvg() { return <svg viewBox="0 0 900 260" aria-hidden="true"><defs><linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity="0.42" /><stop offset="100%" stopColor={GREEN} stopOpacity="0" /></linearGradient></defs><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z" fill="url(#adminChartGradient)" /><path d="M30 185 L110 208 L190 174 L270 142 L350 118 L430 78 L510 108 L590 82 L670 98 L750 62 L850 88" fill="none" stroke="rgba(244,246,242,.42)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function Background() { return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>; }
@@ -3514,7 +3783,11 @@ function GlobalStyles() {
       .communications-admin-page{display:grid;gap:16px}.communications-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.communications-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.communications-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.communications-hero-panel{width:410px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.communications-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.communications-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.communications-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.communications-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.communication-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.communication-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.communication-tabs button{min-height:66px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.028);color:var(--muted);cursor:pointer;text-align:left;padding:12px 14px}.communication-tabs button strong{display:block;color:var(--white);font-size:14px}.communication-tabs button span{display:block;margin-top:4px;font-size:11px;color:var(--soft)}.communication-tabs button.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.08);box-shadow:inset 0 0 0 1px rgba(99,229,70,.08)}.communication-tabs button.active strong{color:var(--green)}.communications-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.communications-main-column,.communications-side-column{display:grid;gap:14px}.message-composer-card,.communications-table-card,.communication-side-card,.communications-full-panel,.ads-connection-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.message-channel-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}.message-channel-grid button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.message-channel-grid button.active{background:rgba(99,229,70,.12);color:var(--green);border-color:rgba(99,229,70,.28)}.message-field{display:grid;gap:7px;margin-top:12px}.message-field span{color:var(--muted);font-size:12px;font-weight:850}.message-field input,.message-field textarea{width:100%;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:12px 14px;outline:0}.message-field textarea{min-height:170px;resize:vertical;line-height:1.55}.message-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.message-actions button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px;font-weight:850;cursor:pointer}.message-actions button:last-child{background:var(--green);color:#061008;border-color:transparent}.communication-search{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted);margin-bottom:12px}.communication-search input{flex:1;min-width:0;height:40px;border:0;background:transparent;color:var(--white);outline:0}.communication-table{display:grid;gap:9px}.communication-table-head,.communication-table-row{display:grid;grid-template-columns:1.2fr 1.35fr 100px 110px 110px;gap:12px;align-items:center}.communication-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.communication-table-row{min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.communication-table-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.communication-table-row button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.channel-pill,.communication-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.channel-pill.internal{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.055);color:var(--white)}.channel-pill.ads{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.communication-status.draft{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.055);color:var(--muted)}.communication-status.risk{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.communication-side-card>span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.communication-side-card h2{margin:8px 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.communication-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.communication-side-card button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.communication-side-card button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.email-preview-card{border-radius:16px;border:1px solid rgba(99,229,70,.18);background:radial-gradient(circle at 82% 20%,rgba(99,229,70,.18),transparent 34%),rgba(255,255,255,.035);padding:16px}.email-preview-card h3{font-size:26px;line-height:1.05;margin:12px 0;color:var(--green);letter-spacing:-.04em}.email-preview-card button{width:auto;background:var(--green);color:#061008;border:0;padding:0 16px}.automation-grid,.audience-grid,.campaign-grid,.ads-event-grid,.template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.automation-card,.audience-card,.campaign-card,.ad-event,.template-card,.report-card{border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.026);padding:16px;color:var(--white);text-align:left}.automation-card span,.campaign-card span,.ad-event span,.template-card span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.automation-card strong,.audience-card strong,.campaign-card strong,.ad-event strong,.template-card strong{display:block;margin-top:10px;font-size:18px}.automation-card p,.campaign-card p,.ad-event p,.template-card p,.audience-card p{color:var(--muted);line-height:1.45;font-size:13px}.automation-card em,.ad-event em,.template-card em{color:var(--green);font-style:normal;font-size:12px;font-weight:900}.automation-card button,.campaign-card button{min-height:36px;border-radius:10px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;cursor:pointer}.audience-card strong{font-size:34px;line-height:1;color:var(--green)}.audience-card span{display:block;margin-top:8px;font-weight:900}.segment-builder-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.segment-rule{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:13px}.segment-rule span{color:var(--muted);font-size:12px}.segment-rule strong{display:block;margin-top:6px}.segment-main-action{margin-top:14px;min-height:42px;border-radius:999px;border:0;background:var(--green);color:#061008;font-weight:950;padding:0 16px}.ads-connection-card{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;background:radial-gradient(circle at 82% 22%,rgba(99,229,70,.16),transparent 34%),var(--panel)}.ads-connection-card h2{margin:0;font-size:30px;line-height:.98;letter-spacing:-.05em}.ads-connection-card p{color:var(--muted);line-height:1.6;max-width:760px}.ads-connection-card button{min-height:42px;border-radius:999px;border:0;background:var(--green);color:#061008;font-weight:950;padding:0 16px;white-space:nowrap}.retargeting-list{display:grid;gap:10px}.retargeting-row{min-height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;color:var(--muted)}.retargeting-row strong{color:var(--green)}.template-card{cursor:pointer}.template-card em{display:block;margin-top:auto}
 
 
-      @media(max-width:1460px){.communication-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.communication-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.communications-layout{grid-template-columns:1fr}.communications-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.communication-table-head,.communication-table-row{grid-template-columns:1fr}.segment-builder-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.communications-hero{align-items:stretch;flex-direction:column}.communications-hero-panel{width:100%}.communication-tabs,.communication-stats-grid,.communications-side-column,.message-channel-grid,.segment-builder-grid{grid-template-columns:1fr}.ads-connection-card{flex-direction:column}.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+
+      .analytics-admin-page{display:grid;gap:16px}.analytics-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.analytics-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.analytics-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.analytics-hero-panel{width:410px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.analytics-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.analytics-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.analytics-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.analytics-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.analytics-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.analytics-metric{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:16px;min-height:118px}.analytics-metric span{color:var(--muted);font-size:12px;font-weight:850}.analytics-metric strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.analytics-metric p{color:var(--muted);margin:6px 0 0;font-size:12px}.analytics-metric.accent strong{color:var(--green)}.analytics-metric.warning strong{color:var(--warning)}.analytics-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.analytics-main-column,.analytics-side-column{display:grid;gap:14px}.analytics-growth-card,.analytics-table-card,.analytics-insight-card,.analytics-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.analytics-chart-area{min-height:260px;border:1px solid rgba(255,255,255,.06);border-radius:16px;background:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:50px 50px;overflow:hidden}.analytics-chart-area svg{width:100%;height:260px;display:block}.analytics-summary-strip{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}.analytics-course-table{display:grid;gap:9px}.analytics-course-head,.analytics-course-row{display:grid;grid-template-columns:1.3fr 110px 70px 80px 170px 90px;gap:12px;align-items:center}.analytics-course-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.analytics-course-row{min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.analytics-course-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.analytics-course-row button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.analytics-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.analytics-status.draft{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.analytics-status.hidden{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.055);color:var(--muted)}.potential-bar{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;align-items:center}.potential-bar>div{height:8px;border-radius:999px;background:var(--green);box-shadow:0 0 18px rgba(99,229,70,.22)}.potential-bar span{color:var(--green);font-size:12px;font-weight:950}.analytics-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.funnel-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,240px) 48px;gap:10px;align-items:center;padding:11px 0;border-top:1px solid rgba(255,255,255,.055)}.funnel-row span{display:block;color:var(--muted);font-size:12px;margin-top:3px}.funnel-track{height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.funnel-track div{height:100%;border-radius:999px;background:var(--green)}.funnel-row em{font-style:normal;color:var(--green);font-weight:950}.insight-alert{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px;margin-top:10px}.insight-alert p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.insight-alert.green strong{color:var(--green)}.insight-alert.warning strong{color:var(--warning)}.insight-alert.muted strong{color:var(--white)}.analytics-side-card h2{margin:0 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.analytics-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.opportunity-item{width:100%;min-height:54px;border-radius:14px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.026);color:var(--white);display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;margin-top:9px;text-align:left;cursor:pointer}.opportunity-item span{color:var(--muted)}.opportunity-item strong{color:var(--green)}.decision-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.decision-tags span{border-radius:999px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.07);color:var(--green);padding:7px 10px;font-size:12px;font-weight:900}.analytics-side-card button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.analytics-side-card button:first-of-type{background:var(--green);color:#061008;border-color:transparent}
+
+
+      @media(max-width:1460px){.analytics-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-layout{grid-template-columns:1fr}.analytics-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.analytics-course-head,.analytics-course-row{grid-template-columns:1fr}.analytics-summary-strip,.analytics-bottom-grid{grid-template-columns:1fr}.communication-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.communication-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.communications-layout{grid-template-columns:1fr}.communications-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.communication-table-head,.communication-table-row{grid-template-columns:1fr}.segment-builder-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.analytics-hero{align-items:stretch;flex-direction:column}.analytics-hero-panel{width:100%}.analytics-stats-grid,.analytics-side-column,.funnel-row{grid-template-columns:1fr}.communications-hero{align-items:stretch;flex-direction:column}.communications-hero-panel{width:100%}.communication-tabs,.communication-stats-grid,.communications-side-column,.message-channel-grid,.segment-builder-grid{grid-template-columns:1fr}.ads-connection-card{flex-direction:column}.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
