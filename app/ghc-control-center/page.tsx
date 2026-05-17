@@ -2802,6 +2802,78 @@ function GlobalStyles() {
       .payment-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.payment-tabs button{min-height:66px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.028);color:var(--muted);cursor:pointer;text-align:left;padding:12px 14px}.payment-tabs button strong{display:block;color:var(--white);font-size:14px}.payment-tabs button span{display:block;margin-top:4px;font-size:11px;color:var(--soft)}.payment-tabs button.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.08);box-shadow:inset 0 0 0 1px rgba(99,229,70,.08)}.payment-tabs button.active strong{color:var(--green)}.payments-full-panel,.finance-hero-card,.finance-table-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.payments-detail-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}.payment-access-grid,.finance-stats-grid,.reports-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.access-rules-list{display:grid;gap:10px;margin-top:16px;max-width:620px}.scholarship-list{display:grid;gap:10px;margin-top:16px}.scholarship-row{min-height:68px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px}.scholarship-row>span{width:44px;height:44px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.18);color:var(--green);font-weight:950}.scholarship-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.scholarship-row button{min-height:36px;border-radius:10px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;cursor:pointer}.finance-page{display:grid;gap:14px}.finance-hero-card{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;background:radial-gradient(circle at 80% 20%,rgba(99,229,70,.11),transparent 34%),var(--panel)}.finance-hero-card h2{margin:0;font-size:30px;line-height:.98;letter-spacing:-.05em}.finance-hero-card p{color:var(--muted);line-height:1.6;max-width:780px}.finance-export-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.finance-export-actions button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px;font-weight:850;cursor:pointer}.finance-export-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}.finance-stats-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.finance-metric{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.026);padding:16px;min-height:104px}.finance-metric span{color:var(--muted);font-size:12px;font-weight:850}.finance-metric strong{display:block;margin-top:10px;font-size:26px;letter-spacing:-.04em}.finance-metric.accent strong{color:var(--green)}.finance-metric.warning strong{color:var(--warning)}.finance-metric.danger strong{color:var(--danger)}.finance-filters{display:grid;grid-template-columns:minmax(280px,1fr) 170px 160px 130px 130px;gap:10px;border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:10px}.finance-search{min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.finance-search input,.finance-filters input,.finance-filters select{width:100%;min-height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px;outline:0}.finance-search input{border:0;background:transparent;padding:0}.finance-filters option{background:#080b0a;color:var(--white)}.finance-table{display:grid;gap:8px;overflow-x:auto}.finance-table-head,.finance-table-row{display:grid;grid-template-columns:90px 1.15fr 1.2fr 150px 90px 90px 90px 90px 90px 100px;gap:10px;align-items:center;min-width:1180px}.finance-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 10px}.finance-table-row{min-height:72px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:11px}.finance-table-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.finance-table-row code{color:var(--green);font-size:12px;white-space:normal;word-break:break-word}.gateway-pill,.finance-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.gateway-pill{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);color:var(--white)}.gateway-pill.stripe{border-color:rgba(99,229,70,.24);color:var(--green);background:rgba(99,229,70,.08)}.gateway-pill.sumup{border-color:rgba(247,201,72,.24);color:var(--warning);background:rgba(247,201,72,.08)}.fee-value{color:var(--warning)}.refund-value{color:var(--danger)}.net-value{color:var(--green)}.finance-status{border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.finance-status.pending{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.finance-status.failed,.finance-status.refunded{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.report-card{min-height:160px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.026);color:var(--white);display:grid;gap:8px;text-align:left;padding:16px;cursor:pointer}.report-card span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.report-card p{color:var(--muted);line-height:1.45;margin:0}.report-card em{color:var(--green);font-style:normal;font-weight:900}.report-summary-strip{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}
 
 
+      
+      .admin-shell,
+      .payments-admin-page,
+      .finance-page,
+      .finance-table-card,
+      .payments-full-panel,
+      .payments-overview-card,
+      .payments-table-card {
+        min-width: 0;
+      }
+
+      .finance-hero-card {
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .finance-export-actions {
+        min-width: 0;
+        max-width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .finance-export-actions button {
+        white-space: nowrap;
+      }
+
+      .finance-table-card {
+        overflow: hidden;
+      }
+
+      .finance-table {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 8px;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(99,229,70,.45) rgba(255,255,255,.06);
+      }
+
+      .finance-table::-webkit-scrollbar {
+        height: 9px;
+      }
+
+      .finance-table::-webkit-scrollbar-track {
+        background: rgba(255,255,255,.055);
+        border-radius: 999px;
+      }
+
+      .finance-table::-webkit-scrollbar-thumb {
+        background: rgba(99,229,70,.45);
+        border-radius: 999px;
+      }
+
+      .finance-table-head,
+      .finance-table-row {
+        min-width: 1180px;
+      }
+
+      .finance-table-row > *,
+      .finance-table-head > * {
+        min-width: 0;
+      }
+
+      .finance-table-row strong,
+      .finance-table-row span,
+      .finance-table-row code,
+      .finance-table-row p {
+        overflow-wrap: anywhere;
+      }
+
+
       @media(max-width:1460px){.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
