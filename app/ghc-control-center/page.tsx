@@ -3112,7 +3112,7 @@ type CommunicationRow = {
 };
 
 function buildCommunicationRows(studentViews: StudentAdminView[], courseViews: CourseAdminView[]): CommunicationRow[] {
-  const rows = studentViews.slice(0, 8).map((student, index) => {
+  const rows: CommunicationRow[] = studentViews.slice(0, 8).map((student, index) => {
     const risk = student.riskTone === "yellow" || student.riskTone === "red";
     const highValue = student.commercialTier !== "Inicial";
     const hasCertificate = student.certificates > 0;
@@ -3141,9 +3141,9 @@ function buildCommunicationRows(studentViews: StudentAdminView[], courseViews: C
       reason,
       detail,
       channel: risk ? "Email" : highValue ? "Interno" : "Email",
-      channelTone: risk ? "email" : highValue ? "internal" : "email",
+      channelTone: (risk ? "email" : highValue ? "internal" : "email") as CommunicationRow["channelTone"],
       status: risk ? "Preparado" : "Borrador",
-      statusTone: risk ? "ready" : "draft",
+      statusTone: (risk ? "ready" : "draft") as CommunicationRow["statusTone"],
       action: risk ? "Contactar" : "Preparar",
       actionMessage: risk
         ? `Mensaje de ayuda preparado para ${student.name}.`
