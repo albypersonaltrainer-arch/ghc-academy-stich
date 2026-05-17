@@ -1646,8 +1646,7 @@ function CertificadosAdmin({
                     <span />
                     <p>Dirección académica</p>
                   </div>
-                  <div className="certificate-preview-code">{featuredCertificate?.code || "GHC-2026-320001-A7K9"}</div>
-                  <div className="certificate-preview-seal">GHC</div>
+                  <div className="certificate-preview-code">Registro: {featuredCertificate?.code || "GHC-2026-320001-A7K9"}</div>
                 </div>
               </div>
 
@@ -1810,7 +1809,154 @@ function GlobalStyles() {
       .certificate-preview-code{position:static!important;align-self:end;font-size:9px!important;line-height:1.15;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(34,27,16,.48);text-align:center;max-width:150px;word-break:break-word}
       .certificate-preview-seal{position:static!important;width:68px!important;height:68px!important;border-radius:999px;display:grid;place-items:center;background:radial-gradient(circle,#fff1bf,#d6b25e 42%,#7c5415);font-weight:950;color:#4d330a;box-shadow:0 10px 24px rgba(80,52,12,.22)}
 
-            @media(max-width:1460px){.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+      
+
+      /* Certificado GHC refinado: sobrio, alineado y profesional */
+      .certificate-preview-admin{
+        min-height:340px!important;
+        width:100%;
+        max-width:640px;
+        margin:0 auto;
+        border-radius:18px;
+        color:#17130b;
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:center!important;
+        justify-content:flex-start!important;
+        padding:28px 40px 38px!important;
+        gap:0!important;
+        overflow:hidden!important;
+      }
+      .certificate-preview-admin:before{
+        inset:18px!important;
+        border:1.5px solid rgba(75,55,20,.18)!important;
+      }
+      .certificate-preview-border{
+        inset:30px!important;
+        border:1px solid rgba(75,55,20,.10)!important;
+      }
+      .certificate-preview-brand{
+        position:relative!important;
+        z-index:2!important;
+        display:flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        min-height:38px!important;
+        margin:0 0 20px!important;
+        transform:scale(.92);
+        transform-origin:center;
+      }
+      .certificate-preview-title{
+        position:relative!important;
+        z-index:2!important;
+        width:100%!important;
+        max-width:520px!important;
+        margin:0 auto!important;
+        font-family:Georgia,serif!important;
+        font-size:clamp(30px,3.2vw,38px)!important;
+        line-height:1!important;
+        letter-spacing:.105em!important;
+        font-weight:700!important;
+        color:#20180d!important;
+        text-transform:uppercase!important;
+        white-space:nowrap!important;
+        text-align:center!important;
+      }
+      .certificate-preview-subtitle{
+        position:relative!important;
+        z-index:2!important;
+        margin-top:10px!important;
+        font-size:10px!important;
+        letter-spacing:.22em!important;
+        text-transform:uppercase!important;
+        font-weight:850!important;
+        color:rgba(34,27,16,.68)!important;
+      }
+      .certificate-preview-awarded{
+        position:relative!important;
+        z-index:2!important;
+        margin-top:20px!important;
+        font-size:9px!important;
+        text-transform:uppercase!important;
+        letter-spacing:.16em!important;
+        font-weight:850!important;
+        color:rgba(34,27,16,.55)!important;
+      }
+      .certificate-preview-admin h3{
+        position:relative!important;
+        z-index:2!important;
+        margin:6px 0 0!important;
+        font-family:Georgia,serif!important;
+        font-style:italic!important;
+        font-size:clamp(28px,2.6vw,34px)!important;
+        line-height:1.05!important;
+        color:#21190d!important;
+      }
+      .certificate-preview-divider{
+        position:relative!important;
+        z-index:2!important;
+        width:42%!important;
+        height:1px!important;
+        background:rgba(75,55,20,.24)!important;
+        margin:10px 0 8px!important;
+      }
+      .certificate-preview-course{
+        position:relative!important;
+        z-index:2!important;
+        display:block!important;
+        max-width:360px!important;
+        font-family:Georgia,serif!important;
+        font-size:15px!important;
+        line-height:1.25!important;
+        font-weight:700!important;
+        color:#251b0d!important;
+        text-align:center!important;
+      }
+      .certificate-preview-footer{
+        position:absolute!important;
+        left:40px!important;
+        right:40px!important;
+        bottom:30px!important;
+        z-index:2!important;
+        display:grid!important;
+        grid-template-columns:1fr auto!important;
+        gap:18px!important;
+        align-items:end!important;
+      }
+      .certificate-signature{
+        text-align:left!important;
+      }
+      .certificate-signature span{
+        display:block!important;
+        width:150px!important;
+        height:1px!important;
+        background:rgba(34,27,16,.34)!important;
+        margin-bottom:7px!important;
+      }
+      .certificate-signature p{
+        margin:0!important;
+        font-size:8px!important;
+        letter-spacing:.15em!important;
+        text-transform:uppercase!important;
+        color:rgba(34,27,16,.48)!important;
+      }
+      .certificate-preview-code{
+        position:static!important;
+        max-width:190px!important;
+        align-self:end!important;
+        justify-self:end!important;
+        font-size:7.5px!important;
+        line-height:1.2!important;
+        font-weight:700!important;
+        letter-spacing:.08em!important;
+        text-transform:uppercase!important;
+        color:rgba(34,27,16,.38)!important;
+        text-align:right!important;
+        word-break:normal!important;
+      }
+      .certificate-preview-seal{display:none!important;}
+
+      @media(max-width:1460px){.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
