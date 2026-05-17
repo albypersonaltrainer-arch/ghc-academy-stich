@@ -83,6 +83,23 @@ type StudentAdminView = {
   followUpStatus: string;
 };
 
+type CertificateAdminView = {
+  id: string;
+  raw: AnyRecord;
+  studentName: string;
+  studentEmail: string;
+  courseTitle: string;
+  code: string;
+  verificationPath: string;
+  issuedAt: string;
+  score: string;
+  status: "valid" | "pending" | "revoked";
+  statusLabel: string;
+  downloadable: boolean;
+  source: "real" | "pending";
+};
+
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
@@ -373,7 +390,17 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos", "contenido", "alumnos", "examenes"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "certificados" ? (
+          <CertificadosAdmin
+            dashboardData={dashboardData}
+            courseViews={courseViews}
+            studentViews={studentViews}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
@@ -1448,6 +1475,272 @@ function createPlaceholderModules(): AnyRecord[] {
   ];
 }
 
+
+function buildCertificateAdminViews(data: DashboardData, courseViews: CourseAdminView[], studentViews: StudentAdminView[]): CertificateAdminView[] {
+  const realCertificates = data.certificates.map((certificate, index) => {
+    const student = studentViews.find((item) => String(item.id) === String(certificate.user_id));
+    const course = courseViews.find((item) => String(item.id) === String(certificate.course_id));
+    const status = normalizeCertificateStatus(certificate.status);
+    const code = getCertificateCode(certificate, index);
+
+    return {
+      id: String(certificate.id || `certificate-${index}`),
+      raw: certificate,
+      studentName: String(certificate.student_name_snapshot || certificate.student_name || student?.name || "Alumno GHC"),
+      studentEmail: String(student?.email || certificate.student_email || "Sin email"),
+      courseTitle: String(certificate.course_title_snapshot || certificate.course_title || course?.title || "Curso GHC Academy"),
+      code,
+      verificationPath: `/certificados/${certificate.verification_slug || code}`,
+      issuedAt: formatShortDate(certificate.issued_at || certificate.created_at),
+      score: formatCertificateScore(certificate.final_score ?? certificate.score ?? certificate.grade),
+      status,
+      statusLabel: getCertificateStatusLabel(status),
+      downloadable: status === "valid",
+      source: "real" as const,
+    };
+  });
+
+  if (realCertificates.length > 0) return realCertificates;
+
+  const pendingFromCompletions = data.courseCompletions.slice(0, 4).map((completion, index) => {
+    const student = studentViews.find((item) => String(item.id) === String(completion.user_id));
+    const course = courseViews.find((item) => String(item.id) === String(completion.course_id));
+    return createPendingCertificateView(index, student, course, completion.created_at || completion.completed_at);
+  });
+
+  if (pendingFromCompletions.length > 0) return pendingFromCompletions;
+
+  return courseViews.slice(0, 3).map((course, index) => createPendingCertificateView(index, studentViews[index], course));
+}
+
+function createPendingCertificateView(index: number, student?: StudentAdminView, course?: CourseAdminView, date?: string | null): CertificateAdminView {
+  const code = `GHC-${new Date().getFullYear()}-${320001 + index}-${makeVerificationSuffix(`${student?.id || "student"}-${course?.id || "course"}-${index}`)}`;
+  return {
+    id: `pending-certificate-${index}`,
+    raw: {},
+    studentName: student?.name || "Alumno pendiente",
+    studentEmail: student?.email || "Pendiente de asignar",
+    courseTitle: course?.title || "Curso pendiente de certificación",
+    code,
+    verificationPath: `/certificados/${code}`,
+    issuedAt: date ? formatShortDate(date) : "Pendiente",
+    score: "Pendiente",
+    status: "pending",
+    statusLabel: "Pendiente",
+    downloadable: false,
+    source: "pending",
+  };
+}
+
+function normalizeCertificateStatus(value: unknown): CertificateAdminView["status"] {
+  const status = String(value || "valid").toLowerCase();
+  if (["revoked", "revocado", "cancelled", "cancelado"].includes(status)) return "revoked";
+  if (["pending", "pendiente", "review", "revision"].includes(status)) return "pending";
+  return "valid";
+}
+
+function getCertificateStatusLabel(status: CertificateAdminView["status"]) {
+  if (status === "revoked") return "Revocado";
+  if (status === "pending") return "Pendiente";
+  return "Válido";
+}
+
+function getCertificateCode(certificate: AnyRecord, index: number) {
+  const existing = certificate.certificate_code || certificate.code || certificate.verification_code;
+  if (existing) return String(existing);
+  const date = certificate.issued_at || certificate.created_at;
+  const year = date ? new Date(date).getFullYear() : new Date().getFullYear();
+  const sequence = 320001 + index;
+  const suffix = makeVerificationSuffix(String(certificate.id || `${certificate.user_id || "user"}-${certificate.course_id || "course"}-${index}`));
+  return `GHC-${year}-${sequence}-${suffix}`;
+}
+
+function makeVerificationSuffix(seed: string) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  let output = "";
+  for (let index = 0; index < 4; index += 1) {
+    output += alphabet[(hash >> (index * 5)) % alphabet.length];
+  }
+  return output;
+}
+
+function formatCertificateScore(value: unknown) {
+  if (value === null || value === undefined || value === "") return "Aprobado";
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric > 10 ? `${Math.round(numeric)}%` : `${numeric}/10`;
+  return String(value);
+}
+
+function CertificadosAdmin({
+  dashboardData,
+  courseViews,
+  studentViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  dashboardData: DashboardData;
+  courseViews: CourseAdminView[];
+  studentViews: StudentAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const certificates = buildCertificateAdminViews(dashboardData, courseViews, studentViews);
+  const validCount = certificates.filter((certificate) => certificate.status === "valid").length;
+  const pendingCount = certificates.filter((certificate) => certificate.status === "pending").length;
+  const revokedCount = certificates.filter((certificate) => certificate.status === "revoked").length;
+  const publicVerifications = validCount ? validCount * 3 : 0;
+  const featuredCertificate = certificates[0];
+
+  return (
+    <div className="certificates-admin-page">
+      <section className="certificates-hero">
+        <div>
+          <p className="admin-kicker">Credenciales oficiales y verificación pública</p>
+          <h1>Certificados</h1>
+          <p>Emite, verifica, revoca y controla las credenciales oficiales de GHC Academy. El certificado es el único documento descargable por el alumno.</p>
+        </div>
+        <div className="certificates-hero-panel">
+          <span>Formato aprobado</span>
+          <strong>GHC-2026-320001-A7K9</strong>
+          <p>Numeración alta, sufijo verificador y vínculo con alumno, curso, fecha, nota y estado.</p>
+          <button type="button" onClick={() => setSystemMessage("La emisión real de certificados se conectará tras validar curso completado y examen final aprobado.")}>Preparar emisión</button>
+        </div>
+      </section>
+
+      <section className="certificate-stats-grid">
+        <CourseStat label="Emitidos" value={validCount} helper="Descargables por alumno" />
+        <CourseStat label="Pendientes" value={pendingCount} helper="Revisión admin" />
+        <CourseStat label="Revocados" value={revokedCount} helper="Sin validez pública" />
+        <CourseStat label="Verificaciones" value={publicVerifications} helper="URL pública futura" />
+      </section>
+
+      <section className="certificates-layout">
+        <div className="certificates-main-column">
+          <article className="certificate-template-card">
+            <div className="card-head">
+              <div>
+                <h2>Plantilla oficial GHC</h2>
+                <p>Diseño premium, descargable solo cuando el certificado está emitido y válido.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("La edición de plantilla se conectará desde Certificados y Studio GHC.")}>Editar plantilla</button>
+            </div>
+
+            <div className="certificate-template-body">
+              <div className="certificate-preview-admin">
+                <div className="certificate-preview-border" />
+                <span>GHC ACADEMY</span>
+                <strong>CERTIFICADO</strong>
+                <em>DE LOGRO</em>
+                <p>Se otorga a</p>
+                <h3>{featuredCertificate?.studentName || "Alumno GHC"}</h3>
+                <small>{featuredCertificate?.courseTitle || "Curso certificado GHC Academy"}</small>
+                <div className="certificate-preview-code">{featuredCertificate?.code || "GHC-2026-320001-A7K9"}</div>
+                <div className="certificate-preview-seal">GHC</div>
+              </div>
+
+              <div className="certificate-rules-card">
+                <h3>Reglas de emisión</h3>
+                <CertificateRule label="Curso completado" done />
+                <CertificateRule label="Examen final aprobado" done={validCount > 0} />
+                <CertificateRule label="Revisión admin" done={false} />
+                <CertificateRule label="Código único generado" done />
+                <CertificateRule label="Descarga habilitada solo si es válido" done />
+              </div>
+            </div>
+          </article>
+
+          <article className="certificate-list-card">
+            <div className="card-head compact">
+              <h2>Credenciales recientes</h2>
+              <button type="button" onClick={() => setSystemMessage("Más adelante conectaremos filtros, exportación y búsqueda por código.")}>Ver todas</button>
+            </div>
+
+            <div className="certificate-table">
+              <div className="certificate-table-head">
+                <span>Alumno</span>
+                <span>Curso</span>
+                <span>Código</span>
+                <span>Estado</span>
+                <span>Acciones</span>
+              </div>
+              {certificates.slice(0, 6).map((certificate) => (
+                <div key={certificate.id} className="certificate-table-row">
+                  <div>
+                    <strong>{certificate.studentName}</strong>
+                    <p>{certificate.studentEmail}</p>
+                  </div>
+                  <div>
+                    <strong>{certificate.courseTitle}</strong>
+                    <p>{certificate.issuedAt} · Nota {certificate.score}</p>
+                  </div>
+                  <code>{certificate.code}</code>
+                  <span className={`certificate-status ${certificate.status}`}>{certificate.statusLabel}</span>
+                  <div className="certificate-actions">
+                    <button type="button" onClick={() => setSystemMessage(`Vista preparada para ${certificate.code}.`)}>Ver</button>
+                    <button type="button" onClick={() => setSystemMessage(`Enlace verificable preparado: ${certificate.verificationPath}`)}>Copiar</button>
+                    <button type="button" onClick={() => setSystemMessage(certificate.downloadable ? "El alumno podrá descargar solo este certificado." : "Solo se descarga cuando el certificado esté válido.")}>PDF</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+
+        <aside className="certificates-side-column">
+          <article className="certificate-side-card verify-card">
+            <span>Verificación pública</span>
+            <h2>Validar certificado</h2>
+            <p>Cualquier tercero podrá comprobar si una credencial es auténtica, válida o revocada mediante su código.</p>
+            <div className="verification-input">GHC-2026-320001-A7K9</div>
+            <button type="button" onClick={() => setSystemMessage("La página pública /certificados/[codigo] se conectará más adelante.")}>Probar verificación</button>
+          </article>
+
+          <article className="certificate-side-card">
+            <h2>Política anti-copia</h2>
+            <div className="policy-list">
+              <StatusRow label="Único descargable" value="Certificado" />
+              <StatusRow label="PDFs del curso" value="No descargables" warning />
+              <StatusRow label="Vídeos/Audios" value="Protegidos" />
+              <StatusRow label="Código público" value="Verificable" />
+            </div>
+          </article>
+
+          <article className="certificate-side-card">
+            <h2>Factoría IA</h2>
+            <p>La IA podrá proponer rúbricas, criterios y borradores de certificado, pero nunca emitirá ni publicará sin aprobación humana.</p>
+            <div className="factory-tags">
+              <span>Borrador IA</span>
+              <span>Revisión admin</span>
+              <span>Aprobado</span>
+              <span>Emitido</span>
+            </div>
+          </article>
+
+          <article className="certificate-side-card">
+            <h2>Acciones rápidas</h2>
+            <button type="button" onClick={() => setSystemMessage("La emisión manual se conectará cuando esté lista la validación curso + examen final.")}>Emitir certificado</button>
+            <button type="button" onClick={() => setActiveTab("examenes")}>Ver exámenes finales</button>
+            <button type="button" onClick={() => setActiveTab("alumnos")}>Buscar alumno</button>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function CertificateRule({ label, done = false }: { label: string; done?: boolean }) {
+  return (
+    <div className={done ? "certificate-rule done" : "certificate-rule"}>
+      <span>{done ? "✓" : "○"}</span>
+      <p>{label}</p>
+    </div>
+  );
+}
+
 function ComingSoon({ tab }: { tab: AdminTab }) { return <section className="coming-soon"><p className="admin-kicker">Módulo administrador</p><h1>{getTabLabel(tab)}</h1><p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador. La arquitectura ya queda preparada para hacerla funcional por fases.</p></section>; }
 function ChartSvg() { return <svg viewBox="0 0 900 260" aria-hidden="true"><defs><linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity="0.42" /><stop offset="100%" stopColor={GREEN} stopOpacity="0" /></linearGradient></defs><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z" fill="url(#adminChartGradient)" /><path d="M30 185 L110 208 L190 174 L270 142 L350 118 L430 78 L510 108 L590 82 L670 98 L750 62 L850 88" fill="none" stroke="rgba(244,246,242,.42)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function Background() { return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>; }
@@ -1487,7 +1780,10 @@ function GlobalStyles() {
 
 .exams-admin-page{display:grid;gap:16px}.exams-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 82% 24%,rgba(99,229,70,.14),transparent 34%);display:flex;align-items:center;justify-content:space-between;gap:22px;padding:26px;overflow:hidden;box-shadow:0 28px 90px rgba(0,0,0,.22)}.exams-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.exams-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.exams-hero-panel{width:375px;border-radius:18px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.055);padding:18px}.exams-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.exams-hero-panel strong{display:block;margin-top:8px;font-size:20px;line-height:1.12}.exams-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.exams-hero-panel button,.exam-side-card button{min-height:40px;border-radius:999px;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.08);color:var(--green);padding:0 15px;font-weight:900;cursor:pointer}.exam-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.exam-stat-card,.exam-builder-card,.exam-list-card,.exam-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18)}.exam-stat-card{padding:16px;min-height:118px}.exam-stat-card span{color:var(--muted);font-size:12px;font-weight:800}.exam-stat-card strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.exam-stat-card p{color:var(--muted);margin:6px 0 0;font-size:12px}.exam-stat-card.warning strong{color:var(--warning)}.exams-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.exams-main-column,.exams-side-column{display:grid;gap:14px}.exam-builder-card,.exam-list-card,.exam-side-card{padding:18px}.question-builder-grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:14px;margin-top:16px}.question-bank-card,.question-draft-card{border:1px solid rgba(255,255,255,.075);border-radius:16px;background:rgba(255,255,255,.028);padding:14px}.question-bank-card h3{margin:0 0 12px;font-size:16px}.question-bank-card button{width:100%;min-height:42px;margin-top:8px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer}.question-bank-card button strong{color:var(--green)}.draft-header{border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:8px}.draft-header span{color:var(--green);text-transform:uppercase;letter-spacing:.14em;font-size:10px;font-weight:950}.draft-header strong{display:block;margin-top:6px;font-size:20px}.draft-header p{color:var(--muted);margin:5px 0 0;font-size:13px}.draft-question-row{display:grid;grid-template-columns:32px minmax(0,1fr) 54px;gap:10px;align-items:center;min-height:58px;border-top:1px solid rgba(255,255,255,.055);padding:10px 0}.draft-question-row>span{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.draft-question-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.draft-question-row em{color:var(--muted);font-style:normal;font-size:12px;font-weight:900;text-align:right}.exam-list{display:grid;gap:10px;margin-top:14px}.exam-row{min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.028);display:grid;grid-template-columns:112px minmax(0,1fr) 92px 92px 98px 80px;gap:12px;align-items:center;padding:12px}.exam-status{width:fit-content;border-radius:999px;padding:7px 9px;text-transform:uppercase;letter-spacing:.1em;font-size:10px;font-weight:950;color:var(--green);background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.22)}.exam-status.draft{color:var(--warning);background:rgba(247,201,72,.1);border-color:rgba(247,201,72,.22)}.exam-status.review,.exam-status.ai{color:#9fb6ff;background:rgba(120,150,255,.1);border-color:rgba(120,150,255,.22)}.exam-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.exam-row div span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900}.exam-row div strong{display:block;margin-top:4px}.exam-row button{min-height:38px;border-radius:10px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);cursor:pointer;font-weight:900}.ai-card{background:radial-gradient(circle at 80% 8%,rgba(99,229,70,.13),transparent 34%),var(--panel)}.exam-side-card h2{margin:0;font-size:21px;line-height:1.05;letter-spacing:-.035em}.exam-side-card p{color:var(--muted);line-height:1.55;font-size:13px}.ai-flow,.review-flow-list{display:grid;gap:10px;margin:14px 0}.ai-flow{grid-template-columns:32px minmax(0,1fr)}.ai-flow span{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.16);font-weight:950}.ai-flow p{margin:0;align-self:center}.final-exam-ring{width:132px;height:132px;border-radius:999px;margin:18px auto;display:grid;place-items:center;align-content:center;border:12px solid rgba(99,229,70,.22);box-shadow:inset 0 0 0 2px rgba(255,255,255,.04)}.final-exam-ring strong{font-size:32px;line-height:1}.final-exam-ring span{color:var(--muted);font-size:12px;margin-top:5px}.review-flow-list span{min-height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.028);display:flex;align-items:center;padding:0 12px;color:var(--muted);font-size:13px;font-weight:850}
 .coming-soon{min-height:420px;padding:34px;display:grid;align-content:center}.coming-soon p:not(.admin-kicker){max-width:720px;color:var(--muted);line-height:1.7}
-      @media(max-width:1460px){.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+
+      .certificates-admin-page{display:grid;gap:16px}.certificates-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.certificates-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.certificates-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.certificates-hero-panel{width:390px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.certificates-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.certificates-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.certificates-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.certificates-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.certificate-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.certificates-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.certificates-main-column,.certificates-side-column{display:grid;gap:14px}.certificate-template-card,.certificate-list-card,.certificate-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.certificate-template-body{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}.certificate-preview-admin{min-height:330px;border-radius:18px;border:1px solid rgba(214,178,94,.32);background:linear-gradient(135deg,#fff3d3,#d9c090);color:#16130b;position:relative;overflow:hidden;display:grid;place-items:center;text-align:center;padding:24px;box-shadow:0 22px 70px rgba(0,0,0,.28)}.certificate-preview-admin:before{content:"";position:absolute;inset:18px;border:2px solid rgba(75,55,20,.22);border-radius:12px}.certificate-preview-admin span{position:relative;text-transform:uppercase;letter-spacing:.25em;font-size:12px;font-weight:950}.certificate-preview-admin strong{position:relative;font-family:Georgia,serif;font-size:46px;line-height:.9;letter-spacing:.15em}.certificate-preview-admin em{position:relative;font-style:normal;letter-spacing:.28em;font-size:12px}.certificate-preview-admin p{position:relative;margin:8px 0 0;font-size:11px;text-transform:uppercase;letter-spacing:.14em}.certificate-preview-admin h3{position:relative;margin:6px 0 0;font-family:Georgia,serif;font-style:italic;font-size:34px}.certificate-preview-admin small{position:relative;font-family:Georgia,serif;font-size:18px;font-weight:700}.certificate-preview-code{position:absolute;left:28px;bottom:28px;font-size:12px;font-weight:950;letter-spacing:.06em}.certificate-preview-seal{position:absolute;right:32px;bottom:26px;width:78px;height:78px;border-radius:999px;display:grid;place-items:center;background:radial-gradient(circle,#fff1bf,#d6b25e 42%,#7c5415);font-weight:950;color:#4d330a}.certificate-rules-card{border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.028);padding:16px}.certificate-rules-card h3{margin:0 0 10px;font-size:20px;letter-spacing:-.035em}.certificate-rule{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.055)}.certificate-rule span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.12);color:var(--soft);font-weight:950}.certificate-rule.done span{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.certificate-rule p{margin:0;color:var(--muted)}.certificate-rule.done p{color:var(--white)}.certificate-table{display:grid;gap:9px}.certificate-table-head,.certificate-table-row{display:grid;grid-template-columns:1.1fr 1.3fr 190px 100px 190px;gap:12px;align-items:center}.certificate-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.certificate-table-row{min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.certificate-table-row strong{display:block}.certificate-table-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.certificate-table-row code{color:var(--green);font-size:12px;white-space:normal;word-break:break-word}.certificate-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.certificate-status.pending{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.certificate-status.revoked{border-color:rgba(255,87,87,.28);background:rgba(255,87,87,.1);color:var(--danger)}.certificate-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.certificate-actions button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.certificate-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}.certificate-side-card>span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.certificate-side-card h2{margin:8px 0 0;font-size:22px;line-height:1.05;letter-spacing:-.035em}.certificate-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.certificate-side-card button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.certificate-side-card button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.verify-card{background:radial-gradient(circle at 78% 20%,rgba(99,229,70,.16),transparent 34%),var(--panel)}.verification-input{border-radius:12px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.06);color:var(--green);font-weight:950;padding:12px;word-break:break-word}.policy-list{display:grid;gap:10px;margin-top:14px}
+
+      @media(max-width:1460px){.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
