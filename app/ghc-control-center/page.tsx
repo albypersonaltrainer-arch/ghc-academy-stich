@@ -473,7 +473,14 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos", "comunicaciones", "analitica", "seguridad", "studio"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "ajustes" ? (
+          <AjustesAdmin
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos", "comunicaciones", "analitica", "seguridad", "studio", "ajustes"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
@@ -3889,6 +3896,230 @@ function StudioProperty({ label, value }: { label: string; value: string }) {
 }
 
 
+function AjustesAdmin({
+  setActiveTab,
+  setSystemMessage,
+}: {
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  return (
+    <div className="settings-admin-page">
+      <section className="settings-hero">
+        <div>
+          <p className="admin-kicker">Configuración global</p>
+          <h1>Ajustes</h1>
+          <p>Configura identidad, marca, dominio, SEO, emails, pagos, integraciones, legal, backups y preferencias generales de GHC Academy.</p>
+        </div>
+
+        <div className="settings-hero-panel">
+          <span>Centro de configuración</span>
+          <strong>Academia, marca y sistema</strong>
+          <p>Los cambios críticos quedarán protegidos por permisos, revisión y confirmación antes de aplicarse.</p>
+          <button type="button" onClick={() => setSystemMessage("Los cambios globales se guardarán con auditoría cuando conectemos la persistencia de ajustes.")}>
+            Guardar cambios
+          </button>
+        </div>
+      </section>
+
+      <section className="settings-stats-grid">
+        <SettingsMetric label="Dominio" value="ghcacademy.net" helper="Pendiente conexión final" />
+        <SettingsMetric label="Marca" value="GHC" helper="Estética Alumno oficial" accent />
+        <SettingsMetric label="Pagos" value="Pendiente" helper="Stripe/SumUp" warning />
+        <SettingsMetric label="Backups" value="Preparado" helper="Exportación futura" />
+        <SettingsMetric label="Legal" value="Borrador" helper="Textos por completar" warning />
+      </section>
+
+      <section className="settings-layout">
+        <div className="settings-main-column">
+          <article className="settings-card">
+            <div className="card-head">
+              <div>
+                <h2>Identidad de la academia</h2>
+                <p>Datos base visibles en la plataforma, emails, certificados y páginas públicas.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("La edición real de identidad se conectará a la tabla de ajustes globales.")}>Editar</button>
+            </div>
+
+            <div className="settings-grid">
+              <SettingField label="Nombre" value="GHC Academy" />
+              <SettingField label="Tagline" value="Sport Through Science" />
+              <SettingField label="Dominio principal" value="ghcacademy.net" />
+              <SettingField label="Email soporte" value="soporte@ghcacademy.net" />
+              <SettingField label="Zona horaria" value="Europe/Madrid" />
+              <SettingField label="Idioma principal" value="Español" />
+            </div>
+          </article>
+
+          <article className="settings-card">
+            <div className="card-head">
+              <div>
+                <h2>Marca y apariencia</h2>
+                <p>La estética oficial queda bloqueada a la línea Alumno: oscuro/grafito, verde GHC controlado y look científico/deportivo.</p>
+              </div>
+              <button type="button" onClick={() => setActiveTab("studio")}>Abrir Studio</button>
+            </div>
+
+            <div className="brand-settings-grid">
+              <div className="brand-logo-tile">
+                <span>GHC</span>
+                <strong>Academy</strong>
+                <p>Logo oficial ya aprobado</p>
+              </div>
+
+              <div className="brand-palette">
+                <strong>Paleta oficial</strong>
+                <div className="palette-row">
+                  <span style={{ background: "#050706" }} />
+                  <span style={{ background: "#111613" }} />
+                  <span style={{ background: "#f4f6f2" }} />
+                  <span style={{ background: "#8a948f" }} />
+                  <span style={{ background: "#63E546" }} />
+                </div>
+                <p>Negro, grafito, blanco roto, gris acero y verde GHC.</p>
+              </div>
+
+              <div className="brand-style-rules">
+                <strong>Reglas visuales</strong>
+                <p>No usar plantillas genéricas. No cambiar libremente color ni estilo sin preservar la marca.</p>
+              </div>
+            </div>
+          </article>
+
+          <section className="settings-double-grid">
+            <article className="settings-card">
+              <h2>SEO y páginas públicas</h2>
+              <div className="settings-list">
+                <SettingStatus label="Landing principal" value="Pendiente de alinear con Alumno" warning />
+                <SettingStatus label="Catálogo de cursos" value="Pendiente" warning />
+                <SettingStatus label="Certificados públicos" value="Preparado" />
+                <SettingStatus label="Metadatos SEO" value="Borrador" warning />
+              </div>
+            </article>
+
+            <article className="settings-card">
+              <h2>Emails y comunicaciones</h2>
+              <div className="settings-list">
+                <SettingStatus label="Email bienvenida" value="Preparado" />
+                <SettingStatus label="Compra confirmada" value="Pendiente pagos" warning />
+                <SettingStatus label="Certificado emitido" value="Preparado" />
+                <SettingStatus label="Recordatorio inactividad" value="Preparado" />
+              </div>
+            </article>
+          </section>
+
+          <article className="settings-card">
+            <div className="card-head">
+              <div>
+                <h2>Pagos, integraciones y sistema</h2>
+                <p>Conexiones críticas que más adelante deberán configurarse con credenciales seguras y auditoría.</p>
+              </div>
+              <button type="button" onClick={() => setActiveTab("pagos")}>Ver pagos</button>
+            </div>
+
+            <div className="integration-grid">
+              <IntegrationCard title="Supabase" status="Conectado" text="Auth, base de datos y perfiles." active />
+              <IntegrationCard title="Stripe" status="Pendiente" text="Pagos con tarjeta y checkout." />
+              <IntegrationCard title="SumUp" status="Pendiente" text="Cobros alternativos y europeos." />
+              <IntegrationCard title="Meta Pixel" status="Pendiente" text="Publicidad externa y retargeting." />
+              <IntegrationCard title="Google Ads" status="Pendiente" text="Conversiones y campañas." />
+              <IntegrationCard title="Email provider" status="Pendiente" text="Emails transaccionales." />
+            </div>
+          </article>
+        </div>
+
+        <aside className="settings-side-column">
+          <article className="settings-side-card">
+            <h2>Estado del sistema</h2>
+            <div className="settings-system-list">
+              <StatusRow label="Ruta privada admin" value="Activa" />
+              <StatusRow label="/admin público" value="Bloqueado" />
+              <StatusRow label="Role admin" value="Verificado" />
+              <StatusRow label="Alumno visual" value="Referencia oficial" />
+              <StatusRow label="Pagos reales" value="Pendiente" warning />
+            </div>
+          </article>
+
+          <article className="settings-side-card">
+            <h2>Backups y exportación</h2>
+            <p>Preparado para exportar datos, generar copias de seguridad y descargar reportes administrativos.</p>
+            <button type="button" onClick={() => setSystemMessage("Backup/exportación se conectará con Supabase y repositorio cuando lo definamos.")}>Preparar backup</button>
+            <button type="button" onClick={() => setSystemMessage("Exportación CSV/Excel preparada para futuras tablas reales.")}>Exportar datos</button>
+          </article>
+
+          <article className="settings-side-card">
+            <h2>Legal y privacidad</h2>
+            <div className="settings-system-list">
+              <StatusRow label="Aviso legal" value="Pendiente" warning />
+              <StatusRow label="Privacidad" value="Pendiente" warning />
+              <StatusRow label="Cookies" value="Pendiente" warning />
+              <StatusRow label="Condiciones compra" value="Pendiente" warning />
+            </div>
+          </article>
+
+          <article className="settings-side-card danger-zone">
+            <h2>Zona crítica</h2>
+            <p>Las acciones destructivas no estarán disponibles sin confirmación, auditoría y permisos de owner.</p>
+            <button type="button" onClick={() => setSystemMessage("Las acciones críticas quedan bloqueadas hasta implementar permisos owner y logs.")}>Bloqueado</button>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function SettingsMetric({
+  label,
+  value,
+  helper,
+  accent = false,
+  warning = false,
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+  accent?: boolean;
+  warning?: boolean;
+}) {
+  return (
+    <article className={accent ? "settings-metric accent" : warning ? "settings-metric warning" : "settings-metric"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
+function SettingField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="setting-field">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SettingStatus({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
+  return (
+    <div className={warning ? "setting-status warning" : "setting-status"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function IntegrationCard({ title, status, text, active = false }: { title: string; status: string; text: string; active?: boolean }) {
+  return (
+    <article className={active ? "integration-card active" : "integration-card"}>
+      <span>◉</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
+      <em>{status}</em>
+    </article>
+  );
+}
+
+
 function ComingSoon({ tab }: { tab: AdminTab }) { return <section className="coming-soon"><p className="admin-kicker">Módulo administrador</p><h1>{getTabLabel(tab)}</h1><p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador. La arquitectura ya queda preparada para hacerla funcional por fases.</p></section>; }
 function ChartSvg() { return <svg viewBox="0 0 900 260" aria-hidden="true"><defs><linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity="0.42" /><stop offset="100%" stopColor={GREEN} stopOpacity="0" /></linearGradient></defs><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z" fill="url(#adminChartGradient)" /><path d="M30 185 L110 208 L190 174 L270 142 L350 118 L430 78 L510 108 L590 82 L670 98 L750 62 L850 88" fill="none" stroke="rgba(244,246,242,.42)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function Background() { return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>; }
@@ -4191,7 +4422,11 @@ function GlobalStyles() {
       .studio-admin-page{display:grid;gap:16px}.studio-hero-main{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.studio-hero-main h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.studio-hero-main p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.studio-hero-panel{width:410px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.studio-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.studio-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.studio-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.studio-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.studio-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.studio-metric{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:16px;min-height:118px}.studio-metric span{color:var(--muted);font-size:12px;font-weight:850}.studio-metric strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.studio-metric p{color:var(--muted);margin:6px 0 0;font-size:12px}.studio-metric.warning strong{color:var(--warning)}.studio-layout{display:grid;grid-template-columns:280px minmax(0,1fr) 320px;gap:14px;align-items:start}.studio-left-panel,.studio-right-panel{display:grid;gap:14px}.studio-panel-card,.studio-canvas-panel{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.studio-panel-card h2{margin:0 0 12px;font-size:21px;line-height:1.05;letter-spacing:-.035em}.studio-panel-card p{color:var(--muted);line-height:1.55;font-size:13px}.studio-page-list,.studio-block-list,.studio-property-list,.studio-history-list{display:grid;gap:9px}.studio-page-list button,.studio-block-list button{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);color:var(--white);min-height:58px;text-align:left;padding:12px;cursor:pointer}.studio-page-list button.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.08)}.studio-page-list span{display:block;color:var(--muted);font-size:12px;margin-top:4px}.studio-block-list button{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:center;min-height:48px}.studio-block-list span{color:var(--green)}.studio-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}.studio-toolbar span{display:block;color:var(--muted);font-size:12px;margin-top:4px}.studio-device-toggle{display:flex;gap:6px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.035);padding:4px}.studio-device-toggle button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:7px 12px;cursor:pointer;font-weight:850}.studio-device-toggle button.active{background:rgba(99,229,70,.14);color:var(--green)}.studio-canvas{border-radius:18px;border:1px solid rgba(255,255,255,.07);background:#070a08;padding:18px;min-height:520px;overflow:hidden}.studio-page-preview-hero{min-height:260px;border-radius:18px;border:1px solid rgba(99,229,70,.16);background:radial-gradient(circle at 75% 24%,rgba(99,229,70,.18),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.055),rgba(255,255,255,.018));display:grid;grid-template-columns:1.1fr .9fr;gap:18px;align-items:center;padding:26px}.studio-page-preview-hero p{margin:0;color:var(--green);text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:950}.studio-page-preview-hero h2{margin:10px 0 8px;font-size:44px;line-height:.95;letter-spacing:-.06em}.studio-page-preview-hero span{color:var(--muted)}.studio-page-preview-hero button{min-height:38px;margin-top:16px;margin-right:8px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--white);padding:0 14px;font-weight:850}.studio-page-preview-hero button:first-child{background:var(--green);color:#061008;border-color:transparent}.studio-preview-athlete{height:210px;opacity:.68;background:radial-gradient(circle at 45% 45%,rgba(244,246,242,.2),transparent 20%),linear-gradient(120deg,transparent 20%,rgba(99,229,70,.2),transparent 62%);clip-path:polygon(5% 70%,25% 46%,45% 56%,60% 20%,86% 30%,100% 12%,88% 44%,67% 40%,50% 74%,27% 66%,8% 90%)}.studio-preview-blocks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}.studio-preview-blocks article{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:14px}.studio-preview-blocks p{color:var(--muted);font-size:13px;line-height:1.4}.studio-canvas-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;color:var(--muted)}.studio-canvas-footer button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px;font-weight:850;cursor:pointer}.studio-canvas-footer button:last-child{background:var(--green);color:#061008;border-color:transparent}.studio-property{border-radius:12px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:11px}.studio-property span{color:var(--muted);font-size:12px}.studio-property strong{display:block;margin-top:5px}.studio-style-tags{display:flex;gap:8px;flex-wrap:wrap}.studio-style-tags span{border-radius:999px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.07);color:var(--green);padding:7px 10px;font-size:12px;font-weight:900}.studio-history-list span{display:block;color:var(--muted);border-top:1px solid rgba(255,255,255,.055);padding:9px 0;font-size:13px}.studio-panel-card>button{width:100%;min-height:40px;margin-top:9px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-weight:850;cursor:pointer}.studio-panel-card>button:first-of-type{background:var(--green);color:#061008;border-color:transparent}
 
 
-      @media(max-width:1460px){.studio-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-layout{grid-template-columns:1fr}.studio-left-panel,.studio-right-panel{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-canvas-panel{order:-1}.security-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.security-layout{grid-template-columns:1fr}.security-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.role-matrix-head,.role-matrix-row,.audit-table-head,.audit-table-row{grid-template-columns:1fr}.security-mid-grid{grid-template-columns:1fr}.analytics-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-layout{grid-template-columns:1fr}.analytics-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.analytics-course-head,.analytics-course-row{grid-template-columns:1fr}.analytics-summary-strip,.analytics-bottom-grid{grid-template-columns:1fr}.communication-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.communication-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.communications-layout{grid-template-columns:1fr}.communications-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.communication-table-head,.communication-table-row{grid-template-columns:1fr}.segment-builder-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.studio-hero-main{align-items:stretch;flex-direction:column}.studio-hero-panel{width:100%}.studio-stats-grid,.studio-left-panel,.studio-right-panel,.studio-page-preview-hero,.studio-preview-blocks{grid-template-columns:1fr}.studio-toolbar,.studio-canvas-footer{flex-direction:column;align-items:flex-start}.security-hero{align-items:stretch;flex-direction:column}.security-hero-panel{width:100%}.security-stats-grid,.security-side-column{grid-template-columns:1fr}.analytics-hero{align-items:stretch;flex-direction:column}.analytics-hero-panel{width:100%}.analytics-stats-grid,.analytics-side-column{grid-template-columns:1fr}.funnel-row-head{flex-direction:column;align-items:flex-start}.funnel-row em{margin-top:2px}.communications-hero{align-items:stretch;flex-direction:column}.communications-hero-panel{width:100%}.communication-tabs,.communication-stats-grid,.communications-side-column,.message-channel-grid,.segment-builder-grid{grid-template-columns:1fr}.ads-connection-card{flex-direction:column}.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+
+      .settings-admin-page{display:grid;gap:16px}.settings-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.settings-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.settings-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.settings-hero-panel{width:410px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.settings-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.settings-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.settings-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.settings-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.settings-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.settings-metric{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:16px;min-height:118px}.settings-metric span{color:var(--muted);font-size:12px;font-weight:850}.settings-metric strong{display:block;margin-top:9px;font-size:24px;letter-spacing:-.035em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.settings-metric p{color:var(--muted);margin:6px 0 0;font-size:12px}.settings-metric.accent strong{color:var(--green)}.settings-metric.warning strong{color:var(--warning)}.settings-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.settings-main-column,.settings-side-column{display:grid;gap:14px}.settings-card,.settings-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.settings-card h2,.settings-side-card h2{margin:0 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.settings-card p,.settings-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.setting-field,.setting-status{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.setting-field span,.setting-status span{display:block;color:var(--muted);font-size:12px}.setting-field strong,.setting-status strong{display:block;margin-top:6px;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.setting-status{display:flex;justify-content:space-between;gap:12px;align-items:center}.setting-status strong{margin-top:0;color:var(--green)}.setting-status.warning strong{color:var(--warning)}.brand-settings-grid{display:grid;grid-template-columns:240px 1fr 1fr;gap:12px}.brand-logo-tile,.brand-palette,.brand-style-rules{border-radius:16px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:16px}.brand-logo-tile span{color:var(--green);font-size:34px;font-weight:950;letter-spacing:.1em}.brand-logo-tile strong{display:block;font-size:20px;margin-top:4px}.brand-logo-tile p,.brand-palette p,.brand-style-rules p{color:var(--muted);font-size:13px;line-height:1.45}.palette-row{display:flex;gap:8px;margin:12px 0}.palette-row span{width:42px;height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.14)}.settings-double-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.settings-list,.settings-system-list{display:grid;gap:10px}.integration-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.integration-card{border-radius:16px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:16px}.integration-card span{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.055);color:var(--muted)}.integration-card.active span{background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.22)}.integration-card strong{display:block;margin-top:10px;font-size:18px}.integration-card p{margin:7px 0;color:var(--muted);font-size:13px;line-height:1.45}.integration-card em{color:var(--warning);font-style:normal;font-weight:900}.integration-card.active em{color:var(--green)}.settings-side-card button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.settings-side-card button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.danger-zone{border-color:rgba(255,87,87,.18);background:radial-gradient(circle at 80% 10%,rgba(255,87,87,.08),transparent 32%),var(--panel)}.danger-zone button:first-of-type{background:rgba(255,87,87,.12);color:#ff9a9a;border:1px solid rgba(255,87,87,.24)}
+
+
+      @media(max-width:1460px){.settings-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-layout{grid-template-columns:1fr}.settings-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-grid,.brand-settings-grid,.settings-double-grid,.integration-grid{grid-template-columns:1fr}.studio-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-layout{grid-template-columns:1fr}.studio-left-panel,.studio-right-panel{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-canvas-panel{order:-1}.security-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.security-layout{grid-template-columns:1fr}.security-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.role-matrix-head,.role-matrix-row,.audit-table-head,.audit-table-row{grid-template-columns:1fr}.security-mid-grid{grid-template-columns:1fr}.analytics-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-layout{grid-template-columns:1fr}.analytics-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.analytics-course-head,.analytics-course-row{grid-template-columns:1fr}.analytics-summary-strip,.analytics-bottom-grid{grid-template-columns:1fr}.communication-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.communication-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.communications-layout{grid-template-columns:1fr}.communications-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.communication-table-head,.communication-table-row{grid-template-columns:1fr}.segment-builder-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.settings-hero{align-items:stretch;flex-direction:column}.settings-hero-panel{width:100%}.settings-stats-grid,.settings-side-column{grid-template-columns:1fr}.studio-hero-main{align-items:stretch;flex-direction:column}.studio-hero-panel{width:100%}.studio-stats-grid,.studio-left-panel,.studio-right-panel,.studio-page-preview-hero,.studio-preview-blocks{grid-template-columns:1fr}.studio-toolbar,.studio-canvas-footer{flex-direction:column;align-items:flex-start}.security-hero{align-items:stretch;flex-direction:column}.security-hero-panel{width:100%}.security-stats-grid,.security-side-column{grid-template-columns:1fr}.analytics-hero{align-items:stretch;flex-direction:column}.analytics-hero-panel{width:100%}.analytics-stats-grid,.analytics-side-column{grid-template-columns:1fr}.funnel-row-head{flex-direction:column;align-items:flex-start}.funnel-row em{margin-top:2px}.communications-hero{align-items:stretch;flex-direction:column}.communications-hero-panel{width:100%}.communication-tabs,.communication-stats-grid,.communications-side-column,.message-channel-grid,.segment-builder-grid{grid-template-columns:1fr}.ads-connection-card{flex-direction:column}.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
