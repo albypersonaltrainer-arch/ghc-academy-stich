@@ -456,7 +456,16 @@ export default function Page() {
           />
         ) : null}
 
-        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos", "comunicaciones", "analitica"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
+        {activeTab === "seguridad" ? (
+          <SeguridadAdmin
+            dashboardData={dashboardData}
+            studentViews={studentViews}
+            setActiveTab={setActiveTab}
+            setSystemMessage={setSystemMessage}
+          />
+        ) : null}
+
+        {!["panel", "cursos", "contenido", "alumnos", "examenes", "certificados", "pagos", "comunicaciones", "analitica", "seguridad"].includes(activeTab) ? <ComingSoon tab={activeTab} /> : null}
       </section>
     </main>
   );
@@ -3498,6 +3507,167 @@ function OpportunityItem({ label, action, onClick }: { label: string; action: st
 }
 
 
+function SeguridadAdmin({
+  dashboardData,
+  studentViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  dashboardData: DashboardData;
+  studentViews: StudentAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const admins = dashboardData.profiles.filter((profile) =>
+    ["admin", "superadmin", "owner"].includes(String(profile.role || "").toLowerCase())
+  );
+  const students = studentViews.length;
+  const blockedStudents = studentViews.filter((student) => student.status === "blocked").length;
+  const riskStudents = studentViews.filter((student) => student.riskTone === "yellow" || student.riskTone === "red").length;
+  const deviceLimitReady = students > 0 ? Math.max(1, Math.ceil(students * 0.08)) : 0;
+
+  return (
+    <div className="security-admin-page">
+      <section className="security-hero">
+        <div>
+          <p className="admin-kicker">Protección, roles y auditoría</p>
+          <h1>Seguridad</h1>
+          <p>Supervisa accesos, roles, sesiones, dispositivos, eventos críticos y políticas de protección de GHC Academy.</p>
+        </div>
+
+        <div className="security-hero-panel">
+          <span>Base segura activa</span>
+          <strong>Supabase Auth + rol admin + ruta privada</strong>
+          <p>Control avanzado preparado para dispositivos, 2FA, auditoría y protección de alumnos.</p>
+          <button type="button" onClick={() => setSystemMessage("La auditoría avanzada se conectará cuando creemos tablas de eventos y sesiones.")}>Preparar auditoría</button>
+        </div>
+      </section>
+
+      <section className="security-stats-grid">
+        <SecurityMetric label="Admins autorizados" value={admins.length} helper="Roles con acceso" accent />
+        <SecurityMetric label="Alumnos protegidos" value={students} helper="Base Supabase" />
+        <SecurityMetric label="Bloqueados" value={blockedStudents} helper="Accesos restringidos" warning={blockedStudents > 0} />
+        <SecurityMetric label="Riesgo abandono" value={riskStudents} helper="Seguimiento, no amenaza" warning={riskStudents > 0} />
+        <SecurityMetric label="Dispositivos a revisar" value={deviceLimitReady} helper="Preparado para límite" />
+      </section>
+
+      <section className="security-layout">
+        <div className="security-main-column">
+          <article className="security-permissions-card">
+            <div className="card-head">
+              <div>
+                <h2>Roles y permisos</h2>
+                <p>Matriz preparada para controlar qué puede ver y editar cada tipo de usuario.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("La edición real de roles se conectará con políticas RLS y tabla profiles.")}>Gestionar roles</button>
+            </div>
+
+            <div className="role-matrix">
+              <div className="role-matrix-head">
+                <span>Permiso</span><span>Owner</span><span>Admin</span><span>Soporte</span><span>Alumno</span>
+              </div>
+              {[
+                ["Acceso al panel privado", true, true, false, false],
+                ["Gestión de cursos", true, true, false, false],
+                ["Gestión de alumnos", true, true, true, false],
+                ["Pagos y accesos", true, true, false, false],
+                ["Certificados", true, true, true, false],
+                ["Seguridad y roles", true, false, false, false],
+                ["Studio GHC", true, true, false, false],
+              ].map(([label, owner, admin, support, student]) => (
+                <div key={String(label)} className="role-matrix-row">
+                  <strong>{label}</strong>
+                  <RoleCheck active={Boolean(owner)} />
+                  <RoleCheck active={Boolean(admin)} />
+                  <RoleCheck active={Boolean(support)} />
+                  <RoleCheck active={Boolean(student)} />
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <section className="security-mid-grid">
+            <article className="security-card">
+              <div className="card-head compact"><h2>Sesiones y dispositivos</h2><button type="button" onClick={() => setSystemMessage("El cierre remoto de sesiones se conectará con una tabla de sesiones/dispositivos.")}>Ver todas</button></div>
+              <div className="device-list">
+                <DeviceRow device="Equipo actual" location="Sesión admin verificada" status="Activo" active />
+                <DeviceRow device="Límite alumnos" location="Máximo 2 dispositivos por alumno" status="Preparado" active />
+                <DeviceRow device="Tercer dispositivo" location="Bloqueo y aviso futuro" status="Pendiente" />
+                <DeviceRow device="Historial de acceso" location="IP, navegador y fecha" status="Por conectar" />
+              </div>
+            </article>
+
+            <article className="security-card">
+              <div className="card-head compact"><h2>Alertas de seguridad</h2><button type="button" onClick={() => setSystemMessage("Las alertas reales se alimentarán de logs de auth, dispositivos y pagos.")}>Configurar</button></div>
+              <div className="security-alert-list">
+                <SecurityAlert title="Acceso admin" text="Ruta privada protegida por role = admin." tone="green" />
+                <SecurityAlert title="Ruta /admin" text="Bloqueada con 404 para no exponer panel obvio." tone="green" />
+                <SecurityAlert title="2FA" text="Preparado como política futura para administradores." tone="warning" />
+                <SecurityAlert title="Dispositivos alumnos" text="Pendiente conectar límite y avisos automáticos." tone="warning" />
+              </div>
+            </article>
+          </section>
+
+          <article className="security-audit-card">
+            <div className="card-head">
+              <div><h2>Registro de actividad</h2><p>Auditoría preparada para cambios sensibles: accesos, roles, pagos, certificados y publicaciones.</p></div>
+              <button type="button" onClick={() => setSystemMessage("El log real se guardará en una tabla de eventos del administrador.")}>Ver registro</button>
+            </div>
+            <div className="audit-table">
+              <div className="audit-table-head"><span>Evento</span><span>Área</span><span>Usuario</span><span>Estado</span><span>Hora</span></div>
+              <AuditRow event="Acceso a control center" area="Seguridad" user="Admin GHC" status="Verificado" time="Ahora" />
+              <AuditRow event="Consulta de alumnos" area="Alumnos" user="Admin GHC" status="Permitido" time="Reciente" />
+              <AuditRow event="Edición de certificados" area="Certificados" user="Admin GHC" status="Protegido" time="Reciente" />
+              <AuditRow event="Pagos y finanzas" area="Pagos" user="Admin GHC" status="Preparado" time="Próximo" />
+            </div>
+          </article>
+        </div>
+
+        <aside className="security-side-column">
+          <article className="security-side-card">
+            <h2>Estado del sistema</h2>
+            <div className="security-system-list">
+              <StatusRow label="Supabase Auth" value="Operativo" />
+              <StatusRow label="Role admin" value="Activo" />
+              <StatusRow label="Ruta privada" value="Protegida" />
+              <StatusRow label="RLS avanzado" value="Revisar" warning />
+              <StatusRow label="2FA admin" value="Futuro" warning />
+            </div>
+          </article>
+          <article className="security-side-card">
+            <h2>Políticas preparadas</h2>
+            <PolicyItem title="Máximo 2 dispositivos" text="Por alumno, con bloqueo del tercero." />
+            <PolicyItem title="Admin con 2FA" text="Recomendado antes de pagos reales." />
+            <PolicyItem title="Logs sensibles" text="Pagos, certificados, accesos y roles." />
+            <PolicyItem title="Bloqueo preventivo" text="Por acceso sospechoso o pago fallido." />
+          </article>
+          <article className="security-side-card">
+            <h2>Acciones rápidas</h2>
+            <button type="button" onClick={() => setActiveTab("alumnos")}>Revisar alumnos</button>
+            <button type="button" onClick={() => setActiveTab("pagos")}>Ver accesos y pagos</button>
+            <button type="button" onClick={() => setSystemMessage("El reporte de seguridad se generará cuando conectemos logs reales.")}>Generar reporte</button>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function SecurityMetric({ label, value, helper, accent = false, warning = false }: { label: string; value: string | number; helper: string; accent?: boolean; warning?: boolean }) {
+  return <article className={accent ? "security-metric accent" : warning ? "security-metric warning" : "security-metric"}><span>{label}</span><strong>{value}</strong><p>{helper}</p></article>;
+}
+function RoleCheck({ active }: { active: boolean }) { return <span className={active ? "role-check active" : "role-check"}>{active ? "✓" : "—"}</span>; }
+function DeviceRow({ device, location, status, active = false }: { device: string; location: string; status: string; active?: boolean }) {
+  return <div className="device-row"><span>{active ? "●" : "○"}</span><div><strong>{device}</strong><p>{location}</p></div><em>{status}</em></div>;
+}
+function SecurityAlert({ title, text, tone }: { title: string; text: string; tone: "green" | "warning" | "danger" }) {
+  return <div className={`security-alert ${tone}`}><strong>{title}</strong><p>{text}</p></div>;
+}
+function AuditRow({ event, area, user, status, time }: { event: string; area: string; user: string; status: string; time: string }) {
+  return <div className="audit-table-row"><strong>{event}</strong><span>{area}</span><span>{user}</span><em>{status}</em><span>{time}</span></div>;
+}
+function PolicyItem({ title, text }: { title: string; text: string }) { return <div className="policy-item"><strong>{title}</strong><p>{text}</p></div>; }
+
 function ComingSoon({ tab }: { tab: AdminTab }) { return <section className="coming-soon"><p className="admin-kicker">Módulo administrador</p><h1>{getTabLabel(tab)}</h1><p>Esta pestaña se construirá manteniendo la misma estética premium del área Alumno y del Panel administrador. La arquitectura ya queda preparada para hacerla funcional por fases.</p></section>; }
 function ChartSvg() { return <svg viewBox="0 0 900 260" aria-hidden="true"><defs><linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity="0.42" /><stop offset="100%" stopColor={GREEN} stopOpacity="0" /></linearGradient></defs><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z" fill="url(#adminChartGradient)" /><path d="M30 185 L110 208 L190 174 L270 142 L350 118 L430 78 L510 108 L590 82 L670 98 L750 62 L850 88" fill="none" stroke="rgba(244,246,242,.42)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function Background() { return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>; }
@@ -3793,7 +3963,10 @@ function GlobalStyles() {
       .analytics-admin-page{display:grid;gap:16px}.analytics-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.analytics-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.analytics-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.analytics-hero-panel{width:410px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.analytics-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.analytics-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.analytics-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.analytics-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.analytics-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.analytics-metric{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:16px;min-height:118px}.analytics-metric span{color:var(--muted);font-size:12px;font-weight:850}.analytics-metric strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.analytics-metric p{color:var(--muted);margin:6px 0 0;font-size:12px}.analytics-metric.accent strong{color:var(--green)}.analytics-metric.warning strong{color:var(--warning)}.analytics-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.analytics-main-column,.analytics-side-column{display:grid;gap:14px}.analytics-growth-card,.analytics-table-card,.analytics-insight-card,.analytics-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.analytics-chart-area{min-height:260px;border:1px solid rgba(255,255,255,.06);border-radius:16px;background:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:50px 50px;overflow:hidden}.analytics-chart-area svg{width:100%;height:260px;display:block}.analytics-summary-strip{margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden}.analytics-course-table{display:grid;gap:9px}.analytics-course-head,.analytics-course-row{display:grid;grid-template-columns:1.3fr 110px 70px 80px 170px 90px;gap:12px;align-items:center}.analytics-course-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.analytics-course-row{min-height:74px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.analytics-course-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.analytics-course-row button{min-height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-size:12px;font-weight:850;cursor:pointer}.analytics-status{width:max-content;border-radius:999px;padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.analytics-status.draft{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--warning)}.analytics-status.hidden{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.055);color:var(--muted)}.potential-bar{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;align-items:center}.potential-bar>div{height:8px;border-radius:999px;background:var(--green);box-shadow:0 0 18px rgba(99,229,70,.22)}.potential-bar span{color:var(--green);font-size:12px;font-weight:950}.analytics-bottom-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}.funnel-row{display:grid;gap:10px;padding:13px 0;border-top:1px solid rgba(255,255,255,.055)}.funnel-row-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.funnel-row-copy{min-width:0;display:grid;gap:4px}.funnel-row-copy strong{display:block;font-size:15px;line-height:1.15}.funnel-row span{display:block;color:var(--muted);font-size:13px;line-height:1.25}.funnel-track{height:10px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.funnel-track div{height:100%;border-radius:999px;background:var(--green);box-shadow:0 0 18px rgba(99,229,70,.2)}.funnel-row em{font-style:normal;color:var(--green);font-weight:950;white-space:nowrap;font-size:14px;line-height:1}.insight-alert{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px;margin-top:10px}.insight-alert p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.insight-alert.green strong{color:var(--green)}.insight-alert.warning strong{color:var(--warning)}.insight-alert.muted strong{color:var(--white)}.analytics-side-card h2{margin:0 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.analytics-side-card p{color:var(--muted);line-height:1.58;font-size:13px}.opportunity-item{width:100%;min-height:54px;border-radius:14px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.026);color:var(--white);display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;margin-top:9px;text-align:left;cursor:pointer;transition:background .2s ease,border-color .2s ease,transform .2s ease}.opportunity-item:hover{border-color:rgba(99,229,70,.24);background:rgba(99,229,70,.08)}.opportunity-item span{color:var(--white);font-weight:850;line-height:1.22}.opportunity-item strong{color:var(--green);white-space:nowrap}.decision-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.decision-tags span{border-radius:999px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.07);color:var(--green);padding:7px 10px;font-size:12px;font-weight:900}.analytics-report-button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.analytics-report-button.primary{background:var(--green);color:#061008;border-color:transparent}
 
 
-      @media(max-width:1460px){.analytics-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-layout{grid-template-columns:1fr}.analytics-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.analytics-course-head,.analytics-course-row{grid-template-columns:1fr}.analytics-summary-strip,.analytics-bottom-grid{grid-template-columns:1fr}.communication-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.communication-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.communications-layout{grid-template-columns:1fr}.communications-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.communication-table-head,.communication-table-row{grid-template-columns:1fr}.segment-builder-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.analytics-hero{align-items:stretch;flex-direction:column}.analytics-hero-panel{width:100%}.analytics-stats-grid,.analytics-side-column{grid-template-columns:1fr}.funnel-row-head{flex-direction:column;align-items:flex-start}.funnel-row em{margin-top:2px}.communications-hero{align-items:stretch;flex-direction:column}.communications-hero-panel{width:100%}.communication-tabs,.communication-stats-grid,.communications-side-column,.message-channel-grid,.segment-builder-grid{grid-template-columns:1fr}.ads-connection-card{flex-direction:column}.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
+
+      .security-admin-page{display:grid;gap:16px}.security-hero{min-height:128px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:flex;align-items:center;justify-content:space-between;padding:26px;overflow:hidden;position:relative;box-shadow:0 28px 90px rgba(0,0,0,.22)}.security-hero h1{margin:0;font-size:clamp(36px,4vw,54px);line-height:.94;letter-spacing:-.06em;font-weight:950}.security-hero p:not(.admin-kicker){margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:760px}.security-hero-panel{width:410px;border-radius:18px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:18px}.security-hero-panel span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.security-hero-panel strong{display:block;margin-top:8px;font-size:21px;line-height:1.1;letter-spacing:-.02em}.security-hero-panel p{color:var(--muted);line-height:1.5;font-size:13px}.security-hero-panel button{min-height:40px;border:0;border-radius:999px;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}.security-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.security-metric{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:16px;min-height:118px}.security-metric span{color:var(--muted);font-size:12px;font-weight:850}.security-metric strong{display:block;margin-top:9px;font-size:30px;letter-spacing:-.045em}.security-metric p{color:var(--muted);margin:6px 0 0;font-size:12px}.security-metric.accent strong{color:var(--green)}.security-metric.warning strong{color:var(--warning)}.security-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}.security-main-column,.security-side-column{display:grid;gap:14px}.security-permissions-card,.security-card,.security-audit-card,.security-side-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}.role-matrix{display:grid;gap:8px}.role-matrix-head,.role-matrix-row{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(4,90px);gap:10px;align-items:center}.role-matrix-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.role-matrix-row{min-height:54px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:10px 12px}.role-check{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.12);color:var(--soft);font-weight:950}.role-check.active{background:rgba(99,229,70,.1);border-color:rgba(99,229,70,.26);color:var(--green)}.security-mid-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.device-list,.security-alert-list,.security-system-list{display:grid;gap:10px}.device-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;border-top:1px solid rgba(255,255,255,.055);padding:11px 0}.device-row>span{color:var(--green)}.device-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.device-row em{font-style:normal;color:var(--green);font-size:12px;font-weight:900}.security-alert{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px}.security-alert p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.security-alert.green strong{color:var(--green)}.security-alert.warning strong{color:var(--warning)}.security-alert.danger strong{color:var(--danger)}.audit-table{display:grid;gap:9px}.audit-table-head,.audit-table-row{display:grid;grid-template-columns:1.4fr 110px 130px 110px 90px;gap:12px;align-items:center}.audit-table-head{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:950;padding:0 12px}.audit-table-row{min-height:58px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:11px 12px}.audit-table-row span{color:var(--muted)}.audit-table-row em{font-style:normal;color:var(--green);font-size:12px;font-weight:900}.security-side-card h2{margin:0 0 12px;font-size:22px;line-height:1.05;letter-spacing:-.035em}.security-side-card button{width:100%;min-height:42px;margin-top:10px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);cursor:pointer;font-weight:850}.security-side-card button:first-of-type{background:var(--green);color:#061008;border-color:transparent}.policy-item{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:12px;margin-top:9px}.policy-item p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+
+      @media(max-width:1460px){.security-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.security-layout{grid-template-columns:1fr}.security-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.role-matrix-head,.role-matrix-row,.audit-table-head,.audit-table-row{grid-template-columns:1fr}.security-mid-grid{grid-template-columns:1fr}.analytics-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-layout{grid-template-columns:1fr}.analytics-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.analytics-course-head,.analytics-course-row{grid-template-columns:1fr}.analytics-summary-strip,.analytics-bottom-grid{grid-template-columns:1fr}.communication-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.communication-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.communications-layout{grid-template-columns:1fr}.communications-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.communication-table-head,.communication-table-row{grid-template-columns:1fr}.segment-builder-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-filters{grid-template-columns:1fr 1fr}.payments-detail-grid{grid-template-columns:1fr}.reports-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-layout{grid-template-columns:1fr}.payments-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.payments-table-head,.payments-table-row{grid-template-columns:1fr}.payment-breakdown,.finance-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificate-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.certificates-layout{grid-template-columns:1fr}.certificates-side-column{grid-template-columns:repeat(2,minmax(0,1fr))}.certificate-template-body{grid-template-columns:1fr}.certificate-table-head,.certificate-table-row{grid-template-columns:1fr}.certificate-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exams-layout{grid-template-columns:1fr}.exams-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.student-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.students-layout{grid-template-columns:1fr}.student-detail-column{position:static}.student-row{grid-template-columns:46px minmax(0,1fr) 90px 120px}.student-commercial-mini{display:none}.content-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-layout{grid-template-columns:1fr}.content-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}.source-doc-grid{grid-template-columns:1fr}.content-hero{align-items:stretch;flex-direction:column}.content-hero-panel{width:100%}.course-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.courses-layout{grid-template-columns:1fr}.courses-side-column{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1380px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-main-grid{grid-template-columns:1fr}.studio-card{grid-column:auto}}@media(max-width:1080px){.security-hero{align-items:stretch;flex-direction:column}.security-hero-panel{width:100%}.security-stats-grid,.security-side-column{grid-template-columns:1fr}.analytics-hero{align-items:stretch;flex-direction:column}.analytics-hero-panel{width:100%}.analytics-stats-grid,.analytics-side-column{grid-template-columns:1fr}.funnel-row-head{flex-direction:column;align-items:flex-start}.funnel-row em{margin-top:2px}.communications-hero{align-items:stretch;flex-direction:column}.communications-hero-panel{width:100%}.communication-tabs,.communication-stats-grid,.communications-side-column,.message-channel-grid,.segment-builder-grid{grid-template-columns:1fr}.ads-connection-card{flex-direction:column}.payment-tabs,.finance-stats-grid,.finance-filters,.reports-grid,.report-summary-strip{grid-template-columns:1fr}.finance-hero-card{flex-direction:column}.payments-hero{align-items:stretch;flex-direction:column}.payments-hero-panel{width:100%}.payment-stats-grid,.payments-side-column,.payment-breakdown,.finance-summary-grid{grid-template-columns:1fr}.course-finance-head,.course-finance-row{grid-template-columns:1fr}.certificates-hero{align-items:stretch;flex-direction:column}.certificates-hero-panel{width:100%}.certificate-stats-grid,.certificates-side-column,.certificate-actions{grid-template-columns:1fr}.exam-stats-grid,.question-builder-grid,.exams-side-column,.exam-row{grid-template-columns:1fr}.exams-hero{align-items:stretch;flex-direction:column}.exams-hero-panel{width:100%}.student-toolbar,.student-stats-grid,.student-detail-grid,.commercial-grid,.follow-up-grid{grid-template-columns:1fr}.students-hero{align-items:stretch;flex-direction:column}.students-hero-panel{width:100%}.student-row{grid-template-columns:46px minmax(0,1fr)}.student-progress-mini,.student-risk,.student-commercial-mini{display:block;border-left:0;padding-left:0}.admin-page{grid-template-columns:1fr}.admin-sidebar{position:relative;height:auto}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.admin-search{width:100%;max-width:none}.chart-summary,.quick-actions-grid,.kpi-grid,.course-stats-grid,.courses-side-column,.course-info-grid,.course-build-row,.admin-course-actions{grid-template-columns:1fr}.admin-course-card.list{grid-template-columns:1fr}.course-toolbar{grid-template-columns:1fr}.courses-hero{align-items:stretch;flex-direction:column}.courses-hero-panel{width:100%}}
     `}</style>
   );
 }
