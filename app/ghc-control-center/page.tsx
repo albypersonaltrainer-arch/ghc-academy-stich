@@ -632,197 +632,98 @@ async function createCourseInSupabase(form: CourseFormState) {
   const priceNumber = parseAdminNumber(form.price);
   const slug = createSlug(form.title);
 
-  const base = cleanPayload({
-    title: form.title.trim(),
-    slug,
-    subtitle: form.subtitle.trim(),
-    short_description: form.subtitle.trim(),
-    description: form.description.trim(),
-    summary: form.description.trim(),
-    category: form.category.trim(),
-    level: form.level.trim(),
-    price: priceNumber,
-    currency: "EUR",
-    status: form.status,
-    visibility: form.status,
-    is_published: form.status === "published",
-    published: form.status === "published",
-    cover_image_url: form.image.trim(),
-    image_url: form.image.trim(),
-  });
+  const { data, error } = await withTimeout(
+    supabase.rpc("ghc_admin_create_course", {
+      p_title: form.title.trim(),
+      p_slug: slug,
+      p_subtitle: form.subtitle.trim() || null,
+      p_description: form.description.trim() || null,
+      p_category: form.category.trim() || null,
+      p_level: form.level.trim() || null,
+      p_price: priceNumber ?? null,
+      p_status: form.status,
+      p_image_url: form.image.trim() || null,
+    }),
+    12000,
+    "Supabase no respondió al crear el curso mediante función segura."
+  );
 
-  await writeWithFallback("courses", "insert", [
-    base,
-    cleanPayload({
-      title: base.title,
-      slug: base.slug,
-      subtitle: base.subtitle,
-      description: base.description,
-      category: base.category,
-      level: base.level,
-      price: base.price,
-      currency: "EUR",
-      status: base.status,
-      is_published: base.is_published,
-    }),
-    cleanPayload({
-      title: base.title,
-      slug: base.slug,
-      subtitle: base.subtitle,
-      description: base.description,
-      category: base.category,
-      level: base.level,
-      status: base.status,
-    }),
-    cleanPayload({
-      title: base.title,
-      slug: base.slug,
-      description: base.description,
-      status: base.status,
-    }),
-    cleanPayload({
-      title: base.title,
-      slug: base.slug,
-    }),
-    cleanPayload({
-      title: base.title,
-    }),
-  ]);
+  if (error) {
+    throw normalizeSupabaseWriteError(error, "courses", "insert");
+  }
+
+  return data;
 }
 
 async function updateCourseInSupabase(id: string, form: CourseFormState) {
   const priceNumber = parseAdminNumber(form.price);
   const slug = createSlug(form.title);
 
-  const base = cleanPayload({
-    title: form.title.trim(),
-    slug,
-    subtitle: form.subtitle.trim(),
-    short_description: form.subtitle.trim(),
-    description: form.description.trim(),
-    summary: form.description.trim(),
-    category: form.category.trim(),
-    level: form.level.trim(),
-    price: priceNumber,
-    currency: "EUR",
-    status: form.status,
-    visibility: form.status,
-    is_published: form.status === "published",
-    published: form.status === "published",
-    cover_image_url: form.image.trim(),
-    image_url: form.image.trim(),
-  });
+  const { data, error } = await withTimeout(
+    supabase.rpc("ghc_admin_update_course", {
+      p_course_id: id,
+      p_title: form.title.trim(),
+      p_slug: slug,
+      p_subtitle: form.subtitle.trim() || null,
+      p_description: form.description.trim() || null,
+      p_category: form.category.trim() || null,
+      p_level: form.level.trim() || null,
+      p_price: priceNumber ?? null,
+      p_status: form.status,
+      p_image_url: form.image.trim() || null,
+    }),
+    12000,
+    "Supabase no respondió al actualizar el curso mediante función segura."
+  );
 
-  await writeWithFallback("courses", "update", [
-    base,
-    cleanPayload({
-      title: base.title,
-      slug: base.slug,
-      subtitle: base.subtitle,
-      description: base.description,
-      category: base.category,
-      level: base.level,
-      price: base.price,
-      currency: "EUR",
-      status: base.status,
-      is_published: base.is_published,
-    }),
-    cleanPayload({
-      title: base.title,
-      slug: base.slug,
-      subtitle: base.subtitle,
-      description: base.description,
-      category: base.category,
-      level: base.level,
-      status: base.status,
-    }),
-    cleanPayload({
-      title: base.title,
-      slug: base.slug,
-      description: base.description,
-      status: base.status,
-    }),
-    cleanPayload({
-      title: base.title,
-      slug: base.slug,
-    }),
-    cleanPayload({
-      title: base.title,
-    }),
-  ], id);
+  if (error) {
+    throw normalizeSupabaseWriteError(error, "courses", "update");
+  }
+
+  return data;
 }
 
 async function createModuleInSupabase(form: ModuleFormState) {
   const position = parseAdminNumber(form.position);
 
-  await writeWithFallback("modules", "insert", [
-    cleanPayload({
-      course_id: form.courseId,
-      title: form.title.trim(),
-      name: form.title.trim(),
-      description: form.description.trim(),
-      summary: form.description.trim(),
-      position,
-      order_index: position,
-      sort_order: position,
-      status: "draft",
+  const { data, error } = await withTimeout(
+    supabase.rpc("ghc_admin_create_module", {
+      p_course_id: form.courseId,
+      p_title: form.title.trim(),
+      p_description: form.description.trim() || null,
+      p_position: position ?? null,
     }),
-    cleanPayload({
-      course_id: form.courseId,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      position,
-    }),
-    cleanPayload({
-      course_id: form.courseId,
-      title: form.title.trim(),
-      position,
-    }),
-    cleanPayload({
-      course_id: form.courseId,
-      title: form.title.trim(),
-    }),
-    cleanPayload({
-      course_id: form.courseId,
-      name: form.title.trim(),
-    }),
-  ]);
+    12000,
+    "Supabase no respondió al crear el módulo mediante función segura."
+  );
+
+  if (error) {
+    throw normalizeSupabaseWriteError(error, "modules", "insert");
+  }
+
+  return data;
 }
 
 async function updateModuleInSupabase(id: string, form: ModuleFormState) {
   const position = parseAdminNumber(form.position);
 
-  await writeWithFallback("modules", "update", [
-    cleanPayload({
-      course_id: form.courseId,
-      title: form.title.trim(),
-      name: form.title.trim(),
-      description: form.description.trim(),
-      summary: form.description.trim(),
-      position,
-      order_index: position,
-      sort_order: position,
+  const { data, error } = await withTimeout(
+    supabase.rpc("ghc_admin_update_module", {
+      p_module_id: id,
+      p_course_id: form.courseId,
+      p_title: form.title.trim(),
+      p_description: form.description.trim() || null,
+      p_position: position ?? null,
     }),
-    cleanPayload({
-      course_id: form.courseId,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      position,
-    }),
-    cleanPayload({
-      course_id: form.courseId,
-      title: form.title.trim(),
-      position,
-    }),
-    cleanPayload({
-      course_id: form.courseId,
-      title: form.title.trim(),
-    }),
-    cleanPayload({
-      course_id: form.courseId,
-      name: form.title.trim(),
-    }),
-  ], id);
+    12000,
+    "Supabase no respondió al actualizar el módulo mediante función segura."
+  );
+
+  if (error) {
+    throw normalizeSupabaseWriteError(error, "modules", "update");
+  }
+
+  return data;
 }
 
 async function writeWithFallback(table: string, mode: "insert" | "update", attempts: AnyRecord[], id?: string) {
@@ -898,22 +799,26 @@ function normalizeSupabaseWriteError(error: any, table: string, mode: "insert" |
 
   const lower = fullMessage.toLowerCase();
 
+  if (
+    lower.includes("ghc_admin_create_course") ||
+    lower.includes("ghc_admin_update_course") ||
+    lower.includes("ghc_admin_create_module") ||
+    lower.includes("ghc_admin_update_module") ||
+    lower.includes("function") && lower.includes("does not exist")
+  ) {
+    return new Error(`${fullMessage} · Falta ejecutar el SQL de funciones seguras GHC en Supabase.`);
+  }
+
+  if (lower.includes("permission denied") || lower.includes("not authorized") || lower.includes("unauthorized") || lower.includes("admin permission")) {
+    return new Error(`${fullMessage} · Tu usuario no está autorizado por la función segura de GHC. Revisa profiles.role y el email.`);
+  }
+
   if (lower.includes("row-level security")) {
-    return new Error(
-      `${fullMessage} · Supabase está bloqueando la escritura por RLS. Hay que permitir a admin/superadmin/owner insertar y actualizar ${table}.`
-    );
+    return new Error(`${fullMessage} · RLS bloquea la operación directa. Usa las funciones seguras GHC del SQL actualizado.`);
   }
 
   if (lower.includes("slug")) {
-    return new Error(
-      `${fullMessage} · La tabla exige slug o tiene una restricción sobre slug. El archivo ya lo genera automáticamente; revisa si debe ser único o si la columna tiene otro nombre.`
-    );
-  }
-
-  if (lower.includes("permission denied") || lower.includes("not authorized") || lower.includes("unauthorized")) {
-    return new Error(
-      `${fullMessage} · Tu usuario está autenticado, pero Supabase no le permite escribir en ${table}. Revisa policies/RLS.`
-    );
+    return new Error(`${fullMessage} · Hay una restricción sobre slug. El sistema ya lo genera automáticamente; revisa unicidad o nombre de columna.`);
   }
 
   return new Error(fullMessage);
