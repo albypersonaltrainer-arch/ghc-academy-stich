@@ -809,55 +809,53 @@ function StudioGHCAdmin({
       title: "Landing principal",
       status: "Borrador preparado",
       area: "Web pública",
-      description: "Hero principal, propuesta de valor, bloques de confianza y llamadas a la acción.",
-      readiness: "Lista para edición",
+      description: "Hero, propuesta de valor, confianza y CTA principal.",
+      state: "active",
     },
     {
       title: "Catálogo de cursos",
-      status: "Pendiente de rediseño",
+      status: "Requiere diseño",
       area: "Cursos",
-      description: "Listado comercial conectado a cursos reales, filtros, categorías y niveles.",
-      readiness: "Requiere diseño",
+      description: "Listado comercial con filtros, categorías y niveles.",
+      state: "draft",
     },
     {
       title: "Página de curso",
       status: "Base activa",
       area: "Venta",
-      description: "Ficha comercial, módulos, precio, beneficios, profesor y acceso al checkout.",
-      readiness: "Base operativa",
+      description: "Ficha comercial, módulos, precio y acceso al checkout.",
+      state: "ready",
     },
     {
       title: "Checkout",
-      status: "Pendiente Stripe/SumUp",
+      status: "Pendiente pagos",
       area: "Pagos",
-      description: "Flujo de compra seguro, pasarelas, confirmación y activación de acceso.",
-      readiness: "Pendiente pagos",
+      description: "Compra segura con Stripe/SumUp y activación de acceso.",
+      state: "pending",
     },
     {
       title: "Login / acceso",
       status: "Funcional",
       area: "Auth",
-      description: "Entrada de alumnos y administradores con Supabase Auth y rutas protegidas.",
-      readiness: "Funcional",
+      description: "Entrada protegida para alumnos y administradores.",
+      state: "ready",
     },
     {
       title: "Certificados públicos",
       status: "Preparado",
       area: "Credenciales",
-      description: "Verificación pública de códigos, estado de certificados y credenciales.",
-      readiness: "Preparado",
+      description: "Verificación pública de certificados y códigos.",
+      state: "ready",
     },
   ];
 
-  const reusableBlocks = [
-    "Hero premium GHC",
-    "Grid de cursos",
+  const approvedBlocks = [
+    "Hero GHC",
+    "Cursos destacados",
+    "Bloque científico",
     "Testimonios",
     "FAQ",
-    "CTA de compra",
-    "Banner de certificado",
-    "Bloque científico",
-    "Card de profesor",
+    "CTA final",
   ];
 
   const selectedPage = editablePages[0];
@@ -869,100 +867,75 @@ function StudioGHCAdmin({
           <p className="admin-kicker">Editor visual controlado</p>
           <h1>Studio GHC</h1>
           <p>
-            Edita páginas, textos, bloques, apariencia y experiencia pública sin tocar código,
-            manteniendo siempre la estética premium oficial de GHC Academy.
+            Editor interno para páginas públicas, bloques, textos y experiencia visual,
+            protegido por la estética premium de GHC Academy.
           </p>
         </div>
 
         <div className="studio-hero-panel">
-          <span>Editor tipo IONOS/Wix</span>
-          <strong>Pero protegido por marca GHC</strong>
+          <span>Studio GHC</span>
+          <strong>Edición visual sin romper la marca</strong>
           <p>
-            Edición visual con bloques aprobados, estilos controlados y revisión antes de publicar.
+            Cambios en borrador, bloques aprobados y publicación manual con revisión.
           </p>
-          <button type="button" onClick={() => setSystemMessage("La publicación real desde Studio GHC se conectará más adelante con control de versiones.")}>
+          <button type="button" onClick={() => setSystemMessage("La publicación real se conectará con control de versiones y permisos.")}>
             Preparar publicación
           </button>
         </div>
       </section>
 
-      <section className="studio-stats-grid">
-        <StudioMetric label="Páginas editables" value={editablePages.length} helper="Estructura preparada" />
-        <StudioMetric label="Bloques reutilizables" value={reusableBlocks.length} helper="Componentes GHC" />
-        <StudioMetric label="Cursos conectables" value={courseViews.length} helper="Catálogo futuro" />
-        <StudioMetric label="Cambios en borrador" value={12} helper="Simulado / futuro" warning />
+      <section className="studio-v2-stats">
+        <StudioMetric label="Páginas editables" value={editablePages.length} helper="Estructura pública" />
+        <StudioMetric label="Bloques aprobados" value={approvedBlocks.length} helper="Sistema GHC" />
+        <StudioMetric label="Cursos conectables" value={courseViews.length} helper="Catálogo real" />
+        <StudioMetric label="Estado" value="Borrador" helper="Publicación manual" warning />
       </section>
 
-      <section className="studio-layout premium-studio-layout">
-        <aside className="studio-left-panel">
-          <article className="studio-panel-card studio-pages-card">
-            <div className="studio-panel-heading">
-              <div>
-                <h2>Páginas editables</h2>
-                <p>Selecciona una página pública para editar su estructura, textos y bloques.</p>
-              </div>
+      <section className="studio-v2-layout">
+        <aside className="studio-v2-sidebar">
+          <article className="studio-v2-card">
+            <div className="studio-v2-card-head">
+              <h2>Páginas editables</h2>
+              <p>Selecciona una página para editar estructura, textos y bloques.</p>
             </div>
 
-            <div className="studio-page-list">
+            <div className="studio-v2-page-list">
               {editablePages.map((page, index) => (
                 <button
                   key={page.title}
                   type="button"
-                  className={index === 0 ? "studio-page-card active" : "studio-page-card"}
+                  className={index === 0 ? "studio-v2-page-item active" : "studio-v2-page-item"}
                   onClick={() => setSystemMessage(`Preparado para editar: ${page.title}.`)}
                 >
-                  <span className="studio-page-topline">
-                    <span className="studio-page-area">{page.area}</span>
-                    <span className="studio-page-readiness">{page.readiness}</span>
+                  <span className="studio-v2-page-index">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="studio-v2-page-copy">
+                    <strong>{page.title}</strong>
+                    <small>{page.area}</small>
+                    <em>{page.description}</em>
                   </span>
-
-                  <span className="studio-page-title">{page.title}</span>
-
-                  <span className="studio-page-description">{page.description}</span>
-
-                  <span className="studio-page-footer">
-                    <span className="studio-page-status">{page.status}</span>
-                    <span className="studio-page-arrow">›</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </article>
-
-          <article className="studio-panel-card studio-blocks-card">
-            <div className="studio-panel-heading">
-              <div>
-                <h2>Bloques reutilizables</h2>
-                <p>Componentes aprobados para mantener coherencia visual GHC.</p>
-              </div>
-            </div>
-
-            <div className="studio-block-list">
-              {reusableBlocks.map((block) => (
-                <button key={block} type="button" onClick={() => setSystemMessage(`Bloque preparado: ${block}.`)}>
-                  <span>▣</span>
-                  <strong>{block}</strong>
+                  <span className={`studio-v2-page-status ${page.state}`}>{page.status}</span>
                 </button>
               ))}
             </div>
           </article>
         </aside>
 
-        <section className="studio-canvas-panel">
-          <div className="studio-toolbar">
+        <section className="studio-v2-workspace">
+          <div className="studio-v2-toolbar">
             <div>
+              <span>Edición actual</span>
               <strong>{selectedPage.title}</strong>
-              <span>{selectedPage.status} · No publicado</span>
             </div>
-            <div className="studio-device-toggle">
+
+            <div className="studio-v2-device-toggle">
               <button type="button" className="active">Desktop</button>
               <button type="button">Tablet</button>
               <button type="button">Móvil</button>
             </div>
           </div>
 
-          <div className="studio-canvas">
-            <section className="studio-page-preview-hero">
+          <div className="studio-v2-canvas">
+            <section className="studio-v2-preview-hero">
               <div>
                 <p>GHC Academy</p>
                 <h2>Formación profesional desde la ciencia</h2>
@@ -972,17 +945,18 @@ function StudioGHCAdmin({
                   <button type="button">Ver certificaciones</button>
                 </div>
               </div>
-              <div className="studio-preview-athlete" />
+
+              <div className="studio-v2-preview-figure" aria-hidden="true" />
             </section>
 
-            <section className="studio-preview-blocks">
+            <section className="studio-v2-preview-grid">
               <article>
                 <strong>Cursos destacados</strong>
                 <p>Cards conectadas al catálogo real.</p>
               </article>
               <article>
-                <strong>Beneficios</strong>
-                <p>Ciencia aplicada, certificación y comunidad.</p>
+                <strong>Beneficios GHC</strong>
+                <p>Ciencia aplicada, certificación y progresión.</p>
               </article>
               <article>
                 <strong>CTA final</strong>
@@ -991,51 +965,54 @@ function StudioGHCAdmin({
             </section>
           </div>
 
-          <div className="studio-canvas-footer">
+          <div className="studio-v2-footer">
             <span>Borrador guardado automáticamente</span>
-            <button type="button" onClick={() => setSystemMessage("La vista previa real se conectará cuando pasemos la landing a la estética Alumno.")}>Vista previa</button>
-            <button type="button" onClick={() => setSystemMessage("Publicación pendiente de control de versiones y permisos.")}>Publicar cambios</button>
+            <div>
+              <button type="button" onClick={() => setSystemMessage("Vista previa real pendiente de conectar.")}>Vista previa</button>
+              <button type="button" onClick={() => setSystemMessage("Publicación pendiente de control de versiones y permisos.")}>Publicar cambios</button>
+            </div>
           </div>
         </section>
 
-        <aside className="studio-right-panel">
-          <article className="studio-panel-card">
-            <h2>Propiedades</h2>
-            <div className="studio-property-list">
-              <StudioProperty label="Sección" value="Hero principal" />
-              <StudioProperty label="Estado" value="Borrador" />
-              <StudioProperty label="Visibilidad" value="Pública al publicar" />
+        <aside className="studio-v2-inspector">
+          <article className="studio-v2-card">
+            <div className="studio-v2-card-head">
+              <h2>Propiedades</h2>
+              <p>Control de la página seleccionada.</p>
+            </div>
+
+            <div className="studio-v2-property-list">
+              <StudioProperty label="Página" value={selectedPage.title} />
+              <StudioProperty label="Estado" value={selectedPage.status} />
+              <StudioProperty label="Área" value={selectedPage.area} />
               <StudioProperty label="Estilo" value="GHC Dark Premium" />
-              <StudioProperty label="Color acento" value="#63E546" />
             </div>
           </article>
 
-          <article className="studio-panel-card">
-            <h2>Apariencia protegida</h2>
-            <p>Los cambios visuales estarán limitados a la identidad GHC para evitar que la web pierda coherencia.</p>
-            <div className="studio-style-tags">
-              <span>Grafito</span>
-              <span>Verde GHC</span>
-              <span>Blanco roto</span>
-              <span>Cards premium</span>
-              <span>Sport Science</span>
+          <article className="studio-v2-card">
+            <div className="studio-v2-card-head">
+              <h2>Bloques aprobados</h2>
+              <p>Bloques disponibles, agrupados y controlados.</p>
+            </div>
+
+            <div className="studio-v2-block-chips">
+              {approvedBlocks.map((block) => (
+                <span key={block}>{block}</span>
+              ))}
             </div>
           </article>
 
-          <article className="studio-panel-card">
-            <h2>Historial</h2>
-            <div className="studio-history-list">
-              <span>Borrador creado · hoy</span>
-              <span>Alumno fijado como referencia visual</span>
-              <span>Landing pendiente de migrar</span>
+          <article className="studio-v2-card">
+            <div className="studio-v2-card-head">
+              <h2>Acciones</h2>
+              <p>Atajos relacionados con el contenido público.</p>
             </div>
-          </article>
 
-          <article className="studio-panel-card">
-            <h2>Acciones</h2>
-            <button type="button" onClick={() => setActiveTab("cursos")}>Editar catálogo</button>
-            <button type="button" onClick={() => setActiveTab("contenido")}>Editar contenido</button>
-            <button type="button" onClick={() => setSystemMessage("Restaurar versión se conectará al historial de publicaciones.")}>Restaurar versión</button>
+            <div className="studio-v2-actions">
+              <button type="button" onClick={() => setActiveTab("cursos")}>Editar catálogo</button>
+              <button type="button" onClick={() => setActiveTab("contenido")}>Editar contenido</button>
+              <button type="button" onClick={() => setSystemMessage("Restaurar versión se conectará al historial de publicaciones.")}>Restaurar versión</button>
+            </div>
           </article>
         </aside>
       </section>
@@ -1236,6 +1213,55 @@ function GlobalStyles() {
       .studio-block-list button:hover{border-color:rgba(99,229,70,.24);background:rgba(99,229,70,.07)}
       .studio-block-list span{color:var(--green)}
       @media(max-width:1080px){.premium-studio-layout{grid-template-columns:1fr}.studio-page-topline,.studio-page-footer{align-items:flex-start;flex-direction:column}.studio-page-readiness,.studio-page-status{white-space:normal;justify-content:flex-start;text-align:left}}
+
+
+      .studio-v2-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+      .studio-v2-layout{display:grid;grid-template-columns:360px minmax(0,1fr) 320px;gap:14px;align-items:start}
+      .studio-v2-sidebar,.studio-v2-inspector{display:grid;gap:14px}
+      .studio-v2-card,.studio-v2-workspace{border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}
+      .studio-v2-card-head{margin-bottom:16px}
+      .studio-v2-card-head h2{margin:0;font-size:22px;line-height:1.05;letter-spacing:-.04em}
+      .studio-v2-card-head p{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+      .studio-v2-page-list{display:grid;gap:10px}
+      .studio-v2-page-item{appearance:none;-webkit-appearance:none;width:100%;display:grid;grid-template-columns:34px minmax(0,1fr);grid-template-areas:"index copy" "status status";gap:10px 12px;align-items:flex-start;min-height:126px;padding:14px;border-radius:18px;border:1px solid rgba(255,255,255,.095);background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));color:var(--white);text-align:left;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
+      .studio-v2-page-item:hover{border-color:rgba(99,229,70,.25);background:linear-gradient(145deg,rgba(99,229,70,.065),rgba(255,255,255,.024));transform:translateY(-1px)}
+      .studio-v2-page-item.active{border-color:rgba(99,229,70,.38);background:linear-gradient(145deg,rgba(99,229,70,.115),rgba(255,255,255,.026));box-shadow:0 16px 42px rgba(0,0,0,.23),inset 3px 0 0 var(--green)}
+      .studio-v2-page-index{grid-area:index;width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);color:var(--muted);font-size:11px;font-weight:950}
+      .studio-v2-page-item.active .studio-v2-page-index{background:var(--green);border-color:transparent;color:#061008}
+      .studio-v2-page-copy{grid-area:copy;display:grid;gap:6px;min-width:0}
+      .studio-v2-page-copy strong{display:block;color:var(--white);font-size:19px;line-height:1.06;font-weight:950;letter-spacing:-.045em;white-space:normal;overflow-wrap:break-word}
+      .studio-v2-page-copy small{color:var(--green);font-size:10px;line-height:1;text-transform:uppercase;letter-spacing:.14em;font-weight:950}
+      .studio-v2-page-copy em{color:rgba(244,246,242,.64);font-size:12px;line-height:1.42;font-style:normal;font-weight:650}
+      .studio-v2-page-status{grid-area:status;display:inline-flex;width:max-content;max-width:100%;align-items:center;justify-content:center;min-height:30px;padding:7px 11px;border-radius:999px;border:1px solid rgba(99,229,70,.20);background:rgba(99,229,70,.075);color:var(--green);font-size:11px;line-height:1.12;font-weight:900;text-align:left;white-space:normal}
+      .studio-v2-page-status.pending,.studio-v2-page-status.draft{border-color:rgba(247,201,72,.22);background:rgba(247,201,72,.08);color:var(--warning)}
+      .studio-v2-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+      .studio-v2-toolbar span{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}
+      .studio-v2-toolbar strong{font-size:18px;letter-spacing:-.02em}
+      .studio-v2-device-toggle{display:flex;gap:6px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.035);padding:4px}
+      .studio-v2-device-toggle button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:7px 12px;cursor:pointer;font-weight:850}
+      .studio-v2-device-toggle button.active{background:rgba(99,229,70,.14);color:var(--green)}
+      .studio-v2-canvas{border-radius:20px;border:1px solid rgba(255,255,255,.07);background:#070a08;padding:18px;min-height:520px;overflow:hidden}
+      .studio-v2-preview-hero{min-height:270px;border-radius:20px;border:1px solid rgba(99,229,70,.16);background:radial-gradient(circle at 75% 24%,rgba(99,229,70,.18),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.055),rgba(255,255,255,.018));display:grid;grid-template-columns:1.1fr .9fr;gap:18px;align-items:center;padding:28px}
+      .studio-v2-preview-hero p{margin:0;color:var(--green);text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:950}
+      .studio-v2-preview-hero h2{margin:10px 0 8px;font-size:44px;line-height:.95;letter-spacing:-.06em}
+      .studio-v2-preview-hero span{color:var(--muted)}
+      .studio-v2-preview-hero button{min-height:38px;margin-top:16px;margin-right:8px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--white);padding:0 14px;font-weight:850}
+      .studio-v2-preview-hero button:first-child{background:var(--green);color:#061008;border-color:transparent}
+      .studio-v2-preview-figure{height:210px;opacity:.68;background:radial-gradient(circle at 45% 45%,rgba(244,246,242,.2),transparent 20%),linear-gradient(120deg,transparent 20%,rgba(99,229,70,.2),transparent 62%);clip-path:polygon(5% 70%,25% 46%,45% 56%,60% 20%,86% 30%,100% 12%,88% 44%,67% 40%,50% 74%,27% 66%,8% 90%)}
+      .studio-v2-preview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+      .studio-v2-preview-grid article{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);padding:14px}
+      .studio-v2-preview-grid p{color:var(--muted);font-size:13px;line-height:1.4}
+      .studio-v2-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;color:var(--muted)}
+      .studio-v2-footer button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 14px;font-weight:850;cursor:pointer}
+      .studio-v2-footer button:last-child{background:var(--green);color:#061008;border-color:transparent}
+      .studio-v2-property-list{display:grid;gap:9px}
+      .studio-v2-block-chips{display:flex;gap:8px;flex-wrap:wrap}
+      .studio-v2-block-chips span{border-radius:999px;border:1px solid rgba(99,229,70,.18);background:rgba(99,229,70,.065);color:var(--green);padding:7px 10px;font-size:12px;font-weight:900}
+      .studio-v2-actions{display:grid;gap:9px}
+      .studio-v2-actions button{width:100%;min-height:40px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-weight:850;cursor:pointer}
+      .studio-v2-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}
+      @media(max-width:1460px){.studio-v2-layout{grid-template-columns:1fr}.studio-v2-sidebar,.studio-v2-inspector{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media(max-width:1080px){.studio-v2-stats,.studio-v2-sidebar,.studio-v2-inspector,.studio-v2-preview-grid,.studio-v2-preview-hero{grid-template-columns:1fr}.studio-v2-toolbar,.studio-v2-footer{flex-direction:column;align-items:flex-start}.studio-v2-page-status{width:auto}}
 
   `}</style>;
 }
