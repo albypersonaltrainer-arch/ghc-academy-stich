@@ -810,36 +810,42 @@ function StudioGHCAdmin({
       status: "Borrador preparado",
       area: "Web pública",
       description: "Hero principal, propuesta de valor, bloques de confianza y llamadas a la acción.",
+      readiness: "Lista para edición",
     },
     {
       title: "Catálogo de cursos",
       status: "Pendiente de rediseño",
       area: "Cursos",
       description: "Listado comercial conectado a cursos reales, filtros, categorías y niveles.",
+      readiness: "Requiere diseño",
     },
     {
       title: "Página de curso",
       status: "Base activa",
       area: "Venta",
       description: "Ficha comercial, módulos, precio, beneficios, profesor y acceso al checkout.",
+      readiness: "Base operativa",
     },
     {
       title: "Checkout",
       status: "Pendiente Stripe/SumUp",
       area: "Pagos",
       description: "Flujo de compra seguro, pasarelas, confirmación y activación de acceso.",
+      readiness: "Pendiente pagos",
     },
     {
       title: "Login / acceso",
       status: "Funcional",
       area: "Auth",
       description: "Entrada de alumnos y administradores con Supabase Auth y rutas protegidas.",
+      readiness: "Funcional",
     },
     {
       title: "Certificados públicos",
       status: "Preparado",
       area: "Credenciales",
       description: "Verificación pública de códigos, estado de certificados y credenciales.",
+      readiness: "Preparado",
     },
   ];
 
@@ -872,8 +878,7 @@ function StudioGHCAdmin({
           <span>Editor tipo IONOS/Wix</span>
           <strong>Pero protegido por marca GHC</strong>
           <p>
-            No será libertad total que rompa la plataforma: será edición visual con bloques
-            aprobados, estilos controlados y revisión antes de publicar.
+            Edición visual con bloques aprobados, estilos controlados y revisión antes de publicar.
           </p>
           <button type="button" onClick={() => setSystemMessage("La publicación real desde Studio GHC se conectará más adelante con control de versiones.")}>
             Preparar publicación
@@ -906,14 +911,19 @@ function StudioGHCAdmin({
                   className={index === 0 ? "studio-page-card active" : "studio-page-card"}
                   onClick={() => setSystemMessage(`Preparado para editar: ${page.title}.`)}
                 >
-                  <span className="studio-page-main">
-                    <strong>{page.title}</strong>
-                    <small>{page.area}</small>
+                  <span className="studio-page-topline">
+                    <span className="studio-page-area">{page.area}</span>
+                    <span className="studio-page-readiness">{page.readiness}</span>
                   </span>
 
-                  <span className="studio-page-badge">{page.status}</span>
+                  <span className="studio-page-title">{page.title}</span>
 
                   <span className="studio-page-description">{page.description}</span>
+
+                  <span className="studio-page-footer">
+                    <span className="studio-page-status">{page.status}</span>
+                    <span className="studio-page-arrow">›</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -1178,27 +1188,54 @@ function GlobalStyles() {
       }
 
 
-      .premium-studio-layout{grid-template-columns:320px minmax(0,1fr) 320px}
-      .studio-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
-      .studio-panel-heading h2{margin:0;font-size:21px;line-height:1.05;letter-spacing:-.035em}
-      .studio-panel-heading p{margin:7px 0 0;color:var(--muted);line-height:1.45;font-size:13px}
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      @media(max-width:1080px){}
+
+
+      .premium-studio-layout{grid-template-columns:340px minmax(0,1fr) 320px}
+      .studio-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+      .studio-panel-heading h2{margin:0;font-size:22px;line-height:1.05;letter-spacing:-.04em}
+      .studio-panel-heading p{margin:7px 0 0;color:var(--muted);line-height:1.48;font-size:13px}
       .studio-page-list{display:grid;gap:12px}
-      .studio-page-card{appearance:none;-webkit-appearance:none;width:100%;min-height:112px;display:grid;grid-template-columns:minmax(0,1fr) 132px;grid-template-areas:"main badge" "description description";gap:10px 14px;align-items:start;padding:15px;border-radius:18px;border:1px solid rgba(255,255,255,.095);background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));color:var(--white);text-align:left;box-shadow:none;cursor:pointer;overflow:hidden}
-      .studio-page-card:hover{transform:translateY(-1px);border-color:rgba(99,229,70,.26);background:linear-gradient(145deg,rgba(99,229,70,.07),rgba(255,255,255,.024))}
-      .studio-page-card.active{border-color:rgba(99,229,70,.58);background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;box-shadow:0 18px 38px rgba(99,229,70,.20)}
-      .studio-page-main{grid-area:main;display:grid;gap:6px;min-width:0}
-      .studio-page-main strong{display:block;color:var(--white);font-size:17px;line-height:1.08;font-weight:950;letter-spacing:-.025em;white-space:normal;overflow-wrap:break-word;text-shadow:none}
-      .studio-page-main small{display:inline-flex;width:max-content;max-width:100%;color:var(--green);font-size:10px;line-height:1;font-weight:950;text-transform:uppercase;letter-spacing:.14em;white-space:normal}
-      .studio-page-badge{grid-area:badge;justify-self:end;display:inline-flex;align-items:center;justify-content:center;width:100%;min-height:34px;padding:7px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.105);background:rgba(255,255,255,.045);color:rgba(244,246,242,.72);font-size:11px;line-height:1.12;font-weight:900;text-align:center;white-space:normal;overflow-wrap:break-word;text-shadow:none}
-      .studio-page-description{grid-area:description;display:block;margin-top:2px;color:rgba(244,246,242,.58);font-size:12px;line-height:1.45;font-weight:650}
-      .studio-page-card.active .studio-page-main strong,.studio-page-card.active .studio-page-main small,.studio-page-card.active .studio-page-description,.studio-page-card.active .studio-page-badge{color:#061008;text-shadow:none}
-      .studio-page-card.active .studio-page-main small,.studio-page-card.active .studio-page-description{opacity:.78}
-      .studio-page-card.active .studio-page-badge{border-color:rgba(6,16,8,.20);background:rgba(6,16,8,.11)}
+      .studio-page-card{appearance:none;-webkit-appearance:none;width:100%;min-height:138px;display:grid;gap:11px;padding:16px;border-radius:20px;border:1px solid rgba(255,255,255,.095);background:linear-gradient(145deg,rgba(255,255,255,.058),rgba(255,255,255,.022));color:var(--white);text-align:left;box-shadow:inset 0 1px 0 rgba(255,255,255,.035);cursor:pointer;overflow:hidden;position:relative}
+      .studio-page-card:before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:3px;border-radius:999px;background:rgba(255,255,255,.12)}
+      .studio-page-card:hover{transform:translateY(-1px);border-color:rgba(99,229,70,.24);background:linear-gradient(145deg,rgba(99,229,70,.07),rgba(255,255,255,.024))}
+      .studio-page-card:hover:before{background:var(--green)}
+      .studio-page-card.active{border-color:rgba(99,229,70,.38);background:linear-gradient(145deg,rgba(99,229,70,.14),rgba(255,255,255,.028));box-shadow:0 18px 44px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.07)}
+      .studio-page-card.active:before{background:var(--green);box-shadow:0 0 18px rgba(99,229,70,.45)}
+      .studio-page-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+      .studio-page-area{display:inline-flex;align-items:center;width:max-content;max-width:100%;color:var(--green);font-size:10px;line-height:1;font-weight:950;text-transform:uppercase;letter-spacing:.14em;white-space:normal}
+      .studio-page-readiness{display:inline-flex;align-items:center;justify-content:center;min-height:26px;padding:6px 9px;border-radius:999px;border:1px solid rgba(99,229,70,.18);background:rgba(99,229,70,.08);color:var(--green);font-size:10px;line-height:1;font-weight:950;white-space:nowrap}
+      .studio-page-card.active .studio-page-readiness{background:var(--green);border-color:transparent;color:#061008}
+      .studio-page-title{display:block;color:var(--white);font-size:22px;line-height:1.02;font-weight:950;letter-spacing:-.05em;text-shadow:none}
+      .studio-page-description{display:block;color:rgba(244,246,242,.66);font-size:12.5px;line-height:1.48;font-weight:650}
+      .studio-page-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:2px}
+      .studio-page-status{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:7px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.105);background:rgba(255,255,255,.045);color:rgba(244,246,242,.74);font-size:11px;line-height:1.12;font-weight:900;text-align:center;white-space:normal}
+      .studio-page-arrow{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:var(--green);font-size:20px;line-height:1}
+      .studio-page-card.active .studio-page-title{color:var(--white)}
+      .studio-page-card.active .studio-page-description{color:rgba(244,246,242,.72)}
+      .studio-page-card.active .studio-page-status{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.10);color:var(--green)}
       .studio-block-list,.studio-property-list,.studio-history-list{display:grid;gap:9px}
       .studio-block-list button{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);color:var(--white);min-height:48px;text-align:left;padding:12px;cursor:pointer;display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:center}
       .studio-block-list button:hover{border-color:rgba(99,229,70,.24);background:rgba(99,229,70,.07)}
       .studio-block-list span{color:var(--green)}
-      @media(max-width:1080px){.premium-studio-layout{grid-template-columns:1fr}.studio-page-card{grid-template-columns:1fr;grid-template-areas:"main" "badge" "description"}.studio-page-badge{justify-self:start;width:auto;text-align:left}}
+      @media(max-width:1080px){.premium-studio-layout{grid-template-columns:1fr}.studio-page-topline,.studio-page-footer{align-items:flex-start;flex-direction:column}.studio-page-readiness,.studio-page-status{white-space:normal;justify-content:flex-start;text-align:left}}
 
   `}</style>;
 }
