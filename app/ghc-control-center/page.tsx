@@ -403,6 +403,7 @@ export default function Page() {
     }
 
     setModalBusy(true);
+    setSystemMessage("Guardando curso en Supabase...");
     try {
       if (modalMode === "editCourse" && courseForm.id) {
         await updateCourseInSupabase(courseForm.id, courseForm);
@@ -435,6 +436,7 @@ export default function Page() {
     }
 
     setModalBusy(true);
+    setSystemMessage("Guardando módulo en Supabase...");
     try {
       if (modalMode === "editModule" && moduleForm.id) {
         await updateModuleInSupabase(moduleForm.id, moduleForm);
@@ -628,37 +630,307 @@ async function safeSelect(table: string, columns: string): Promise<AnyRecord[]> 
 
 async function createCourseInSupabase(form: CourseFormState) {
   const priceNumber = parseAdminNumber(form.price);
-  const base = cleanPayload({ title: form.title.trim(), subtitle: form.subtitle.trim(), short_description: form.subtitle.trim(), description: form.description.trim(), summary: form.description.trim(), category: form.category.trim(), level: form.level.trim(), price: priceNumber, currency: "EUR", status: form.status, is_published: form.status === "published", cover_image_url: form.image.trim(), image_url: form.image.trim() });
-  await writeWithFallback("courses", "insert", [base, cleanPayload({ title: base.title, subtitle: base.subtitle, description: base.description, category: base.category, level: base.level, price: base.price, currency: "EUR", status: base.status, is_published: base.is_published }), cleanPayload({ title: base.title, subtitle: base.subtitle, description: base.description, category: base.category, level: base.level, status: base.status }), cleanPayload({ title: base.title, description: base.description, status: base.status }), cleanPayload({ title: base.title })]);
+  const slug = createSlug(form.title);
+
+  const base = cleanPayload({
+    title: form.title.trim(),
+    slug,
+    subtitle: form.subtitle.trim(),
+    short_description: form.subtitle.trim(),
+    description: form.description.trim(),
+    summary: form.description.trim(),
+    category: form.category.trim(),
+    level: form.level.trim(),
+    price: priceNumber,
+    currency: "EUR",
+    status: form.status,
+    visibility: form.status,
+    is_published: form.status === "published",
+    published: form.status === "published",
+    cover_image_url: form.image.trim(),
+    image_url: form.image.trim(),
+  });
+
+  await writeWithFallback("courses", "insert", [
+    base,
+    cleanPayload({
+      title: base.title,
+      slug: base.slug,
+      subtitle: base.subtitle,
+      description: base.description,
+      category: base.category,
+      level: base.level,
+      price: base.price,
+      currency: "EUR",
+      status: base.status,
+      is_published: base.is_published,
+    }),
+    cleanPayload({
+      title: base.title,
+      slug: base.slug,
+      subtitle: base.subtitle,
+      description: base.description,
+      category: base.category,
+      level: base.level,
+      status: base.status,
+    }),
+    cleanPayload({
+      title: base.title,
+      slug: base.slug,
+      description: base.description,
+      status: base.status,
+    }),
+    cleanPayload({
+      title: base.title,
+      slug: base.slug,
+    }),
+    cleanPayload({
+      title: base.title,
+    }),
+  ]);
 }
 
 async function updateCourseInSupabase(id: string, form: CourseFormState) {
   const priceNumber = parseAdminNumber(form.price);
-  const base = cleanPayload({ title: form.title.trim(), subtitle: form.subtitle.trim(), short_description: form.subtitle.trim(), description: form.description.trim(), summary: form.description.trim(), category: form.category.trim(), level: form.level.trim(), price: priceNumber, currency: "EUR", status: form.status, is_published: form.status === "published", cover_image_url: form.image.trim(), image_url: form.image.trim() });
-  await writeWithFallback("courses", "update", [base, cleanPayload({ title: base.title, subtitle: base.subtitle, description: base.description, category: base.category, level: base.level, price: base.price, currency: "EUR", status: base.status, is_published: base.is_published }), cleanPayload({ title: base.title, subtitle: base.subtitle, description: base.description, category: base.category, level: base.level, status: base.status }), cleanPayload({ title: base.title, description: base.description, status: base.status }), cleanPayload({ title: base.title })], id);
+  const slug = createSlug(form.title);
+
+  const base = cleanPayload({
+    title: form.title.trim(),
+    slug,
+    subtitle: form.subtitle.trim(),
+    short_description: form.subtitle.trim(),
+    description: form.description.trim(),
+    summary: form.description.trim(),
+    category: form.category.trim(),
+    level: form.level.trim(),
+    price: priceNumber,
+    currency: "EUR",
+    status: form.status,
+    visibility: form.status,
+    is_published: form.status === "published",
+    published: form.status === "published",
+    cover_image_url: form.image.trim(),
+    image_url: form.image.trim(),
+  });
+
+  await writeWithFallback("courses", "update", [
+    base,
+    cleanPayload({
+      title: base.title,
+      slug: base.slug,
+      subtitle: base.subtitle,
+      description: base.description,
+      category: base.category,
+      level: base.level,
+      price: base.price,
+      currency: "EUR",
+      status: base.status,
+      is_published: base.is_published,
+    }),
+    cleanPayload({
+      title: base.title,
+      slug: base.slug,
+      subtitle: base.subtitle,
+      description: base.description,
+      category: base.category,
+      level: base.level,
+      status: base.status,
+    }),
+    cleanPayload({
+      title: base.title,
+      slug: base.slug,
+      description: base.description,
+      status: base.status,
+    }),
+    cleanPayload({
+      title: base.title,
+      slug: base.slug,
+    }),
+    cleanPayload({
+      title: base.title,
+    }),
+  ], id);
 }
 
 async function createModuleInSupabase(form: ModuleFormState) {
   const position = parseAdminNumber(form.position);
-  await writeWithFallback("modules", "insert", [cleanPayload({ course_id: form.courseId, title: form.title.trim(), name: form.title.trim(), description: form.description.trim(), summary: form.description.trim(), position, order_index: position, sort_order: position, status: "draft" }), cleanPayload({ course_id: form.courseId, title: form.title.trim(), description: form.description.trim(), position }), cleanPayload({ course_id: form.courseId, title: form.title.trim(), position }), cleanPayload({ course_id: form.courseId, title: form.title.trim() }), cleanPayload({ course_id: form.courseId, name: form.title.trim() })]);
+
+  await writeWithFallback("modules", "insert", [
+    cleanPayload({
+      course_id: form.courseId,
+      title: form.title.trim(),
+      name: form.title.trim(),
+      description: form.description.trim(),
+      summary: form.description.trim(),
+      position,
+      order_index: position,
+      sort_order: position,
+      status: "draft",
+    }),
+    cleanPayload({
+      course_id: form.courseId,
+      title: form.title.trim(),
+      description: form.description.trim(),
+      position,
+    }),
+    cleanPayload({
+      course_id: form.courseId,
+      title: form.title.trim(),
+      position,
+    }),
+    cleanPayload({
+      course_id: form.courseId,
+      title: form.title.trim(),
+    }),
+    cleanPayload({
+      course_id: form.courseId,
+      name: form.title.trim(),
+    }),
+  ]);
 }
 
 async function updateModuleInSupabase(id: string, form: ModuleFormState) {
   const position = parseAdminNumber(form.position);
-  await writeWithFallback("modules", "update", [cleanPayload({ course_id: form.courseId, title: form.title.trim(), name: form.title.trim(), description: form.description.trim(), summary: form.description.trim(), position, order_index: position, sort_order: position }), cleanPayload({ course_id: form.courseId, title: form.title.trim(), description: form.description.trim(), position }), cleanPayload({ course_id: form.courseId, title: form.title.trim(), position }), cleanPayload({ course_id: form.courseId, title: form.title.trim() }), cleanPayload({ course_id: form.courseId, name: form.title.trim() })], id);
+
+  await writeWithFallback("modules", "update", [
+    cleanPayload({
+      course_id: form.courseId,
+      title: form.title.trim(),
+      name: form.title.trim(),
+      description: form.description.trim(),
+      summary: form.description.trim(),
+      position,
+      order_index: position,
+      sort_order: position,
+    }),
+    cleanPayload({
+      course_id: form.courseId,
+      title: form.title.trim(),
+      description: form.description.trim(),
+      position,
+    }),
+    cleanPayload({
+      course_id: form.courseId,
+      title: form.title.trim(),
+      position,
+    }),
+    cleanPayload({
+      course_id: form.courseId,
+      title: form.title.trim(),
+    }),
+    cleanPayload({
+      course_id: form.courseId,
+      name: form.title.trim(),
+    }),
+  ], id);
 }
 
 async function writeWithFallback(table: string, mode: "insert" | "update", attempts: AnyRecord[], id?: string) {
   let lastError: any = null;
+
   for (const payload of attempts) {
-    const response = mode === "insert" ? await supabase.from(table).insert(payload).select("*").single() : await supabase.from(table).update(payload).eq("id", id).select("*").single();
-    if (!response.error) return response.data;
-    lastError = response.error;
-    const message = String(response.error.message || "").toLowerCase();
-    const recoverable = message.includes("column") || message.includes("schema") || message.includes("could not find") || message.includes("does not exist") || message.includes("violates not-null");
-    if (!recoverable) break;
+    try {
+      const request =
+        mode === "insert"
+          ? supabase.from(table).insert(payload).select("*").single()
+          : supabase.from(table).update(payload).eq("id", id).select("*").single();
+
+      const response = await withTimeout(
+        request,
+        12000,
+        `Supabase no respondió al intentar ${mode === "insert" ? "crear" : "actualizar"} en ${table}.`
+      );
+
+      if (!response.error) return response.data;
+
+      lastError = response.error;
+
+      const message = String(response.error.message || "").toLowerCase();
+      const details = String(response.error.details || "").toLowerCase();
+      const hint = String(response.error.hint || "").toLowerCase();
+      const full = `${message} ${details} ${hint}`;
+
+      const recoverable =
+        full.includes("column") ||
+        full.includes("schema") ||
+        full.includes("could not find") ||
+        full.includes("does not exist") ||
+        full.includes("violates not-null") ||
+        full.includes("not-null");
+
+      if (!recoverable) break;
+    } catch (error) {
+      lastError = error;
+      break;
+    }
   }
-  throw lastError || new Error(`No se pudo escribir en ${table}.`);
+
+  throw normalizeSupabaseWriteError(lastError, table, mode);
+}
+
+async function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(message));
+    }, milliseconds);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+function normalizeSupabaseWriteError(error: any, table: string, mode: "insert" | "update") {
+  const fallback = `No se pudo ${mode === "insert" ? "crear" : "actualizar"} el registro en ${table}.`;
+
+  if (!error) return new Error(fallback);
+
+  const message = String(error.message || "");
+  const details = String(error.details || "");
+  const hint = String(error.hint || "");
+  const fullMessage = [message, details, hint].filter(Boolean).join(" · ");
+
+  if (!fullMessage) return new Error(fallback);
+
+  const lower = fullMessage.toLowerCase();
+
+  if (lower.includes("row-level security")) {
+    return new Error(
+      `${fullMessage} · Supabase está bloqueando la escritura por RLS. Hay que permitir a admin/superadmin/owner insertar y actualizar ${table}.`
+    );
+  }
+
+  if (lower.includes("slug")) {
+    return new Error(
+      `${fullMessage} · La tabla exige slug o tiene una restricción sobre slug. El archivo ya lo genera automáticamente; revisa si debe ser único o si la columna tiene otro nombre.`
+    );
+  }
+
+  if (lower.includes("permission denied") || lower.includes("not authorized") || lower.includes("unauthorized")) {
+    return new Error(
+      `${fullMessage} · Tu usuario está autenticado, pero Supabase no le permite escribir en ${table}. Revisa policies/RLS.`
+    );
+  }
+
+  return new Error(fullMessage);
+}
+
+function createSlug(value: string) {
+  const base = String(value || "curso-ghc")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 72);
+
+  const suffix = Math.random().toString(36).slice(2, 7);
+
+  return `${base || "curso-ghc"}-${suffix}`;
 }
 
 function cleanPayload(payload: AnyRecord) { return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined && value !== null && value !== "")); }
