@@ -868,7 +868,7 @@ async function writeWithFallback(table: string, mode: "insert" | "update", attem
   throw normalizeSupabaseWriteError(lastError, table, mode);
 }
 
-async function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+async function withTimeout<T>(promiseLike: PromiseLike<T>, milliseconds: number, message: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   const timeout = new Promise<never>((_, reject) => {
@@ -878,7 +878,7 @@ async function withTimeout<T>(promise: Promise<T>, milliseconds: number, message
   });
 
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([Promise.resolve(promiseLike), timeout]);
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
