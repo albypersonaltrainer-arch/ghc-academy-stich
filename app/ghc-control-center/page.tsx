@@ -884,13 +884,6 @@ function StudioGHCAdmin({
         </div>
       </section>
 
-      <section className="studio-v2-stats">
-        <StudioMetric label="Páginas editables" value={editablePages.length} helper="Estructura pública" />
-        <StudioMetric label="Bloques aprobados" value={approvedBlocks.length} helper="Sistema GHC" />
-        <StudioMetric label="Cursos conectables" value={courseViews.length} helper="Catálogo real" />
-        <StudioMetric label="Estado" value="Borrador" helper="Publicación manual" warning />
-      </section>
-
       <section className="studio-v2-layout">
         <aside className="studio-v2-sidebar">
           <article className="studio-v2-card">
@@ -1215,8 +1208,7 @@ function GlobalStyles() {
       @media(max-width:1080px){.premium-studio-layout{grid-template-columns:1fr}.studio-page-topline,.studio-page-footer{align-items:flex-start;flex-direction:column}.studio-page-readiness,.studio-page-status{white-space:normal;justify-content:flex-start;text-align:left}}
 
 
-      .studio-v2-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-      .studio-v2-layout{display:grid;grid-template-columns:360px minmax(0,1fr) 320px;gap:14px;align-items:start}
+            .studio-v2-layout{display:grid;grid-template-columns:360px minmax(0,1fr) 320px;gap:16px;align-items:start}
       .studio-v2-sidebar,.studio-v2-inspector{display:grid;gap:14px}
       .studio-v2-card,.studio-v2-workspace{border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}
       .studio-v2-card-head{margin-bottom:16px}
@@ -1261,7 +1253,7 @@ function GlobalStyles() {
       .studio-v2-actions button{width:100%;min-height:40px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-weight:850;cursor:pointer}
       .studio-v2-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}
       @media(max-width:1460px){.studio-v2-layout{grid-template-columns:1fr}.studio-v2-sidebar,.studio-v2-inspector{grid-template-columns:repeat(2,minmax(0,1fr))}}
-      @media(max-width:1080px){.studio-v2-stats,.studio-v2-sidebar,.studio-v2-inspector,.studio-v2-preview-grid,.studio-v2-preview-hero{grid-template-columns:1fr}.studio-v2-toolbar,.studio-v2-footer{flex-direction:column;align-items:flex-start}.studio-v2-page-status{width:auto}}
+      @media(max-width:1080px){.studio-v2-sidebar,.studio-v2-inspector,.studio-v2-preview-grid,.studio-v2-preview-hero{grid-template-columns:1fr}.studio-v2-toolbar,.studio-v2-footer{flex-direction:column;align-items:flex-start}.studio-v2-page-status{width:auto}}
 
   `}</style>;
 }
