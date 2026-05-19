@@ -882,112 +882,33 @@ function GlobalStyles() {
     .certificate-side-card,.security-side-card,.content-side-card,.communication-side-card,.payment-side-card,.exam-side-card{overflow:hidden!important}.certificate-side-card .status-row,.security-side-card .status-row,.payment-side-card .status-row,.settings-side-card .status-row{align-items:center!important}.modal-actions button:first-child{background:rgba(255,255,255,.045)!important;color:var(--white)!important;border:1px solid rgba(255,255,255,.105)!important;box-shadow:none!important}.source-drop input{background:rgba(255,255,255,.045)!important;color:var(--white)!important;border:1px solid rgba(255,255,255,.105)!important}
 
 
-      /* =====================================================================
-         GHC ADMIN FINAL OVERRIDE — Studio GHC premium definitivo
-         Verde GHC con letras negras y estados separados, sin texto montado.
-      ===================================================================== */
-
-      .studio-page-list{
-        display:grid!important;
-        gap:10px!important;
-      }
-
-      .studio-page-list button{
-        appearance:none!important;
-        -webkit-appearance:none!important;
-        width:100%!important;
-        min-height:64px!important;
-        display:grid!important;
-        grid-template-columns:minmax(0,1fr) max-content!important;
-        align-items:center!important;
-        gap:14px!important;
-        padding:12px 14px!important;
-        border-radius:16px!important;
-        border:1px solid rgba(255,255,255,.095)!important;
-        background:linear-gradient(145deg,rgba(255,255,255,.058),rgba(255,255,255,.024))!important;
-        color:var(--white)!important;
-        text-align:left!important;
-        box-shadow:none!important;
-        cursor:pointer!important;
-        overflow:hidden!important;
-      }
-
-      .studio-page-list button strong{
-        display:block!important;
-        min-width:0!important;
-        color:var(--white)!important;
-        font-size:14px!important;
-        line-height:1.15!important;
-        font-weight:950!important;
-        letter-spacing:-.015em!important;
-        white-space:normal!important;
-        overflow-wrap:break-word!important;
-        text-shadow:none!important;
-      }
-
-      .studio-page-list button span{
-        display:inline-flex!important;
-        align-items:center!important;
-        justify-content:center!important;
-        width:auto!important;
-        max-width:150px!important;
-        min-height:30px!important;
-        padding:6px 10px!important;
-        border-radius:999px!important;
-        border:1px solid rgba(255,255,255,.09)!important;
-        background:rgba(255,255,255,.045)!important;
-        color:rgba(244,246,242,.68)!important;
-        font-size:11px!important;
-        line-height:1.15!important;
-        font-weight:900!important;
-        letter-spacing:-.01em!important;
-        text-align:center!important;
-        white-space:normal!important;
-        overflow-wrap:break-word!important;
-        text-shadow:none!important;
-      }
-
-      .studio-page-list button:hover{
-        transform:translateY(-1px)!important;
-        border-color:rgba(99,229,70,.28)!important;
-        background:linear-gradient(145deg,rgba(99,229,70,.08),rgba(255,255,255,.028))!important;
-      }
-
-      .studio-page-list button:hover strong{
-        color:var(--green)!important;
-      }
-
-      .studio-page-list button.active{
-        border-color:rgba(99,229,70,.55)!important;
-        background:linear-gradient(135deg,#7cff55,var(--green))!important;
-        color:#061008!important;
-        box-shadow:0 18px 38px rgba(99,229,70,.18)!important;
-      }
-
-      .studio-page-list button.active strong{
-        color:#061008!important;
-        text-shadow:none!important;
-      }
-
-      .studio-page-list button.active span{
-        border-color:rgba(6,16,8,.18)!important;
-        background:rgba(6,16,8,.10)!important;
-        color:#061008!important;
-        text-shadow:none!important;
-        opacity:1!important;
-      }
-
+    
+      
       @media(max-width:1080px){
         .studio-page-list button{
           grid-template-columns:1fr!important;
-          gap:8px!important;
+          row-gap:8px!important;
           align-items:flex-start!important;
         }
 
-        .studio-page-list button span{
+        .studio-page-list button .studio-page-status{
+          width:auto!important;
           justify-content:flex-start!important;
-          max-width:100%!important;
           text-align:left!important;
+        }
+      }
+
+
+      @media(max-width:1080px){
+        .studio-page-list button{
+          grid-template-columns:1fr;
+          row-gap:8px;
+          align-items:flex-start;
+        }
+        .studio-page-list button .studio-page-status{
+          width:auto;
+          justify-content:flex-start;
+          text-align:left;
         }
       }
 
