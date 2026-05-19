@@ -795,8 +795,242 @@ function SeguridadAdmin({ dashboardData, studentViews, setActiveTab, setSystemMe
   return <SimpleSection className="security-admin-page" kicker="Protección, roles y auditoría" title="Seguridad" text="Supervisa accesos, roles, sesiones, dispositivos, eventos críticos y políticas de protección." sideTitle="Base segura activa" sideText="Supabase Auth + rol admin + ruta privada." sideAction="Preparar auditoría" onSideAction={() => setSystemMessage("Auditoría avanzada pendiente de tablas de eventos/sesiones.")}><section className="security-stats-grid"><CourseStat label="Admins" value={admins} helper="Autorizados" /><CourseStat label="Alumnos" value={studentViews.length} helper="Protegidos" /><CourseStat label="Bloqueados" value={studentViews.filter((s) => s.status === "blocked").length} helper="Restringidos" /><CourseStat label="Dispositivos" value={2} helper="Límite futuro" /></section><article className="security-permissions-card"><div className="card-head"><div><h2>Roles y permisos</h2><p>Matriz preparada para controlar qué puede ver y editar cada tipo de usuario.</p></div><button onClick={() => setSystemMessage("Edición real de roles requiere RLS y permisos owner.")}>Gestionar roles</button></div><div className="role-matrix">{["Acceso al panel privado", "Gestión de cursos", "Gestión de alumnos", "Pagos y accesos", "Certificados", "Seguridad y roles"].map((label) => <div key={label} className="role-matrix-row"><strong>{label}</strong><RoleCheck active /><RoleCheck active={label !== "Seguridad y roles"} /><RoleCheck active={label === "Gestión de alumnos" || label === "Certificados"} /><RoleCheck active={false} /></div>)}</div></article><article className="security-side-card"><h2>Acciones rápidas</h2><button onClick={() => setActiveTab("alumnos")}>Revisar alumnos</button><button onClick={() => setActiveTab("pagos")}>Ver accesos y pagos</button></article></SimpleSection>;
 }
 
-function StudioGHCAdmin({ courseViews, setActiveTab, setSystemMessage }: { courseViews: CourseAdminView[]; setActiveTab: (tab: AdminTab) => void; setSystemMessage: (message: string) => void; }) {
-  return <SimpleSection className="studio-admin-page" kicker="Editor visual controlado" title="Studio GHC" text="Edita páginas, textos, bloques, apariencia y experiencia pública manteniendo la estética premium oficial." sideTitle="Editor tipo IONOS/Wix" sideText="Pero protegido por marca GHC: bloques aprobados, estilos controlados y revisión antes de publicar." sideAction="Preparar publicación" onSideAction={() => setSystemMessage("Publicación real pendiente de control de versiones.")}><section className="studio-stats-grid"><CourseStat label="Páginas" value={6} helper="Editables" /><CourseStat label="Bloques" value={8} helper="Reutilizables" /><CourseStat label="Cursos" value={courseViews.length} helper="Catálogo" /><CourseStat label="Borradores" value={12} helper="Futuro" /></section><section className="studio-layout"><aside className="studio-left-panel"><article className="studio-panel-card"><h2>Páginas editables</h2>{["Landing principal", "Catálogo de cursos", "Página de curso", "Checkout", "Login / acceso", "Certificados públicos"].map((page, i) => <button key={page} className={i === 0 ? "active" : ""} onClick={() => setSystemMessage(`Preparado para editar: ${page}.`)}><strong>{page}</strong><span>Borrador preparado</span></button>)}</article></aside><section className="studio-canvas-panel"><div className="studio-toolbar"><div><strong>Landing principal</strong><span>Borrador visual · No publicado</span></div></div><div className="studio-canvas"><section className="studio-page-preview-hero"><div><p>GHC Academy</p><h2>Formación profesional desde la ciencia</h2><span>Entrenamiento · Nutrición · Salud · Rendimiento</span><div><button>Explorar cursos</button><button>Ver certificaciones</button></div></div><div className="studio-preview-athlete" /></section></div><div className="studio-canvas-footer"><span>Borrador guardado automáticamente</span><button onClick={() => setSystemMessage("Vista previa real pendiente de migrar landing.")}>Vista previa</button><button onClick={() => setSystemMessage("Publicación pendiente de versiones y permisos.")}>Publicar cambios</button></div></section><aside className="studio-right-panel"><article className="studio-panel-card"><h2>Acciones</h2><button onClick={() => setActiveTab("cursos")}>Editar catálogo</button><button onClick={() => setActiveTab("contenido")}>Editar contenido</button></article></aside></section></SimpleSection>;
+function StudioGHCAdmin({
+  courseViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  courseViews: CourseAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const editablePages = [
+    {
+      title: "Landing principal",
+      status: "Borrador preparado",
+      area: "Web pública",
+      description: "Hero principal, propuesta de valor, bloques de confianza y llamadas a la acción.",
+    },
+    {
+      title: "Catálogo de cursos",
+      status: "Pendiente de rediseño",
+      area: "Cursos",
+      description: "Listado comercial conectado a cursos reales, filtros, categorías y niveles.",
+    },
+    {
+      title: "Página de curso",
+      status: "Base activa",
+      area: "Venta",
+      description: "Ficha comercial, módulos, precio, beneficios, profesor y acceso al checkout.",
+    },
+    {
+      title: "Checkout",
+      status: "Pendiente Stripe/SumUp",
+      area: "Pagos",
+      description: "Flujo de compra seguro, pasarelas, confirmación y activación de acceso.",
+    },
+    {
+      title: "Login / acceso",
+      status: "Funcional",
+      area: "Auth",
+      description: "Entrada de alumnos y administradores con Supabase Auth y rutas protegidas.",
+    },
+    {
+      title: "Certificados públicos",
+      status: "Preparado",
+      area: "Credenciales",
+      description: "Verificación pública de códigos, estado de certificados y credenciales.",
+    },
+  ];
+
+  const reusableBlocks = [
+    "Hero premium GHC",
+    "Grid de cursos",
+    "Testimonios",
+    "FAQ",
+    "CTA de compra",
+    "Banner de certificado",
+    "Bloque científico",
+    "Card de profesor",
+  ];
+
+  const selectedPage = editablePages[0];
+
+  return (
+    <div className="studio-admin-page">
+      <section className="studio-hero-main">
+        <div>
+          <p className="admin-kicker">Editor visual controlado</p>
+          <h1>Studio GHC</h1>
+          <p>
+            Edita páginas, textos, bloques, apariencia y experiencia pública sin tocar código,
+            manteniendo siempre la estética premium oficial de GHC Academy.
+          </p>
+        </div>
+
+        <div className="studio-hero-panel">
+          <span>Editor tipo IONOS/Wix</span>
+          <strong>Pero protegido por marca GHC</strong>
+          <p>
+            No será libertad total que rompa la plataforma: será edición visual con bloques
+            aprobados, estilos controlados y revisión antes de publicar.
+          </p>
+          <button type="button" onClick={() => setSystemMessage("La publicación real desde Studio GHC se conectará más adelante con control de versiones.")}>
+            Preparar publicación
+          </button>
+        </div>
+      </section>
+
+      <section className="studio-stats-grid">
+        <StudioMetric label="Páginas editables" value={editablePages.length} helper="Estructura preparada" />
+        <StudioMetric label="Bloques reutilizables" value={reusableBlocks.length} helper="Componentes GHC" />
+        <StudioMetric label="Cursos conectables" value={courseViews.length} helper="Catálogo futuro" />
+        <StudioMetric label="Cambios en borrador" value={12} helper="Simulado / futuro" warning />
+      </section>
+
+      <section className="studio-layout premium-studio-layout">
+        <aside className="studio-left-panel">
+          <article className="studio-panel-card studio-pages-card">
+            <div className="studio-panel-heading">
+              <div>
+                <h2>Páginas editables</h2>
+                <p>Selecciona una página pública para editar su estructura, textos y bloques.</p>
+              </div>
+            </div>
+
+            <div className="studio-page-list">
+              {editablePages.map((page, index) => (
+                <button
+                  key={page.title}
+                  type="button"
+                  className={index === 0 ? "studio-page-card active" : "studio-page-card"}
+                  onClick={() => setSystemMessage(`Preparado para editar: ${page.title}.`)}
+                >
+                  <span className="studio-page-main">
+                    <strong>{page.title}</strong>
+                    <small>{page.area}</small>
+                  </span>
+
+                  <span className="studio-page-badge">{page.status}</span>
+
+                  <span className="studio-page-description">{page.description}</span>
+                </button>
+              ))}
+            </div>
+          </article>
+
+          <article className="studio-panel-card studio-blocks-card">
+            <div className="studio-panel-heading">
+              <div>
+                <h2>Bloques reutilizables</h2>
+                <p>Componentes aprobados para mantener coherencia visual GHC.</p>
+              </div>
+            </div>
+
+            <div className="studio-block-list">
+              {reusableBlocks.map((block) => (
+                <button key={block} type="button" onClick={() => setSystemMessage(`Bloque preparado: ${block}.`)}>
+                  <span>▣</span>
+                  <strong>{block}</strong>
+                </button>
+              ))}
+            </div>
+          </article>
+        </aside>
+
+        <section className="studio-canvas-panel">
+          <div className="studio-toolbar">
+            <div>
+              <strong>{selectedPage.title}</strong>
+              <span>{selectedPage.status} · No publicado</span>
+            </div>
+            <div className="studio-device-toggle">
+              <button type="button" className="active">Desktop</button>
+              <button type="button">Tablet</button>
+              <button type="button">Móvil</button>
+            </div>
+          </div>
+
+          <div className="studio-canvas">
+            <section className="studio-page-preview-hero">
+              <div>
+                <p>GHC Academy</p>
+                <h2>Formación profesional desde la ciencia</h2>
+                <span>Entrenamiento · Nutrición · Salud · Rendimiento</span>
+                <div>
+                  <button type="button">Explorar cursos</button>
+                  <button type="button">Ver certificaciones</button>
+                </div>
+              </div>
+              <div className="studio-preview-athlete" />
+            </section>
+
+            <section className="studio-preview-blocks">
+              <article>
+                <strong>Cursos destacados</strong>
+                <p>Cards conectadas al catálogo real.</p>
+              </article>
+              <article>
+                <strong>Beneficios</strong>
+                <p>Ciencia aplicada, certificación y comunidad.</p>
+              </article>
+              <article>
+                <strong>CTA final</strong>
+                <p>Bloque de conversión editable.</p>
+              </article>
+            </section>
+          </div>
+
+          <div className="studio-canvas-footer">
+            <span>Borrador guardado automáticamente</span>
+            <button type="button" onClick={() => setSystemMessage("La vista previa real se conectará cuando pasemos la landing a la estética Alumno.")}>Vista previa</button>
+            <button type="button" onClick={() => setSystemMessage("Publicación pendiente de control de versiones y permisos.")}>Publicar cambios</button>
+          </div>
+        </section>
+
+        <aside className="studio-right-panel">
+          <article className="studio-panel-card">
+            <h2>Propiedades</h2>
+            <div className="studio-property-list">
+              <StudioProperty label="Sección" value="Hero principal" />
+              <StudioProperty label="Estado" value="Borrador" />
+              <StudioProperty label="Visibilidad" value="Pública al publicar" />
+              <StudioProperty label="Estilo" value="GHC Dark Premium" />
+              <StudioProperty label="Color acento" value="#63E546" />
+            </div>
+          </article>
+
+          <article className="studio-panel-card">
+            <h2>Apariencia protegida</h2>
+            <p>Los cambios visuales estarán limitados a la identidad GHC para evitar que la web pierda coherencia.</p>
+            <div className="studio-style-tags">
+              <span>Grafito</span>
+              <span>Verde GHC</span>
+              <span>Blanco roto</span>
+              <span>Cards premium</span>
+              <span>Sport Science</span>
+            </div>
+          </article>
+
+          <article className="studio-panel-card">
+            <h2>Historial</h2>
+            <div className="studio-history-list">
+              <span>Borrador creado · hoy</span>
+              <span>Alumno fijado como referencia visual</span>
+              <span>Landing pendiente de migrar</span>
+            </div>
+          </article>
+
+          <article className="studio-panel-card">
+            <h2>Acciones</h2>
+            <button type="button" onClick={() => setActiveTab("cursos")}>Editar catálogo</button>
+            <button type="button" onClick={() => setActiveTab("contenido")}>Editar contenido</button>
+            <button type="button" onClick={() => setSystemMessage("Restaurar versión se conectará al historial de publicaciones.")}>Restaurar versión</button>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
 }
 
 function AjustesAdmin({ setActiveTab, setSystemMessage }: { setActiveTab: (tab: AdminTab) => void; setSystemMessage: (message: string) => void; }) {
@@ -911,6 +1145,29 @@ function GlobalStyles() {
           text-align:left;
         }
       }
+
+
+      .premium-studio-layout{grid-template-columns:320px minmax(0,1fr) 320px}
+      .studio-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+      .studio-panel-heading h2{margin:0;font-size:21px;line-height:1.05;letter-spacing:-.035em}
+      .studio-panel-heading p{margin:7px 0 0;color:var(--muted);line-height:1.45;font-size:13px}
+      .studio-page-list{display:grid;gap:12px}
+      .studio-page-card{appearance:none;-webkit-appearance:none;width:100%;min-height:112px;display:grid;grid-template-columns:minmax(0,1fr) 132px;grid-template-areas:"main badge" "description description";gap:10px 14px;align-items:start;padding:15px;border-radius:18px;border:1px solid rgba(255,255,255,.095);background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));color:var(--white);text-align:left;box-shadow:none;cursor:pointer;overflow:hidden}
+      .studio-page-card:hover{transform:translateY(-1px);border-color:rgba(99,229,70,.26);background:linear-gradient(145deg,rgba(99,229,70,.07),rgba(255,255,255,.024))}
+      .studio-page-card.active{border-color:rgba(99,229,70,.58);background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;box-shadow:0 18px 38px rgba(99,229,70,.20)}
+      .studio-page-main{grid-area:main;display:grid;gap:6px;min-width:0}
+      .studio-page-main strong{display:block;color:var(--white);font-size:17px;line-height:1.08;font-weight:950;letter-spacing:-.025em;white-space:normal;overflow-wrap:break-word;text-shadow:none}
+      .studio-page-main small{display:inline-flex;width:max-content;max-width:100%;color:var(--green);font-size:10px;line-height:1;font-weight:950;text-transform:uppercase;letter-spacing:.14em;white-space:normal}
+      .studio-page-badge{grid-area:badge;justify-self:end;display:inline-flex;align-items:center;justify-content:center;width:100%;min-height:34px;padding:7px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.105);background:rgba(255,255,255,.045);color:rgba(244,246,242,.72);font-size:11px;line-height:1.12;font-weight:900;text-align:center;white-space:normal;overflow-wrap:break-word;text-shadow:none}
+      .studio-page-description{grid-area:description;display:block;margin-top:2px;color:rgba(244,246,242,.58);font-size:12px;line-height:1.45;font-weight:650}
+      .studio-page-card.active .studio-page-main strong,.studio-page-card.active .studio-page-main small,.studio-page-card.active .studio-page-description,.studio-page-card.active .studio-page-badge{color:#061008;text-shadow:none}
+      .studio-page-card.active .studio-page-main small,.studio-page-card.active .studio-page-description{opacity:.78}
+      .studio-page-card.active .studio-page-badge{border-color:rgba(6,16,8,.20);background:rgba(6,16,8,.11)}
+      .studio-block-list,.studio-property-list,.studio-history-list{display:grid;gap:9px}
+      .studio-block-list button{border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);color:var(--white);min-height:48px;text-align:left;padding:12px;cursor:pointer;display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:center}
+      .studio-block-list button:hover{border-color:rgba(99,229,70,.24);background:rgba(99,229,70,.07)}
+      .studio-block-list span{color:var(--green)}
+      @media(max-width:1080px){.premium-studio-layout{grid-template-columns:1fr}.studio-page-card{grid-template-columns:1fr;grid-template-areas:"main" "badge" "description"}.studio-page-badge{justify-self:start;width:auto;text-align:left}}
 
   `}</style>;
 }
