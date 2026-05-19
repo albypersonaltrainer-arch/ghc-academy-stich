@@ -116,6 +116,7 @@ type ModuleFormState = {
 };
 
 const GREEN = "#63E546";
+const ADMIN_BUILD_ID = "RPC-DIAG-01 · 2026-05-20";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -346,7 +347,7 @@ export default function Page() {
   function openCreateCourse() {
     setCourseForm(emptyCourseForm);
     setModalMode("createCourse");
-    setSystemMessage("");
+    setSystemMessage(`Formulario de crear curso abierto · ${ADMIN_BUILD_ID}`);
   }
 
   function openEditCourse(course: CourseAdminView) {
@@ -397,13 +398,14 @@ export default function Page() {
 
   async function handleCourseSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSystemMessage(`Submit recibido · ${ADMIN_BUILD_ID}`);
     if (!courseForm.title.trim()) {
       setSystemMessage("El curso necesita al menos un título.");
       return;
     }
 
     setModalBusy(true);
-    setSystemMessage("Guardando curso en Supabase...");
+    setSystemMessage(`Guardando curso por RPC seguro · ${ADMIN_BUILD_ID}`);
     try {
       if (modalMode === "editCourse" && courseForm.id) {
         await updateCourseInSupabase(courseForm.id, courseForm);
@@ -436,7 +438,7 @@ export default function Page() {
     }
 
     setModalBusy(true);
-    setSystemMessage("Guardando módulo en Supabase...");
+    setSystemMessage(`Guardando módulo por RPC seguro · ${ADMIN_BUILD_ID}`);
     try {
       if (modalMode === "editModule" && moduleForm.id) {
         await updateModuleInSupabase(moduleForm.id, moduleForm);
@@ -553,6 +555,12 @@ export default function Page() {
             <div className="topbar-user"><span>{initials}</span><div><strong>{shortName(displayName)}</strong><p>Administrador</p></div></div>
           </div>
         </header>
+
+        <div className="admin-build-strip">
+          <strong>Admin build</strong>
+          <span>{ADMIN_BUILD_ID}</span>
+          <em>Si no ves esta marca, estás en un deployment o archivo anterior.</em>
+        </div>
 
         {systemMessage ? <div className="admin-notice">{systemMessage}</div> : null}
 
@@ -1431,6 +1439,12 @@ function GlobalStyles() {
       .studio-v2-actions button:first-child{background:var(--green);color:#061008;border-color:transparent}
       @media(max-width:1460px){.studio-v2-layout{grid-template-columns:1fr}.studio-v2-sidebar,.studio-v2-inspector{grid-template-columns:repeat(2,minmax(0,1fr))}}
       @media(max-width:1080px){.studio-v2-sidebar,.studio-v2-inspector,.studio-v2-preview-grid,.studio-v2-preview-hero{grid-template-columns:1fr}.studio-v2-toolbar,.studio-v2-footer{flex-direction:column;align-items:flex-start}.studio-v2-page-status{width:auto}}
+
+
+      .admin-build-strip{margin-bottom:14px;border:1px solid rgba(99,229,70,.24);border-radius:14px;background:linear-gradient(90deg,rgba(99,229,70,.09),rgba(255,255,255,.026));padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+      .admin-build-strip strong{color:var(--green);text-transform:uppercase;letter-spacing:.12em;font-size:10px}
+      .admin-build-strip span{color:var(--white);font-weight:950}
+      .admin-build-strip em{font-style:normal;color:rgba(244,246,242,.55)}
 
   `}</style>;
 }
