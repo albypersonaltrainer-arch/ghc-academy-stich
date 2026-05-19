@@ -1086,6 +1086,37 @@ function shortName(name: string) { return String(name).split("@")[0].split(" ")[
 function ChartSvg() { return <svg viewBox="0 0 900 260" aria-hidden="true"><defs><linearGradient id="adminChartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity="0.42" /><stop offset="100%" stopColor={GREEN} stopOpacity="0" /></linearGradient></defs><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52" fill="none" stroke={GREEN} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M30 220 L110 190 L190 180 L270 135 L350 128 L430 86 L510 105 L590 92 L670 118 L750 72 L850 52 L850 250 L30 250 Z" fill="url(#adminChartGradient)" /></svg>; }
 function Background() { return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>; }
 
+
+function StudioMetric({
+  label,
+  value,
+  helper,
+  warning = false,
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+  warning?: boolean;
+}) {
+  return (
+    <article className={warning ? "studio-metric warning" : "studio-metric"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
+
+function StudioProperty({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="studio-property">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
 function GlobalStyles() {
   return <style>{`
     :root{--green:#63e546;--bg:#050706;--panel:rgba(10,14,12,.88);--line:rgba(255,255,255,.085);--white:#f4f6f2;--muted:rgba(244,246,242,.64);--soft:rgba(244,246,242,.42);--danger:#ff5757;--warning:#f7c948}*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg)}body{color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select,textarea{font:inherit}button{transition:.18s ease}button:hover{transform:translateY(-1px)}
