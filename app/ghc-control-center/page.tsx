@@ -11,7 +11,7 @@ type GuardState = "checking" | "allowed" | "denied";
 type CourseStatus = "published" | "draft" | "hidden";
 type CourseStatusFilter = "all" | CourseStatus;
 type CourseViewMode = "grid" | "list";
-type ModalMode = "none" | "createCourse" | "editCourse" | "createModule" | "editModule" | "sourceUpload" | "importDocument";
+type ModalMode = "none" | "createCourse" | "editCourse" | "createModule" | "editModule" | "createLesson" | "editLesson" | "sourceUpload" | "importDocument";
 
 type DashboardData = {
   profiles: AnyRecord[];
@@ -115,6 +115,19 @@ type ModuleFormState = {
   position: string;
 };
 
+type LessonFormState = {
+  id?: string;
+  moduleId: string;
+  title: string;
+  contentType: "text" | "video" | "audio" | "pdf" | "mixed";
+  content: string;
+  videoUrl: string;
+  audioUrl: string;
+  pdfUrl: string;
+  sortOrder: string;
+  durationMinutes: string;
+};
+
 const GREEN = "#63E546";
 const ADMIN_BUILD_ID = "RPC-DIAG-01 · 2026-05-20";
 
@@ -171,6 +184,18 @@ const emptyModuleForm: ModuleFormState = {
   position: "",
 };
 
+const emptyLessonForm: LessonFormState = {
+  moduleId: "",
+  title: "",
+  contentType: "text",
+  content: "",
+  videoUrl: "",
+  audioUrl: "",
+  pdfUrl: "",
+  sortOrder: "",
+  durationMinutes: "",
+};
+
 export default function Page() {
   const router = useRouter();
 
@@ -196,6 +221,7 @@ export default function Page() {
   const [modalBusy, setModalBusy] = useState(false);
   const [courseForm, setCourseForm] = useState<CourseFormState>(emptyCourseForm);
   const [moduleForm, setModuleForm] = useState<ModuleFormState>(emptyModuleForm);
+  const [lessonForm, setLessonForm] = useState<LessonFormState>(emptyLessonForm);
   const [sourceFileName, setSourceFileName] = useState("");
 
   useEffect(() => {
@@ -384,6 +410,33 @@ export default function Page() {
     setSystemMessage("");
   }
 
+  function openCreateLesson(moduleId?: string) {
+    const fallbackModuleId = moduleId || dashboardData.modules[0]?.id || "";
+    setLessonForm({
+      ...emptyLessonForm,
+      moduleId: String(fallbackModuleId || ""),
+    });
+    setModalMode("createLesson");
+    setSystemMessage(`Formulario de crear lección abierto · ${ADMIN_BUILD_ID}`);
+  }
+
+  function openEditLesson(lesson: AnyRecord) {
+    setLessonForm({
+      id: String(lesson.id || ""),
+      moduleId: String(lesson.module_id || dashboardData.modules[0]?.id || ""),
+      title: String(lesson.title || ""),
+      contentType: normalizeLessonContentType(lesson.content_type || lesson.type),
+      content: String(lesson.content || ""),
+      videoUrl: String(lesson.video_url || ""),
+      audioUrl: String(lesson.audio_url || ""),
+      pdfUrl: String(lesson.pdf_url || ""),
+      sortOrder: String(lesson.sort_order ?? ""),
+      durationMinutes: String(lesson.duration_minutes ?? ""),
+    });
+    setModalMode("editLesson");
+    setSystemMessage(`Formulario de editar lección abierto · ${ADMIN_BUILD_ID}`);
+  }
+
   function openSourceUpload() {
     setSourceFileName("");
     setModalMode("sourceUpload");
@@ -452,6 +505,42 @@ export default function Page() {
     } catch (error) {
       console.error(error);
       setSystemMessage(getErrorMessage(error, "No se pudo guardar el módulo. Revisa columnas/RLS de Supabase."));
+    } finally {
+      setModalBusy(false);
+    }
+  }
+
+  async function handleLessonSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSystemMessage(`Submit lección recibido · ${ADMIN_BUILD_ID}`);
+
+    if (!lessonForm.moduleId) {
+      setSystemMessage("Selecciona un módulo para asociar la lección.");
+      return;
+    }
+
+    if (!lessonForm.title.trim()) {
+      setSystemMessage("La lección necesita al menos un título.");
+      return;
+    }
+
+    setModalBusy(true);
+    setSystemMessage(`Guardando lección por RPC seguro · ${ADMIN_BUILD_ID}`);
+
+    try {
+      if (modalMode === "editLesson" && lessonForm.id) {
+        await updateLessonInSupabase(lessonForm.id, lessonForm);
+        await refreshDashboard(`Lección actualizada: ${lessonForm.title}`);
+      } else {
+        await createLessonInSupabase(lessonForm);
+        await refreshDashboard(`Lección creada: ${lessonForm.title}`);
+      }
+
+      setModalMode("none");
+      setActiveTab("contenido");
+    } catch (error) {
+      console.error(error);
+      setSystemMessage(getErrorMessage(error, "No se pudo guardar la lección. Revisa funciones RPC o columnas de lessons."));
     } finally {
       setModalBusy(false);
     }
@@ -566,7 +655,7 @@ export default function Page() {
 
         {activeTab === "panel" ? <PanelAdmin stats={dashboardStats} recentActivity={recentActivity} priorityTasks={priorityTasks} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateCourse={openCreateCourse} openCreateModule={() => openCreateModule()} /> : null}
         {activeTab === "cursos" ? <CursosAdmin stats={dashboardStats} courseViews={filteredCourseViews} allCourseViews={courseViews} search={courseSearch} setSearch={setCourseSearch} statusFilter={courseStatusFilter} setStatusFilter={setCourseStatusFilter} viewMode={courseViewMode} setViewMode={setCourseViewMode} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateCourse={openCreateCourse} openEditCourse={openEditCourse} openCreateModule={openCreateModule} /> : null}
-        {activeTab === "contenido" ? <ContenidoAdmin stats={dashboardStats} courseViews={courseViews} dashboardData={dashboardData} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateModule={openCreateModule} openEditModule={openEditModule} openSourceUpload={openSourceUpload} openImportDocument={openImportDocument} /> : null}
+        {activeTab === "contenido" ? <ContenidoAdmin stats={dashboardStats} courseViews={courseViews} dashboardData={dashboardData} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateModule={openCreateModule} openEditModule={openEditModule} openCreateLesson={openCreateLesson} openEditLesson={openEditLesson} openSourceUpload={openSourceUpload} openImportDocument={openImportDocument} /> : null}
         {activeTab === "alumnos" ? <AlumnosAdmin stats={dashboardStats} students={filteredStudentViews} allStudents={studentViews} selectedStudent={selectedStudent} search={studentSearch} setSearch={setStudentSearch} setSelectedStudentId={setSelectedStudentId} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
         {activeTab === "examenes" ? <ExamenesAdmin dashboardData={dashboardData} courseViews={courseViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
         {activeTab === "certificados" ? <CertificadosAdmin certificates={certificateViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
@@ -598,6 +687,87 @@ export default function Page() {
             <div className="form-grid two"><label><span>Título del módulo *</span><input value={moduleForm.title} onChange={(event) => setModuleForm({ ...moduleForm, title: event.target.value })} /></label><label><span>Orden</span><input value={moduleForm.position} onChange={(event) => setModuleForm({ ...moduleForm, position: event.target.value })} placeholder="1" /></label></div>
             <label><span>Descripción</span><textarea value={moduleForm.description} onChange={(event) => setModuleForm({ ...moduleForm, description: event.target.value })} /></label>
             <div className="modal-actions"><button type="button" onClick={() => setModalMode("none")}>Cancelar</button><button type="submit" disabled={modalBusy}>{modalBusy ? "Guardando..." : modalMode === "editModule" ? "Guardar módulo" : "Crear módulo"}</button></div>
+          </form>
+        </AdminModal>
+      ) : null}
+
+      {(modalMode === "createLesson" || modalMode === "editLesson") ? (
+        <AdminModal title={modalMode === "editLesson" ? "Editar lección" : "Añadir lección"} eyebrow="Contenido · Lecciones" onClose={() => setModalMode("none")}>
+          <form className="admin-form" onSubmit={handleLessonSubmit}>
+            <label>
+              <span>Módulo *</span>
+              <select value={lessonForm.moduleId} onChange={(event) => setLessonForm({ ...lessonForm, moduleId: event.target.value })}>
+                <option value="">Seleccionar módulo</option>
+                {dashboardData.modules.map((module, index) => (
+                  <option key={String(module.id || index)} value={String(module.id || "")}>
+                    {module.title || module.name || `Módulo ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="form-grid two">
+              <label>
+                <span>Título de la lección *</span>
+                <input value={lessonForm.title} onChange={(event) => setLessonForm({ ...lessonForm, title: event.target.value })} />
+              </label>
+
+              <label>
+                <span>Tipo de contenido</span>
+                <select value={lessonForm.contentType} onChange={(event) => setLessonForm({ ...lessonForm, contentType: event.target.value as LessonFormState["contentType"] })}>
+                  <option value="text">Texto</option>
+                  <option value="video">Vídeo</option>
+                  <option value="audio">Audio</option>
+                  <option value="pdf">PDF</option>
+                  <option value="mixed">Mixto</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="form-grid two">
+              <label>
+                <span>Orden</span>
+                <input value={lessonForm.sortOrder} onChange={(event) => setLessonForm({ ...lessonForm, sortOrder: event.target.value })} placeholder="1" />
+              </label>
+
+              <label>
+                <span>Duración estimada en minutos</span>
+                <input value={lessonForm.durationMinutes} onChange={(event) => setLessonForm({ ...lessonForm, durationMinutes: event.target.value })} placeholder="10" />
+              </label>
+            </div>
+
+            <label>
+              <span>Contenido / texto base</span>
+              <textarea value={lessonForm.content} onChange={(event) => setLessonForm({ ...lessonForm, content: event.target.value })} />
+            </label>
+
+            <div className="form-grid three">
+              <label>
+                <span>URL vídeo</span>
+                <input value={lessonForm.videoUrl} onChange={(event) => setLessonForm({ ...lessonForm, videoUrl: event.target.value })} />
+              </label>
+
+              <label>
+                <span>URL audio</span>
+                <input value={lessonForm.audioUrl} onChange={(event) => setLessonForm({ ...lessonForm, audioUrl: event.target.value })} />
+              </label>
+
+              <label>
+                <span>URL PDF</span>
+                <input value={lessonForm.pdfUrl} onChange={(event) => setLessonForm({ ...lessonForm, pdfUrl: event.target.value })} />
+              </label>
+            </div>
+
+            <div className="form-warning">
+              <strong>Nota GHC:</strong> la lección se guarda en Supabase. La protección de PDF/vídeo/audio se cerrará al conectar Storage.
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" onClick={() => setModalMode("none")}>Cancelar</button>
+              <button type="submit" disabled={modalBusy}>
+                {modalBusy ? "Guardando..." : modalMode === "editLesson" ? "Guardar lección" : "Crear lección"}
+              </button>
+            </div>
           </form>
         </AdminModal>
       ) : null}
@@ -811,6 +981,8 @@ function normalizeSupabaseWriteError(error: any, table: string, mode: "insert" |
     lower.includes("ghc_admin_create_course") ||
     lower.includes("ghc_admin_update_course") ||
     lower.includes("ghc_admin_create_module") ||
+    lower.includes("ghc_admin_create_lesson") ||
+    lower.includes("ghc_admin_update_lesson") ||
     lower.includes("ghc_admin_update_module") ||
     lower.includes("function") && lower.includes("does not exist")
   ) {
@@ -844,6 +1016,83 @@ function createSlug(value: string) {
   const suffix = Math.random().toString(36).slice(2, 7);
 
   return `${base || "curso-ghc"}-${suffix}`;
+}
+
+async function createLessonInSupabase(form: LessonFormState) {
+  const sortOrder = parseAdminNumber(form.sortOrder);
+  const durationMinutes = parseAdminNumber(form.durationMinutes);
+
+  const { data, error } = await withTimeout(
+    supabase.rpc("ghc_admin_create_lesson", {
+      p_module_id: form.moduleId,
+      p_title: form.title.trim(),
+      p_content_type: normalizeLessonContentType(form.contentType),
+      p_content: form.content.trim() || null,
+      p_video_url: form.videoUrl.trim() || null,
+      p_audio_url: form.audioUrl.trim() || null,
+      p_pdf_url: form.pdfUrl.trim() || null,
+      p_sort_order: sortOrder ? Math.round(sortOrder) : 1,
+      p_duration_minutes: durationMinutes ? Math.round(durationMinutes) : 0,
+    }),
+    12000,
+    "Supabase no respondió al crear la lección mediante función segura."
+  );
+
+  if (error) {
+    throw normalizeSupabaseWriteError(error, "lessons", "insert");
+  }
+
+  return data;
+}
+
+async function updateLessonInSupabase(id: string, form: LessonFormState) {
+  const sortOrder = parseAdminNumber(form.sortOrder);
+  const durationMinutes = parseAdminNumber(form.durationMinutes);
+
+  const { data, error } = await withTimeout(
+    supabase.rpc("ghc_admin_update_lesson", {
+      p_lesson_id: id,
+      p_module_id: form.moduleId,
+      p_title: form.title.trim(),
+      p_content_type: normalizeLessonContentType(form.contentType),
+      p_content: form.content.trim() || null,
+      p_video_url: form.videoUrl.trim() || null,
+      p_audio_url: form.audioUrl.trim() || null,
+      p_pdf_url: form.pdfUrl.trim() || null,
+      p_sort_order: sortOrder ? Math.round(sortOrder) : 1,
+      p_duration_minutes: durationMinutes ? Math.round(durationMinutes) : 0,
+    }),
+    12000,
+    "Supabase no respondió al actualizar la lección mediante función segura."
+  );
+
+  if (error) {
+    throw normalizeSupabaseWriteError(error, "lessons", "update");
+  }
+
+  return data;
+}
+
+function normalizeLessonContentType(value: unknown): LessonFormState["contentType"] {
+  const type = String(value || "text").toLowerCase();
+
+  if (["video", "vídeo"].includes(type)) return "video";
+  if (type === "audio") return "audio";
+  if (type === "pdf") return "pdf";
+  if (["mixed", "mixto"].includes(type)) return "mixed";
+
+  return "text";
+}
+
+function getLessonTypeLabel(value: unknown) {
+  const type = normalizeLessonContentType(value);
+
+  if (type === "video") return "Vídeo";
+  if (type === "audio") return "Audio";
+  if (type === "pdf") return "PDF";
+  if (type === "mixed") return "Mixto";
+
+  return "Texto";
 }
 
 function cleanPayload(payload: AnyRecord) { return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined && value !== null && value !== "")); }
@@ -936,9 +1185,213 @@ function AdminCourseCard({ item, index, viewMode, setActiveTab, openEditCourse, 
   return <article className={viewMode === "grid" ? "admin-course-card" : "admin-course-card list"}><div className="admin-course-cover" style={{ backgroundImage: getCourseBackground(item, index) }}><span className={`course-status-pill ${item.status}`}>{item.statusLabel}</span></div><div className="admin-course-body"><div className="course-title-row"><div><h3>{item.title}</h3><p>{item.subtitle}</p></div></div><div className="course-info-grid"><CourseInfo label="Categoría" value={item.category} /><CourseInfo label="Nivel" value={item.level} /><CourseInfo label="Precio" value={item.price} /><CourseInfo label="Actualizado" value={item.updatedAt} /></div><div className="course-build-row"><div><strong>{item.modulesCount}</strong><span>Módulos</span></div><div><strong>{item.lessonsCount}</strong><span>Lecciones</span></div><div><strong>{item.enrollmentsCount}</strong><span>Matrículas</span></div></div><div className="course-progress-block"><div><span>Preparación estimada</span><strong>{item.progressHint}%</strong></div><div className="course-progress-track"><div style={{ width: `${item.progressHint}%` }} /></div></div><div className="admin-course-actions"><button type="button" onClick={() => openEditCourse(item)}>Editar curso</button><button type="button" onClick={() => openCreateModule(item.id)}>Añadir módulo</button><button type="button" onClick={() => setActiveTab("contenido")}>Contenido</button></div></div></article>;
 }
 
-function ContenidoAdmin({ stats, courseViews, dashboardData, setActiveTab, openCreateModule, openEditModule, openSourceUpload, openImportDocument }: { stats: ReturnType<typeof buildDashboardStats>; courseViews: CourseAdminView[]; dashboardData: DashboardData; setActiveTab: (tab: AdminTab) => void; setSystemMessage: (message: string) => void; openCreateModule: (courseId?: string) => void; openEditModule: (module: AnyRecord) => void; openSourceUpload: () => void; openImportDocument: () => void; }) {
-  const productionCourses = courseViews.filter((course) => course.status !== "published"); const focusCourse = productionCourses[0] || courseViews[0] || null; const focusModules = focusCourse ? dashboardData.modules.filter((module) => String(module.course_id) === focusCourse.id) : []; const focusModuleIds = new Set(focusModules.map((module) => String(module.id))); const focusLessons = dashboardData.lessons.filter((lesson) => focusModuleIds.has(String(lesson.module_id))); const pendingLessons = Math.max(0, (focusModules.length || 6) * 6 - focusLessons.length);
-  return <div className="content-admin-page"><section className="content-hero"><div><p className="admin-kicker">Centro de producción académica</p><h1>Contenido</h1><p>Organiza documentos fuente, estructura módulos y convierte Word/PDF en lecciones premium antes de publicar.</p></div><div className="content-hero-panel"><span>Word / PDF → Curso premium</span><strong>Maquetación, revisión y publicación guiada</strong><p>El importador queda como entrada segura. No simula publicaciones ni subidas no conectadas.</p><button type="button" onClick={openImportDocument}>Importar documento</button></div></section><section className="content-stats-grid"><CourseStat label="Cursos en producción" value={productionCourses.length} helper="Borradores u ocultos" /><CourseStat label="Módulos creados" value={stats.modules} helper="Estructura Supabase" /><CourseStat label="Lecciones creadas" value={stats.lessons} helper="Contenido cargado" /><CourseStat label="Lecciones pendientes" value={pendingLessons} helper="Estimación" /></section><section className="content-layout"><div className="content-main-column"><article className="production-board-card"><div className="card-head"><div><h2>Cursos en maquetación</h2><p>Prioriza borradores, estructura módulos y prepara el curso para revisión académica.</p></div><button type="button" onClick={() => setActiveTab("cursos")}>Ver cursos</button></div><div className="production-course-list">{(productionCourses.length ? productionCourses : courseViews.slice(0, 3)).map((course, index) => <div className={index === 0 ? "production-course active" : "production-course"} key={course.id}><span>{index + 1}</span><div><strong>{course.title}</strong><p>{course.statusLabel} · {course.modulesCount} módulos · {course.lessonsCount} lecciones</p></div><em>{course.progressHint}%</em></div>)}{courseViews.length === 0 ? <div className="production-course active"><span>1</span><div><strong>Primer curso GHC Academy</strong><p>Pendiente de crear desde Cursos o importar desde Word/PDF.</p></div><em>0%</em></div> : null}</div></article><article className="module-map-card"><div className="card-head compact"><h2>Mapa de módulos</h2><button type="button" onClick={() => openCreateModule(focusCourse?.id)}>+ Añadir módulo</button></div><div className="module-map-list">{(focusModules.length ? focusModules : createPlaceholderModules()).map((module, index) => { const moduleLessons = focusLessons.filter((lesson) => String(lesson.module_id) === String(module.id)); const isPlaceholder = String(module.id || "").startsWith("placeholder"); return <div className={index === 0 ? "module-map-row current" : "module-map-row"} key={module.id || `placeholder-${index}`}><div className="module-index">M{index + 1}</div><div><strong>{module.title || module.name || `Módulo ${index + 1}`}</strong><p>{moduleLessons.length || (isPlaceholder ? index + 3 : 0)} lecciones · {isPlaceholder ? "Ejemplo visual" : index === 0 ? "En maquetación" : "Preparado"}</p></div><button type="button" onClick={() => isPlaceholder ? openCreateModule(focusCourse?.id) : openEditModule(module)}>{isPlaceholder ? "Crear" : "Editar"}</button></div>; })}</div></article><article className="source-docs-card"><div className="card-head compact"><h2>Documentos fuente</h2><button type="button" onClick={openSourceUpload}>Subir fuente</button></div><div className="source-doc-grid"><SourceDoc type="DOCX" title="Documento Word del curso" status="Preparado para conectar Storage" /><SourceDoc type="PDF" title="PDF base / manual académico" status="Preparado para revisión" /><SourceDoc type="NOTAS" title="Notas del autor y bibliografía" status="Preparado para curación" /></div></article></div><aside className="content-side-column"><article className="content-side-card importer"><span>Importador preparado</span><h2>Word / PDF</h2><p>Convierte documentos fuente en módulos, lecciones, recursos y checklist de revisión.</p><button type="button" onClick={openImportDocument}>Preparar importador</button></article><article className="content-side-card"><h2>Checklist de producción</h2><ProductionCheck label="Documento fuente recibido" /><ProductionCheck label="Estructura del curso definida" done={focusModules.length > 0} /><ProductionCheck label="Módulos creados" done={focusModules.length > 0} /><ProductionCheck label="Lecciones maquetadas" done={focusLessons.length > 0} /><ProductionCheck label="Recursos revisados" /><ProductionCheck label="Exámenes preparados" /></article></aside></section></div>;
+function ContenidoAdmin({
+  stats,
+  courseViews,
+  dashboardData,
+  setActiveTab,
+  setSystemMessage,
+  openCreateModule,
+  openEditModule,
+  openCreateLesson,
+  openEditLesson,
+  openSourceUpload,
+  openImportDocument,
+}: {
+  stats: ReturnType<typeof buildDashboardStats>;
+  courseViews: CourseAdminView[];
+  dashboardData: DashboardData;
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+  openCreateModule: (courseId?: string) => void;
+  openEditModule: (module: AnyRecord) => void;
+  openCreateLesson: (moduleId?: string) => void;
+  openEditLesson: (lesson: AnyRecord) => void;
+  openSourceUpload: () => void;
+  openImportDocument: () => void;
+}) {
+  const productionCourses = courseViews.filter((course) => course.status !== "published");
+  const focusCourse = productionCourses[0] || courseViews[0] || null;
+  const focusModules = focusCourse ? dashboardData.modules.filter((module) => String(module.course_id) === focusCourse.id) : [];
+  const focusModuleIds = new Set(focusModules.map((module) => String(module.id)));
+  const focusLessons = dashboardData.lessons.filter((lesson) => focusModuleIds.has(String(lesson.module_id)));
+  const pendingLessons = Math.max(0, (focusModules.length || 6) * 6 - focusLessons.length);
+
+  return (
+    <div className="content-admin-page">
+      <section className="content-hero">
+        <div>
+          <p className="admin-kicker">Centro de producción académica</p>
+          <h1>Contenido</h1>
+          <p>Organiza documentos fuente, estructura módulos y crea lecciones premium antes de publicar.</p>
+        </div>
+        <div className="content-hero-panel">
+          <span>Curso → Módulo → Lección</span>
+          <strong>Estructura académica real</strong>
+          <p>Las lecciones ya pueden crearse y editarse desde el panel con funciones seguras de Supabase.</p>
+          <button type="button" onClick={openImportDocument}>Importar documento</button>
+        </div>
+      </section>
+
+      <section className="content-stats-grid">
+        <CourseStat label="Cursos en producción" value={productionCourses.length} helper="Borradores u ocultos" />
+        <CourseStat label="Módulos creados" value={stats.modules} helper="Estructura Supabase" />
+        <CourseStat label="Lecciones creadas" value={stats.lessons} helper="Contenido cargado" />
+        <CourseStat label="Lecciones pendientes" value={pendingLessons} helper="Estimación" />
+      </section>
+
+      <section className="content-layout">
+        <div className="content-main-column">
+          <article className="production-board-card">
+            <div className="card-head">
+              <div>
+                <h2>Cursos en maquetación</h2>
+                <p>Prioriza borradores, estructura módulos y prepara el curso para revisión académica.</p>
+              </div>
+              <button type="button" onClick={() => setActiveTab("cursos")}>Ver cursos</button>
+            </div>
+
+            <div className="production-course-list">
+              {(productionCourses.length ? productionCourses : courseViews.slice(0, 3)).map((course, index) => (
+                <div className={index === 0 ? "production-course active" : "production-course"} key={course.id}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{course.title}</strong>
+                    <p>{course.statusLabel} · {course.modulesCount} módulos · {course.lessonsCount} lecciones</p>
+                  </div>
+                  <em>{course.progressHint}%</em>
+                </div>
+              ))}
+
+              {courseViews.length === 0 ? (
+                <div className="production-course active">
+                  <span>1</span>
+                  <div>
+                    <strong>Primer curso GHC Academy</strong>
+                    <p>Pendiente de crear desde Cursos o importar desde Word/PDF.</p>
+                  </div>
+                  <em>0%</em>
+                </div>
+              ) : null}
+            </div>
+          </article>
+
+          <article className="module-map-card">
+            <div className="card-head compact">
+              <h2>Mapa de módulos</h2>
+              <button type="button" onClick={() => openCreateModule(focusCourse?.id)}>+ Añadir módulo</button>
+            </div>
+
+            <div className="module-map-list">
+              {(focusModules.length ? focusModules : createPlaceholderModules()).map((module, index) => {
+                const moduleLessons = focusLessons.filter((lesson) => String(lesson.module_id) === String(module.id));
+                const isPlaceholder = String(module.id || "").startsWith("placeholder");
+
+                return (
+                  <div className={index === 0 ? "module-map-row current" : "module-map-row"} key={module.id || `placeholder-${index}`}>
+                    <div className="module-index">M{index + 1}</div>
+                    <div>
+                      <strong>{module.title || module.name || `Módulo ${index + 1}`}</strong>
+                      <p>
+                        {moduleLessons.length || (isPlaceholder ? index + 3 : 0)} lecciones · {isPlaceholder ? "Ejemplo visual" : index === 0 ? "En maquetación" : "Preparado"}
+                      </p>
+                    </div>
+                    <div className="module-row-actions">
+                      <button type="button" onClick={() => isPlaceholder ? openCreateModule(focusCourse?.id) : openEditModule(module)}>
+                        {isPlaceholder ? "Crear" : "Editar"}
+                      </button>
+                      {!isPlaceholder ? (
+                        <button type="button" onClick={() => openCreateLesson(String(module.id))}>
+                          + Lección
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </article>
+
+          <article className="lesson-admin-card">
+            <div className="card-head compact">
+              <h2>Lecciones del curso seleccionado</h2>
+              <button type="button" onClick={() => openCreateLesson(focusModules[0]?.id)}>+ Añadir lección</button>
+            </div>
+
+            <div className="lesson-admin-list">
+              {focusLessons.length ? (
+                focusLessons
+                  .slice()
+                  .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+                  .map((lesson, index) => (
+                    <div key={lesson.id || `lesson-${index}`} className="lesson-admin-row">
+                      <span className="lesson-admin-index">L{index + 1}</span>
+                      <div>
+                        <strong>{lesson.title || `Lección ${index + 1}`}</strong>
+                        <p>{getLessonTypeLabel(lesson.content_type || lesson.type)} · Orden {lesson.sort_order || index + 1} · {lesson.duration_minutes || 0} min</p>
+                      </div>
+                      <button type="button" onClick={() => openEditLesson(lesson)}>Editar</button>
+                    </div>
+                  ))
+              ) : (
+                <div className="lesson-empty-card">
+                  <span>▤</span>
+                  <div>
+                    <strong>Sin lecciones en este curso todavía</strong>
+                    <p>Crea la primera lección dentro de un módulo para empezar a construir contenido real.</p>
+                  </div>
+                  <button type="button" onClick={() => openCreateLesson(focusModules[0]?.id)}>Crear lección</button>
+                </div>
+              )}
+            </div>
+          </article>
+
+          <article className="source-docs-card">
+            <div className="card-head compact">
+              <h2>Documentos fuente</h2>
+              <button type="button" onClick={openSourceUpload}>Subir fuente</button>
+            </div>
+            <div className="source-doc-grid">
+              <SourceDoc type="DOCX" title="Documento Word del curso" status="Preparado para conectar Storage" />
+              <SourceDoc type="PDF" title="PDF base / manual académico" status="Preparado para revisión" />
+              <SourceDoc type="NOTAS" title="Notas del autor y bibliografía" status="Preparado para curación" />
+            </div>
+          </article>
+        </div>
+
+        <aside className="content-side-column">
+          <article className="content-side-card importer">
+            <span>Importador preparado</span>
+            <h2>Word / PDF</h2>
+            <p>Convierte documentos fuente en módulos, lecciones, recursos y checklist de revisión.</p>
+            <button type="button" onClick={openImportDocument}>Preparar importador</button>
+          </article>
+
+          <article className="content-side-card">
+            <h2>Checklist de producción</h2>
+            <ProductionCheck label="Documento fuente recibido" done={false} />
+            <ProductionCheck label="Estructura del curso definida" done={focusModules.length > 0} />
+            <ProductionCheck label="Módulos creados" done={focusModules.length > 0} />
+            <ProductionCheck label="Lecciones creadas" done={focusLessons.length > 0} />
+            <ProductionCheck label="Recursos revisados" />
+            <ProductionCheck label="Exámenes preparados" />
+          </article>
+
+          <article className="content-side-card">
+            <h2>Factoría IA</h2>
+            <p>Reservado para conectar GHC Content Factory. La IA genera borradores, no publica.</p>
+            <div className="factory-tags">
+              <span>Guiones vídeo</span>
+              <span>Audio curso</span>
+              <span>Podcast</span>
+              <span>Mini cursos</span>
+              <span>Exámenes IA</span>
+            </div>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
 }
 
 function AlumnosAdmin({ stats, students, allStudents, selectedStudent, search, setSearch, setSelectedStudentId, setActiveTab, setSystemMessage }: { stats: ReturnType<typeof buildDashboardStats>; students: StudentAdminView[]; allStudents: StudentAdminView[]; selectedStudent: StudentAdminView | null; search: string; setSearch: (value: string) => void; setSelectedStudentId: (value: string) => void; setActiveTab: (tab: AdminTab) => void; setSystemMessage: (message: string) => void; }) {
@@ -1445,6 +1898,21 @@ function GlobalStyles() {
       .admin-build-strip strong{color:var(--green);text-transform:uppercase;letter-spacing:.12em;font-size:10px}
       .admin-build-strip span{color:var(--white);font-weight:950}
       .admin-build-strip em{font-style:normal;color:rgba(244,246,242,.55)}
+
+
+      .lesson-admin-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}
+      .lesson-admin-list{display:grid;gap:10px}
+      .lesson-admin-row{min-height:66px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);display:grid;grid-template-columns:46px minmax(0,1fr) 92px;gap:12px;align-items:center;padding:12px}
+      .lesson-admin-index{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}
+      .lesson-admin-row strong{display:block;color:var(--white)}
+      .lesson-admin-row p{margin:5px 0 0;color:var(--muted);font-size:12px}
+      .lesson-admin-row button,.lesson-empty-card button{min-height:36px;border-radius:10px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);cursor:pointer;font-weight:900}
+      .lesson-empty-card{border-radius:16px;border:1px dashed rgba(99,229,70,.22);background:rgba(99,229,70,.045);padding:16px;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center}
+      .lesson-empty-card>span{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:rgba(99,229,70,.09);border:1px solid rgba(99,229,70,.18);color:var(--green);font-weight:950}
+      .lesson-empty-card p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+      .module-row-actions{display:grid;gap:7px}
+      .form-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+      @media(max-width:1080px){.lesson-admin-row,.lesson-empty-card{grid-template-columns:1fr}.form-grid.three{grid-template-columns:1fr}}
 
   `}</style>;
 }
