@@ -216,6 +216,8 @@ export default function Page() {
 
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [contentCourseId, setContentCourseId] = useState("");
+  const [contentModuleId, setContentModuleId] = useState("");
 
   const [modalMode, setModalMode] = useState<ModalMode>("none");
   const [modalBusy, setModalBusy] = useState(false);
@@ -295,6 +297,25 @@ export default function Page() {
   }, [studentViews, studentSearch]);
 
   const selectedStudent = filteredStudentViews.find((student) => student.id === selectedStudentId) || filteredStudentViews[0] || studentViews[0] || null;
+
+  useEffect(() => {
+    if (!courseViews.length) return;
+
+    const selectedCourseExists = contentCourseId && courseViews.some((course) => course.id === contentCourseId);
+    const nextCourseId = selectedCourseExists ? contentCourseId : courseViews[0]?.id || "";
+
+    if (nextCourseId && nextCourseId !== contentCourseId) {
+      setContentCourseId(nextCourseId);
+    }
+
+    const modulesForCourse = dashboardData.modules.filter((module) => String(module.course_id) === nextCourseId);
+    const selectedModuleExists = contentModuleId && modulesForCourse.some((module) => String(module.id) === contentModuleId);
+    const nextModuleId = selectedModuleExists ? contentModuleId : String(modulesForCourse[0]?.id || "");
+
+    if (nextModuleId !== contentModuleId) {
+      setContentModuleId(nextModuleId);
+    }
+  }, [courseViews, dashboardData.modules, contentCourseId, contentModuleId]); // content selection fallback
 
   const globalResults = useMemo(() => {
     const query = globalSearch.trim().toLowerCase();
@@ -655,7 +676,7 @@ export default function Page() {
 
         {activeTab === "panel" ? <PanelAdmin stats={dashboardStats} recentActivity={recentActivity} priorityTasks={priorityTasks} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateCourse={openCreateCourse} openCreateModule={() => openCreateModule()} /> : null}
         {activeTab === "cursos" ? <CursosAdmin stats={dashboardStats} courseViews={filteredCourseViews} allCourseViews={courseViews} search={courseSearch} setSearch={setCourseSearch} statusFilter={courseStatusFilter} setStatusFilter={setCourseStatusFilter} viewMode={courseViewMode} setViewMode={setCourseViewMode} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateCourse={openCreateCourse} openEditCourse={openEditCourse} openCreateModule={openCreateModule} /> : null}
-        {activeTab === "contenido" ? <ContenidoAdmin stats={dashboardStats} courseViews={courseViews} dashboardData={dashboardData} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateModule={openCreateModule} openEditModule={openEditModule} openCreateLesson={openCreateLesson} openEditLesson={openEditLesson} openSourceUpload={openSourceUpload} openImportDocument={openImportDocument} /> : null}
+        {activeTab === "contenido" ? <ContenidoAdmin stats={dashboardStats} courseViews={courseViews} dashboardData={dashboardData} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} selectedCourseId={contentCourseId} setSelectedCourseId={setContentCourseId} selectedModuleId={contentModuleId} setSelectedModuleId={setContentModuleId} openCreateModule={openCreateModule} openEditModule={openEditModule} openCreateLesson={openCreateLesson} openEditLesson={openEditLesson} openSourceUpload={openSourceUpload} openImportDocument={openImportDocument} /> : null}
         {activeTab === "alumnos" ? <AlumnosAdmin stats={dashboardStats} students={filteredStudentViews} allStudents={studentViews} selectedStudent={selectedStudent} search={studentSearch} setSearch={setStudentSearch} setSelectedStudentId={setSelectedStudentId} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
         {activeTab === "examenes" ? <ExamenesAdmin dashboardData={dashboardData} courseViews={courseViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
         {activeTab === "certificados" ? <CertificadosAdmin certificates={certificateViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
@@ -1189,6 +1210,10 @@ function ContenidoAdmin({
   stats,
   courseViews,
   dashboardData,
+  selectedCourseId,
+  setSelectedCourseId,
+  selectedModuleId,
+  setSelectedModuleId,
   setActiveTab,
   setSystemMessage,
   openCreateModule,
@@ -1201,6 +1226,10 @@ function ContenidoAdmin({
   stats: ReturnType<typeof buildDashboardStats>;
   courseViews: CourseAdminView[];
   dashboardData: DashboardData;
+  selectedCourseId: string;
+  setSelectedCourseId: (value: string) => void;
+  selectedModuleId: string;
+  setSelectedModuleId: (value: string) => void;
   setActiveTab: (tab: AdminTab) => void;
   setSystemMessage: (message: string) => void;
   openCreateModule: (courseId?: string) => void;
@@ -1210,12 +1239,42 @@ function ContenidoAdmin({
   openSourceUpload: () => void;
   openImportDocument: () => void;
 }) {
+  const selectedCourse = courseViews.find((course) => course.id === selectedCourseId) || courseViews[0] || null;
+  const selectedCourseModules = selectedCourse
+    ? dashboardData.modules.filter((module) => String(module.course_id) === selectedCourse.id)
+    : [];
+
+  const safeSelectedModuleId =
+    selectedModuleId && selectedCourseModules.some((module) => String(module.id) === selectedModuleId)
+      ? selectedModuleId
+      : String(selectedCourseModules[0]?.id || "");
+
+  const selectedModule =
+    selectedCourseModules.find((module) => String(module.id) === safeSelectedModuleId) ||
+    selectedCourseModules[0] ||
+    null;
+
+  const selectedModuleLessons = selectedModule
+    ? dashboardData.lessons
+        .filter((lesson) => String(lesson.module_id) === String(selectedModule.id))
+        .slice()
+        .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+    : [];
+
   const productionCourses = courseViews.filter((course) => course.status !== "published");
-  const focusCourse = productionCourses[0] || courseViews[0] || null;
-  const focusModules = focusCourse ? dashboardData.modules.filter((module) => String(module.course_id) === focusCourse.id) : [];
-  const focusModuleIds = new Set(focusModules.map((module) => String(module.id)));
-  const focusLessons = dashboardData.lessons.filter((lesson) => focusModuleIds.has(String(lesson.module_id)));
-  const pendingLessons = Math.max(0, (focusModules.length || 6) * 6 - focusLessons.length);
+  const pendingLessons = Math.max(0, (selectedCourseModules.length || 1) * 6 - selectedModuleLessons.length);
+
+  function handleCourseSelection(value: string) {
+    setSelectedCourseId(value);
+    const nextModules = dashboardData.modules.filter((module) => String(module.course_id) === value);
+    setSelectedModuleId(String(nextModules[0]?.id || ""));
+    setSystemMessage("Curso seleccionado en Contenido. Ahora puedes gestionar sus módulos y lecciones.");
+  }
+
+  function handleModuleSelection(value: string) {
+    setSelectedModuleId(value);
+    setSystemMessage("Módulo seleccionado. Mostrando sus lecciones reales.");
+  }
 
   return (
     <div className="content-admin-page">
@@ -1223,12 +1282,12 @@ function ContenidoAdmin({
         <div>
           <p className="admin-kicker">Centro de producción académica</p>
           <h1>Contenido</h1>
-          <p>Organiza documentos fuente, estructura módulos y crea lecciones premium antes de publicar.</p>
+          <p>Gestiona la estructura real curso → módulo → lección desde una cabina clara y controlada.</p>
         </div>
         <div className="content-hero-panel">
           <span>Curso → Módulo → Lección</span>
-          <strong>Estructura académica real</strong>
-          <p>Las lecciones ya pueden crearse y editarse desde el panel con funciones seguras de Supabase.</p>
+          <strong>Contenido V2 con selección real</strong>
+          <p>Selecciona curso y módulo antes de crear o editar lecciones. Sin depender de selecciones automáticas.</p>
           <button type="button" onClick={openImportDocument}>Importar documento</button>
         </div>
       </section>
@@ -1237,7 +1296,56 @@ function ContenidoAdmin({
         <CourseStat label="Cursos en producción" value={productionCourses.length} helper="Borradores u ocultos" />
         <CourseStat label="Módulos creados" value={stats.modules} helper="Estructura Supabase" />
         <CourseStat label="Lecciones creadas" value={stats.lessons} helper="Contenido cargado" />
-        <CourseStat label="Lecciones pendientes" value={pendingLessons} helper="Estimación" />
+        <CourseStat label="Lecciones módulo" value={selectedModuleLessons.length} helper="Selección actual" />
+      </section>
+
+      <section className="content-selector-card">
+        <div className="content-selector-head">
+          <div>
+            <h2>Selección de trabajo</h2>
+            <p>Elige exactamente qué curso y módulo quieres editar. Las lecciones se muestran según esta selección.</p>
+          </div>
+          <button type="button" onClick={() => setActiveTab("cursos")}>Ver cursos</button>
+        </div>
+
+        <div className="content-selector-grid">
+          <label>
+            <span>Curso</span>
+            <select value={selectedCourse?.id || ""} onChange={(event) => handleCourseSelection(event.target.value)}>
+              {courseViews.length ? (
+                courseViews.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title} · {course.statusLabel}
+                  </option>
+                ))
+              ) : (
+                <option value="">Sin cursos todavía</option>
+              )}
+            </select>
+          </label>
+
+          <label>
+            <span>Módulo</span>
+            <select value={selectedModule?.id || ""} onChange={(event) => handleModuleSelection(event.target.value)}>
+              {selectedCourseModules.length ? (
+                selectedCourseModules.map((module, index) => (
+                  <option key={String(module.id || index)} value={String(module.id || "")}>
+                    {module.title || module.name || `Módulo ${index + 1}`}
+                  </option>
+                ))
+              ) : (
+                <option value="">Este curso aún no tiene módulos</option>
+              )}
+            </select>
+          </label>
+
+          <div className="content-selector-actions">
+            <button type="button" onClick={() => openCreateModule(selectedCourse?.id)}>+ Módulo</button>
+            <button type="button" onClick={() => selectedModule ? openCreateLesson(String(selectedModule.id)) : setSystemMessage("Primero crea o selecciona un módulo.")}>
+              + Lección
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="content-layout">
@@ -1245,102 +1353,110 @@ function ContenidoAdmin({
           <article className="production-board-card">
             <div className="card-head">
               <div>
-                <h2>Cursos en maquetación</h2>
-                <p>Prioriza borradores, estructura módulos y prepara el curso para revisión académica.</p>
+                <h2>Curso seleccionado</h2>
+                <p>{selectedCourse ? "Vista operativa del curso activo en el editor de contenido." : "Aún no hay curso seleccionado."}</p>
               </div>
-              <button type="button" onClick={() => setActiveTab("cursos")}>Ver cursos</button>
+              <button type="button" onClick={() => setActiveTab("cursos")}>Gestionar curso</button>
             </div>
 
-            <div className="production-course-list">
-              {(productionCourses.length ? productionCourses : courseViews.slice(0, 3)).map((course, index) => (
-                <div className={index === 0 ? "production-course active" : "production-course"} key={course.id}>
-                  <span>{index + 1}</span>
-                  <div>
-                    <strong>{course.title}</strong>
-                    <p>{course.statusLabel} · {course.modulesCount} módulos · {course.lessonsCount} lecciones</p>
-                  </div>
-                  <em>{course.progressHint}%</em>
+            {selectedCourse ? (
+              <div className="production-course active">
+                <span>GHC</span>
+                <div>
+                  <strong>{selectedCourse.title}</strong>
+                  <p>{selectedCourse.statusLabel} · {selectedCourse.modulesCount} módulos · {selectedCourse.lessonsCount} lecciones</p>
                 </div>
-              ))}
-
-              {courseViews.length === 0 ? (
-                <div className="production-course active">
-                  <span>1</span>
-                  <div>
-                    <strong>Primer curso GHC Academy</strong>
-                    <p>Pendiente de crear desde Cursos o importar desde Word/PDF.</p>
-                  </div>
-                  <em>0%</em>
+                <em>{selectedCourse.progressHint}%</em>
+              </div>
+            ) : (
+              <div className="lesson-empty-card">
+                <span>▱</span>
+                <div>
+                  <strong>Sin cursos todavía</strong>
+                  <p>Crea un curso desde la pestaña Cursos para empezar a organizar contenido.</p>
                 </div>
-              ) : null}
-            </div>
+                <button type="button" onClick={() => setActiveTab("cursos")}>Ir a cursos</button>
+              </div>
+            )}
           </article>
 
           <article className="module-map-card">
             <div className="card-head compact">
-              <h2>Mapa de módulos</h2>
-              <button type="button" onClick={() => openCreateModule(focusCourse?.id)}>+ Añadir módulo</button>
+              <h2>Módulos del curso</h2>
+              <button type="button" onClick={() => openCreateModule(selectedCourse?.id)}>+ Añadir módulo</button>
             </div>
 
             <div className="module-map-list">
-              {(focusModules.length ? focusModules : createPlaceholderModules()).map((module, index) => {
-                const moduleLessons = focusLessons.filter((lesson) => String(lesson.module_id) === String(module.id));
-                const isPlaceholder = String(module.id || "").startsWith("placeholder");
+              {selectedCourseModules.length ? (
+                selectedCourseModules.map((module, index) => {
+                  const moduleLessons = dashboardData.lessons.filter((lesson) => String(lesson.module_id) === String(module.id));
+                  const isSelected = selectedModule && String(module.id) === String(selectedModule.id);
 
-                return (
-                  <div className={index === 0 ? "module-map-row current" : "module-map-row"} key={module.id || `placeholder-${index}`}>
-                    <div className="module-index">M{index + 1}</div>
-                    <div>
-                      <strong>{module.title || module.name || `Módulo ${index + 1}`}</strong>
-                      <p>
-                        {moduleLessons.length || (isPlaceholder ? index + 3 : 0)} lecciones · {isPlaceholder ? "Ejemplo visual" : index === 0 ? "En maquetación" : "Preparado"}
-                      </p>
+                  return (
+                    <div className={isSelected ? "module-map-row current" : "module-map-row"} key={module.id || `module-${index}`}>
+                      <div className="module-index">M{index + 1}</div>
+                      <div>
+                        <strong>{module.title || module.name || `Módulo ${index + 1}`}</strong>
+                        <p>{moduleLessons.length} lecciones · {isSelected ? "Seleccionado" : "Disponible"}</p>
+                      </div>
+                      <div className="module-row-actions">
+                        <button type="button" onClick={() => handleModuleSelection(String(module.id))}>Ver</button>
+                        <button type="button" onClick={() => openEditModule(module)}>Editar</button>
+                        <button type="button" onClick={() => openCreateLesson(String(module.id))}>+ Lección</button>
+                      </div>
                     </div>
-                    <div className="module-row-actions">
-                      <button type="button" onClick={() => isPlaceholder ? openCreateModule(focusCourse?.id) : openEditModule(module)}>
-                        {isPlaceholder ? "Crear" : "Editar"}
-                      </button>
-                      {!isPlaceholder ? (
-                        <button type="button" onClick={() => openCreateLesson(String(module.id))}>
-                          + Lección
-                        </button>
-                      ) : null}
-                    </div>
+                  );
+                })
+              ) : (
+                <div className="lesson-empty-card">
+                  <span>M</span>
+                  <div>
+                    <strong>Este curso aún no tiene módulos</strong>
+                    <p>Crea el primer módulo para poder añadir lecciones.</p>
                   </div>
-                );
-              })}
+                  <button type="button" onClick={() => openCreateModule(selectedCourse?.id)}>Crear módulo</button>
+                </div>
+              )}
             </div>
           </article>
 
           <article className="lesson-admin-card">
             <div className="card-head compact">
-              <h2>Lecciones del curso seleccionado</h2>
-              <button type="button" onClick={() => openCreateLesson(focusModules[0]?.id)}>+ Añadir lección</button>
+              <h2>Lecciones del módulo seleccionado</h2>
+              <button type="button" onClick={() => selectedModule ? openCreateLesson(String(selectedModule.id)) : setSystemMessage("Primero selecciona un módulo.")}>
+                + Añadir lección
+              </button>
             </div>
 
+            {selectedModule ? (
+              <div className="selected-module-banner">
+                <span>Modulo activo</span>
+                <strong>{selectedModule.title || selectedModule.name || "Módulo seleccionado"}</strong>
+              </div>
+            ) : null}
+
             <div className="lesson-admin-list">
-              {focusLessons.length ? (
-                focusLessons
-                  .slice()
-                  .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
-                  .map((lesson, index) => (
-                    <div key={lesson.id || `lesson-${index}`} className="lesson-admin-row">
-                      <span className="lesson-admin-index">L{index + 1}</span>
-                      <div>
-                        <strong>{lesson.title || `Lección ${index + 1}`}</strong>
-                        <p>{getLessonTypeLabel(lesson.content_type || lesson.type)} · Orden {lesson.sort_order || index + 1} · {lesson.duration_minutes || 0} min</p>
-                      </div>
-                      <button type="button" onClick={() => openEditLesson(lesson)}>Editar</button>
+              {selectedModuleLessons.length ? (
+                selectedModuleLessons.map((lesson, index) => (
+                  <div key={lesson.id || `lesson-${index}`} className="lesson-admin-row">
+                    <span className="lesson-admin-index">L{index + 1}</span>
+                    <div>
+                      <strong>{lesson.title || `Lección ${index + 1}`}</strong>
+                      <p>{getLessonTypeLabel(lesson.content_type || lesson.type)} · Orden {lesson.sort_order || index + 1} · {lesson.duration_minutes || 0} min</p>
                     </div>
-                  ))
+                    <button type="button" onClick={() => openEditLesson(lesson)}>Editar</button>
+                  </div>
+                ))
               ) : (
                 <div className="lesson-empty-card">
                   <span>▤</span>
                   <div>
-                    <strong>Sin lecciones en este curso todavía</strong>
-                    <p>Crea la primera lección dentro de un módulo para empezar a construir contenido real.</p>
+                    <strong>{selectedModule ? "Este módulo todavía no tiene lecciones" : "Selecciona un módulo"}</strong>
+                    <p>{selectedModule ? "Crea la primera lección para empezar a construir el contenido real." : "Necesitas un módulo activo para ver y crear lecciones."}</p>
                   </div>
-                  <button type="button" onClick={() => openCreateLesson(focusModules[0]?.id)}>Crear lección</button>
+                  <button type="button" onClick={() => selectedModule ? openCreateLesson(String(selectedModule.id)) : openCreateModule(selectedCourse?.id)}>
+                    {selectedModule ? "Crear lección" : "Crear módulo"}
+                  </button>
                 </div>
               )}
             </div>
@@ -1369,10 +1485,10 @@ function ContenidoAdmin({
 
           <article className="content-side-card">
             <h2>Checklist de producción</h2>
-            <ProductionCheck label="Documento fuente recibido" done={false} />
-            <ProductionCheck label="Estructura del curso definida" done={focusModules.length > 0} />
-            <ProductionCheck label="Módulos creados" done={focusModules.length > 0} />
-            <ProductionCheck label="Lecciones creadas" done={focusLessons.length > 0} />
+            <ProductionCheck label="Curso seleccionado" done={Boolean(selectedCourse)} />
+            <ProductionCheck label="Módulos creados" done={selectedCourseModules.length > 0} />
+            <ProductionCheck label="Módulo seleccionado" done={Boolean(selectedModule)} />
+            <ProductionCheck label="Lecciones creadas" done={selectedModuleLessons.length > 0} />
             <ProductionCheck label="Recursos revisados" />
             <ProductionCheck label="Exámenes preparados" />
           </article>
@@ -1913,6 +2029,25 @@ function GlobalStyles() {
       .module-row-actions{display:grid;gap:7px}
       .form-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
       @media(max-width:1080px){.lesson-admin-row,.lesson-empty-card{grid-template-columns:1fr}.form-grid.three{grid-template-columns:1fr}}
+
+
+      .content-selector-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}
+      .content-selector-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+      .content-selector-head h2{margin:0;font-size:22px;letter-spacing:-.04em;line-height:1.05}
+      .content-selector-head p{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+      .content-selector-head button{min-height:38px;border-radius:999px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;padding:0 14px;cursor:pointer}
+      .content-selector-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:end}
+      .content-selector-grid label{display:grid;gap:7px}
+      .content-selector-grid label span{color:var(--muted);font-size:12px;font-weight:850}
+      .content-selector-grid select{width:100%;min-height:42px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:0 12px;outline:0}
+      .content-selector-grid option{background:#080b0a;color:var(--white)}
+      .content-selector-actions{display:flex;gap:8px}
+      .content-selector-actions button{min-height:42px;border-radius:999px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.07);color:var(--green);font-weight:900;padding:0 14px;cursor:pointer;white-space:nowrap}
+      .content-selector-actions button:last-child{background:var(--green);border-color:transparent;color:#061008}
+      .selected-module-banner{border-radius:14px;border:1px solid rgba(99,229,70,.18);background:rgba(99,229,70,.055);padding:12px 14px;margin-bottom:12px}
+      .selected-module-banner span{display:block;color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}
+      .selected-module-banner strong{display:block;margin-top:5px;color:var(--white);font-size:16px;line-height:1.15}
+      @media(max-width:1080px){.content-selector-head{flex-direction:column}.content-selector-grid{grid-template-columns:1fr}.content-selector-actions{flex-direction:column}.content-selector-actions button{width:100%}}
 
   `}</style>;
 }
