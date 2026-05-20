@@ -130,6 +130,7 @@ type LessonFormState = {
 
 const GREEN = "#63E546";
 const ADMIN_BUILD_ID = "RPC-DIAG-01 · 2026-05-20";
+const COURSE_ASSETS_BUCKET = "ghc-course-assets";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -224,6 +225,9 @@ export default function Page() {
   const [courseForm, setCourseForm] = useState<CourseFormState>(emptyCourseForm);
   const [moduleForm, setModuleForm] = useState<ModuleFormState>(emptyModuleForm);
   const [lessonForm, setLessonForm] = useState<LessonFormState>(emptyLessonForm);
+  const [lessonVideoFile, setLessonVideoFile] = useState<File | null>(null);
+  const [lessonAudioFile, setLessonAudioFile] = useState<File | null>(null);
+  const [lessonPdfFile, setLessonPdfFile] = useState<File | null>(null);
   const [sourceFileName, setSourceFileName] = useState("");
 
   useEffect(() => {
@@ -437,6 +441,9 @@ export default function Page() {
       ...emptyLessonForm,
       moduleId: String(fallbackModuleId || ""),
     });
+    setLessonVideoFile(null);
+    setLessonAudioFile(null);
+    setLessonPdfFile(null);
     setModalMode("createLesson");
     setSystemMessage(`Formulario de crear lección abierto · ${ADMIN_BUILD_ID}`);
   }
@@ -454,6 +461,9 @@ export default function Page() {
       sortOrder: String(lesson.sort_order ?? ""),
       durationMinutes: String(lesson.duration_minutes ?? ""),
     });
+    setLessonVideoFile(null);
+    setLessonAudioFile(null);
+    setLessonPdfFile(null);
     setModalMode("editLesson");
     setSystemMessage(`Formulario de editar lección abierto · ${ADMIN_BUILD_ID}`);
   }
@@ -549,14 +559,25 @@ export default function Page() {
     setSystemMessage(`Guardando lección por RPC seguro · ${ADMIN_BUILD_ID}`);
 
     try {
+      const lessonPayload = await buildLessonFormWithUploadedAssets({
+        form: lessonForm,
+        videoFile: lessonVideoFile,
+        audioFile: lessonAudioFile,
+        pdfFile: lessonPdfFile,
+        setSystemMessage,
+      });
+
       if (modalMode === "editLesson" && lessonForm.id) {
-        await updateLessonInSupabase(lessonForm.id, lessonForm);
+        await updateLessonInSupabase(lessonForm.id, lessonPayload);
         await refreshDashboard(`Lección actualizada: ${lessonForm.title}`);
       } else {
-        await createLessonInSupabase(lessonForm);
+        await createLessonInSupabase(lessonPayload);
         await refreshDashboard(`Lección creada: ${lessonForm.title}`);
       }
 
+      setLessonVideoFile(null);
+      setLessonAudioFile(null);
+      setLessonPdfFile(null);
       setModalMode("none");
       setActiveTab("contenido");
     } catch (error) {
@@ -762,25 +783,40 @@ export default function Page() {
               <textarea value={lessonForm.content} onChange={(event) => setLessonForm({ ...lessonForm, content: event.target.value })} />
             </label>
 
-            <div className="form-grid three">
-              <label>
-                <span>URL vídeo</span>
-                <input value={lessonForm.videoUrl} onChange={(event) => setLessonForm({ ...lessonForm, videoUrl: event.target.value })} />
+            <div className="lesson-upload-grid">
+              <label className="lesson-upload-field">
+                <span>Cargar vídeo</span>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(event) => setLessonVideoFile(event.target.files?.[0] || null)}
+                />
+                <small>{lessonVideoFile?.name || lessonForm.videoUrl || "Sin vídeo cargado"}</small>
               </label>
 
-              <label>
-                <span>URL audio</span>
-                <input value={lessonForm.audioUrl} onChange={(event) => setLessonForm({ ...lessonForm, audioUrl: event.target.value })} />
+              <label className="lesson-upload-field">
+                <span>Cargar audio</span>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={(event) => setLessonAudioFile(event.target.files?.[0] || null)}
+                />
+                <small>{lessonAudioFile?.name || lessonForm.audioUrl || "Sin audio cargado"}</small>
               </label>
 
-              <label>
-                <span>URL PDF</span>
-                <input value={lessonForm.pdfUrl} onChange={(event) => setLessonForm({ ...lessonForm, pdfUrl: event.target.value })} />
+              <label className="lesson-upload-field">
+                <span>Cargar PDF</span>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(event) => setLessonPdfFile(event.target.files?.[0] || null)}
+                />
+                <small>{lessonPdfFile?.name || lessonForm.pdfUrl || "Sin PDF cargado"}</small>
               </label>
             </div>
 
             <div className="form-warning">
-              <strong>Nota GHC:</strong> la lección se guarda en Supabase. La protección de PDF/vídeo/audio se cerrará al conectar Storage.
+              <strong>Nota GHC:</strong> los archivos se suben al bucket privado ghc-course-assets. Más adelante serviremos el contenido al alumno con URLs firmadas y control de acceso.
             </div>
 
             <div className="modal-actions">
@@ -1037,6 +1073,89 @@ function createSlug(value: string) {
   const suffix = Math.random().toString(36).slice(2, 7);
 
   return `${base || "curso-ghc"}-${suffix}`;
+}
+
+async function buildLessonFormWithUploadedAssets({
+  form,
+  videoFile,
+  audioFile,
+  pdfFile,
+  setSystemMessage,
+}: {
+  form: LessonFormState;
+  videoFile: File | null;
+  audioFile: File | null;
+  pdfFile: File | null;
+  setSystemMessage: (message: string) => void;
+}): Promise<LessonFormState> {
+  const nextForm = { ...form };
+
+  if (videoFile) {
+    setSystemMessage(`Subiendo vídeo a Storage · ${ADMIN_BUILD_ID}`);
+    nextForm.videoUrl = await uploadLessonAsset(videoFile, form.moduleId, "video");
+  }
+
+  if (audioFile) {
+    setSystemMessage(`Subiendo audio a Storage · ${ADMIN_BUILD_ID}`);
+    nextForm.audioUrl = await uploadLessonAsset(audioFile, form.moduleId, "audio");
+  }
+
+  if (pdfFile) {
+    setSystemMessage(`Subiendo PDF a Storage · ${ADMIN_BUILD_ID}`);
+    nextForm.pdfUrl = await uploadLessonAsset(pdfFile, form.moduleId, "pdf");
+  }
+
+  return nextForm;
+}
+
+async function uploadLessonAsset(file: File, moduleId: string, assetType: "video" | "audio" | "pdf") {
+  const extension = getFileExtension(file.name);
+  const safeName = createSafeFileName(file.name);
+  const path = [
+    "modules",
+    moduleId || "sin-modulo",
+    "lessons",
+    assetType,
+    `${Date.now()}-${safeName}${extension ? `.${extension}` : ""}`,
+  ].join("/");
+
+  const { data, error } = await withTimeout(
+    supabase.storage
+      .from(COURSE_ASSETS_BUCKET)
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || undefined,
+      }),
+    30000,
+    `Supabase Storage no respondió al subir ${assetType}.`
+  );
+
+  if (error) {
+    throw new Error(`${error.message} · No se pudo subir el archivo al bucket privado ${COURSE_ASSETS_BUCKET}.`);
+  }
+
+  return data.path;
+}
+
+function getFileExtension(fileName: string) {
+  const clean = String(fileName || "").split("?")[0].split("#")[0];
+  const parts = clean.split(".");
+  if (parts.length <= 1) return "";
+  return parts.pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
+}
+
+function createSafeFileName(fileName: string) {
+  const base = String(fileName || "archivo")
+    .replace(/\.[^/.]+$/, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+
+  return base || "archivo";
 }
 
 async function createLessonInSupabase(form: LessonFormState) {
@@ -2048,6 +2167,14 @@ function GlobalStyles() {
       .selected-module-banner span{display:block;color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}
       .selected-module-banner strong{display:block;margin-top:5px;color:var(--white);font-size:16px;line-height:1.15}
       @media(max-width:1080px){.content-selector-head{flex-direction:column}.content-selector-grid{grid-template-columns:1fr}.content-selector-actions{flex-direction:column}.content-selector-actions button{width:100%}}
+
+
+      .lesson-upload-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+      .lesson-upload-field{border:1px solid rgba(99,229,70,.18);border-radius:16px;background:rgba(99,229,70,.045);padding:14px;display:grid;gap:8px}
+      .lesson-upload-field span{color:var(--green)!important;font-size:11px!important;text-transform:uppercase;letter-spacing:.13em;font-weight:950}
+      .lesson-upload-field input[type="file"]{width:100%;border-radius:12px;border:1px dashed rgba(99,229,70,.28);background:rgba(255,255,255,.035);color:var(--muted);padding:10px;font-size:12px}
+      .lesson-upload-field small{display:block;color:rgba(244,246,242,.62);font-size:12px;line-height:1.35;word-break:break-word}
+      @media(max-width:1080px){.lesson-upload-grid{grid-template-columns:1fr}}
 
   `}</style>;
 }
