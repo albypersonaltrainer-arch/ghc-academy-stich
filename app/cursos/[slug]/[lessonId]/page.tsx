@@ -36,6 +36,8 @@ export default function LessonPage() {
   const [pdfFullscreen, setPdfFullscreen] = useState(false)
   const [videoFullscreen, setVideoFullscreen] = useState(false)
   const [completedLessons, setCompletedLessons] = useState<string[]>([])
+  const [completionSaving, setCompletionSaving] = useState(false)
+  const [completionMessage, setCompletionMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -158,6 +160,10 @@ export default function LessonPage() {
       ? Math.round((completedLessons.length / allLessons.length) * 100)
       : 0
 
+  const currentLessonCompleted = currentLesson?.id
+    ? completedLessons.includes(String(currentLesson.id))
+    : false
+
 
   useEffect(() => {
     const resolveLessonAssets = async () => {
@@ -187,6 +193,11 @@ export default function LessonPage() {
     resolveLessonAssets()
   }, [currentLesson])
 
+
+  useEffect(() => {
+    setCompletionMessage('')
+  }, [lessonId])
+
   const goToLesson = (id: string) => {
     router.push(`/cursos/${slug}/${id}`)
   }
@@ -206,37 +217,56 @@ export default function LessonPage() {
   }
 
   const markAsCompleted = async () => {
+    if (!currentLesson?.id) return
+
+    if (currentLessonCompleted) {
+      setCompletionMessage('Esta lección ya está marcada como completada.')
+      return
+    }
+
     if (!user?.id) {
-      alert('Para guardar tu progreso real, primero debes iniciar sesión.')
+      setCompletionMessage('Para guardar tu progreso real, primero debes iniciar sesión.')
       return
     }
 
-    if (!course?.id || !currentLesson?.id) return
+    if (!course?.id) return
 
-    const { error } = await supabase.from('lesson_progress').upsert(
-      {
-        user_id: user.id,
-        course_id: course.id,
-        module_id: currentLesson.module_id || null,
-        lesson_id: currentLesson.id,
-        completed: true,
-        completed_at: new Date().toISOString(),
-        last_opened_at: new Date().toISOString()
-      },
-      { onConflict: 'user_id,lesson_id' }
-    )
+    try {
+      setCompletionSaving(true)
+      setCompletionMessage('Guardando progreso de la lección...')
 
-    if (error) {
+      const { error } = await supabase.from('lesson_progress').upsert(
+        {
+          user_id: user.id,
+          course_id: course.id,
+          module_id: currentLesson.module_id || null,
+          lesson_id: currentLesson.id,
+          completed: true,
+          completed_at: new Date().toISOString(),
+          last_opened_at: new Date().toISOString()
+        },
+        { onConflict: 'user_id,lesson_id' }
+      )
+
+      if (error) {
+        console.error(error)
+        setCompletionMessage('No se pudo guardar el progreso. Inténtalo otra vez.')
+        return
+      }
+
+      setCompletedLessons((prev) =>
+        prev.includes(String(currentLesson.id))
+          ? prev
+          : [...prev, String(currentLesson.id)]
+      )
+
+      setCompletionMessage('Lección completada correctamente. Tu progreso se ha actualizado.')
+    } catch (error) {
       console.error(error)
-      alert('No se pudo guardar el progreso.')
-      return
+      setCompletionMessage('Ha ocurrido un error inesperado al guardar el progreso.')
+    } finally {
+      setCompletionSaving(false)
     }
-
-    setCompletedLessons((prev) =>
-      prev.includes(String(currentLesson.id))
-        ? prev
-        : [...prev, String(currentLesson.id)]
-    )
   }
 
   const renderContent = () => {
@@ -499,10 +529,38 @@ export default function LessonPage() {
 
             {renderContent()}
 
-            <section className="ghc-complete-card">
-              <button onClick={markAsCompleted} className="ghc-primary-button">
-                Marcar lección como completada
+            <section className={currentLessonCompleted ? "ghc-complete-card completed" : "ghc-complete-card"}>
+              <div className="ghc-complete-copy">
+                <span>{currentLessonCompleted ? "Progreso guardado" : "Finalizar lección"}</span>
+                <strong>
+                  {currentLessonCompleted
+                    ? "Lección completada"
+                    : "Marca esta lección cuando hayas terminado el contenido."}
+                </strong>
+                <p>
+                  {currentLessonCompleted
+                    ? "Esta lección ya cuenta para tu avance del curso."
+                    : "Tu progreso se actualizará automáticamente en el panel de alumno."}
+                </p>
+              </div>
+
+              <button
+                onClick={markAsCompleted}
+                className="ghc-primary-button"
+                disabled={completionSaving || currentLessonCompleted}
+              >
+                {completionSaving
+                  ? "Guardando progreso..."
+                  : currentLessonCompleted
+                    ? "Lección completada"
+                    : "Marcar lección como completada"}
               </button>
+
+              {completionMessage ? (
+                <div className={currentLessonCompleted ? "ghc-completion-message success" : "ghc-completion-message"}>
+                  {completionMessage}
+                </div>
+              ) : null}
             </section>
 
             <section className="ghc-navigation-grid">
@@ -1181,6 +1239,95 @@ export default function LessonPage() {
 
           .ghc-audio-premium-shell {
             grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+
+      <style jsx global>{`
+        .ghc-complete-card {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 18px;
+          align-items: center;
+          border: 1px solid rgba(99,229,70,.16);
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.11), transparent 34%),
+            linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+            rgba(7,10,9,.96);
+          border-radius: 24px;
+          padding: 22px;
+          box-shadow: 0 22px 70px rgba(0,0,0,.22);
+        }
+
+        .ghc-complete-card.completed {
+          border-color: rgba(99,229,70,.32);
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.18), transparent 34%),
+            linear-gradient(145deg, rgba(99,229,70,.075), rgba(255,255,255,.018)),
+            rgba(7,10,9,.96);
+        }
+
+        .ghc-complete-copy {
+          display: grid;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .ghc-complete-copy span {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .18em;
+          font-size: 10px;
+          font-weight: 950;
+        }
+
+        .ghc-complete-copy strong {
+          color: #f4f6f2;
+          font-size: clamp(22px, 2vw, 32px);
+          line-height: 1;
+          letter-spacing: -.04em;
+          font-weight: 950;
+        }
+
+        .ghc-complete-copy p {
+          margin: 0;
+          color: rgba(244,246,242,.58);
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .ghc-complete-card .ghc-primary-button:disabled {
+          opacity: .72;
+          cursor: default;
+          transform: none;
+          filter: saturate(.88);
+        }
+
+        .ghc-completion-message {
+          grid-column: 1 / -1;
+          border: 1px solid rgba(255,255,255,.10);
+          border-radius: 16px;
+          background: rgba(255,255,255,.045);
+          color: rgba(244,246,242,.76);
+          padding: 12px 14px;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .ghc-completion-message.success {
+          border-color: rgba(99,229,70,.26);
+          background: rgba(99,229,70,.08);
+          color: #dfffd8;
+        }
+
+        @media (max-width: 760px) {
+          .ghc-complete-card {
+            grid-template-columns: 1fr;
+          }
+
+          .ghc-complete-card .ghc-primary-button {
+            width: 100%;
           }
         }
       `}</style>
