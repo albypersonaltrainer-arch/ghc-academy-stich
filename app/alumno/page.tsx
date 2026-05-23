@@ -76,7 +76,7 @@ const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
 export default function AlumnoPage() {
   const router = useRouter();
 
-  const [activeTab, setActivosTab] = useState<Tab>('dashboard');
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [viewModo, setViewModo] = useState<ViewModo>('grid');
   const [notificationsOpen, setNotificacionesOpen] = useState(false);
 
@@ -329,7 +329,7 @@ export default function AlumnoPage() {
     });
   }, [curriculumCourse, lessonProgreso, moduleCompletions]);
 
-  const curriculumActivosMódulo = useMemo(() => {
+  const curriculumActivosModule = useMemo(() => {
     if (selectedItinerarioModuleId) {
       const selected = curriculumModuleViews.find(
         (item) => String(item.module.id) === String(selectedItinerarioModuleId)
@@ -546,7 +546,7 @@ export default function AlumnoPage() {
                 key={tab.id}
                 type="button"
                 className={activeTab === tab.id ? 'nav-item active' : 'nav-item'}
-                onClick={() => setActivosTab(tab.id)}
+                onClick={() => setActiveTab(tab.id)}
               >
                 <Icon name={tab.icon} />
                 <span>
@@ -636,7 +636,7 @@ export default function AlumnoPage() {
             stats={stats}
             mainCourse={mainCourse}
             moduleViews={moduleViews}
-            setActivosTab={setActivosTab}
+            setActiveTab={setActiveTab}
           />
         )}
 
@@ -704,13 +704,13 @@ function PanelView({
   stats,
   mainCourse,
   moduleViews,
-  setActivosTab,
+  setActiveTab,
 }: {
   globalProgreso: number;
   stats: AnyRecord;
   mainCourse: PanelCard | null;
   moduleViews: ModuleView[];
-  setActivosTab: (tab: Tab) => void;
+  setActiveTab: (tab: Tab) => void;
 }) {
   return (
     <div className="dashboard-grid">
@@ -797,7 +797,7 @@ function PanelView({
         <article className="mock-mini">
           <h2>Simulador de exámenes</h2>
           <p>Pon a prueba tus conocimientos en condiciones reales antes de obtener tu certificación final.</p>
-          <button type="button" onClick={() => setActivosTab('examenes')}>
+          <button type="button" onClick={() => setActiveTab('examenes')}>
             Iniciar simulación
             <Icon name="arrow" />
           </button>
@@ -809,7 +809,7 @@ function PanelView({
             <small>Credencial oficial</small>
             <h2>Certificados</h2>
             <p>Obtén tu certificado oficial de GHC Academy al completar tu itinerario.</p>
-            <button type="button" onClick={() => setActivosTab('certificados')}>
+            <button type="button" onClick={() => setActiveTab('certificados')}>
               Ver certificación
               <Icon name="arrow" />
             </button>
@@ -1030,7 +1030,7 @@ function ItinerarioView({
             <ItinerarioMetric
               icon="performance"
               label="Etapa actual"
-              value={curriculumActivosMódulo ? `Módulo ${curriculumActivosModule.index + 1}` : '—'}
+              value={curriculumActivosModule ? `Módulo ${curriculumActivosModule.index + 1}` : '—'}
               helper={
                 curriculumActivosModule?.isCurrent
                   ? 'En progreso'
