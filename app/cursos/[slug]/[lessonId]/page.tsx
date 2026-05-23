@@ -164,6 +164,14 @@ export default function LessonPage() {
     ? completedLessons.includes(String(currentLesson.id))
     : false
 
+  const completedLessonsInCurrentModule = currentModuleLessons.filter((lesson: AnyRecord) =>
+    completedLessons.includes(String(lesson.id))
+  ).length
+
+  const currentModuleCompleted =
+    currentModuleLessons.length > 0 &&
+    completedLessonsInCurrentModule >= currentModuleLessons.length
+
 
   useEffect(() => {
     const resolveLessonAssets = async () => {
@@ -563,6 +571,29 @@ export default function LessonPage() {
               ) : null}
             </section>
 
+            <section className={currentModuleCompleted ? "ghc-module-status-card completed" : "ghc-module-status-card"}>
+              <div>
+                <span>{currentModuleCompleted ? "Módulo completado" : "Estado del módulo"}</span>
+                <strong>
+                  {currentModule?.title || "Módulo actual"}
+                </strong>
+                <p>
+                  {currentModuleCompleted
+                    ? "Has completado todas las lecciones de este módulo. El examen del módulo quedará disponible cuando activemos el sistema de evaluaciones."
+                    : `Llevas ${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas en este módulo.`}
+                </p>
+              </div>
+
+              <div className="ghc-module-status-progress">
+                <strong>
+                  {currentModuleLessons.length > 0
+                    ? Math.round((completedLessonsInCurrentModule / currentModuleLessons.length) * 100)
+                    : 0}%
+                </strong>
+                <span>{completedLessonsInCurrentModule}/{currentModuleLessons.length}</span>
+              </div>
+            </section>
+
             <section className="ghc-navigation-grid">
               {previousLesson ? (
                 <button
@@ -580,12 +611,17 @@ export default function LessonPage() {
               )}
 
               {isLastLessonOfModule ? (
-                <button onClick={goToModuleExam} className="ghc-exam-card">
-                  <span className="ghc-card-title">HACER EXAMEN DEL MÓDULO →</span>
-                  <span className="ghc-card-subtitle">
-                    Aprueba para desbloquear el siguiente módulo
+                <article className={currentModuleCompleted ? "ghc-exam-card standby completed" : "ghc-exam-card standby"}>
+                  <span className="ghc-card-title">
+                    {currentModuleCompleted ? "MÓDULO COMPLETADO" : "FINAL DEL MÓDULO"}
                   </span>
-                </button>
+                  <span className="ghc-card-subtitle">
+                    {currentModuleCompleted
+                      ? "La evaluación/examen del módulo se activará en la siguiente fase."
+                      : `Completa ${Math.max(0, currentModuleLessons.length - completedLessonsInCurrentModule)} lección(es) pendiente(s) antes de la evaluación.`}
+                  </span>
+                  <em>Examen del módulo · Próximamente</em>
+                </article>
               ) : (
                 <button
                   onClick={() => nextLesson && goToLesson(String(nextLesson.id))}
@@ -1328,6 +1364,137 @@ export default function LessonPage() {
 
           .ghc-complete-card .ghc-primary-button {
             width: 100%;
+          }
+        }
+      `}</style>
+
+
+      <style jsx global>{`
+        .ghc-module-status-card {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 108px;
+          gap: 18px;
+          align-items: center;
+          border: 1px solid rgba(255,255,255,.10);
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.08), transparent 34%),
+            linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.016)),
+            rgba(7,10,9,.94);
+          border-radius: 22px;
+          padding: 20px;
+          box-shadow: 0 18px 60px rgba(0,0,0,.18);
+        }
+
+        .ghc-module-status-card.completed {
+          border-color: rgba(99,229,70,.30);
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.16), transparent 34%),
+            linear-gradient(145deg, rgba(99,229,70,.07), rgba(255,255,255,.016)),
+            rgba(7,10,9,.96);
+        }
+
+        .ghc-module-status-card > div:first-child {
+          display: grid;
+          gap: 7px;
+          min-width: 0;
+        }
+
+        .ghc-module-status-card span {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .16em;
+          font-size: 10px;
+          font-weight: 950;
+        }
+
+        .ghc-module-status-card strong {
+          color: #f4f6f2;
+          font-size: clamp(21px, 2vw, 30px);
+          line-height: 1;
+          letter-spacing: -.035em;
+          font-weight: 950;
+        }
+
+        .ghc-module-status-card p {
+          margin: 0;
+          color: rgba(244,246,242,.58);
+          line-height: 1.55;
+          font-size: 13px;
+        }
+
+        .ghc-module-status-progress {
+          width: 104px;
+          height: 104px;
+          border-radius: 999px;
+          border: 1px solid rgba(99,229,70,.22);
+          background:
+            radial-gradient(circle, rgba(99,229,70,.13), rgba(99,229,70,.035) 62%),
+            rgba(255,255,255,.025);
+          display: grid;
+          place-items: center;
+          align-content: center;
+          text-align: center;
+          box-shadow: 0 0 42px rgba(99,229,70,.08);
+        }
+
+        .ghc-module-status-progress strong {
+          font-size: 31px;
+          color: #f4f6f2;
+        }
+
+        .ghc-module-status-progress span {
+          color: #63e546;
+          margin-top: 4px;
+        }
+
+        .ghc-exam-card.standby {
+          cursor: default;
+          border: 1px solid rgba(255,255,255,.12);
+          background:
+            radial-gradient(circle at top right, rgba(214,178,94,.13), transparent 34%),
+            linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+            rgba(7,10,9,.96);
+          opacity: .96;
+        }
+
+        .ghc-exam-card.standby.completed {
+          border-color: rgba(99,229,70,.24);
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.14), transparent 34%),
+            linear-gradient(145deg, rgba(99,229,70,.06), rgba(255,255,255,.018)),
+            rgba(7,10,9,.96);
+        }
+
+        .ghc-exam-card.standby em {
+          display: inline-flex;
+          width: fit-content;
+          margin-top: 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(214,178,94,.28);
+          background: rgba(214,178,94,.08);
+          color: #d6b25e;
+          padding: 7px 10px;
+          font-size: 11px;
+          font-style: normal;
+          font-weight: 950;
+          text-transform: uppercase;
+          letter-spacing: .12em;
+        }
+
+        .ghc-exam-card.standby.completed em {
+          border-color: rgba(99,229,70,.28);
+          background: rgba(99,229,70,.08);
+          color: #63e546;
+        }
+
+        @media (max-width: 760px) {
+          .ghc-module-status-card {
+            grid-template-columns: 1fr;
+          }
+
+          .ghc-module-status-progress {
+            width: 92px;
+            height: 92px;
           }
         }
       `}</style>
