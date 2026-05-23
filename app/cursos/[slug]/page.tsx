@@ -20,7 +20,7 @@ type PreviewCertificate = {
   status: 'valid';
 };
 
-const neon = '#00FF41';
+const neon = '#63E546';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -396,9 +396,9 @@ export default function CourseDetailPage() {
 
   if (loading) {
     return (
-      <main style={pageStyle}>
+      <main className="course-detail-approved-page" style={pageStyle}>
         <div style={containerStyle}>
-          <p style={loadingText}>CARGANDO CONTENIDO ACADÉMICO...</p>
+          <p style={loadingText}>Cargando contenido académico...</p>
         </div>
       </main>
     );
@@ -406,7 +406,7 @@ export default function CourseDetailPage() {
 
   if (!course) {
     return (
-      <main style={pageStyle}>
+      <main className="course-detail-approved-page" style={pageStyle}>
         <div style={containerStyle}>
           <Link href="/cursos" style={backButton}>
             ← Volver al catálogo
@@ -424,7 +424,7 @@ export default function CourseDetailPage() {
     : '';
 
   return (
-    <main style={pageStyle}>
+    <main className="course-detail-approved-page" style={pageStyle}>
       <div style={containerStyle}>
         <Link href="/cursos" style={backButton}>
           ← Volver al catálogo
@@ -432,7 +432,7 @@ export default function CourseDetailPage() {
 
         <section style={heroStyle}>
           <div>
-            <p style={eyebrowStyle}>GHC Academy · Sport Through Science</p>
+            <p style={eyebrowStyle}>GHC Academy · contenido del curso</p>
 
             <div style={badgeRow}>
               {course.course_type && <span style={badgeMain}>{course.course_type}</span>}
@@ -445,7 +445,7 @@ export default function CourseDetailPage() {
               )}
 
               {finalExamUnlocked && (
-                <span style={finalUnlockedBadge}>Evaluación final desbloqueada</span>
+                <span style={finalUnlockedBadge}>Evaluación final · próximamente</span>
               )}
 
               {effectiveCertificate && (
@@ -460,7 +460,7 @@ export default function CourseDetailPage() {
             {course.subtitle && <p style={subtitleStyle}>{course.subtitle}</p>}
 
             <p style={textStyle}>
-              {course.description || 'Formación premium basada en ciencia real.'}
+              {course.description || 'Formación premium basada en ciencia aplicada, estructura y rendimiento.'}
             </p>
           </div>
 
@@ -548,15 +548,15 @@ export default function CourseDetailPage() {
               {isCourseCompleted
                 ? 'Curso completado'
                 : finalExamUnlocked
-                  ? 'Ya puedes realizar el examen final del curso'
-                  : 'Completa todos los módulos para desbloquear el examen final'}
+                  ? 'Evaluación final preparada para la siguiente fase'
+                  : 'Completa todos los módulos para preparar la evaluación final'}
             </h2>
 
             <p style={textStyle}>
               {isCourseCompleted
                 ? 'El curso ya está marcado como completado. El siguiente bloque es la certificación digital.'
                 : finalExamUnlocked
-                  ? 'Has aprobado todos los módulos. Realiza la evaluación final para cerrar oficialmente el curso y desbloquear el paso de certificación.'
+                  ? 'Has aprobado todos los módulos. La evaluación final se activará cuando cerremos el motor de evaluaciones de GHC Academy.'
                   : `Has aprobado ${completedModulesCount} de ${modules.length} módulos. Cuando estén todos aprobados, aparecerá aquí el acceso a la evaluación final.`}
             </p>
           </div>
@@ -567,9 +567,10 @@ export default function CourseDetailPage() {
               <p style={miniValue}>{effectiveCertificate ? 'Emitido' : 'Disponible'}</p>
             </div>
           ) : finalExamUnlocked ? (
-            <Link href={`/exam?courseId=${course.id}`} style={finalExamButton}>
-              Hacer examen final →
-            </Link>
+            <div style={finalExamLockedBox}>
+              <p style={miniLabel}>Estado</p>
+              <p style={miniValue}>Próximamente</p>
+            </div>
           ) : (
             <div style={finalExamLockedBox}>
               <p style={miniLabel}>Estado</p>
@@ -731,6 +732,47 @@ export default function CourseDetailPage() {
             })}
           </div>
         </section>
+
+        <style jsx global>{`
+          .course-detail-approved-page,
+          .course-detail-approved-page * {
+            box-sizing: border-box;
+          }
+
+          .course-detail-approved-page a,
+          .course-detail-approved-page button {
+            transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+          }
+
+          .course-detail-approved-page a:hover,
+          .course-detail-approved-page button:hover {
+            transform: translateY(-1px);
+          }
+
+          .course-detail-approved-page {
+            background:
+              radial-gradient(circle at 12% -10%, rgba(99,229,70,.075), transparent 32%),
+              radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
+              linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%) !important;
+          }
+
+          .course-detail-approved-page h1,
+          .course-detail-approved-page h2,
+          .course-detail-approved-page h3 {
+            letter-spacing: -.055em;
+          }
+
+          .course-detail-approved-page p {
+            text-wrap: pretty;
+          }
+
+          @media (max-width: 920px) {
+            .course-detail-approved-page {
+              padding: 18px !important;
+            }
+          }
+        `}</style>
+
       </div>
     </main>
   );
@@ -820,228 +862,261 @@ function getLessonTypeLabel(lesson: AnyRecord) {
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
   background:
-    'radial-gradient(circle at top left, rgba(0,255,65,0.16), transparent 35%), radial-gradient(circle at bottom right, rgba(0,255,65,0.10), transparent 30%), #030504',
-  color: 'white',
-  padding: '32px',
-  fontFamily: 'Arial, Helvetica, sans-serif',
+    'radial-gradient(circle at 12% -10%, rgba(99,229,70,.075), transparent 32%), radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%), linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%)',
+  color: '#f4f6f2',
+  padding: '24px',
+  fontFamily:
+    'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 };
 
 const containerStyle: CSSProperties = {
-  maxWidth: '1200px',
+  maxWidth: '1320px',
   margin: '0 auto',
 };
 
 const loadingText: CSSProperties = {
   color: neon,
-  fontWeight: 900,
+  fontWeight: 950,
   letterSpacing: '0.18em',
+  textTransform: 'uppercase',
 };
 
 const backButton: CSSProperties = {
-  display: 'inline-block',
-  marginBottom: '28px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  width: 'fit-content',
+  minHeight: '40px',
+  marginBottom: '18px',
   color: neon,
-  border: '1px solid rgba(0,255,65,0.45)',
-  padding: '12px 16px',
+  border: '1px solid rgba(99,229,70,0.22)',
+  background: 'rgba(99,229,70,0.065)',
+  padding: '0 15px',
   borderRadius: '999px',
   textDecoration: 'none',
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.16em',
+  fontSize: '11px',
+  fontWeight: 950,
+  letterSpacing: '0.13em',
   textTransform: 'uppercase',
 };
 
 const heroStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
-  gap: '24px',
+  gridTemplateColumns: 'minmax(0, 1.25fr) minmax(300px, 0.55fr)',
+  gap: '18px',
+  alignItems: 'stretch',
+  borderRadius: '26px',
+  border: '1px solid rgba(255,255,255,0.085)',
+  background:
+    'radial-gradient(circle at top right, rgba(99,229,70,.085), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.92)',
+  padding: 'clamp(22px, 3vw, 34px)',
+  boxShadow: '0 24px 82px rgba(0,0,0,.22)',
 };
 
 const eyebrowStyle: CSSProperties = {
   color: neon,
-  fontSize: '12px',
-  letterSpacing: '0.35em',
-  fontWeight: 900,
+  fontSize: '10px',
+  letterSpacing: '0.18em',
+  fontWeight: 950,
   textTransform: 'uppercase',
+  margin: '0 0 14px',
 };
 
 const badgeRow: CSSProperties = {
   display: 'flex',
-  gap: '10px',
+  gap: '8px',
   flexWrap: 'wrap',
   marginBottom: '18px',
 };
 
 const titleStyle: CSSProperties = {
-  fontSize: 'clamp(38px, 6vw, 72px)',
-  lineHeight: '0.95',
-  fontWeight: 900,
-  textTransform: 'uppercase',
+  fontSize: 'clamp(42px, 5vw, 74px)',
+  lineHeight: '0.9',
+  fontWeight: 950,
+  letterSpacing: '-0.07em',
   margin: 0,
+  color: '#f4f6f2',
 };
 
 const subtitleStyle: CSSProperties = {
-  color: neon,
-  fontWeight: 900,
+  color: '#f4f6f2',
+  fontWeight: 850,
   fontSize: '18px',
   lineHeight: '1.5',
-  marginTop: '20px',
+  marginTop: '18px',
+  maxWidth: '760px',
 };
 
 const textStyle: CSSProperties = {
-  color: 'rgba(255,255,255,0.66)',
+  color: 'rgba(244,246,242,0.62)',
   fontSize: '15px',
   lineHeight: '1.75',
 };
 
 const previewText: CSSProperties = {
   color: neon,
-  fontSize: '12px',
+  fontSize: '11px',
   fontWeight: 900,
   letterSpacing: '0.12em',
   textTransform: 'uppercase',
 };
 
 const priceCardStyle: CSSProperties = {
-  borderRadius: '30px',
-  border: '1px solid rgba(0,255,65,0.26)',
-  background: 'rgba(255,255,255,0.045)',
-  padding: '24px',
-  boxShadow: '0 0 60px rgba(0,255,65,0.08)',
+  borderRadius: '22px',
+  border: '1px solid rgba(255,255,255,0.085)',
+  background:
+    'radial-gradient(circle at top right, rgba(99,229,70,.075), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(5,7,6,.66)',
+  padding: '22px',
+  boxShadow: '0 20px 70px rgba(0,0,0,.18)',
+  alignSelf: 'stretch',
 };
 
 const smallLabel: CSSProperties = {
   margin: 0,
-  color: 'rgba(255,255,255,0.42)',
-  fontSize: '11px',
-  letterSpacing: '0.22em',
+  color: 'rgba(244,246,242,0.46)',
+  fontSize: '10px',
+  letterSpacing: '0.16em',
   textTransform: 'uppercase',
+  fontWeight: 900,
 };
 
 const priceStyle: CSSProperties = {
   margin: '8px 0 20px',
-  color: neon,
-  fontSize: '46px',
-  fontWeight: 900,
+  color: '#f4f6f2',
+  fontSize: '44px',
+  lineHeight: 1,
+  letterSpacing: '-0.055em',
+  fontWeight: 950,
 };
 
 const dataGridStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
-  gap: '12px',
+  gap: '10px',
   marginBottom: '18px',
 };
 
 const miniBox: CSSProperties = {
   borderRadius: '16px',
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(0,0,0,0.28)',
+  border: '1px solid rgba(255,255,255,0.075)',
+  background: 'rgba(255,255,255,0.026)',
   padding: '12px',
 };
 
 const miniLabel: CSSProperties = {
   margin: 0,
-  color: 'rgba(255,255,255,0.38)',
-  fontSize: '11px',
+  color: 'rgba(244,246,242,0.46)',
+  fontSize: '10px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.12em',
+  fontWeight: 900,
 };
 
 const miniValue: CSSProperties = {
-  margin: '5px 0 0',
-  color: 'white',
-  fontWeight: 800,
+  margin: '6px 0 0',
+  color: '#f4f6f2',
+  fontWeight: 900,
 };
 
 const buyButton: CSSProperties = {
   width: '100%',
-  border: 'none',
-  borderRadius: '18px',
-  background: neon,
-  color: '#000',
-  padding: '15px',
-  fontSize: '13px',
-  fontWeight: 900,
-  letterSpacing: '0.18em',
+  border: '1px solid rgba(99,229,70,.30)',
+  borderRadius: '999px',
+  background: 'linear-gradient(135deg, #63e546, #7bee65)',
+  color: '#061008',
+  padding: '14px',
+  fontSize: '12px',
+  fontWeight: 950,
+  letterSpacing: '0.13em',
   textTransform: 'uppercase',
   cursor: 'pointer',
-  boxShadow: '0 0 28px rgba(0,255,65,0.30)',
+  boxShadow: '0 0 30px rgba(99,229,70,.14)',
 };
 
 const statusGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.6fr)',
-  gap: '24px',
-  marginTop: '28px',
+  gridTemplateColumns: 'minmax(0, 1.2fr) minmax(300px, 0.65fr)',
+  gap: '18px',
+  marginTop: '18px',
 };
 
 const statusCard: CSSProperties = {
-  borderRadius: '30px',
-  padding: '24px',
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-  border: '1px solid rgba(0,255,65,0.24)',
+  borderRadius: '22px',
+  padding: '22px',
+  background:
+    'radial-gradient(circle at top right, rgba(99,229,70,.055), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.90)',
+  border: '1px solid rgba(255,255,255,0.085)',
+  boxShadow: '0 24px 82px rgba(0,0,0,.18)',
 };
 
 const sectionLabel: CSSProperties = {
   color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.3em',
+  fontSize: '10px',
+  fontWeight: 950,
+  letterSpacing: '0.16em',
   textTransform: 'uppercase',
+  margin: '0 0 10px',
 };
 
 const sectionTitle: CSSProperties = {
   fontSize: '34px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
+  lineHeight: 1,
+  fontWeight: 950,
+  letterSpacing: '-0.045em',
   marginTop: 0,
 };
 
 const statusTitle: CSSProperties = {
-  fontSize: '30px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
+  fontSize: '28px',
+  lineHeight: 1,
+  fontWeight: 950,
+  letterSpacing: '-0.045em',
   margin: '0 0 12px',
 };
 
 const progressTrack: CSSProperties = {
-  height: '12px',
+  height: '9px',
   borderRadius: '999px',
   overflow: 'hidden',
-  background: 'rgba(255,255,255,0.12)',
-  margin: '18px 0',
+  background: 'rgba(255,255,255,0.075)',
+  margin: '16px 0',
 };
 
 const progressFill: CSSProperties = {
   height: '100%',
   borderRadius: '999px',
-  background: neon,
-  boxShadow: '0 0 20px rgba(0,255,65,0.55)',
+  background: 'linear-gradient(90deg, #63e546, #7bee65)',
+  boxShadow: '0 0 22px rgba(99,229,70,.26)',
 };
 
 const noticeBox: CSSProperties = {
-  padding: '22px',
-  borderRadius: '24px',
-  border: '1px solid rgba(0,255,65,0.22)',
-  color: 'rgba(255,255,255,0.72)',
-  marginBottom: '20px',
-  background: 'rgba(255,255,255,0.035)',
+  padding: '16px',
+  borderRadius: '18px',
+  border: '1px solid rgba(99,229,70,0.18)',
+  color: 'rgba(244,246,242,0.70)',
+  marginBottom: '18px',
+  background:
+    'linear-gradient(90deg, rgba(99,229,70,.06), rgba(255,255,255,.022))',
 };
 
 const modulesGrid: CSSProperties = {
   display: 'grid',
-  gap: '18px',
+  gap: '14px',
 };
 
 const moduleCard: CSSProperties = {
-  borderRadius: '28px',
-  padding: '24px',
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
-  border: '1px solid rgba(0,255,65,0.24)',
+  borderRadius: '22px',
+  padding: '22px',
+  background:
+    'radial-gradient(circle at top right, rgba(99,229,70,.045), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.90)',
+  border: '1px solid rgba(255,255,255,0.085)',
+  boxShadow: '0 24px 82px rgba(0,0,0,.18)',
 };
 
 const moduleCompletedCard: CSSProperties = {
-  border: '1px solid rgba(0,255,65,0.58)',
-  background: 'linear-gradient(145deg, rgba(0,255,65,0.13), rgba(255,255,255,0.035))',
-  boxShadow: '0 0 50px rgba(0,255,65,0.10)',
+  border: '1px solid rgba(99,229,70,0.28)',
+  background:
+    'radial-gradient(circle at top right, rgba(99,229,70,.13), transparent 34%), linear-gradient(145deg, rgba(99,229,70,.055), rgba(255,255,255,.018)), rgba(8,12,10,.94)',
+  boxShadow: '0 24px 82px rgba(0,0,0,.20), 0 0 34px rgba(99,229,70,.055)',
 };
 
 const moduleHeader: CSSProperties = {
@@ -1052,23 +1127,24 @@ const moduleHeader: CSSProperties = {
 
 const moduleNumber: CSSProperties = {
   color: neon,
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.22em',
+  fontSize: '10px',
+  fontWeight: 950,
+  letterSpacing: '0.16em',
   textTransform: 'uppercase',
   margin: 0,
 };
 
 const moduleTitle: CSSProperties = {
   fontSize: '26px',
-  lineHeight: '1.15',
-  fontWeight: 900,
+  lineHeight: '1.05',
+  fontWeight: 950,
+  letterSpacing: '-0.04em',
   margin: '8px 0 10px',
 };
 
 const moduleProgressText: CSSProperties = {
   color: neon,
-  fontSize: '12px',
+  fontSize: '11px',
   fontWeight: 900,
   letterSpacing: '0.12em',
   textTransform: 'uppercase',
@@ -1076,7 +1152,7 @@ const moduleProgressText: CSSProperties = {
 };
 
 const moduleScoreText: CSSProperties = {
-  color: 'rgba(255,255,255,0.78)',
+  color: 'rgba(244,246,242,0.78)',
   fontSize: '13px',
   fontWeight: 800,
   marginTop: '8px',
@@ -1085,7 +1161,7 @@ const moduleScoreText: CSSProperties = {
 const lessonsList: CSSProperties = {
   marginTop: '18px',
   display: 'grid',
-  gap: '10px',
+  gap: '8px',
 };
 
 const lessonRow: CSSProperties = {
@@ -1094,10 +1170,10 @@ const lessonRow: CSSProperties = {
   alignItems: 'center',
   gap: '16px',
   borderRadius: '16px',
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(0,0,0,0.26)',
+  border: '1px solid rgba(255,255,255,0.075)',
+  background: 'rgba(255,255,255,0.026)',
   padding: '13px 14px',
-  color: 'rgba(255,255,255,0.75)',
+  color: 'rgba(244,246,242,0.76)',
   fontSize: '14px',
 };
 
@@ -1111,7 +1187,8 @@ const lessonTypeBadge: CSSProperties = {
   display: 'inline-flex',
   width: 'fit-content',
   borderRadius: '999px',
-  border: '1px solid rgba(0,255,65,0.24)',
+  border: '1px solid rgba(99,229,70,0.22)',
+  background: 'rgba(99,229,70,0.065)',
   color: neon,
   padding: '4px 8px',
   fontSize: '10px',
@@ -1123,76 +1200,83 @@ const lessonTypeBadge: CSSProperties = {
 const openLessonLink: CSSProperties = {
   color: neon,
   textDecoration: 'none',
-  fontWeight: 900,
+  fontWeight: 950,
+  borderRadius: '999px',
+  border: '1px solid rgba(99,229,70,.20)',
+  background: 'rgba(99,229,70,.06)',
+  padding: '8px 11px',
+  whiteSpace: 'nowrap',
 };
 
 const badgeMain: CSSProperties = {
-  background: neon,
-  color: '#000',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.14em',
-};
-
-const badgeSecondary: CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.14)',
-  color: 'rgba(255,255,255,0.72)',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '11px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.14em',
-};
-
-const completedBadge: CSSProperties = {
-  background: 'rgba(0,255,65,0.14)',
-  border: '1px solid rgba(0,255,65,0.55)',
+  background: 'rgba(99,229,70,.105)',
+  border: '1px solid rgba(99,229,70,.24)',
   color: neon,
   borderRadius: '999px',
   padding: '7px 10px',
-  fontSize: '11px',
+  fontSize: '10px',
+  fontWeight: 950,
+  textTransform: 'uppercase',
+  letterSpacing: '0.12em',
+};
+
+const badgeSecondary: CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.11)',
+  color: 'rgba(244,246,242,0.72)',
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '10px',
   fontWeight: 900,
   textTransform: 'uppercase',
-  letterSpacing: '0.14em',
+  letterSpacing: '0.12em',
+};
+
+const completedBadge: CSSProperties = {
+  background: 'rgba(99,229,70,0.105)',
+  border: '1px solid rgba(99,229,70,0.26)',
+  color: neon,
+  borderRadius: '999px',
+  padding: '7px 10px',
+  fontSize: '10px',
+  fontWeight: 950,
+  textTransform: 'uppercase',
+  letterSpacing: '0.12em',
 };
 
 const finalUnlockedBadge: CSSProperties = {
-  background: neon,
-  border: '1px solid rgba(0,255,65,0.75)',
-  color: '#000',
+  background: 'rgba(99,229,70,0.105)',
+  border: '1px solid rgba(99,229,70,0.26)',
+  color: neon,
   borderRadius: '999px',
   padding: '7px 10px',
-  fontSize: '11px',
+  fontSize: '10px',
   fontWeight: 950,
   textTransform: 'uppercase',
-  letterSpacing: '0.14em',
+  letterSpacing: '0.12em',
 };
 
 const certificateBadge: CSSProperties = {
-  background: 'rgba(255,255,255,0.92)',
-  border: '1px solid rgba(255,255,255,0.92)',
-  color: '#000',
+  background: 'rgba(214,178,94,0.10)',
+  border: '1px solid rgba(214,178,94,0.26)',
+  color: '#d6b25e',
   borderRadius: '999px',
   padding: '7px 10px',
-  fontSize: '11px',
+  fontSize: '10px',
   fontWeight: 950,
   textTransform: 'uppercase',
-  letterSpacing: '0.14em',
+  letterSpacing: '0.12em',
 };
 
 const availableBadge: CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
-  border: '1px solid rgba(0,255,65,0.35)',
+  border: '1px solid rgba(99,229,70,0.22)',
+  background: 'rgba(99,229,70,0.065)',
   color: neon,
   padding: '9px 12px',
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.14em',
+  fontSize: '10px',
+  fontWeight: 950,
+  letterSpacing: '0.12em',
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
 };
@@ -1200,13 +1284,13 @@ const availableBadge: CSSProperties = {
 const completedModuleBadge: CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
-  border: '1px solid rgba(0,255,65,0.65)',
-  background: 'rgba(0,255,65,0.14)',
+  border: '1px solid rgba(99,229,70,0.28)',
+  background: 'rgba(99,229,70,0.10)',
   color: neon,
   padding: '9px 12px',
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.14em',
+  fontSize: '10px',
+  fontWeight: 950,
+  letterSpacing: '0.12em',
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
 };
@@ -1214,12 +1298,13 @@ const completedModuleBadge: CSSProperties = {
 const blockedBadge: CSSProperties = {
   height: 'fit-content',
   borderRadius: '999px',
-  border: '1px solid rgba(255,255,255,0.16)',
-  color: 'rgba(255,255,255,0.42)',
+  border: '1px solid rgba(255,255,255,0.10)',
+  background: 'rgba(255,255,255,0.025)',
+  color: 'rgba(244,246,242,0.42)',
   padding: '9px 12px',
-  fontSize: '11px',
+  fontSize: '10px',
   fontWeight: 900,
-  letterSpacing: '0.14em',
+  letterSpacing: '0.12em',
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
 };
@@ -1230,17 +1315,17 @@ const finalExamButton: CSSProperties = {
   justifyContent: 'center',
   width: '100%',
   maxWidth: '320px',
-  borderRadius: '18px',
-  background: neon,
-  color: '#000',
-  padding: '16px 20px',
-  fontSize: '13px',
+  borderRadius: '999px',
+  background: 'linear-gradient(135deg, #63e546, #7bee65)',
+  color: '#061008',
+  padding: '15px 18px',
+  fontSize: '12px',
   fontWeight: 950,
-  letterSpacing: '0.16em',
+  letterSpacing: '0.13em',
   textTransform: 'uppercase',
   textDecoration: 'none',
   textAlign: 'center',
-  boxShadow: '0 0 34px rgba(0,255,65,0.34)',
+  boxShadow: '0 0 30px rgba(99,229,70,.14)',
 };
 
 const certificateButton: CSSProperties = {
@@ -1249,34 +1334,34 @@ const certificateButton: CSSProperties = {
   justifyContent: 'center',
   width: '100%',
   maxWidth: '360px',
-  border: 'none',
-  borderRadius: '18px',
-  background: neon,
-  color: '#000',
-  padding: '16px 20px',
-  fontSize: '13px',
+  border: '1px solid rgba(99,229,70,.30)',
+  borderRadius: '999px',
+  background: 'linear-gradient(135deg, #63e546, #7bee65)',
+  color: '#061008',
+  padding: '15px 18px',
+  fontSize: '12px',
   fontWeight: 950,
-  letterSpacing: '0.16em',
+  letterSpacing: '0.13em',
   textTransform: 'uppercase',
   textDecoration: 'none',
   textAlign: 'center',
-  boxShadow: '0 0 34px rgba(0,255,65,0.34)',
+  boxShadow: '0 0 30px rgba(99,229,70,.14)',
   cursor: 'pointer',
 };
 
 const finalExamTitleStyle: CSSProperties = {
-  fontSize: '30px',
+  fontSize: '28px',
   fontWeight: 950,
-  textTransform: 'uppercase',
+  letterSpacing: '-0.045em',
   margin: '0 0 12px',
-  lineHeight: 1.08,
+  lineHeight: 1.05,
 };
 
 const finalExamLockedBox: CSSProperties = {
   minWidth: '220px',
-  borderRadius: '20px',
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(0,0,0,0.28)',
+  borderRadius: '18px',
+  border: '1px solid rgba(255,255,255,0.085)',
+  background: 'rgba(255,255,255,0.026)',
   padding: '16px',
 };
 
@@ -1289,18 +1374,20 @@ function finalExamSectionStyle(unlocked: boolean, completed: boolean): CSSProper
   return {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 320px)',
-    gap: '24px',
+    gap: '18px',
     alignItems: 'center',
-    marginTop: '28px',
-    borderRadius: '32px',
-    padding: '26px',
-    border: unlocked || completed
-      ? '1px solid rgba(0,255,65,0.60)'
-      : '1px solid rgba(0,255,65,0.24)',
-    background: unlocked || completed
-      ? 'linear-gradient(145deg, rgba(0,255,65,0.16), rgba(255,255,255,0.04))'
-      : 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025))',
-    boxShadow: unlocked || completed ? '0 0 70px rgba(0,255,65,0.12)' : 'none',
+    marginTop: '18px',
+    borderRadius: '24px',
+    padding: '22px',
+    border:
+      unlocked || completed
+        ? '1px solid rgba(99,229,70,0.24)'
+        : '1px solid rgba(255,255,255,0.085)',
+    background:
+      unlocked || completed
+        ? 'radial-gradient(circle at top right, rgba(99,229,70,.12), transparent 34%), linear-gradient(145deg, rgba(99,229,70,.055), rgba(255,255,255,.018)), rgba(8,12,10,.94)'
+        : 'radial-gradient(circle at top right, rgba(99,229,70,.045), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.90)',
+    boxShadow: '0 24px 82px rgba(0,0,0,.20)',
   };
 }
 
@@ -1308,19 +1395,19 @@ function certificateSectionStyle(available: boolean, emitted: boolean): CSSPrope
   return {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 360px)',
-    gap: '24px',
+    gap: '18px',
     alignItems: 'center',
-    marginTop: '28px',
-    borderRadius: '32px',
-    padding: '26px',
+    marginTop: '18px',
+    borderRadius: '24px',
+    padding: '22px',
     border: available
-      ? '1px solid rgba(255,255,255,0.38)'
-      : '1px solid rgba(0,255,65,0.20)',
+      ? '1px solid rgba(214,178,94,0.24)'
+      : '1px solid rgba(255,255,255,0.085)',
     background: emitted
-      ? 'linear-gradient(145deg, rgba(255,255,255,0.14), rgba(0,255,65,0.08))'
+      ? 'radial-gradient(circle at top right, rgba(214,178,94,.12), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), rgba(8,12,10,.94)'
       : available
-        ? 'linear-gradient(145deg, rgba(255,255,255,0.09), rgba(0,255,65,0.06))'
-        : 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-    boxShadow: available ? '0 0 70px rgba(255,255,255,0.08)' : 'none',
+        ? 'radial-gradient(circle at top right, rgba(214,178,94,.09), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.92)'
+        : 'radial-gradient(circle at top right, rgba(99,229,70,.045), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.90)',
+    boxShadow: '0 24px 82px rgba(0,0,0,.20)',
   };
 }
