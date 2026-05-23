@@ -543,7 +543,15 @@ export default function Page() {
 
   async function handleLessonSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSystemMessage(`Submit lección recibido · ${ADMIN_BUILD_ID}`);
+    event.stopPropagation();
+    setSystemMessage(`Botón guardar lección pulsado · preparando validación · ${ADMIN_BUILD_ID}`);
+
+    try {
+      validateLessonAssetFiles(lessonVideoFile, lessonAudioFile, lessonPdfFile);
+    } catch (error) {
+      setSystemMessage(getErrorMessage(error, "Alguno de los archivos no es válido para subir."));
+      return;
+    }
 
     if (!lessonForm.moduleId) {
       setSystemMessage("Selecciona un módulo para asociar la lección.");
@@ -559,6 +567,9 @@ export default function Page() {
     setSystemMessage(`Guardando lección por RPC seguro · ${ADMIN_BUILD_ID}`);
 
     try {
+      const filesToUpload = [lessonVideoFile, lessonAudioFile, lessonPdfFile].filter(Boolean).length;
+      setSystemMessage(filesToUpload ? `Subiendo ${filesToUpload} archivo(s) antes de guardar lección · ${ADMIN_BUILD_ID}` : `Guardando lección sin archivos nuevos · ${ADMIN_BUILD_ID}`);
+
       const lessonPayload = await buildLessonFormWithUploadedAssets({
         form: lessonForm,
         videoFile: lessonVideoFile,
@@ -735,7 +746,7 @@ export default function Page() {
 
       {(modalMode === "createLesson" || modalMode === "editLesson") ? (
         <AdminModal title={modalMode === "editLesson" ? "Editar lección" : "Añadir lección"} eyebrow="Contenido · Lecciones" onClose={() => setModalMode("none")}>
-          <form className="admin-form" onSubmit={handleLessonSubmit}>
+          <form className="admin-form" onSubmit={handleLessonSubmit} noValidate>
             <label>
               <span>Módulo *</span>
               <select value={lessonForm.moduleId} onChange={(event) => setLessonForm({ ...lessonForm, moduleId: event.target.value })}>
@@ -784,34 +795,46 @@ export default function Page() {
             </label>
 
             <div className="lesson-upload-grid">
-              <label className="lesson-upload-field">
+              <label className={lessonVideoFile || lessonForm.videoUrl ? "lesson-upload-field active" : "lesson-upload-field"}>
                 <span>Cargar vídeo</span>
                 <input
                   type="file"
-                  accept="video/*"
-                  onChange={(event) => setLessonVideoFile(event.target.files?.[0] || null)}
+                  accept="video/*,.mp4,.mov,.webm,.m4v"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setLessonVideoFile(file);
+                    setSystemMessage(file ? `Vídeo seleccionado: ${file.name} · ${formatFileSize(file.size)}` : "Vídeo quitado.");
+                  }}
                 />
-                <small>{lessonVideoFile?.name || lessonForm.videoUrl || "Sin vídeo cargado"}</small>
+                <small>{formatAssetFileLabel(lessonVideoFile, lessonForm.videoUrl, "Sin vídeo cargado")}</small>
               </label>
 
-              <label className="lesson-upload-field">
+              <label className={lessonAudioFile || lessonForm.audioUrl ? "lesson-upload-field active" : "lesson-upload-field"}>
                 <span>Cargar audio</span>
                 <input
                   type="file"
-                  accept="audio/*"
-                  onChange={(event) => setLessonAudioFile(event.target.files?.[0] || null)}
+                  accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setLessonAudioFile(file);
+                    setSystemMessage(file ? `Audio seleccionado: ${file.name} · ${formatFileSize(file.size)}` : "Audio quitado.");
+                  }}
                 />
-                <small>{lessonAudioFile?.name || lessonForm.audioUrl || "Sin audio cargado"}</small>
+                <small>{formatAssetFileLabel(lessonAudioFile, lessonForm.audioUrl, "Sin audio cargado")}</small>
               </label>
 
-              <label className="lesson-upload-field">
+              <label className={lessonPdfFile || lessonForm.pdfUrl ? "lesson-upload-field active" : "lesson-upload-field"}>
                 <span>Cargar PDF</span>
                 <input
                   type="file"
                   accept="application/pdf,.pdf"
-                  onChange={(event) => setLessonPdfFile(event.target.files?.[0] || null)}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setLessonPdfFile(file);
+                    setSystemMessage(file ? `PDF seleccionado: ${file.name} · ${formatFileSize(file.size)}` : "PDF quitado.");
+                  }}
                 />
-                <small>{lessonPdfFile?.name || lessonForm.pdfUrl || "Sin PDF cargado"}</small>
+                <small>{formatAssetFileLabel(lessonPdfFile, lessonForm.pdfUrl, "Sin PDF cargado")}</small>
               </label>
             </div>
 
@@ -842,8 +865,8 @@ export default function Page() {
 
             <div className="modal-actions">
               <button type="button" onClick={() => setModalMode("none")}>Cancelar</button>
-              <button type="submit" disabled={modalBusy}>
-                {modalBusy ? "Guardando..." : modalMode === "editLesson" ? "Guardar lección" : "Crear lección"}
+              <button type="submit" disabled={modalBusy} className="lesson-submit-button">
+                {modalBusy ? "Subiendo y guardando..." : modalMode === "editLesson" ? "Guardar lección y archivos" : "Crear lección y subir archivos"}
               </button>
             </div>
           </form>
@@ -1094,6 +1117,47 @@ function createSlug(value: string) {
   const suffix = Math.random().toString(36).slice(2, 7);
 
   return `${base || "curso-ghc"}-${suffix}`;
+}
+
+function formatAssetFileLabel(file: File | null, storedPath: string, emptyLabel: string) {
+  if (file) {
+    return `${file.name} · ${formatFileSize(file.size)}`;
+  }
+
+  if (storedPath) {
+    return storedPath;
+  }
+
+  return emptyLabel;
+}
+
+function formatFileSize(size: number) {
+  if (!Number.isFinite(size) || size <= 0) return "0 KB";
+  const mb = size / (1024 * 1024);
+
+  if (mb >= 1) {
+    return `${mb.toFixed(2)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function validateLessonAssetFiles(videoFile: File | null, audioFile: File | null, pdfFile: File | null) {
+  const maxVideoMb = 250;
+  const maxAudioMb = 80;
+  const maxPdfMb = 80;
+
+  if (videoFile && videoFile.size > maxVideoMb * 1024 * 1024) {
+    throw new Error(`El vídeo pesa ${formatFileSize(videoFile.size)}. Para esta prueba usa un vídeo menor de ${maxVideoMb} MB.`);
+  }
+
+  if (audioFile && audioFile.size > maxAudioMb * 1024 * 1024) {
+    throw new Error(`El audio pesa ${formatFileSize(audioFile.size)}. Para esta prueba usa un audio menor de ${maxAudioMb} MB.`);
+  }
+
+  if (pdfFile && pdfFile.size > maxPdfMb * 1024 * 1024) {
+    throw new Error(`El PDF pesa ${formatFileSize(pdfFile.size)}. Para esta prueba usa un PDF menor de ${maxPdfMb} MB.`);
+  }
 }
 
 async function openPrivateLessonAsset(pathValue: unknown, setSystemMessage: (message: string) => void, label = "archivo") {
@@ -2255,6 +2319,11 @@ function GlobalStyles() {
       .lesson-existing-assets strong{width:100%;color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.13em}
       .lesson-existing-assets button{min-height:36px;border-radius:999px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.08);color:var(--green);font-weight:900;padding:0 12px;cursor:pointer}
       @media(max-width:1080px){.lesson-row-actions{justify-content:flex-start}.lesson-existing-assets{align-items:flex-start}}
+
+
+      .lesson-upload-field.active{border-color:rgba(99,229,70,.42);background:rgba(99,229,70,.085);box-shadow:inset 0 0 0 1px rgba(99,229,70,.08)}
+      .lesson-upload-field.active small{color:var(--white);font-weight:800}
+      .lesson-submit-button{box-shadow:0 0 0 1px rgba(99,229,70,.22),0 18px 50px rgba(99,229,70,.16)!important}
 
   `}</style>;
 }
