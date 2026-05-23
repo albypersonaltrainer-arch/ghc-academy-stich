@@ -86,6 +86,7 @@ export default function AlumnoPage() {
   const [categoryFilter, setCategoríaFilter] = useState('all');
   const [sortModo, setSortModo] = useState<SortModo>('recent');
   const [selectedItinerarioCourseId, setSelectedItinerarioCourseId] = useState('');
+  const [selectedItinerarioModuleId, setSelectedItinerarioModuleId] = useState('');
 
   const [user, setUser] = useState<AnyRecord | null>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
@@ -328,13 +329,29 @@ export default function AlumnoPage() {
     });
   }, [curriculumCourse, lessonProgreso, moduleCompletions]);
 
-  const curriculumActivosModule =
-    curriculumModuleViews.find((item) => item.isCurrent) ||
-    curriculumModuleViews.find((item) => !item.isBloqueado && !item.isCompletado) ||
-    curriculumModuleViews[0] ||
-    null;
+  const curriculumActivosModule = useMemo(() => {
+    if (selectedItinerarioModuleId) {
+      const selected = curriculumModuleViews.find(
+        (item) => String(item.module.id) === String(selectedItinerarioModuleId)
+      );
+
+      if (selected) return selected;
+    }
+
+    return (
+      curriculumModuleViews.find((item) => item.isCurrent) ||
+      curriculumModuleViews.find((item) => !item.isBloqueado && !item.isCompletado) ||
+      curriculumModuleViews[0] ||
+      null
+    );
+  }, [curriculumModuleViews, selectedItinerarioModuleId]);
 
   const curriculumLecciones = curriculumActivosModule?.lessons || [];
+
+  useEffect(() => {
+    setSelectedItinerarioModuleId('');
+  }, [selectedItinerarioCourseId]); // reset selected curriculum module when course changes
+
 
   const totalLecciones = courseCards.reduce((acc, card) => acc + card.courseLecciones.length, 0);
   const completedLeccionesVisible = courseCards.reduce(
@@ -653,6 +670,8 @@ export default function AlumnoPage() {
             lessonProgreso={lessonProgreso}
             selectedItinerarioCourseId={selectedItinerarioCourseId}
             setSelectedItinerarioCourseId={setSelectedItinerarioCourseId}
+            selectedItinerarioModuleId={selectedItinerarioModuleId}
+            setSelectedItinerarioModuleId={setSelectedItinerarioModuleId}
             setSystemMessage={setSystemMessage}
           />
         )}
@@ -950,6 +969,8 @@ function ItinerarioView({
   lessonProgreso,
   selectedItinerarioCourseId,
   setSelectedItinerarioCourseId,
+  selectedItinerarioModuleId,
+  setSelectedItinerarioModuleId,
   setSystemMessage,
 }: {
   courseCards: PanelCard[];
@@ -960,6 +981,8 @@ function ItinerarioView({
   lessonProgreso: AnyRecord[];
   selectedItinerarioCourseId: string;
   setSelectedItinerarioCourseId: (value: string) => void;
+  selectedItinerarioModuleId: string;
+  setSelectedItinerarioModuleId: (value: string) => void;
   setSystemMessage: (message: string) => void;
 }) {
   return (
@@ -975,7 +998,11 @@ function ItinerarioView({
             Curso actual
             <select
               value={selectedItinerarioCourseId || curriculumCourse?.course?.id || ''}
-              onChange={(event) => setSelectedItinerarioCourseId(event.target.value)}
+              onChange={(event) => {
+                setSelectedItinerarioCourseId(event.target.value);
+                setSelectedItinerarioModuleId('');
+                setSystemMessage('Curso seleccionado. Ahora elige un módulo para ver sus lecciones.');
+              }}
             >
               {courseCards.map((card) => (
                 <option key={card.course.id} value={card.course.id}>
@@ -1030,6 +1057,11 @@ function ItinerarioView({
                   key={item.module.id}
                   item={item}
                   course={curriculumCourse?.course}
+                  selected={String(curriculumActivosModule?.module?.id || '') === String(item.module.id)}
+                  onSelect={() => {
+                    setSelectedItinerarioModuleId(String(item.module.id || ''));
+                    setSystemMessage(`Módulo seleccionado: ${item.module.title || `Módulo ${item.index + 1}`}`);
+                  }}
                 />
               ))
             )}
@@ -2093,17 +2125,27 @@ function ItinerarioMetric({ icon, label, value, helper }: { icon: IconName; labe
   );
 }
 
-function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyRecord }) {
+function RoadmapModuleRow({
+  item,
+  course,
+  selected,
+  onSelect,
+}: {
+  item: ModuleView;
+  course?: AnyRecord;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const title = item.module.title || `Module ${item.index + 1}`;
 
-  if (item.isCurrent) {
+  if (item.isCurrent || selected) {
     return (
-      <Link href={item.href} className="roadmap-current-card">
+      <button type="button" onClick={onSelect} className={selected ? 'roadmap-current-card selected' : 'roadmap-current-card'}>
         <div className="roadmap-current-line" />
         <div className="roadmap-current-content">
           <div className="roadmap-top-badges">
             <span className="module-mini-label">Module {item.index + 1}</span>
-            <span className="in-progress-mini">En progreso</span>
+            <span className="in-progress-mini">{selected ? 'Seleccionado' : 'En progreso'}</span>
           </div>
           <h3>{title}</h3>
           <p>{item.completedLecciones} of {item.lessons.length} Lecciones Completado</p>
@@ -2112,7 +2154,7 @@ function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyReco
           </div>
           <div className="roadmap-bottom-row">
             <span>{item.progress}% Completado</span>
-            <span>Continuar <Icon name="arrow" /></span>
+            <span>Ver lecciones <Icon name="arrow" /></span>
           </div>
         </div>
         <div
@@ -2123,26 +2165,26 @@ function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyReco
             })`,
           }}
         />
-      </Link>
+      </button>
     );
   }
 
   if (item.isBloqueado) {
     return (
-      <article className="roadmap-row locked">
+      <button type="button" onClick={onSelect} className="roadmap-row locked selectable">
         <div className="roadmap-dot locked"><Icon name="lock" /></div>
         <div className="roadmap-body">
           <p className="module-mini-label muted">Module {item.index + 1}</p>
           <h3>{title}</h3>
           <p>{item.lessons.length} Lecciones</p>
         </div>
-        <span className="locked-pill">Bloqueado</span>
-      </article>
+        <span className="locked-pill">Ver</span>
+      </button>
     );
   }
 
   return (
-    <Link href={item.href} className="roadmap-row">
+    <button type="button" onClick={onSelect} className={selected ? 'roadmap-row selected' : 'roadmap-row selectable'}>
       <div className={item.isCompletado ? 'roadmap-dot done' : 'roadmap-dot'}>
         <Icon name={item.isCompletado ? 'check' : 'curriculum'} />
       </div>
@@ -2153,9 +2195,9 @@ function RoadmapModuleRow({ item, course }: { item: ModuleView; course?: AnyReco
       </div>
       <div className="roadmap-side">
         <strong>{item.isCompletado ? '100%' : `${item.progress}%`}</strong>
-        <span>{item.isCompletado ? 'Completado' : 'Preparado'}</span>
+        <span>{item.isCompletado ? 'Completado' : 'Ver'}</span>
       </div>
-    </Link>
+    </button>
   );
 }
 
@@ -5364,6 +5406,39 @@ function GlobalStyles() {
           padding-left: 0;
           padding-top: 8px;
         }
+      }
+
+
+
+      .roadmap-current-card,
+      .roadmap-row {
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .roadmap-current-card.selected,
+      .roadmap-row.selected {
+        border-color: rgba(var(--green-rgb), .58);
+        box-shadow: 0 0 34px rgba(var(--green-rgb), .10), inset 0 0 0 1px rgba(var(--green-rgb), .08);
+      }
+
+      .roadmap-row.selectable:hover,
+      .roadmap-row.locked.selectable:hover,
+      .roadmap-current-card:hover {
+        border-color: rgba(var(--green-rgb), .34);
+        background: linear-gradient(90deg, rgba(var(--green-rgb), .10), rgba(255,255,255,.028));
+        transform: translateY(-1px);
+      }
+
+      .lesson-panel {
+        min-height: 420px;
+      }
+
+      .lesson-list .empty-state {
+        border-style: dashed;
+        border-color: rgba(var(--green-rgb), .18);
+        background: rgba(var(--green-rgb), .035);
       }
 
 
