@@ -373,7 +373,7 @@ export default function AlumnoPage() {
 
   const availableNivels = useMemo(() => {
     return Array.from(
-      nuevos Set(
+      new Set(
         courseCards
           .map((card) => String(card.course.level || '').trim())
           .filter(Boolean)
@@ -383,7 +383,7 @@ export default function AlumnoPage() {
 
   const availableCategories = useMemo(() => {
     return Array.from(
-      nuevos Set(
+      new Set(
         courseCards
           .map((card) =>
             String(
@@ -444,11 +444,11 @@ export default function AlumnoPage() {
         return b.progressPercent - a.progressPercent;
       }
 
-      const aDate = nuevos Date(
+      const aDate = new Date(
         a.course.updated_at || a.course.created_at || a.course.published_at || 0
       ).getTime();
 
-      const bDate = nuevos Date(
+      const bDate = new Date(
         b.course.updated_at || b.course.created_at || b.course.published_at || 0
       ).getTime();
 
@@ -1560,7 +1560,7 @@ function RendimientoTab({
             </div>
             <p>{email}</p>
             <p>{role === 'student' ? 'Alumno' : role} · GHC Academy</p>
-            <p className="performance-enrolled"><Icon name="clock" /> Inscrito · {formatShortDate(profile?.created_at || user?.created_at || nuevos Date().toISOString())}</p>
+            <p className="performance-enrolled"><Icon name="clock" /> Inscrito · {formatShortDate(profile?.created_at || user?.created_at || new Date().toISOString())}</p>
           </div>
         </div>
 
@@ -2261,8 +2261,8 @@ async function openStudentPrivateAsset(
 }
 
 function withAlumnoTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
-  return nuevos Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(nuevos Error(message)), timeoutMs);
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
 
     Promise.resolve(promise)
       .then((value) => {
@@ -2278,11 +2278,11 @@ function withAlumnoTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, messag
 
 function formatShortDate(value: string) {
   try {
-    return nuevos Intl.DateTimeFormat('es-ES', {
+    return new Intl.DateTimeFormat('es-ES', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
-    }).format(nuevos Date(value));
+    }).format(new Date(value));
   } catch {
     return '—';
   }
@@ -5740,8 +5740,8 @@ function findNextLesson({
   lessonProgreso: AnyRecord[];
   moduleCompletions: AnyRecord[];
 }) {
-  const completadodLessonIds = nuevos Set(lessonProgreso.map((item) => String(item.lesson_id)));
-  const completadodModuleIds = nuevos Set(moduleCompletions.map((item) => String(item.module_id)));
+  const completadodLessonIds = new Set(lessonProgreso.map((item) => String(item.lesson_id)));
+  const completadodModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
 
   for (let index = 0; index < courseMódulos.length; index++) {
     const module = courseMódulos[index];
