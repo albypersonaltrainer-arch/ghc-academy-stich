@@ -515,12 +515,12 @@ export default function LessonPage() {
                 ← Volver al curso
               </button>
               <button onClick={goToCatalog} className="ghc-top-back">
-                Catálogo de cursos
+                Catálogo
               </button>
             </div>
 
             <header className="ghc-hero">
-              <p className="ghc-kicker">Plataforma premium</p>
+              <p className="ghc-kicker">GHC Academy · contenido privado</p>
               <h1 className="ghc-title">{currentLesson?.title}</h1>
 
               <div className="ghc-pills">
@@ -1495,6 +1495,477 @@ export default function LessonPage() {
           .ghc-module-status-progress {
             width: 92px;
             height: 92px;
+          }
+        }
+      `}</style>
+
+
+      <style jsx global>{`
+        /* GHC ACADEMY · LECCIÓN CON ESTÉTICA APROBADA
+           Mantiene funcionalidad real: PDF/vídeo/audio privados, progreso, módulo y standby de examen. */
+
+        :root {
+          --green: #63e546;
+          --green-rgb: 99, 229, 70;
+          --bg: #050706;
+          --panel: rgba(8,12,10,.90);
+          --white: #f4f6f2;
+          --muted: rgba(244,246,242,.62);
+          --soft: rgba(244,246,242,.44);
+          --gold: #d6b25e;
+        }
+
+        html,
+        body {
+          background: #050706 !important;
+        }
+
+        .ghc-center-page,
+        .ghc-lesson-page {
+          min-height: 100vh;
+          background:
+            radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), .075), transparent 32%),
+            radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
+            linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%) !important;
+          color: var(--white);
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .ghc-lesson-shell {
+          display: grid !important;
+          grid-template-columns: 305px minmax(0, 1fr) !important;
+          min-height: 100vh !important;
+          max-width: 1780px;
+          margin: 0 auto;
+          border-left: 1px solid rgba(255,255,255,.045);
+          border-right: 1px solid rgba(255,255,255,.045);
+          background:
+            linear-gradient(90deg, rgba(255,255,255,.012), transparent 18%, transparent 82%, rgba(255,255,255,.01));
+        }
+
+        .ghc-sidebar {
+          position: sticky !important;
+          top: 0 !important;
+          height: 100vh !important;
+          overflow-y: auto !important;
+          border-right: 1px solid rgba(255,255,255,.075) !important;
+          background:
+            linear-gradient(180deg, rgba(8,11,10,.985), rgba(3,5,4,.965)),
+            #050706 !important;
+          padding: 28px 22px !important;
+          box-shadow: 18px 0 80px rgba(0,0,0,.22);
+        }
+
+        .ghc-sidebar::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .ghc-sidebar::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,.08);
+          border-radius: 999px;
+        }
+
+        .ghc-kicker {
+          color: var(--green) !important;
+          text-transform: uppercase;
+          letter-spacing: .18em !important;
+          font-size: 10px !important;
+          font-weight: 950 !important;
+          margin: 0 0 12px !important;
+        }
+
+        .ghc-sidebar-title {
+          margin: 0 0 28px !important;
+          color: var(--white) !important;
+          font-size: 24px !important;
+          line-height: 1.02 !important;
+          letter-spacing: -.045em !important;
+          font-weight: 950 !important;
+        }
+
+        .ghc-progress-card {
+          border-radius: 18px !important;
+          border: 1px solid rgba(255,255,255,.085) !important;
+          background:
+            radial-gradient(circle at top right, rgba(var(--green-rgb), .08), transparent 34%),
+            linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+            rgba(8,12,10,.92) !important;
+          padding: 18px !important;
+          box-shadow: 0 24px 82px rgba(0,0,0,.18) !important;
+        }
+
+        .ghc-progress-top {
+          display: flex !important;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+        }
+
+        .ghc-progress-top span,
+        .ghc-progress-small {
+          color: rgba(244,246,242,.58) !important;
+          font-size: 12px !important;
+          line-height: 1.45 !important;
+        }
+
+        .ghc-progress-top strong {
+          color: var(--green) !important;
+          font-size: 18px !important;
+          font-weight: 950 !important;
+        }
+
+        .ghc-progress-track {
+          height: 9px !important;
+          border-radius: 999px !important;
+          background: rgba(255,255,255,.075) !important;
+          overflow: hidden;
+          margin: 14px 0 10px !important;
+        }
+
+        .ghc-progress-fill {
+          height: 100% !important;
+          border-radius: 999px !important;
+          background: linear-gradient(90deg, var(--green), #7bee65) !important;
+          box-shadow: 0 0 22px rgba(var(--green-rgb),.26);
+        }
+
+        .ghc-module-list {
+          display: grid !important;
+          gap: 22px !important;
+          margin-top: 28px !important;
+        }
+
+        .ghc-module-title {
+          margin: 0 0 10px !important;
+          color: rgba(244,246,242,.50) !important;
+          text-transform: uppercase;
+          letter-spacing: .15em !important;
+          font-size: 10px !important;
+          font-weight: 950 !important;
+        }
+
+        .ghc-lessons-list {
+          display: grid !important;
+          gap: 8px !important;
+        }
+
+        .ghc-lesson-item {
+          width: 100%;
+          min-height: 46px !important;
+          border-radius: 14px !important;
+          border: 1px solid rgba(255,255,255,.075) !important;
+          background: rgba(255,255,255,.024) !important;
+          color: rgba(244,246,242,.70) !important;
+          display: grid !important;
+          grid-template-columns: 26px minmax(0, 1fr) !important;
+          gap: 10px !important;
+          align-items: center !important;
+          text-align: left !important;
+          padding: 10px 12px !important;
+          cursor: pointer !important;
+          transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
+        }
+
+        .ghc-lesson-item:hover {
+          border-color: rgba(var(--green-rgb),.22) !important;
+          color: rgba(244,246,242,.90) !important;
+          transform: translateY(-1px);
+        }
+
+        .ghc-lesson-item-active {
+          border-color: rgba(var(--green-rgb),.34) !important;
+          background:
+            linear-gradient(90deg, rgba(var(--green-rgb),.12), rgba(255,255,255,.024)) !important;
+          color: var(--white) !important;
+          box-shadow: inset 3px 0 0 rgba(var(--green-rgb),.86), 0 12px 34px rgba(var(--green-rgb),.045) !important;
+        }
+
+        .ghc-lesson-status {
+          color: var(--green) !important;
+          font-weight: 950 !important;
+        }
+
+        .ghc-lesson-name {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 13px !important;
+          font-weight: 850 !important;
+        }
+
+        .ghc-main {
+          min-width: 0;
+          padding: 24px 28px 42px !important;
+        }
+
+        .ghc-main-inner {
+          max-width: 1180px !important;
+          margin: 0 auto !important;
+          display: grid !important;
+          gap: 20px !important;
+        }
+
+        .ghc-top-actions {
+          min-height: 52px !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 18px !important;
+          border-bottom: 1px solid rgba(255,255,255,.07) !important;
+          padding-bottom: 14px !important;
+        }
+
+        .ghc-top-back {
+          border: 0 !important;
+          background: transparent !important;
+          color: var(--green) !important;
+          padding: 0 !important;
+          cursor: pointer !important;
+          font-size: 12px !important;
+          text-transform: uppercase;
+          letter-spacing: .12em !important;
+          font-weight: 950 !important;
+        }
+
+        .ghc-hero {
+          border-radius: 24px !important;
+          border: 1px solid rgba(255,255,255,.085) !important;
+          background:
+            radial-gradient(circle at top right, rgba(var(--green-rgb), .09), transparent 34%),
+            linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+            rgba(8,12,10,.92) !important;
+          padding: clamp(22px, 3vw, 34px) !important;
+          box-shadow: 0 24px 82px rgba(0,0,0,.22) !important;
+          overflow: hidden;
+          position: relative;
+        }
+
+        .ghc-hero::after {
+          content: '';
+          position: absolute;
+          right: -120px;
+          top: -120px;
+          width: 320px;
+          height: 320px;
+          border-radius: 999px;
+          background: rgba(var(--green-rgb),.08);
+          filter: blur(70px);
+          pointer-events: none;
+        }
+
+        .ghc-title {
+          position: relative;
+          z-index: 1;
+          margin: 0 !important;
+          color: var(--white) !important;
+          font-size: clamp(38px, 4.8vw, 68px) !important;
+          line-height: .92 !important;
+          letter-spacing: -.065em !important;
+          font-weight: 950 !important;
+          max-width: 900px !important;
+        }
+
+        .ghc-pills {
+          position: relative;
+          z-index: 1;
+          display: flex !important;
+          flex-wrap: wrap !important;
+          gap: 8px !important;
+          margin-top: 22px !important;
+        }
+
+        .ghc-pill {
+          min-height: 32px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          border-radius: 999px !important;
+          border: 1px solid rgba(255,255,255,.085) !important;
+          background: rgba(255,255,255,.035) !important;
+          color: rgba(244,246,242,.76) !important;
+          padding: 0 12px !important;
+          font-size: 11px !important;
+          font-weight: 850 !important;
+        }
+
+        .ghc-content-stack {
+          display: grid !important;
+          gap: 18px !important;
+        }
+
+        .ghc-content-card,
+        .ghc-pdf-studio-card,
+        .ghc-media-studio-card,
+        .ghc-audio-studio-card,
+        .ghc-complete-card,
+        .ghc-module-status-card,
+        .ghc-exam-card,
+        .ghc-nav-card {
+          border-radius: 24px !important;
+          border: 1px solid rgba(255,255,255,.085) !important;
+          background:
+            radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
+            linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+            rgba(8,12,10,.92) !important;
+          box-shadow: 0 24px 82px rgba(0,0,0,.22) !important;
+        }
+
+        .ghc-media-studio-header,
+        .ghc-pdf-studio-header {
+          background:
+            linear-gradient(90deg, rgba(var(--green-rgb),.075), rgba(255,255,255,.022)),
+            rgba(5,7,6,.62) !important;
+          border-bottom: 1px solid rgba(255,255,255,.075) !important;
+        }
+
+        .ghc-media-kicker,
+        .ghc-pdf-studio-kicker,
+        .ghc-content-label,
+        .ghc-complete-copy span,
+        .ghc-module-status-card span {
+          color: var(--green) !important;
+          letter-spacing: .16em !important;
+          font-weight: 950 !important;
+        }
+
+        .ghc-media-studio-header h2,
+        .ghc-pdf-studio-title h2,
+        .ghc-complete-copy strong,
+        .ghc-module-status-card strong {
+          color: var(--white) !important;
+          letter-spacing: -.045em !important;
+          font-weight: 950 !important;
+        }
+
+        .ghc-media-studio-header p,
+        .ghc-pdf-studio-title p,
+        .ghc-complete-copy p,
+        .ghc-module-status-card p,
+        .ghc-content-note {
+          color: rgba(244,246,242,.60) !important;
+        }
+
+        .ghc-video-premium-shell,
+        .ghc-pdf-premium-shell,
+        .ghc-audio-premium-shell {
+          background:
+            radial-gradient(circle at 50% 0%, rgba(var(--green-rgb),.055), transparent 34%),
+            #050706 !important;
+        }
+
+        .ghc-media-topbar,
+        .ghc-pdf-premium-topbar {
+          border-color: rgba(255,255,255,.08) !important;
+          background:
+            linear-gradient(90deg, rgba(var(--green-rgb),.09), rgba(255,255,255,.022)),
+            rgba(9,13,11,.96) !important;
+        }
+
+        .ghc-primary-button,
+        .ghc-media-studio-header button,
+        .ghc-pdf-studio-actions button,
+        .ghc-video-premium-fullscreen-top button,
+        .ghc-pdf-premium-fullscreen-top button {
+          border-radius: 999px !important;
+          border: 1px solid rgba(var(--green-rgb),.30) !important;
+          background: linear-gradient(135deg, var(--green), #7bee65) !important;
+          color: #061008 !important;
+          font-weight: 950 !important;
+          box-shadow: 0 0 30px rgba(var(--green-rgb),.14) !important;
+        }
+
+        .ghc-pdf-studio-actions a {
+          border-radius: 999px !important;
+          background: rgba(255,255,255,.04) !important;
+          color: rgba(244,246,242,.82) !important;
+        }
+
+        .ghc-complete-card,
+        .ghc-module-status-card {
+          padding: 22px !important;
+        }
+
+        .ghc-complete-card.completed,
+        .ghc-module-status-card.completed {
+          border-color: rgba(var(--green-rgb),.26) !important;
+          background:
+            radial-gradient(circle at top right, rgba(var(--green-rgb), .12), transparent 34%),
+            linear-gradient(145deg, rgba(var(--green-rgb),.055), rgba(255,255,255,.018)),
+            rgba(8,12,10,.94) !important;
+        }
+
+        .ghc-navigation-grid {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 16px !important;
+        }
+
+        .ghc-nav-card,
+        .ghc-exam-card {
+          min-height: 132px !important;
+          padding: 20px !important;
+          text-align: left !important;
+          color: var(--white) !important;
+          text-decoration: none !important;
+        }
+
+        .ghc-card-title {
+          color: var(--white) !important;
+          font-weight: 950 !important;
+          letter-spacing: -.025em !important;
+        }
+
+        .ghc-card-subtitle {
+          color: rgba(244,246,242,.58) !important;
+          line-height: 1.55 !important;
+        }
+
+        .ghc-exam-card.standby em {
+          border-radius: 999px !important;
+        }
+
+        .ghc-empty-content,
+        .ghc-asset-loading {
+          border-radius: 20px !important;
+          border: 1px dashed rgba(var(--green-rgb),.18) !important;
+          background: rgba(var(--green-rgb),.035) !important;
+          color: rgba(244,246,242,.66) !important;
+        }
+
+        @media (max-width: 1120px) {
+          .ghc-lesson-shell {
+            grid-template-columns: 1fr !important;
+          }
+
+          .ghc-sidebar {
+            position: relative !important;
+            height: auto !important;
+            max-height: none !important;
+            border-right: 0 !important;
+            border-bottom: 1px solid rgba(255,255,255,.075) !important;
+          }
+
+          .ghc-module-list {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+          }
+
+          .ghc-main {
+            padding: 20px !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .ghc-main {
+            padding: 16px !important;
+          }
+
+          .ghc-title {
+            font-size: clamp(34px, 12vw, 48px) !important;
+          }
+
+          .ghc-navigation-grid,
+          .ghc-complete-card,
+          .ghc-module-status-card {
+            grid-template-columns: 1fr !important;
           }
         }
       `}</style>
