@@ -15,8 +15,8 @@ type SortModo = 'recent' | 'title' | 'progress';
 
 type PanelCard = {
   course: AnyRecord;
-  courseMódulos: AnyRecord[];
-  courseLecciones: AnyRecord[];
+  courseModules: AnyRecord[];
+  courseLessons: AnyRecord[];
   completadodLessonCount: number;
   completadodModuleCount: number;
   completion?: AnyRecord;
@@ -78,25 +78,25 @@ export default function AlumnoPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [viewModo, setViewModo] = useState<ViewModo>('grid');
-  const [notificationsOpen, setNotificacionesOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [courseEstadoFilter, setCourseEstadoFilter] = useState<CourseEstadoFilter>('active');
-  const [levelFilter, setNivelFilter] = useState('all');
-  const [categoryFilter, setCategoríaFilter] = useState('all');
+  const [levelFilter, setLevelFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortModo, setSortModo] = useState<SortModo>('recent');
   const [selectedItinerarioCourseId, setSelectedItinerarioCourseId] = useState('');
   const [selectedItinerarioModuleId, setSelectedItinerarioModuleId] = useState('');
 
   const [user, setUser] = useState<AnyRecord | null>(null);
   const [profile, setProfile] = useState<AnyRecord | null>(null);
-  const [courses, setCursos] = useState<AnyRecord[]>([]);
-  const [modules, setMódulos] = useState<AnyRecord[]>([]);
-  const [lessons, setLecciones] = useState<AnyRecord[]>([]);
+  const [courses, setCourses] = useState<AnyRecord[]>([]);
+  const [modules, setModules] = useState<AnyRecord[]>([]);
+  const [lessons, setLessons] = useState<AnyRecord[]>([]);
   const [lessonProgreso, setLessonProgreso] = useState<AnyRecord[]>([]);
   const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
   const [courseCompletions, setCourseCompletions] = useState<AnyRecord[]>([]);
-  const [certificates, setCertificados] = useState<AnyRecord[]>([]);
+  const [certificates, setCertificates] = useState<AnyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [systemMessage, setSystemMessage] = useState('');
 
@@ -131,7 +131,7 @@ export default function AlumnoPage() {
         if (coursesError) {
           console.error(coursesError);
           setSystemMessage('No se pudieron cargar los cursos.');
-          setCursos([]);
+          setCourses([]);
           return;
         }
 
@@ -141,7 +141,7 @@ export default function AlumnoPage() {
               .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
           : [];
 
-        setCursos(visibleCursos);
+        setCourses(visibleCursos);
 
         const courseIds = visibleCursos.map((course) => course.id).filter(Boolean);
 
@@ -152,7 +152,7 @@ export default function AlumnoPage() {
             .in('course_id', courseIds);
 
           const finalMódulos = Array.isArray(modulesData) ? [...modulesData].sort(sortMódulos) : [];
-          setMódulos(finalMódulos);
+          setModules(finalMódulos);
 
           const moduleIds = finalMódulos.map((module) => module.id).filter(Boolean);
 
@@ -162,13 +162,13 @@ export default function AlumnoPage() {
               .select('*')
               .in('module_id', moduleIds);
 
-            setLecciones(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLecciones) : []);
+            setLessons(Array.isArray(lessonsData) ? [...lessonsData].sort(sortLecciones) : []);
           } else {
-            setLecciones([]);
+            setLessons([]);
           }
         } else {
-          setMódulos([]);
-          setLecciones([]);
+          setModules([]);
+          setLessons([]);
         }
 
         const { data: progressData } = await supabase
@@ -201,7 +201,7 @@ export default function AlumnoPage() {
           .eq('user_id', activeUser.id)
           .eq('status', 'valid');
 
-        setCertificados(Array.isArray(certificatesData) ? certificatesData : []);
+        setCertificates(Array.isArray(certificatesData) ? certificatesData : []);
       } catch (error) {
         console.error(error);
         setSystemMessage('Error cargando el panel del alumno.');
@@ -221,21 +221,21 @@ export default function AlumnoPage() {
 
   const courseCards = useMemo<PanelCard[]>(() => {
     return courses.map((course) => {
-      const courseMódulos = modules
+      const courseModules = modules
         .filter((module) => String(module.course_id) === String(course.id))
         .sort(sortMódulos);
 
-      const courseLecciones = lessons
+      const courseLessons = lessons
         .filter((lesson) =>
-          courseMódulos.some((module) => String(module.id) === String(lesson.module_id))
+          courseModules.some((module) => String(module.id) === String(lesson.module_id))
         )
         .sort(sortLecciones);
 
-      const completadodLessonCount = courseLecciones.filter((lesson) =>
+      const completadodLessonCount = courseLessons.filter((lesson) =>
         lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
       ).length;
 
-      const completadodModuleCount = courseMódulos.filter((module) =>
+      const completadodModuleCount = courseModules.filter((module) =>
         moduleCompletions.some((completion) => String(completion.module_id) === String(module.id))
       ).length;
 
@@ -248,23 +248,23 @@ export default function AlumnoPage() {
       );
 
       const progressPercent =
-        courseLecciones.length > 0
-          ? Math.round((completadodLessonCount / courseLecciones.length) * 100)
+        courseLessons.length > 0
+          ? Math.round((completadodLessonCount / courseLessons.length) * 100)
           : completion
             ? 100
             : 0;
 
       const nextLesson = findNextLesson({
-        courseMódulos,
-        courseLecciones,
+        courseModules,
+        courseLessons,
         lessonProgreso,
         moduleCompletions,
       });
 
       return {
         course,
-        courseMódulos,
-        courseLecciones,
+        courseModules,
+        courseLessons,
         completadodLessonCount,
         completadodModuleCount,
         completion,
@@ -288,8 +288,8 @@ export default function AlumnoPage() {
 
   const mainCourse = useMemo(() => {
     return (
-      activeCursos.find((card) => card.courseMódulos.length > 0) ||
-      completadodCursos.find((card) => card.courseMódulos.length > 0) ||
+      activeCursos.find((card) => card.courseModules.length > 0) ||
+      completadodCursos.find((card) => card.courseModules.length > 0) ||
       courseCards[0] ||
       null
     );
@@ -353,7 +353,7 @@ export default function AlumnoPage() {
   }, [selectedItinerarioCourseId]); // reset selected curriculum module when course changes
 
 
-  const totalLecciones = courseCards.reduce((acc, card) => acc + card.courseLecciones.length, 0);
+  const totalLecciones = courseCards.reduce((acc, card) => acc + card.courseLessons.length, 0);
   const completadodLeccionesVisible = courseCards.reduce(
     (acc, card) => acc + card.completadodLessonCount,
     0
@@ -590,7 +590,7 @@ export default function AlumnoPage() {
               <button
                 type="button"
                 aria-label="Notificaciones"
-                onClick={() => setNotificacionesOpen((value) => !value)}
+                onClick={() => setNotificationsOpen((value) => !value)}
               >
                 <Icon name="bell" />
                 {unreadNotificaciones > 0 && <em>{unreadNotificaciones}</em>}
@@ -611,7 +611,7 @@ export default function AlumnoPage() {
                       key={notification.id}
                       href={notification.href || '#'}
                       className={notification.unread ? 'notification unread' : 'notification'}
-                      onClick={() => setNotificacionesOpen(false)}
+                      onClick={() => setNotificationsOpen(false)}
                     >
                       <small>{notification.type}</small>
                       <strong>{notification.title}</strong>
@@ -647,9 +647,9 @@ export default function AlumnoPage() {
             courseEstadoFilter={courseEstadoFilter}
             setCourseEstadoFilter={setCourseEstadoFilter}
             levelFilter={levelFilter}
-            setNivelFilter={setNivelFilter}
+            setLevelFilter={setLevelFilter}
             categoryFilter={categoryFilter}
-            setCategoríaFilter={setCategoríaFilter}
+            setCategoryFilter={setCategoryFilter}
             sortModo={sortModo}
             setSortModo={setSortModo}
             viewModo={viewModo}
@@ -751,7 +751,7 @@ function PanelView({
             <div className="meta-row">
               <MetaItem icon="clock" text="4–5 horas" />
               <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermedio'} />
-              <MetaItem icon="document" text={`${mainCourse?.courseLecciones.length || 0} Lecciones`} />
+              <MetaItem icon="document" text={`${mainCourse?.courseLessons.length || 0} Lecciones`} />
             </div>
             <Link
               href={
@@ -826,9 +826,9 @@ function CursosView({
   courseEstadoFilter,
   setCourseEstadoFilter,
   levelFilter,
-  setNivelFilter,
+  setLevelFilter,
   categoryFilter,
-  setCategoríaFilter,
+  setCategoryFilter,
   sortModo,
   setSortModo,
   viewModo,
@@ -842,9 +842,9 @@ function CursosView({
   courseEstadoFilter: CourseEstadoFilter;
   setCourseEstadoFilter: (value: CourseEstadoFilter) => void;
   levelFilter: string;
-  setNivelFilter: (value: string) => void;
+  setLevelFilter: (value: string) => void;
   categoryFilter: string;
-  setCategoríaFilter: (value: string) => void;
+  setCategoryFilter: (value: string) => void;
   sortModo: SortModo;
   setSortModo: (value: SortModo) => void;
   viewModo: ViewModo;
@@ -892,7 +892,7 @@ function CursosView({
           Todos
         </button>
 
-        <select value={levelFilter} onChange={(event) => setNivelFilter(event.target.value)}>
+        <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
           <option value="all">Nivel</option>
           {availableNivels.map((level) => (
             <option key={level} value={level}>
@@ -901,7 +901,7 @@ function CursosView({
           ))}
         </select>
 
-        <select value={categoryFilter} onChange={(event) => setCategoríaFilter(event.target.value)}>
+        <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
           <option value="all">Categoría</option>
           {availableCategories.map((category) => (
             <option key={category} value={category}>
@@ -1016,14 +1016,14 @@ function ItinerarioView({
             <ItinerarioMetric
               icon="curriculum"
               label="Módulos totales"
-              value={curriculumCourse?.courseMódulos.length || 0}
+              value={curriculumCourse?.courseModules.length || 0}
               helper="Módulos"
             />
             <ItinerarioMetric
               icon="check"
               label="Lecciones completadas"
               value={`${curriculumCourse?.completadodLessonCount || 0}/${
-                curriculumCourse?.courseLecciones.length || 0
+                curriculumCourse?.courseLessons.length || 0
               }`}
               helper={`${curriculumCourse?.progressPercent || 0}% completado`}
             />
@@ -1879,8 +1879,8 @@ function PremiumCourseCard({
         <p>{course.subtitle || course.description || 'Formación premium basada en ciencia, estructura y rendimiento.'}</p>
 
         <div className="premium-stats-grid">
-          <PremiumMetric icon="document" value={card.courseLecciones.length} label="Lecciones" />
-          <PremiumMetric icon="box" value={card.courseMódulos.length} label="Módulos" />
+          <PremiumMetric icon="document" value={card.courseLessons.length} label="Lecciones" />
+          <PremiumMetric icon="box" value={card.courseModules.length} label="Módulos" />
           <PremiumMetric icon="chart" value={`${card.progressPercent}%`} label="Progreso" />
         </div>
 
@@ -5670,8 +5670,8 @@ function buildModuleViews({
   lessonProgreso: AnyRecord[];
   moduleCompletions: AnyRecord[];
 }): ModuleView[] {
-  return courseCard.courseMódulos.map((module, index) => {
-    const moduleLecciones = courseCard.courseLecciones.filter(
+  return courseCard.courseModules.map((module, index) => {
+    const moduleLecciones = courseCard.courseLessons.filter(
       (lesson) => String(lesson.module_id) === String(module.id)
     );
 
@@ -5683,7 +5683,7 @@ function buildModuleViews({
       (completion) => String(completion.module_id) === String(module.id)
     );
 
-    const previousMódulo = courseCard.courseMódulos[index - 1];
+    const previousModule = courseCard.courseModules[index - 1];
 
     const isUnlocked =
       index === 0 ||
@@ -5730,30 +5730,30 @@ function buildModuleViews({
 /* Estas funciones cierran las dependencias del dashboard para que Vercel compile. */
 
 function findNextLesson({
-  courseMódulos,
-  courseLecciones,
+  courseModules,
+  courseLessons,
   lessonProgreso,
   moduleCompletions,
 }: {
-  courseMódulos: AnyRecord[];
-  courseLecciones: AnyRecord[];
+  courseModules: AnyRecord[];
+  courseLessons: AnyRecord[];
   lessonProgreso: AnyRecord[];
   moduleCompletions: AnyRecord[];
 }) {
   const completadodLessonIds = new Set(lessonProgreso.map((item) => String(item.lesson_id)));
   const completadodModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
 
-  for (let index = 0; index < courseMódulos.length; index++) {
-    const module = courseMódulos[index];
+  for (let index = 0; index < courseModules.length; index++) {
+    const module = courseModules[index];
 
     const moduleUnlocked =
       index === 0 ||
       completadodModuleIds.has(String(module.id)) ||
-      completadodModuleIds.has(String(courseMódulos[index - 1]?.id));
+      completadodModuleIds.has(String(courseModules[index - 1]?.id));
 
     if (!moduleUnlocked) continue;
 
-    const moduleLecciones = courseLecciones
+    const moduleLecciones = courseLessons
       .filter((lesson) => String(lesson.module_id) === String(module.id))
       .sort(sortLecciones);
 
@@ -5762,7 +5762,7 @@ function findNextLesson({
     if (nextLesson) return nextLesson;
   }
 
-  return courseLecciones[0] || null;
+  return courseLessons[0] || null;
 }
 
 function getOrder(item: AnyRecord, fallback: number) {
