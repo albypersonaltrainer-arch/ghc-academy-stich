@@ -34,6 +34,7 @@ export default function LessonPage() {
   })
   const [assetLoading, setAssetLoading] = useState(false)
   const [pdfFullscreen, setPdfFullscreen] = useState(false)
+  const [videoFullscreen, setVideoFullscreen] = useState(false)
   const [completedLessons, setCompletedLessons] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -259,28 +260,71 @@ export default function LessonPage() {
         )}
 
         {(type === 'video' || isMixed || videoUrl) && videoUrl && (
-          <section className="ghc-content-card">
-            <div className="ghc-content-head">
-              <p className="ghc-content-label">Vídeo de la lección</p>
-              <a href={videoUrl} target="_blank" rel="noreferrer" className="ghc-private-open">
-                Abrir en pestaña
-              </a>
+          <section className="ghc-content-card ghc-media-studio-card">
+            <div className="ghc-media-studio-header">
+              <div>
+                <span className="ghc-media-kicker">Material privado</span>
+                <h2>Vídeo de la lección</h2>
+                <p>Reproducción privada con acceso temporal. El archivo no queda público.</p>
+              </div>
+
+              <button type="button" onClick={() => setVideoFullscreen(true)}>
+                Pantalla completa
+              </button>
             </div>
-            <video src={videoUrl} controls playsInline className="ghc-video" />
+
+            <div className="ghc-video-premium-shell">
+              <div className="ghc-media-topbar">
+                <span>GHC Academy · vídeo privado</span>
+                <strong>{currentLesson?.title || 'Lección'}</strong>
+              </div>
+
+              <video src={videoUrl} controls playsInline className="ghc-video-premium-player" />
+            </div>
           </section>
         )}
 
-        {(type === 'audio' || isMixed || audioUrl) && audioUrl && (
-          <section className="ghc-content-card">
-            <div className="ghc-content-head">
-              <p className="ghc-content-label">Audio de la lección</p>
-              <a href={audioUrl} target="_blank" rel="noreferrer" className="ghc-private-open">
-                Abrir en pestaña
-              </a>
+        {videoFullscreen && videoUrl && (
+          <div className="ghc-video-premium-fullscreen" role="dialog" aria-modal="true">
+            <div className="ghc-video-premium-fullscreen-top">
+              <div>
+                <span>GHC Academy · vídeo privado</span>
+                <strong>{currentLesson?.title || 'Vídeo de la lección'}</strong>
+              </div>
+
+              <button type="button" onClick={() => setVideoFullscreen(false)}>
+                Cerrar visor
+              </button>
             </div>
-            <audio controls className="ghc-audio">
-              <source src={audioUrl} />
-            </audio>
+
+            <video src={videoUrl} controls autoPlay playsInline />
+          </div>
+        )}
+
+        {(type === 'audio' || isMixed || audioUrl) && audioUrl && (
+          <section className="ghc-content-card ghc-audio-studio-card">
+            <div className="ghc-media-studio-header">
+              <div>
+                <span className="ghc-media-kicker">Material privado</span>
+                <h2>Audio de la lección</h2>
+                <p>Escucha el audio dentro de GHC Academy sin abrir pestañas externas.</p>
+              </div>
+            </div>
+
+            <div className="ghc-audio-premium-shell">
+              <div className="ghc-audio-orb">
+                <span />
+                <strong>GHC</strong>
+              </div>
+
+              <div className="ghc-audio-player-zone">
+                <span>Audio privado · acceso temporal</span>
+                <strong>{currentLesson?.title || 'Lección'}</strong>
+                <audio controls className="ghc-audio-premium-player">
+                  <source src={audioUrl} />
+                </audio>
+              </div>
+            </div>
           </section>
         )}
 
@@ -843,6 +887,300 @@ export default function LessonPage() {
           .ghc-pdf-premium-frame {
             height: 78vh;
             min-height: 640px;
+          }
+        }
+      `}</style>
+
+
+      <style jsx global>{`
+        .ghc-media-studio-card,
+        .ghc-audio-studio-card {
+          padding: 0 !important;
+          overflow: hidden;
+          border: 1px solid rgba(99,229,70,.16) !important;
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.10), transparent 34%),
+            linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+            rgba(7,10,9,.96) !important;
+          box-shadow: 0 26px 90px rgba(0,0,0,.28);
+        }
+
+        .ghc-media-studio-header {
+          min-height: 94px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 22px;
+          border-bottom: 1px solid rgba(255,255,255,.08);
+          background:
+            linear-gradient(90deg, rgba(99,229,70,.08), rgba(255,255,255,.02)),
+            rgba(5,7,6,.62);
+        }
+
+        .ghc-media-studio-header > div {
+          display: grid;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .ghc-media-kicker {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .18em;
+          font-size: 10px;
+          font-weight: 950;
+        }
+
+        .ghc-media-studio-header h2 {
+          margin: 0;
+          color: #f4f6f2;
+          font-size: clamp(24px, 2.4vw, 36px);
+          line-height: .95;
+          letter-spacing: -.045em;
+          font-weight: 950;
+        }
+
+        .ghc-media-studio-header p {
+          margin: 0;
+          color: rgba(244,246,242,.58);
+          font-size: 13px;
+          line-height: 1.55;
+          max-width: 680px;
+        }
+
+        .ghc-media-studio-header button {
+          min-height: 42px;
+          border-radius: 999px;
+          border: 1px solid rgba(99,229,70,.35);
+          background: linear-gradient(135deg, #63e546, #7bee65);
+          color: #061008;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 16px;
+          font-size: 12px;
+          font-weight: 950;
+          cursor: pointer;
+          box-shadow: 0 0 30px rgba(99,229,70,.14);
+          flex-shrink: 0;
+        }
+
+        .ghc-video-premium-shell {
+          padding: 18px;
+          background:
+            radial-gradient(circle at 50% 0%, rgba(99,229,70,.065), transparent 34%),
+            #050706;
+        }
+
+        .ghc-media-topbar {
+          min-height: 48px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-bottom: 0;
+          border-radius: 18px 18px 0 0;
+          background:
+            linear-gradient(90deg, rgba(99,229,70,.10), rgba(255,255,255,.025)),
+            rgba(9,13,11,.96);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 0 16px;
+        }
+
+        .ghc-media-topbar span {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .16em;
+          font-size: 10px;
+          font-weight: 950;
+          white-space: nowrap;
+        }
+
+        .ghc-media-topbar strong {
+          color: rgba(244,246,242,.82);
+          font-size: 12px;
+          font-weight: 850;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ghc-video-premium-player {
+          width: 100%;
+          max-height: 72vh;
+          min-height: 420px;
+          display: block;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 0 0 18px 18px;
+          background: #000;
+          object-fit: contain;
+        }
+
+        .ghc-video-premium-fullscreen {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.10), transparent 30%),
+            #050706;
+          display: grid;
+          grid-template-rows: 74px minmax(0, 1fr);
+        }
+
+        .ghc-video-premium-fullscreen-top {
+          border-bottom: 1px solid rgba(255,255,255,.09);
+          background:
+            linear-gradient(90deg, rgba(99,229,70,.10), rgba(255,255,255,.02)),
+            rgba(8,12,10,.98);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 12px 20px;
+        }
+
+        .ghc-video-premium-fullscreen-top div {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .ghc-video-premium-fullscreen-top span {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .16em;
+          font-size: 10px;
+          font-weight: 950;
+        }
+
+        .ghc-video-premium-fullscreen-top strong {
+          color: #f4f6f2;
+          font-size: 15px;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ghc-video-premium-fullscreen-top button {
+          min-height: 42px;
+          border-radius: 999px;
+          border: 1px solid rgba(99,229,70,.35);
+          background: linear-gradient(135deg, #63e546, #7bee65);
+          color: #061008;
+          padding: 0 16px;
+          font-weight: 950;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        .ghc-video-premium-fullscreen video {
+          width: 100%;
+          height: 100%;
+          background: #000;
+          object-fit: contain;
+        }
+
+        .ghc-audio-premium-shell {
+          min-height: 172px;
+          padding: 22px;
+          display: grid;
+          grid-template-columns: 118px minmax(0, 1fr);
+          gap: 22px;
+          align-items: center;
+          background:
+            radial-gradient(circle at 12% 50%, rgba(99,229,70,.12), transparent 24%),
+            #050706;
+        }
+
+        .ghc-audio-orb {
+          width: 112px;
+          height: 112px;
+          border-radius: 999px;
+          position: relative;
+          display: grid;
+          place-items: center;
+          color: #63e546;
+          border: 1px solid rgba(99,229,70,.24);
+          background:
+            radial-gradient(circle, rgba(99,229,70,.18), rgba(99,229,70,.04) 62%),
+            rgba(255,255,255,.035);
+          box-shadow: 0 0 52px rgba(99,229,70,.12);
+          overflow: hidden;
+        }
+
+        .ghc-audio-orb span {
+          position: absolute;
+          inset: 18px;
+          border-radius: inherit;
+          border: 1px solid rgba(99,229,70,.18);
+          animation: ghcAudioPulse 2.8s ease-in-out infinite;
+        }
+
+        .ghc-audio-orb strong {
+          font-size: 20px;
+          letter-spacing: .12em;
+          font-weight: 950;
+        }
+
+        @keyframes ghcAudioPulse {
+          0%, 100% { transform: scale(.92); opacity: .45; }
+          50% { transform: scale(1.18); opacity: .12; }
+        }
+
+        .ghc-audio-player-zone {
+          display: grid;
+          gap: 10px;
+          min-width: 0;
+        }
+
+        .ghc-audio-player-zone span {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .15em;
+          font-size: 10px;
+          font-weight: 950;
+        }
+
+        .ghc-audio-player-zone strong {
+          color: #f4f6f2;
+          font-size: clamp(20px, 2vw, 30px);
+          line-height: 1.05;
+          letter-spacing: -.035em;
+          font-weight: 950;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ghc-audio-premium-player {
+          width: 100%;
+          min-height: 48px;
+          accent-color: #63e546;
+          filter: saturate(.85);
+        }
+
+        @media (max-width: 820px) {
+          .ghc-media-studio-header {
+            align-items: stretch;
+            flex-direction: column;
+          }
+
+          .ghc-video-premium-player {
+            min-height: 260px;
+            max-height: 62vh;
+          }
+
+          .ghc-media-topbar {
+            align-items: flex-start;
+            justify-content: center;
+            flex-direction: column;
+            padding: 10px 14px;
+          }
+
+          .ghc-audio-premium-shell {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
