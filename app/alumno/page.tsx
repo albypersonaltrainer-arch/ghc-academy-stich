@@ -62,6 +62,7 @@ const supabase = createClient(
 );
 
 const GREEN = '#63E546';
+const COURSE_ASSETS_BUCKET = 'ghc-course-assets';
 
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Panel', helper: 'Resumen', icon: 'dashboard' },
@@ -652,6 +653,7 @@ export default function AlumnoPage() {
             lessonProgreso={lessonProgreso}
             selectedItinerarioCourseId={selectedItinerarioCourseId}
             setSelectedItinerarioCourseId={setSelectedItinerarioCourseId}
+            setSystemMessage={setSystemMessage}
           />
         )}
 
@@ -948,6 +950,7 @@ function ItinerarioView({
   lessonProgreso,
   selectedItinerarioCourseId,
   setSelectedItinerarioCourseId,
+  setSystemMessage,
 }: {
   courseCards: PanelCard[];
   curriculumCourse: PanelCard | null;
@@ -957,6 +960,7 @@ function ItinerarioView({
   lessonProgreso: AnyRecord[];
   selectedItinerarioCourseId: string;
   setSelectedItinerarioCourseId: (value: string) => void;
+  setSystemMessage: (message: string) => void;
 }) {
   return (
     <div className="curriculum-page">
@@ -1096,6 +1100,7 @@ function ItinerarioView({
                         ? `/cursos/${getCourseSlug(curriculumCourse.course)}/${lesson.id}`
                         : '#'
                     }
+                    setSystemMessage={setSystemMessage}
                   />
                 );
               })
@@ -2161,6 +2166,7 @@ function LessonRow({
   active,
   locked,
   href,
+  setSystemMessage,
 }: {
   lesson: AnyRecord;
   index: number;
@@ -2168,31 +2174,77 @@ function LessonRow({
   active: boolean;
   locked: boolean;
   href: string;
+  setSystemMessage: (message: string) => void;
 }) {
   const contentTipo = getLessonTipo(lesson);
   const icon = getLessonIcon(contentTipo);
   const title = lesson.title || `Lesson ${index + 1}`;
+  const pdfPath = cleanAssetPath(lesson.pdf_url);
+  const videoPath = cleanAssetPath(lesson.video_url);
+  const audioPath = cleanAssetPath(lesson.audio_url);
+  const hasAssets = Boolean(pdfPath || videoPath || audioPath);
+  const statusClass = locked
+    ? 'lesson-status locked'
+    : completed
+      ? 'lesson-status completed'
+      : active
+        ? 'lesson-status active'
+        : 'lesson-status pending';
 
-  const content = (
-    <article className={active ? 'lesson-row active' : locked ? 'lesson-row locked' : 'lesson-row'}>
+  const statusLabel = locked ? 'Bloqueado' : completed ? 'Completado' : active ? 'En progreso' : 'Pendiente';
+
+  const mainContent = (
+    <>
       <div className="lesson-name-cell">
         <span className={completed ? 'lesson-icon done' : active ? 'lesson-icon active' : 'lesson-icon'}>
           <Icon name={completed ? 'check' : icon} />
         </span>
         <div>
           <strong>{`${index + 1}. ${title}`}</strong>
-          <p>{lesson.description || lesson.subtitle || 'Contenido académico del módulo'}</p>
+          <p>{lesson.description || lesson.subtitle || lesson.content || 'Contenido académico del módulo'}</p>
         </div>
       </div>
       <span className="lesson-type-pill"><Icon name={icon} /> {contentTipo}</span>
-      <span className={locked ? 'lesson-status locked' : completed ? 'lesson-status completed' : active ? 'lesson-status active' : 'lesson-status pending'}>
-        {locked ? 'Bloqueado' : completed ? 'Completado' : active ? 'En progreso' : 'Pendiente'}
-      </span>
-    </article>
+      <span className={statusClass}>{statusLabel}</span>
+    </>
   );
 
-  if (locked) return content;
-  return <Link href={href} className="lesson-link">{content}</Link>;
+  return (
+    <article className={active ? 'lesson-row active' : locked ? 'lesson-row locked' : 'lesson-row'}>
+      {locked ? (
+        <div className="lesson-main-link disabled">{mainContent}</div>
+      ) : (
+        <Link href={href} className="lesson-main-link">
+          {mainContent}
+        </Link>
+      )}
+
+      {!locked && hasAssets ? (
+        <div className="student-asset-actions" aria-label="Recursos privados de la lección">
+          {videoPath ? (
+            <button type="button" onClick={() => openStudentPrivateAsset(videoPath, setSystemMessage, 'vídeo')}>
+              <Icon name="play" />
+              Ver vídeo
+            </button>
+          ) : null}
+
+          {audioPath ? (
+            <button type="button" onClick={() => openStudentPrivateAsset(audioPath, setSystemMessage, 'audio')}>
+              <Icon name="audio" />
+              Oír audio
+            </button>
+          ) : null}
+
+          {pdfPath ? (
+            <button type="button" onClick={() => openStudentPrivateAsset(pdfPath, setSystemMessage, 'PDF')}>
+              <Icon name="pdf" />
+              Ver PDF
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  );
 }
 
 function CertificateCard({ certificate }: { certificate: AnyRecord }) {
@@ -2321,6 +2373,65 @@ function Icon({ name }: { name: IconName }) {
   return <svg {...common}><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
 }
 
+
+function cleanAssetPath(value: unknown) {
+  const path = String(value || '').trim();
+  if (!path || path.toLowerCase() === 'null' || path.toLowerCase() === 'undefined') return '';
+  return path;
+}
+
+async function openStudentPrivateAsset(
+  pathValue: unknown,
+  setSystemMessage: (message: string) => void,
+  label = 'archivo'
+) {
+  const path = cleanAssetPath(pathValue);
+
+  if (!path) {
+    setSystemMessage(`Esta lección no tiene ${label} asociado.`);
+    return;
+  }
+
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    window.open(path, '_blank', 'noopener,noreferrer');
+    setSystemMessage(`Abriendo ${label} externo.`);
+    return;
+  }
+
+  setSystemMessage(`Generando acceso privado temporal para ${label}...`);
+
+  const { data, error } = await withAlumnoTimeout(
+    supabase.storage.from(COURSE_ASSETS_BUCKET).createSignedUrl(path, 60 * 10),
+    12000,
+    `Supabase Storage no respondió al generar el acceso privado para ${label}.`
+  );
+
+  if (error || !data?.signedUrl) {
+    setSystemMessage(
+      `${error?.message || 'No se pudo generar el acceso privado temporal.'} Revisa permisos del bucket ${COURSE_ASSETS_BUCKET}.`
+    );
+    return;
+  }
+
+  window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  setSystemMessage(`Acceso privado temporal generado para ${label}. Caduca en 10 minutos.`);
+}
+
+function withAlumnoTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+
+    Promise.resolve(promise)
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
 
 function formatShortDate(value: string) {
   try {
@@ -5189,6 +5300,73 @@ function GlobalStyles() {
         .mock-header,.mock-hero-grid,.mock-middle-grid,.analytics-grid,.hero-grid,.dashboard-bottom,.curriculum-grid,.curriculum-head,.performance-pro-grid { grid-template-columns: 1fr; }
         .exam-meta-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
       }
+
+      .lesson-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: stretch;
+        padding: 8px;
+      }
+
+      .lesson-main-link {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: minmax(0,1fr) 100px 110px;
+        gap: 12px;
+        align-items: center;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .lesson-main-link.disabled {
+        pointer-events: none;
+      }
+
+      .student-asset-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 7px;
+        flex-wrap: wrap;
+        padding-left: 10px;
+      }
+
+      .student-asset-actions button {
+        min-height: 36px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .24);
+        background: rgba(var(--green-rgb), .075);
+        color: var(--green);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 0 11px;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .student-asset-actions button:hover {
+        border-color: rgba(var(--green-rgb), .42);
+        background: rgba(var(--green-rgb), .12);
+        transform: translateY(-1px);
+      }
+
+      @media (max-width: 980px) {
+        .lesson-row,
+        .lesson-main-link {
+          grid-template-columns: 1fr;
+        }
+
+        .student-asset-actions {
+          justify-content: flex-start;
+          padding-left: 0;
+          padding-top: 8px;
+        }
+      }
+
+
     `}</style>
   );
 }
