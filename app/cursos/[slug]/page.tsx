@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -20,7 +19,7 @@ type PreviewCertificate = {
   status: 'valid';
 };
 
-const neon = '#63E546';
+const GREEN = '#63E546';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -257,6 +256,89 @@ export default function CourseDetailPage() {
     }
   }
 
+  const effectiveModuleCompletions = useMemo(() => {
+    if (user?.id) return moduleCompletions;
+
+    const byModuleId = new Map<string, AnyRecord>();
+
+    previewModuleCompletions.forEach((item) => {
+      if (item?.module_id) {
+        byModuleId.set(String(item.module_id), item);
+      }
+    });
+
+    return Array.from(byModuleId.values());
+  }, [user, moduleCompletions, previewModuleCompletions]);
+
+  const effectiveCourseCompletion = user?.id
+    ? courseCompletion
+    : previewCourseCompletion;
+
+  const effectiveCertificate = user?.id
+    ? realCertificate
+    : previewCertificate;
+
+  const completedLessonIds = useMemo(() => {
+    return new Set(lessonProgress.map((item) => String(item.lesson_id)));
+  }, [lessonProgress]);
+
+  const completedModuleIds = useMemo(() => {
+    return new Set(effectiveModuleCompletions.map((item) => String(item.module_id)));
+  }, [effectiveModuleCompletions]);
+
+  const totalLessons = lessons.length;
+  const completedLessons = lessonProgress.length;
+
+  const lessonProgressPercent =
+    totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+  const isCourseCompleted = Boolean(effectiveCourseCompletion?.completed);
+
+  const allModulesCompleted =
+    modules.length > 0 &&
+    modules.every((module) => completedModuleIds.has(String(module.id)));
+
+  const completedModulesCount = modules.filter((module) =>
+    completedModuleIds.has(String(module.id))
+  ).length;
+
+  const finalExamUnlocked = allModulesCompleted && !isCourseCompleted;
+  const certificateAvailable = isCourseCompleted;
+
+  const firstAvailableLesson = useMemo(() => {
+    for (let moduleIndex = 0; moduleIndex < modules.length; moduleIndex += 1) {
+      const module = modules[moduleIndex];
+      const unlocked = isModuleUnlocked(module, moduleIndex);
+      if (!unlocked) continue;
+
+      const moduleLessons = getModuleLessons(String(module.id));
+      const pending = moduleLessons.find((lesson) => !completedLessonIds.has(String(lesson.id)));
+
+      if (pending) return pending;
+      if (moduleLessons[0]) return moduleLessons[0];
+    }
+
+    return lessons[0] || null;
+  }, [modules, lessons, completedLessonIds, completedModuleIds, isCourseCompleted]);
+
+  function getModuleLessons(moduleId: string) {
+    return lessons
+      .filter((lesson) => String(lesson.module_id) === String(moduleId))
+      .sort(sortLessons);
+  }
+
+  function isModuleUnlocked(module: AnyRecord, index: number) {
+    if (index === 0) return true;
+    if (isCourseCompleted) return true;
+    if (completedModuleIds.has(String(module.id))) return true;
+
+    const previousModule = modules[index - 1];
+
+    if (!previousModule) return false;
+
+    return completedModuleIds.has(String(previousModule.id));
+  }
+
   async function issueCertificate() {
     if (!course || !effectiveCourseCompletion?.completed) return;
 
@@ -327,94 +409,31 @@ export default function CourseDetailPage() {
     setPreviewCertificate(certificate);
   }
 
-  const effectiveModuleCompletions = useMemo(() => {
-    if (user?.id) return moduleCompletions;
-
-    const byModuleId = new Map<string, AnyRecord>();
-
-    previewModuleCompletions.forEach((item) => {
-      if (item?.module_id) {
-        byModuleId.set(String(item.module_id), item);
-      }
-    });
-
-    return Array.from(byModuleId.values());
-  }, [user, moduleCompletions, previewModuleCompletions]);
-
-  const effectiveCourseCompletion = user?.id
-    ? courseCompletion
-    : previewCourseCompletion;
-
-  const effectiveCertificate = user?.id
-    ? realCertificate
-    : previewCertificate;
-
-  const completedLessonIds = useMemo(() => {
-    return new Set(lessonProgress.map((item) => String(item.lesson_id)));
-  }, [lessonProgress]);
-
-  const completedModuleIds = useMemo(() => {
-    return new Set(effectiveModuleCompletions.map((item) => String(item.module_id)));
-  }, [effectiveModuleCompletions]);
-
-  const totalLessons = lessons.length;
-  const completedLessons = lessonProgress.length;
-
-  const lessonProgressPercent =
-    totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-
-  const isCourseCompleted = Boolean(effectiveCourseCompletion?.completed);
-
-  const allModulesCompleted =
-    modules.length > 0 &&
-    modules.every((module) => completedModuleIds.has(String(module.id)));
-
-  const completedModulesCount = modules.filter((module) =>
-    completedModuleIds.has(String(module.id))
-  ).length;
-
-  const finalExamUnlocked = allModulesCompleted && !isCourseCompleted;
-  const certificateAvailable = isCourseCompleted;
-
-  const getModuleLessons = (moduleId: string) => {
-    return lessons
-      .filter((lesson) => String(lesson.module_id) === String(moduleId))
-      .sort(sortLessons);
-  };
-
-  const isModuleUnlocked = (module: AnyRecord, index: number) => {
-    if (index === 0) return true;
-    if (isCourseCompleted) return true;
-    if (completedModuleIds.has(String(module.id))) return true;
-
-    const previousModule = modules[index - 1];
-
-    if (!previousModule) return false;
-
-    return completedModuleIds.has(String(previousModule.id));
-  };
-
   if (loading) {
     return (
-      <main className="course-detail-approved-page" style={pageStyle}>
-        <div style={containerStyle}>
-          <p style={loadingText}>Cargando contenido académico...</p>
-        </div>
+      <main className="ghc-course-page loading">
+        <Background />
+        <section className="loading-card">
+          <p>GHC Academy</p>
+          <h1>Cargando curso</h1>
+          <span>Preparando módulos, lecciones y progreso del alumno.</span>
+        </section>
+        <GlobalStyles />
       </main>
     );
   }
 
   if (!course) {
     return (
-      <main className="course-detail-approved-page" style={pageStyle}>
-        <div style={containerStyle}>
-          <Link href="/cursos" style={backButton}>
-            ← Volver al catálogo
-          </Link>
-
-          <h1 style={titleStyle}>Curso no encontrado</h1>
-          <p style={textStyle}>{systemMessage}</p>
-        </div>
+      <main className="ghc-course-page loading">
+        <Background />
+        <section className="loading-card">
+          <Link href="/cursos" className="ghost-pill">← Volver al catálogo</Link>
+          <p>Curso no disponible</p>
+          <h1>Curso no encontrado</h1>
+          <span>{systemMessage}</span>
+        </section>
+        <GlobalStyles />
       </main>
     );
   }
@@ -423,217 +442,212 @@ export default function CourseDetailPage() {
     ? `/certificados/${effectiveCertificate.verification_slug}`
     : '';
 
+  const continueHref = firstAvailableLesson
+    ? `/cursos/${slug}/${firstAvailableLesson.id}`
+    : `/cursos/${slug}`;
+
+  const levelLabel = course.level || 'Nivel GHC';
+  const typeLabel = course.course_type || course.type || 'Curso';
+  const durationLabel = Number(course.duration_minutes || 0) > 0
+    ? `${Number(course.duration_minutes || 0)} min`
+    : 'A tu ritmo';
+
   return (
-    <main className="course-detail-approved-page" style={pageStyle}>
-      <div style={containerStyle}>
-        <Link href="/cursos" style={backButton}>
-          ← Volver al catálogo
-        </Link>
+    <main className="ghc-course-page">
+      <Background />
 
-        <section style={heroStyle}>
-          <div>
-            <p style={eyebrowStyle}>GHC Academy · contenido del curso</p>
-
-            <div style={badgeRow}>
-              {course.course_type && <span style={badgeMain}>{course.course_type}</span>}
-              {course.level && <span style={badgeSecondary}>{course.level}</span>}
-
-              {isCourseCompleted && (
-                <span style={completedBadge}>
-                  {!user?.id ? 'Curso completado · Preview' : 'Curso completado oficialmente'}
-                </span>
-              )}
-
-              {finalExamUnlocked && (
-                <span style={finalUnlockedBadge}>Evaluación final · próximamente</span>
-              )}
-
-              {effectiveCertificate && (
-                <span style={certificateBadge}>
-                  {!user?.id ? 'Certificado emitido · Preview' : 'Certificado emitido'}
-                </span>
-              )}
-            </div>
-
-            <h1 style={titleStyle}>{course.title}</h1>
-
-            {course.subtitle && <p style={subtitleStyle}>{course.subtitle}</p>}
-
-            <p style={textStyle}>
-              {course.description || 'Formación premium basada en ciencia aplicada, estructura y rendimiento.'}
-            </p>
+      <section className="course-shell">
+        <header className="course-topbar">
+          <div className="breadcrumb">
+            <Link href="/alumno">Panel alumno</Link>
+            <span>›</span>
+            <Link href="/cursos">Cursos</Link>
+            <span>›</span>
+            <strong>{course.title || 'Curso GHC'}</strong>
           </div>
 
-          <aside style={priceCardStyle}>
-            <p style={smallLabel}>Precio</p>
+          <div className="top-actions">
+            <Link href="/alumno" className="ghost-pill">Área alumno</Link>
+            <Link href="/cursos" className="ghost-pill">Catálogo</Link>
+          </div>
+        </header>
 
-            <p style={priceStyle}>
-              {Number(course.price || 0).toLocaleString('es-ES')}€
-            </p>
+        {systemMessage && <div className="notice">{systemMessage}</div>}
 
-            <div style={dataGridStyle}>
-              <div style={miniBox}>
-                <p style={miniLabel}>Duración</p>
-                <p style={miniValue}>{course.duration_minutes || 0} min</p>
-              </div>
+        <section className="course-hero-card">
+          <div className="hero-copy">
+            <p className="kicker">GHC Academy · contenido del curso</p>
 
-              <div style={miniBox}>
-                <p style={miniLabel}>Certificado</p>
-                <p style={miniValue}>
-                  {effectiveCertificate ? 'Emitido' : course.has_certificate ? 'Sí' : 'No'}
-                </p>
-              </div>
+            <div className="badge-row">
+              <span>{typeLabel}</span>
+              <span>{levelLabel}</span>
+              {isCourseCompleted && <span className="success">Curso completado</span>}
+              {effectiveCertificate && <span className="gold">Certificado emitido</span>}
+              {finalExamUnlocked && <span className="success">Evaluación final · próximamente</span>}
             </div>
 
-            <button style={buyButton}>
+            <h1>{course.title}</h1>
+
+            {course.subtitle ? <h2>{course.subtitle}</h2> : null}
+
+            <p className="hero-text">
+              {course.description ||
+                'Formación premium basada en ciencia aplicada, estructura y rendimiento.'}
+            </p>
+
+            <div className="hero-actions">
+              <Link href={continueHref} className="primary-action">
+                Continuar formación
+              </Link>
+              <a href="#modulos" className="secondary-action">
+                Ver módulos
+              </a>
+            </div>
+          </div>
+
+          <aside className="course-summary-card">
+            <p className="kicker">Resumen</p>
+
+            <div className="summary-price">
+              <span>Precio</span>
+              <strong>{Number(course.price || 0).toLocaleString('es-ES')}€</strong>
+            </div>
+
+            <div className="summary-grid">
+              <Metric label="Duración" value={durationLabel} />
+              <Metric label="Lecciones" value={totalLessons} />
+              <Metric label="Módulos" value={modules.length} />
+              <Metric label="Certificado" value={effectiveCertificate ? 'Emitido' : course.has_certificate ? 'Sí' : 'No'} />
+            </div>
+
+            <button type="button" className="access-button">
               {user ? 'Acceso activo' : 'Solicitar acceso'}
             </button>
           </aside>
         </section>
 
-        <section style={statusGrid}>
-          <article style={statusCard}>
-            <p style={sectionLabel}>Estado oficial del curso</p>
-
-            <h2 style={statusTitle}>
-              {isCourseCompleted ? 'Curso completado' : 'Curso en progreso'}
-            </h2>
-
-            <p style={textStyle}>
-              {isCourseCompleted
-                ? !user?.id
-                  ? 'Has aprobado el examen final en modo preview. Cuando activemos acceso completo, este cierre quedará guardado oficialmente en Supabase.'
-                  : 'Has aprobado el examen final y el curso ya consta como completado oficialmente.'
-                : 'Aprueba cada examen de módulo para desbloquear el siguiente bloque. Cuando completes todos los módulos, se desbloqueará la evaluación final del curso.'}
-            </p>
+        <section className="status-grid">
+          <article className="status-card">
+            <div>
+              <p className="kicker">Estado del curso</p>
+              <h3>{isCourseCompleted ? 'Curso completado' : 'Curso en progreso'}</h3>
+              <p>
+                {isCourseCompleted
+                  ? 'El curso consta como completado. El siguiente bloque es la certificación digital.'
+                  : 'Avanza por los módulos y lecciones. La evaluación final queda preparada para la siguiente fase del sistema.'}
+              </p>
+            </div>
 
             {!user && (
-              <div style={noticeBox}>
-                Vista previa activa. Los módulos, el cierre del curso y el certificado pueden
-                probarse en este navegador. Cuando actives sesión, la fuente real será Supabase.
+              <div className="preview-note">
+                Vista previa activa. Al iniciar sesión, el progreso real se guardará desde Supabase.
               </div>
             )}
           </article>
 
-          <article style={statusCard}>
-            <p style={sectionLabel}>Progreso de aprendizaje</p>
-
-            <h2 style={statusTitle}>{lessonProgressPercent}%</h2>
-
-            <div style={progressTrack}>
-              <div style={{ ...progressFill, width: `${lessonProgressPercent}%` }} />
+          <article className="progress-card">
+            <div className="progress-head">
+              <div>
+                <p className="kicker">Progreso</p>
+                <h3>{lessonProgressPercent}%</h3>
+              </div>
+              <span>{completedLessons}/{totalLessons}</span>
             </div>
 
-            <p style={textStyle}>
-              {completedLessons} de {totalLessons} lecciones completadas.
-            </p>
+            <div className="progress-track">
+              <div style={{ width: `${lessonProgressPercent}%` }} />
+            </div>
 
-            <p style={previewText}>
-              {completedModulesCount} de {modules.length} módulos aprobados.
-            </p>
+            <p>{completedModulesCount} de {modules.length} módulos aprobados.</p>
           </article>
         </section>
 
-        <section style={finalExamSectionStyle(finalExamUnlocked, isCourseCompleted)}>
+        <section className={finalExamUnlocked || isCourseCompleted ? 'phase-card active' : 'phase-card'}>
           <div>
-            <p style={sectionLabel}>
+            <p className="kicker">
               {isCourseCompleted
                 ? 'Cierre académico'
                 : finalExamUnlocked
-                  ? 'Evaluación final disponible'
+                  ? 'Evaluación final preparada'
                   : 'Evaluación final bloqueada'}
             </p>
 
-            <h2 style={finalExamTitleStyle}>
+            <h3>
               {isCourseCompleted
                 ? 'Curso completado'
                 : finalExamUnlocked
-                  ? 'Evaluación final preparada para la siguiente fase'
-                  : 'Completa todos los módulos para preparar la evaluación final'}
-            </h2>
+                  ? 'Evaluación final lista para la siguiente fase'
+                  : 'Completa los módulos para preparar la evaluación final'}
+            </h3>
 
-            <p style={textStyle}>
+            <p>
               {isCourseCompleted
-                ? 'El curso ya está marcado como completado. El siguiente bloque es la certificación digital.'
+                ? 'El curso ya está cerrado académicamente. La certificación puede emitirse si está disponible.'
                 : finalExamUnlocked
-                  ? 'Has aprobado todos los módulos. La evaluación final se activará cuando cerremos el motor de evaluaciones de GHC Academy.'
-                  : `Has aprobado ${completedModulesCount} de ${modules.length} módulos. Cuando estén todos aprobados, aparecerá aquí el acceso a la evaluación final.`}
+                  ? 'Has completado los módulos. El motor de evaluaciones se activará más adelante para cerrar esta fase.'
+                  : `Has aprobado ${completedModulesCount} de ${modules.length} módulos.`}
             </p>
           </div>
 
-          {isCourseCompleted ? (
-            <div style={finalExamLockedBox}>
-              <p style={miniLabel}>Certificado</p>
-              <p style={miniValue}>{effectiveCertificate ? 'Emitido' : 'Disponible'}</p>
-            </div>
-          ) : finalExamUnlocked ? (
-            <div style={finalExamLockedBox}>
-              <p style={miniLabel}>Estado</p>
-              <p style={miniValue}>Próximamente</p>
-            </div>
-          ) : (
-            <div style={finalExamLockedBox}>
-              <p style={miniLabel}>Estado</p>
-              <p style={miniValue}>Bloqueado</p>
-            </div>
-          )}
+          <div className="phase-status">
+            <span>Estado</span>
+            <strong>{isCourseCompleted ? 'Completado' : finalExamUnlocked ? 'Próximamente' : 'Bloqueado'}</strong>
+          </div>
         </section>
 
-        <section style={certificateSectionStyle(certificateAvailable, Boolean(effectiveCertificate))}>
+        <section className={certificateAvailable || effectiveCertificate ? 'certificate-card active' : 'certificate-card'}>
           <div>
-            <p style={sectionLabel}>
-              {certificateAvailable ? 'Certificación digital' : 'Certificación bloqueada'}
-            </p>
+            <p className="kicker">{certificateAvailable ? 'Certificación digital' : 'Certificación bloqueada'}</p>
 
-            <h2 style={finalExamTitleStyle}>
+            <h3>
               {effectiveCertificate
                 ? 'Certificado digital emitido'
                 : certificateAvailable
                   ? 'Certificado digital disponible'
                   : 'Completa el curso para desbloquear el certificado'}
-            </h2>
+            </h3>
 
-            <p style={textStyle}>
+            <p>
               {effectiveCertificate
                 ? `Certificado ${effectiveCertificate.certificate_code} emitido para ${effectiveCertificate.student_name}.`
                 : certificateAvailable
-                  ? user?.id
-                    ? 'Puedes emitir tu certificado digital real. Quedará guardado en Supabase y asociado a tu usuario.'
-                    : 'Puedes emitir un certificado digital de prueba para validar el flujo completo.'
+                  ? 'Puedes emitir tu certificado digital. Quedará asociado al curso y al alumno.'
                   : 'El certificado solo estará disponible cuando el curso esté completado.'}
             </p>
           </div>
 
           {effectiveCertificate ? (
-            <div style={certificateActions}>
-              <Link href={certificateLink} style={finalExamButton}>
-                Ver certificado →
+            <div className="certificate-actions">
+              <Link href={certificateLink} className="primary-action">
+                Ver certificado
               </Link>
-
-              <div style={finalExamLockedBox}>
-                <p style={miniLabel}>Estado</p>
-                <p style={miniValue}>Válido</p>
+              <div className="phase-status">
+                <span>Estado</span>
+                <strong>Válido</strong>
               </div>
             </div>
           ) : certificateAvailable ? (
-            <button onClick={issueCertificate} style={certificateButton}>
-              {user?.id ? 'Emitir certificado digital →' : 'Emitir certificado de prueba →'}
+            <button type="button" onClick={issueCertificate} className="primary-action as-button">
+              {user?.id ? 'Emitir certificado' : 'Emitir certificado de prueba'}
             </button>
           ) : (
-            <div style={finalExamLockedBox}>
-              <p style={miniLabel}>Estado</p>
-              <p style={miniValue}>Bloqueado</p>
+            <div className="phase-status">
+              <span>Estado</span>
+              <strong>Bloqueado</strong>
             </div>
           )}
         </section>
 
-        <section style={{ marginTop: '42px' }}>
-          <p style={sectionLabel}>Contenido académico</p>
-          <h2 style={sectionTitle}>Módulos y lecciones</h2>
+        <section id="modulos" className="modules-section">
+          <div className="section-head">
+            <div>
+              <p className="kicker">Contenido académico</p>
+              <h3>Módulos y lecciones</h3>
+            </div>
+            <span>{modules.length} módulos · {totalLessons} lecciones</span>
+          </div>
 
-          {systemMessage && <div style={noticeBox}>{systemMessage}</div>}
-
-          <div style={modulesGrid}>
+          <div className="modules-list">
             {modules.map((module, index) => {
               const moduleLessons = getModuleLessons(String(module.id));
               const unlocked = isModuleUnlocked(module, index);
@@ -647,55 +661,57 @@ export default function CourseDetailPage() {
                 completedLessonIds.has(String(lesson.id))
               ).length;
 
+              const modulePercent =
+                moduleLessons.length > 0
+                  ? Math.round((completedInModule / moduleLessons.length) * 100)
+                  : 0;
+
               return (
                 <article
                   key={module.id}
-                  style={{
-                    ...moduleCard,
-                    ...(moduleCompleted ? moduleCompletedCard : {}),
-                    opacity: unlocked ? 1 : 0.48,
-                  }}
+                  className={[
+                    'module-card',
+                    moduleCompleted ? 'completed' : '',
+                    !unlocked ? 'locked' : '',
+                  ].filter(Boolean).join(' ')}
                 >
-                  <div style={moduleHeader}>
+                  <div className="module-top">
                     <div>
-                      <p style={moduleNumber}>Módulo {index + 1}</p>
-
-                      <h3 style={moduleTitle}>{module.title}</h3>
-
-                      <p style={textStyle}>
+                      <p className="module-number">Módulo {index + 1}</p>
+                      <h4>{module.title || `Módulo ${index + 1}`}</h4>
+                      <p>
                         {module.description || 'Módulo formativo de GHC Academy.'}
                       </p>
 
-                      <p style={moduleProgressText}>
+                      <div className="module-progress-line">
+                        <div style={{ width: `${modulePercent}%` }} />
+                      </div>
+
+                      <span className="module-progress-text">
                         {completedInModule} de {moduleLessons.length} lecciones completadas
-                      </p>
+                      </span>
 
                       {moduleCompleted && (
-                        <p style={moduleScoreText}>
+                        <span className="module-score">
                           Módulo aprobado · Nota: {completionRecord?.final_score || 0}%
                           {!user ? ' · Preview' : ''}
-                        </p>
+                        </span>
                       )}
                     </div>
 
-                    <span
-                      style={
-                        moduleCompleted
-                          ? completedModuleBadge
-                          : unlocked
-                            ? availableBadge
-                            : blockedBadge
-                      }
-                    >
+                    <span className={moduleCompleted ? 'state-pill success' : unlocked ? 'state-pill' : 'state-pill muted'}>
                       {moduleCompleted ? 'Completado' : unlocked ? 'Disponible' : 'Bloqueado'}
                     </span>
                   </div>
 
-                  <div style={lessonsList}>
+                  <div className="lessons-list">
                     {moduleLessons.length === 0 && (
-                      <div style={lessonRow}>
-                        <span>Lecciones pendientes de crear</span>
-                        <span>—</span>
+                      <div className="lesson-row">
+                        <div>
+                          <strong>Lecciones pendientes de crear</strong>
+                          <span>Este módulo todavía no tiene contenido visible.</span>
+                        </div>
+                        <em>—</em>
                       </div>
                     )}
 
@@ -704,24 +720,21 @@ export default function CourseDetailPage() {
                       const lessonType = getLessonTypeLabel(lesson);
 
                       return (
-                        <div key={lesson.id} style={lessonRow}>
+                        <div key={lesson.id} className={lessonCompleted ? 'lesson-row completed' : 'lesson-row'}>
                           <div>
-                            <span>
+                            <strong>
                               {lessonCompleted ? '✓ ' : ''}
-                              {lesson.title}
-                            </span>
-
-                            <div style={lessonMetaRow}>
-                              <span style={lessonTypeBadge}>{lessonType}</span>
-                            </div>
+                              {lesson.title || 'Lección GHC'}
+                            </strong>
+                            <span>{lessonType}</span>
                           </div>
 
                           {unlocked ? (
-                            <Link href={`/cursos/${slug}/${lesson.id}`} style={openLessonLink}>
+                            <Link href={`/cursos/${slug}/${lesson.id}`}>
                               Abrir
                             </Link>
                           ) : (
-                            <span>🔒</span>
+                            <em>Bloqueado</em>
                           )}
                         </div>
                       );
@@ -732,49 +745,29 @@ export default function CourseDetailPage() {
             })}
           </div>
         </section>
+      </section>
 
-        <style jsx global>{`
-          .course-detail-approved-page,
-          .course-detail-approved-page * {
-            box-sizing: border-box;
-          }
-
-          .course-detail-approved-page a,
-          .course-detail-approved-page button {
-            transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
-          }
-
-          .course-detail-approved-page a:hover,
-          .course-detail-approved-page button:hover {
-            transform: translateY(-1px);
-          }
-
-          .course-detail-approved-page {
-            background:
-              radial-gradient(circle at 12% -10%, rgba(99,229,70,.075), transparent 32%),
-              radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
-              linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%) !important;
-          }
-
-          .course-detail-approved-page h1,
-          .course-detail-approved-page h2,
-          .course-detail-approved-page h3 {
-            letter-spacing: -.055em;
-          }
-
-          .course-detail-approved-page p {
-            text-wrap: pretty;
-          }
-
-          @media (max-width: 920px) {
-            .course-detail-approved-page {
-              padding: 18px !important;
-            }
-          }
-        `}</style>
-
-      </div>
+      <GlobalStyles />
     </main>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Background() {
+  return (
+    <div className="background" aria-hidden="true">
+      <div className="orb orb-one" />
+      <div className="orb orb-two" />
+      <div className="grid-texture" />
+    </div>
   );
 }
 
@@ -859,555 +852,703 @@ function getLessonTypeLabel(lesson: AnyRecord) {
   return 'Texto';
 }
 
-const pageStyle: CSSProperties = {
-  minHeight: '100vh',
-  background:
-    'radial-gradient(circle at 12% -10%, rgba(99,229,70,.075), transparent 32%), radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%), linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%)',
-  color: '#f4f6f2',
-  padding: '24px',
-  fontFamily:
-    'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-};
+function GlobalStyles() {
+  return (
+    <style jsx global>{`
+      :root {
+        --green: ${GREEN};
+        --green-rgb: 99, 229, 70;
+        --bg: #050706;
+        --panel: rgba(8, 12, 10, .92);
+        --white: #f4f6f2;
+        --muted: rgba(244,246,242,.62);
+        --soft: rgba(244,246,242,.44);
+        --gold: #d6b25e;
+      }
 
-const containerStyle: CSSProperties = {
-  maxWidth: '1320px',
-  margin: '0 auto',
-};
+      * {
+        box-sizing: border-box;
+      }
 
-const loadingText: CSSProperties = {
-  color: neon,
-  fontWeight: 950,
-  letterSpacing: '0.18em',
-  textTransform: 'uppercase',
-};
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+      }
 
-const backButton: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  width: 'fit-content',
-  minHeight: '40px',
-  marginBottom: '18px',
-  color: neon,
-  border: '1px solid rgba(99,229,70,0.22)',
-  background: 'rgba(99,229,70,0.065)',
-  padding: '0 15px',
-  borderRadius: '999px',
-  textDecoration: 'none',
-  fontSize: '11px',
-  fontWeight: 950,
-  letterSpacing: '0.13em',
-  textTransform: 'uppercase',
-};
+      body {
+        color: var(--white);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
 
-const heroStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1.25fr) minmax(300px, 0.55fr)',
-  gap: '18px',
-  alignItems: 'stretch',
-  borderRadius: '26px',
-  border: '1px solid rgba(255,255,255,0.085)',
-  background:
-    'radial-gradient(circle at top right, rgba(99,229,70,.085), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.92)',
-  padding: 'clamp(22px, 3vw, 34px)',
-  boxShadow: '0 24px 82px rgba(0,0,0,.22)',
-};
+      a {
+        color: inherit;
+      }
 
-const eyebrowStyle: CSSProperties = {
-  color: neon,
-  fontSize: '10px',
-  letterSpacing: '0.18em',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  margin: '0 0 14px',
-};
+      button {
+        font: inherit;
+      }
 
-const badgeRow: CSSProperties = {
-  display: 'flex',
-  gap: '8px',
-  flexWrap: 'wrap',
-  marginBottom: '18px',
-};
+      .ghc-course-page {
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), .075), transparent 32%),
+          radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
+          linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%);
+        color: var(--white);
+      }
 
-const titleStyle: CSSProperties = {
-  fontSize: 'clamp(42px, 5vw, 74px)',
-  lineHeight: '0.9',
-  fontWeight: 950,
-  letterSpacing: '-0.07em',
-  margin: 0,
-  color: '#f4f6f2',
-};
+      .background {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 0;
+      }
 
-const subtitleStyle: CSSProperties = {
-  color: '#f4f6f2',
-  fontWeight: 850,
-  fontSize: '18px',
-  lineHeight: '1.5',
-  marginTop: '18px',
-  maxWidth: '760px',
-};
+      .orb {
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(100px);
+      }
 
-const textStyle: CSSProperties = {
-  color: 'rgba(244,246,242,0.62)',
-  fontSize: '15px',
-  lineHeight: '1.75',
-};
+      .orb-one {
+        width: 520px;
+        height: 520px;
+        top: -220px;
+        left: -180px;
+        background: rgba(var(--green-rgb), .10);
+      }
 
-const previewText: CSSProperties = {
-  color: neon,
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-};
+      .orb-two {
+        width: 520px;
+        height: 520px;
+        right: -260px;
+        top: 110px;
+        background: rgba(120,135,130,.09);
+      }
 
-const priceCardStyle: CSSProperties = {
-  borderRadius: '22px',
-  border: '1px solid rgba(255,255,255,0.085)',
-  background:
-    'radial-gradient(circle at top right, rgba(99,229,70,.075), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(5,7,6,.66)',
-  padding: '22px',
-  boxShadow: '0 20px 70px rgba(0,0,0,.18)',
-  alignSelf: 'stretch',
-};
+      .grid-texture {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+        background-size: 42px 42px;
+        opacity: .42;
+        mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
+      }
 
-const smallLabel: CSSProperties = {
-  margin: 0,
-  color: 'rgba(244,246,242,0.46)',
-  fontSize: '10px',
-  letterSpacing: '0.16em',
-  textTransform: 'uppercase',
-  fontWeight: 900,
-};
+      .course-shell {
+        width: min(1360px, calc(100vw - 42px));
+        margin: 0 auto;
+        padding: 22px 0 44px;
+        position: relative;
+        z-index: 1;
+        display: grid;
+        gap: 18px;
+      }
 
-const priceStyle: CSSProperties = {
-  margin: '8px 0 20px',
-  color: '#f4f6f2',
-  fontSize: '44px',
-  lineHeight: 1,
-  letterSpacing: '-0.055em',
-  fontWeight: 950,
-};
+      .course-topbar {
+        min-height: 62px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        border-bottom: 1px solid rgba(255,255,255,.07);
+        padding-bottom: 12px;
+      }
 
-const dataGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '10px',
-  marginBottom: '18px',
-};
+      .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        color: rgba(244,246,242,.62);
+        font-size: 12px;
+        font-weight: 850;
+      }
 
-const miniBox: CSSProperties = {
-  borderRadius: '16px',
-  border: '1px solid rgba(255,255,255,0.075)',
-  background: 'rgba(255,255,255,0.026)',
-  padding: '12px',
-};
+      .breadcrumb a {
+        text-decoration: none;
+        color: rgba(244,246,242,.62);
+      }
 
-const miniLabel: CSSProperties = {
-  margin: 0,
-  color: 'rgba(244,246,242,0.46)',
-  fontSize: '10px',
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-  fontWeight: 900,
-};
+      .breadcrumb strong {
+        color: var(--white);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
 
-const miniValue: CSSProperties = {
-  margin: '6px 0 0',
-  color: '#f4f6f2',
-  fontWeight: 900,
-};
+      .top-actions,
+      .hero-actions,
+      .certificate-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
 
-const buyButton: CSSProperties = {
-  width: '100%',
-  border: '1px solid rgba(99,229,70,.30)',
-  borderRadius: '999px',
-  background: 'linear-gradient(135deg, #63e546, #7bee65)',
-  color: '#061008',
-  padding: '14px',
-  fontSize: '12px',
-  fontWeight: 950,
-  letterSpacing: '0.13em',
-  textTransform: 'uppercase',
-  cursor: 'pointer',
-  boxShadow: '0 0 30px rgba(99,229,70,.14)',
-};
+      .ghost-pill,
+      .secondary-action {
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.78);
+        padding: 0 15px;
+        text-decoration: none;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
 
-const statusGrid: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1.2fr) minmax(300px, 0.65fr)',
-  gap: '18px',
-  marginTop: '18px',
-};
+      .primary-action,
+      .access-button {
+        min-height: 42px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .30);
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 18px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 950;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        box-shadow: 0 0 30px rgba(var(--green-rgb), .14);
+        cursor: pointer;
+      }
 
-const statusCard: CSSProperties = {
-  borderRadius: '22px',
-  padding: '22px',
-  background:
-    'radial-gradient(circle at top right, rgba(99,229,70,.055), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.90)',
-  border: '1px solid rgba(255,255,255,0.085)',
-  boxShadow: '0 24px 82px rgba(0,0,0,.18)',
-};
+      .primary-action.as-button {
+        border: 1px solid rgba(var(--green-rgb), .30);
+      }
 
-const sectionLabel: CSSProperties = {
-  color: neon,
-  fontSize: '10px',
-  fontWeight: 950,
-  letterSpacing: '0.16em',
-  textTransform: 'uppercase',
-  margin: '0 0 10px',
-};
+      .course-hero-card,
+      .status-card,
+      .progress-card,
+      .phase-card,
+      .certificate-card,
+      .module-card,
+      .loading-card {
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,.085);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.92);
+        box-shadow: 0 24px 82px rgba(0,0,0,.22);
+      }
 
-const sectionTitle: CSSProperties = {
-  fontSize: '34px',
-  lineHeight: 1,
-  fontWeight: 950,
-  letterSpacing: '-0.045em',
-  marginTop: 0,
-};
+      .course-hero-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1.24fr) minmax(310px, .56fr);
+        gap: 18px;
+        padding: clamp(22px, 3vw, 34px);
+        align-items: stretch;
+      }
 
-const statusTitle: CSSProperties = {
-  fontSize: '28px',
-  lineHeight: 1,
-  fontWeight: 950,
-  letterSpacing: '-0.045em',
-  margin: '0 0 12px',
-};
+      .hero-copy {
+        min-width: 0;
+        display: grid;
+        align-content: center;
+      }
 
-const progressTrack: CSSProperties = {
-  height: '9px',
-  borderRadius: '999px',
-  overflow: 'hidden',
-  background: 'rgba(255,255,255,0.075)',
-  margin: '16px 0',
-};
+      .kicker,
+      .module-number {
+        margin: 0;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .16em;
+        font-size: 10px;
+        font-weight: 950;
+      }
 
-const progressFill: CSSProperties = {
-  height: '100%',
-  borderRadius: '999px',
-  background: 'linear-gradient(90deg, #63e546, #7bee65)',
-  boxShadow: '0 0 22px rgba(99,229,70,.26)',
-};
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 14px 0 18px;
+      }
 
-const noticeBox: CSSProperties = {
-  padding: '16px',
-  borderRadius: '18px',
-  border: '1px solid rgba(99,229,70,0.18)',
-  color: 'rgba(244,246,242,0.70)',
-  marginBottom: '18px',
-  background:
-    'linear-gradient(90deg, rgba(99,229,70,.06), rgba(255,255,255,.022))',
-};
+      .badge-row span,
+      .state-pill {
+        min-height: 28px;
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,.11);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.74);
+        padding: 0 10px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .11em;
+        text-transform: uppercase;
+      }
 
-const modulesGrid: CSSProperties = {
-  display: 'grid',
-  gap: '14px',
-};
+      .badge-row .success,
+      .state-pill.success,
+      .state-pill:not(.muted) {
+        border-color: rgba(var(--green-rgb), .24);
+        background: rgba(var(--green-rgb), .085);
+        color: var(--green);
+      }
 
-const moduleCard: CSSProperties = {
-  borderRadius: '22px',
-  padding: '22px',
-  background:
-    'radial-gradient(circle at top right, rgba(99,229,70,.045), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.90)',
-  border: '1px solid rgba(255,255,255,0.085)',
-  boxShadow: '0 24px 82px rgba(0,0,0,.18)',
-};
+      .badge-row .gold {
+        border-color: rgba(214,178,94,.28);
+        background: rgba(214,178,94,.08);
+        color: var(--gold);
+      }
 
-const moduleCompletedCard: CSSProperties = {
-  border: '1px solid rgba(99,229,70,0.28)',
-  background:
-    'radial-gradient(circle at top right, rgba(99,229,70,.13), transparent 34%), linear-gradient(145deg, rgba(99,229,70,.055), rgba(255,255,255,.018)), rgba(8,12,10,.94)',
-  boxShadow: '0 24px 82px rgba(0,0,0,.20), 0 0 34px rgba(99,229,70,.055)',
-};
+      .hero-copy h1 {
+        margin: 0;
+        max-width: 880px;
+        color: var(--white);
+        font-size: clamp(34px, 4vw, 56px);
+        line-height: .96;
+        letter-spacing: -.055em;
+        font-weight: 950;
+      }
 
-const moduleHeader: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '16px',
-};
+      .hero-copy h2 {
+        margin: 18px 0 0;
+        max-width: 740px;
+        color: rgba(244,246,242,.88);
+        font-size: clamp(18px, 2vw, 25px);
+        line-height: 1.25;
+        letter-spacing: -.035em;
+        font-weight: 850;
+      }
 
-const moduleNumber: CSSProperties = {
-  color: neon,
-  fontSize: '10px',
-  fontWeight: 950,
-  letterSpacing: '0.16em',
-  textTransform: 'uppercase',
-  margin: 0,
-};
+      .hero-text,
+      .status-card p,
+      .phase-card p,
+      .certificate-card p,
+      .module-card p {
+        color: var(--muted);
+        line-height: 1.65;
+        font-size: 14px;
+      }
 
-const moduleTitle: CSSProperties = {
-  fontSize: '26px',
-  lineHeight: '1.05',
-  fontWeight: 950,
-  letterSpacing: '-0.04em',
-  margin: '8px 0 10px',
-};
+      .hero-text {
+        max-width: 780px;
+        margin: 16px 0 0;
+      }
 
-const moduleProgressText: CSSProperties = {
-  color: neon,
-  fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  marginTop: '10px',
-};
+      .hero-actions {
+        margin-top: 24px;
+      }
 
-const moduleScoreText: CSSProperties = {
-  color: 'rgba(244,246,242,0.78)',
-  fontSize: '13px',
-  fontWeight: 800,
-  marginTop: '8px',
-};
+      .course-summary-card {
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,.085);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .08), transparent 34%),
+          rgba(5,7,6,.52);
+        padding: 20px;
+        display: grid;
+        align-content: space-between;
+        gap: 16px;
+      }
 
-const lessonsList: CSSProperties = {
-  marginTop: '18px',
-  display: 'grid',
-  gap: '8px',
-};
+      .summary-price span,
+      .metric span,
+      .phase-status span {
+        display: block;
+        color: rgba(244,246,242,.48);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-weight: 900;
+      }
 
-const lessonRow: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: '16px',
-  borderRadius: '16px',
-  border: '1px solid rgba(255,255,255,0.075)',
-  background: 'rgba(255,255,255,0.026)',
-  padding: '13px 14px',
-  color: 'rgba(244,246,242,0.76)',
-  fontSize: '14px',
-};
+      .summary-price strong {
+        display: block;
+        margin-top: 8px;
+        color: var(--white);
+        font-size: 42px;
+        line-height: 1;
+        letter-spacing: -.055em;
+        font-weight: 950;
+      }
 
-const lessonMetaRow: CSSProperties = {
-  display: 'flex',
-  gap: '8px',
-  marginTop: '7px',
-};
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
 
-const lessonTypeBadge: CSSProperties = {
-  display: 'inline-flex',
-  width: 'fit-content',
-  borderRadius: '999px',
-  border: '1px solid rgba(99,229,70,0.22)',
-  background: 'rgba(99,229,70,0.065)',
-  color: neon,
-  padding: '4px 8px',
-  fontSize: '10px',
-  fontWeight: 900,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-};
+      .metric,
+      .phase-status,
+      .preview-note {
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        padding: 12px;
+      }
 
-const openLessonLink: CSSProperties = {
-  color: neon,
-  textDecoration: 'none',
-  fontWeight: 950,
-  borderRadius: '999px',
-  border: '1px solid rgba(99,229,70,.20)',
-  background: 'rgba(99,229,70,.06)',
-  padding: '8px 11px',
-  whiteSpace: 'nowrap',
-};
+      .metric strong,
+      .phase-status strong {
+        display: block;
+        margin-top: 6px;
+        color: var(--white);
+        font-size: 16px;
+        line-height: 1.05;
+        font-weight: 900;
+      }
 
-const badgeMain: CSSProperties = {
-  background: 'rgba(99,229,70,.105)',
-  border: '1px solid rgba(99,229,70,.24)',
-  color: neon,
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '10px',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-};
+      .status-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(310px, .65fr);
+        gap: 18px;
+      }
 
-const badgeSecondary: CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.11)',
-  color: 'rgba(244,246,242,0.72)',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '10px',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-};
+      .status-card,
+      .progress-card,
+      .phase-card,
+      .certificate-card {
+        padding: 22px;
+      }
 
-const completedBadge: CSSProperties = {
-  background: 'rgba(99,229,70,0.105)',
-  border: '1px solid rgba(99,229,70,0.26)',
-  color: neon,
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '10px',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-};
+      .status-card h3,
+      .progress-card h3,
+      .phase-card h3,
+      .certificate-card h3,
+      .section-head h3 {
+        margin: 8px 0 0;
+        color: var(--white);
+        font-size: clamp(22px, 2.4vw, 32px);
+        line-height: 1;
+        letter-spacing: -.045em;
+        font-weight: 950;
+      }
 
-const finalUnlockedBadge: CSSProperties = {
-  background: 'rgba(99,229,70,0.105)',
-  border: '1px solid rgba(99,229,70,0.26)',
-  color: neon,
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '10px',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-};
+      .preview-note {
+        margin-top: 14px;
+        color: rgba(244,246,242,.68);
+        line-height: 1.5;
+        font-size: 13px;
+      }
 
-const certificateBadge: CSSProperties = {
-  background: 'rgba(214,178,94,0.10)',
-  border: '1px solid rgba(214,178,94,0.26)',
-  color: '#d6b25e',
-  borderRadius: '999px',
-  padding: '7px 10px',
-  fontSize: '10px',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  letterSpacing: '0.12em',
-};
+      .progress-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+      }
 
-const availableBadge: CSSProperties = {
-  height: 'fit-content',
-  borderRadius: '999px',
-  border: '1px solid rgba(99,229,70,0.22)',
-  background: 'rgba(99,229,70,0.065)',
-  color: neon,
-  padding: '9px 12px',
-  fontSize: '10px',
-  fontWeight: 950,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-};
+      .progress-head span {
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .22);
+        background: rgba(var(--green-rgb), .07);
+        color: var(--green);
+        padding: 8px 10px;
+        font-size: 12px;
+        font-weight: 950;
+      }
 
-const completedModuleBadge: CSSProperties = {
-  height: 'fit-content',
-  borderRadius: '999px',
-  border: '1px solid rgba(99,229,70,0.28)',
-  background: 'rgba(99,229,70,0.10)',
-  color: neon,
-  padding: '9px 12px',
-  fontSize: '10px',
-  fontWeight: 950,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-};
+      .progress-track,
+      .module-progress-line {
+        height: 9px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255,255,255,.075);
+      }
 
-const blockedBadge: CSSProperties = {
-  height: 'fit-content',
-  borderRadius: '999px',
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(255,255,255,0.025)',
-  color: 'rgba(244,246,242,0.42)',
-  padding: '9px 12px',
-  fontSize: '10px',
-  fontWeight: 900,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-};
+      .progress-track {
+        margin: 16px 0 12px;
+      }
 
-const finalExamButton: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  maxWidth: '320px',
-  borderRadius: '999px',
-  background: 'linear-gradient(135deg, #63e546, #7bee65)',
-  color: '#061008',
-  padding: '15px 18px',
-  fontSize: '12px',
-  fontWeight: 950,
-  letterSpacing: '0.13em',
-  textTransform: 'uppercase',
-  textDecoration: 'none',
-  textAlign: 'center',
-  boxShadow: '0 0 30px rgba(99,229,70,.14)',
-};
+      .progress-track div,
+      .module-progress-line div {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--green), #7bee65);
+        box-shadow: 0 0 22px rgba(var(--green-rgb), .26);
+      }
 
-const certificateButton: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  maxWidth: '360px',
-  border: '1px solid rgba(99,229,70,.30)',
-  borderRadius: '999px',
-  background: 'linear-gradient(135deg, #63e546, #7bee65)',
-  color: '#061008',
-  padding: '15px 18px',
-  fontSize: '12px',
-  fontWeight: 950,
-  letterSpacing: '0.13em',
-  textTransform: 'uppercase',
-  textDecoration: 'none',
-  textAlign: 'center',
-  boxShadow: '0 0 30px rgba(99,229,70,.14)',
-  cursor: 'pointer',
-};
+      .phase-card,
+      .certificate-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+        gap: 18px;
+        align-items: center;
+      }
 
-const finalExamTitleStyle: CSSProperties = {
-  fontSize: '28px',
-  fontWeight: 950,
-  letterSpacing: '-0.045em',
-  margin: '0 0 12px',
-  lineHeight: 1.05,
-};
+      .phase-card.active,
+      .certificate-card.active {
+        border-color: rgba(var(--green-rgb), .22);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .11), transparent 34%),
+          linear-gradient(145deg, rgba(var(--green-rgb), .05), rgba(255,255,255,.018)),
+          rgba(8,12,10,.94);
+      }
 
-const finalExamLockedBox: CSSProperties = {
-  minWidth: '220px',
-  borderRadius: '18px',
-  border: '1px solid rgba(255,255,255,0.085)',
-  background: 'rgba(255,255,255,0.026)',
-  padding: '16px',
-};
+      .certificate-card.active {
+        border-color: rgba(214,178,94,.24);
+        background:
+          radial-gradient(circle at top right, rgba(214,178,94,.10), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.94);
+      }
 
-const certificateActions: CSSProperties = {
-  display: 'grid',
-  gap: '14px',
-};
+      .modules-section {
+        display: grid;
+        gap: 16px;
+        margin-top: 4px;
+      }
 
-function finalExamSectionStyle(unlocked: boolean, completed: boolean): CSSProperties {
-  return {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 320px)',
-    gap: '18px',
-    alignItems: 'center',
-    marginTop: '18px',
-    borderRadius: '24px',
-    padding: '22px',
-    border:
-      unlocked || completed
-        ? '1px solid rgba(99,229,70,0.24)'
-        : '1px solid rgba(255,255,255,0.085)',
-    background:
-      unlocked || completed
-        ? 'radial-gradient(circle at top right, rgba(99,229,70,.12), transparent 34%), linear-gradient(145deg, rgba(99,229,70,.055), rgba(255,255,255,.018)), rgba(8,12,10,.94)'
-        : 'radial-gradient(circle at top right, rgba(99,229,70,.045), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.90)',
-    boxShadow: '0 24px 82px rgba(0,0,0,.20)',
-  };
-}
+      .section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 0 2px;
+      }
 
-function certificateSectionStyle(available: boolean, emitted: boolean): CSSProperties {
-  return {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 360px)',
-    gap: '18px',
-    alignItems: 'center',
-    marginTop: '18px',
-    borderRadius: '24px',
-    padding: '22px',
-    border: available
-      ? '1px solid rgba(214,178,94,0.24)'
-      : '1px solid rgba(255,255,255,0.085)',
-    background: emitted
-      ? 'radial-gradient(circle at top right, rgba(214,178,94,.12), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), rgba(8,12,10,.94)'
-      : available
-        ? 'radial-gradient(circle at top right, rgba(214,178,94,.09), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.92)'
-        : 'radial-gradient(circle at top right, rgba(99,229,70,.045), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.90)',
-    boxShadow: '0 24px 82px rgba(0,0,0,.20)',
-  };
+      .section-head > span {
+        color: rgba(244,246,242,.48);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      .modules-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .module-card {
+        padding: 20px;
+      }
+
+      .module-card.completed {
+        border-color: rgba(var(--green-rgb), .24);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .12), transparent 34%),
+          linear-gradient(145deg, rgba(var(--green-rgb), .05), rgba(255,255,255,.018)),
+          rgba(8,12,10,.94);
+      }
+
+      .module-card.locked {
+        opacity: .52;
+      }
+
+      .module-top {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .module-card h4 {
+        margin: 8px 0 8px;
+        color: var(--white);
+        font-size: clamp(22px, 2vw, 30px);
+        line-height: 1;
+        letter-spacing: -.04em;
+        font-weight: 950;
+      }
+
+      .module-progress-line {
+        margin: 14px 0 9px;
+      }
+
+      .module-progress-text,
+      .module-score {
+        display: block;
+        color: var(--green);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .09em;
+        text-transform: uppercase;
+      }
+
+      .module-score {
+        margin-top: 8px;
+        color: rgba(244,246,242,.72);
+      }
+
+      .lessons-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .lesson-row {
+        min-height: 58px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 12px 14px;
+      }
+
+      .lesson-row.completed {
+        border-color: rgba(var(--green-rgb), .18);
+        background: rgba(var(--green-rgb), .045);
+      }
+
+      .lesson-row strong {
+        display: block;
+        color: rgba(244,246,242,.88);
+        font-size: 14px;
+        line-height: 1.25;
+        font-weight: 850;
+      }
+
+      .lesson-row span {
+        display: inline-flex;
+        width: fit-content;
+        margin-top: 6px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .18);
+        background: rgba(var(--green-rgb), .055);
+        color: var(--green);
+        padding: 4px 8px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .10em;
+        text-transform: uppercase;
+      }
+
+      .lesson-row a {
+        min-height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .20);
+        background: rgba(var(--green-rgb), .06);
+        color: var(--green);
+        padding: 0 12px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 950;
+      }
+
+      .lesson-row em {
+        color: rgba(244,246,242,.42);
+        font-style: normal;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .notice {
+        border-radius: 18px;
+        border: 1px solid rgba(var(--green-rgb), .18);
+        background: linear-gradient(90deg, rgba(var(--green-rgb),.06), rgba(255,255,255,.022));
+        color: rgba(244,246,242,.72);
+        padding: 14px 16px;
+      }
+
+      .loading {
+        display: grid;
+        place-items: center;
+      }
+
+      .loading-card {
+        position: relative;
+        z-index: 1;
+        width: min(720px, calc(100vw - 40px));
+        padding: 34px;
+      }
+
+      .loading-card p {
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .16em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .loading-card h1 {
+        margin: 10px 0;
+        font-size: clamp(34px, 5vw, 58px);
+        line-height: .95;
+        letter-spacing: -.06em;
+      }
+
+      .loading-card span {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      @media (max-width: 1040px) {
+        .course-hero-card,
+        .status-grid,
+        .phase-card,
+        .certificate-card {
+          grid-template-columns: 1fr;
+        }
+
+        .course-summary-card,
+        .phase-status {
+          max-width: none;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .course-shell {
+          width: min(100% - 28px, 1360px);
+          padding-top: 16px;
+        }
+
+        .course-topbar,
+        .section-head,
+        .module-top {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .breadcrumb {
+          flex-wrap: wrap;
+        }
+
+        .top-actions {
+          width: 100%;
+        }
+
+        .ghost-pill,
+        .primary-action,
+        .secondary-action,
+        .access-button {
+          width: 100%;
+        }
+
+        .hero-copy h1 {
+          font-size: clamp(32px, 12vw, 44px);
+        }
+
+        .summary-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .lesson-row {
+          grid-template-columns: 1fr;
+        }
+
+        .lesson-row a {
+          width: 100%;
+        }
+      }
+    `}</style>
+  );
 }
