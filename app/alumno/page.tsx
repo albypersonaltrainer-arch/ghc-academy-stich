@@ -10,15 +10,15 @@ import GHCLogo from '../components/GHCLogo';
 type AnyRecord = Record<string, any>;
 type Tab = 'dashboard' | 'cursos' | 'curriculum' | 'examenes' | 'certificados' | 'perfil';
 type ViewModo = 'grid' | 'list';
-type CourseEstadoFilter = 'active' | 'completed' | 'all';
+type CourseEstadoFilter = 'active' | 'completadod' | 'all';
 type SortModo = 'recent' | 'title' | 'progress';
 
 type PanelCard = {
   course: AnyRecord;
   courseMódulos: AnyRecord[];
   courseLecciones: AnyRecord[];
-  completedLessonCount: number;
-  completedModuleCount: number;
+  completadodLessonCount: number;
+  completadodModuleCount: number;
   completion?: AnyRecord;
   certificate?: AnyRecord;
   progressPercent: number;
@@ -29,7 +29,7 @@ type ModuleView = {
   module: AnyRecord;
   index: number;
   lessons: AnyRecord[];
-  completedLecciones: number;
+  completadodLecciones: number;
   progress: number;
   isCompletado: boolean;
   isCurrent: boolean;
@@ -175,7 +175,7 @@ export default function AlumnoPage() {
           .from('lesson_progress')
           .select('*')
           .eq('user_id', activeUser.id)
-          .eq('completed', true);
+          .eq('completadod', true);
 
         setLessonProgreso(Array.isArray(progressData) ? progressData : []);
 
@@ -183,7 +183,7 @@ export default function AlumnoPage() {
           .from('module_completions')
           .select('*')
           .eq('user_id', activeUser.id)
-          .eq('completed', true);
+          .eq('completadod', true);
 
         setModuleCompletions(Array.isArray(moduleCompletionData) ? moduleCompletionData : []);
 
@@ -191,7 +191,7 @@ export default function AlumnoPage() {
           .from('course_completions')
           .select('*')
           .eq('user_id', activeUser.id)
-          .eq('completed', true);
+          .eq('completadod', true);
 
         setCourseCompletions(Array.isArray(courseCompletionData) ? courseCompletionData : []);
 
@@ -231,11 +231,11 @@ export default function AlumnoPage() {
         )
         .sort(sortLecciones);
 
-      const completedLessonCount = courseLecciones.filter((lesson) =>
+      const completadodLessonCount = courseLecciones.filter((lesson) =>
         lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
       ).length;
 
-      const completedModuleCount = courseMódulos.filter((module) =>
+      const completadodModuleCount = courseMódulos.filter((module) =>
         moduleCompletions.some((completion) => String(completion.module_id) === String(module.id))
       ).length;
 
@@ -249,7 +249,7 @@ export default function AlumnoPage() {
 
       const progressPercent =
         courseLecciones.length > 0
-          ? Math.round((completedLessonCount / courseLecciones.length) * 100)
+          ? Math.round((completadodLessonCount / courseLecciones.length) * 100)
           : completion
             ? 100
             : 0;
@@ -265,8 +265,8 @@ export default function AlumnoPage() {
         course,
         courseMódulos,
         courseLecciones,
-        completedLessonCount,
-        completedModuleCount,
+        completadodLessonCount,
+        completadodModuleCount,
         completion,
         certificate,
         progressPercent,
@@ -284,16 +284,16 @@ export default function AlumnoPage() {
   ]);
 
   const activeCursos = courseCards.filter((card) => !card.completion);
-  const completedCursos = courseCards.filter((card) => Boolean(card.completion));
+  const completadodCursos = courseCards.filter((card) => Boolean(card.completion));
 
   const mainCourse = useMemo(() => {
     return (
       activeCursos.find((card) => card.courseMódulos.length > 0) ||
-      completedCursos.find((card) => card.courseMódulos.length > 0) ||
+      completadodCursos.find((card) => card.courseMódulos.length > 0) ||
       courseCards[0] ||
       null
     );
-  }, [activeCursos, completedCursos, courseCards]);
+  }, [activeCursos, completadodCursos, courseCards]);
 
   const curriculumCourse = useMemo(() => {
     if (selectedItinerarioCourseId) {
@@ -329,7 +329,7 @@ export default function AlumnoPage() {
     });
   }, [curriculumCourse, lessonProgreso, moduleCompletions]);
 
-  const curriculumActivosModule = useMemo(() => {
+  const curriculumActivosMódulo = useMemo(() => {
     if (selectedItinerarioModuleId) {
       const selected = curriculumModuleViews.find(
         (item) => String(item.module.id) === String(selectedItinerarioModuleId)
@@ -354,26 +354,26 @@ export default function AlumnoPage() {
 
 
   const totalLecciones = courseCards.reduce((acc, card) => acc + card.courseLecciones.length, 0);
-  const completedLeccionesVisible = courseCards.reduce(
-    (acc, card) => acc + card.completedLessonCount,
+  const completadodLeccionesVisible = courseCards.reduce(
+    (acc, card) => acc + card.completadodLessonCount,
     0
   );
 
   const globalProgreso =
-    totalLecciones > 0 ? Math.round((completedLeccionesVisible / totalLecciones) * 100) : 0;
+    totalLecciones > 0 ? Math.round((completadodLeccionesVisible / totalLecciones) * 100) : 0;
 
   const stats = {
     courses: courses.length,
-    lessons: completedLeccionesVisible,
+    lessons: completadodLeccionesVisible,
     modules: moduleCompletions.length,
-    completedCursos: courseCompletions.length,
+    completadodCursos: courseCompletions.length,
     certificates: certificates.length,
     globalProgreso,
   };
 
   const availableNivels = useMemo(() => {
     return Array.from(
-      new Set(
+      nuevos Set(
         courseCards
           .map((card) => String(card.course.level || '').trim())
           .filter(Boolean)
@@ -383,7 +383,7 @@ export default function AlumnoPage() {
 
   const availableCategories = useMemo(() => {
     return Array.from(
-      new Set(
+      nuevos Set(
         courseCards
           .map((card) =>
             String(
@@ -408,7 +408,7 @@ export default function AlumnoPage() {
       const statusOk =
         courseEstadoFilter === 'all' ||
         (courseEstadoFilter === 'active' && !card.completion) ||
-        (courseEstadoFilter === 'completed' && Boolean(card.completion));
+        (courseEstadoFilter === 'completadod' && Boolean(card.completion));
 
       const level = String(course.level || '').trim();
       const category = String(
@@ -444,11 +444,11 @@ export default function AlumnoPage() {
         return b.progressPercent - a.progressPercent;
       }
 
-      const aDate = new Date(
+      const aDate = nuevos Date(
         a.course.updated_at || a.course.created_at || a.course.published_at || 0
       ).getTime();
 
-      const bDate = new Date(
+      const bDate = nuevos Date(
         b.course.updated_at || b.course.created_at || b.course.published_at || 0
       ).getTime();
 
@@ -603,7 +603,7 @@ export default function AlumnoPage() {
                       <p>Avisos del alumno</p>
                       <h3>Notificaciones</h3>
                     </div>
-                    <span>{unreadNotificaciones} new</span>
+                    <span>{unreadNotificaciones} nuevos</span>
                   </div>
 
                   {notifications.map((notification) => (
@@ -749,8 +749,8 @@ function PanelView({
                 'Continúa con el siguiente paso de tu formación dentro de la academia.'}
             </p>
             <div className="meta-row">
-              <MetaItem icon="clock" text="4–5 Hours" />
-              <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermediate'} />
+              <MetaItem icon="clock" text="4–5 horas" />
+              <MetaItem icon="chart" text={mainCourse?.course?.level || 'Intermedio'} />
               <MetaItem icon="document" text={`${mainCourse?.courseLecciones.length || 0} Lecciones`} />
             </div>
             <Link
@@ -783,7 +783,7 @@ function PanelView({
               >
                 <Icon name={item.isCompletado ? 'check' : item.isBloqueado ? 'lock' : 'curriculum'} />
                 <span>
-                  <small>Module {item.index + 1}</small>
+                  <small>Módulo {item.index + 1}</small>
                   <strong>{item.module.title || `Módulo ${item.index + 1}`}</strong>
                 </span>
                 <em>{item.isBloqueado ? 'Bloqueado' : `${item.progress}%`}</em>
@@ -879,8 +879,8 @@ function CursosView({
         </button>
         <button
           type="button"
-          className={courseEstadoFilter === 'completed' ? 'active' : ''}
-          onClick={() => setCourseEstadoFilter('completed')}
+          className={courseEstadoFilter === 'completadod' ? 'active' : ''}
+          onClick={() => setCourseEstadoFilter('completadod')}
         >
           Completado
         </button>
@@ -951,7 +951,7 @@ function CursosView({
               card={card}
               index={index}
               mode={viewModo}
-              completed={Boolean(card.completion)}
+              completadod={Boolean(card.completion)}
             />
           ))}
         </div>
@@ -1022,15 +1022,15 @@ function ItinerarioView({
             <ItinerarioMetric
               icon="check"
               label="Lecciones completadas"
-              value={`${curriculumCourse?.completedLessonCount || 0}/${
+              value={`${curriculumCourse?.completadodLessonCount || 0}/${
                 curriculumCourse?.courseLecciones.length || 0
               }`}
-              helper={`${curriculumCourse?.progressPercent || 0}% complete`}
+              helper={`${curriculumCourse?.progressPercent || 0}% completado`}
             />
             <ItinerarioMetric
               icon="performance"
               label="Etapa actual"
-              value={curriculumActivosModule ? `Module ${curriculumActivosModule.index + 1}` : '—'}
+              value={curriculumActivosMódulo ? `Módulo ${curriculumActivosModule.index + 1}` : '—'}
               helper={
                 curriculumActivosModule?.isCurrent
                   ? 'En progreso'
@@ -1073,8 +1073,8 @@ function ItinerarioView({
             <div>
               <h2>
                 {curriculumActivosModule
-                  ? `Module ${curriculumActivosModule.index + 1}: ${
-                      curriculumActivosModule.module.title || 'Current Module'
+                  ? `Módulo ${curriculumActivosModule.index + 1}: ${
+                      curriculumActivosModule.module.title || 'Módulo actual'
                     }`
                   : 'Lecciones del módulo'}
               </h2>
@@ -1082,7 +1082,7 @@ function ItinerarioView({
               <p>
                 {curriculumCourse?.course?.subtitle ||
                   curriculumCourse?.course?.description ||
-                  'Explore the current module and continue your learning path.'}
+                  'Explora el módulo actual y continúa tu itinerario de aprendizaje.'}
               </p>
             </div>
 
@@ -1107,7 +1107,7 @@ function ItinerarioView({
               <EmptyState text="Este módulo todavía no tiene lecciones visibles." />
             ) : (
               curriculumLecciones.slice(0, 8).map((lesson, index) => {
-                const completed = lessonProgreso.some(
+                const completadod = lessonProgreso.some(
                   (progress) => String(progress.lesson_id) === String(lesson.id)
                 );
 
@@ -1117,14 +1117,14 @@ function ItinerarioView({
 
                 const locked =
                   curriculumActivosModule?.isBloqueado ||
-                  (!completed && !active && index > (curriculumActivosModule?.completedLecciones || 0));
+                  (!completadod && !active && index > (curriculumActivosModule?.completadodLecciones || 0));
 
                 return (
                   <LessonRow
                     key={lesson.id}
                     lesson={lesson}
                     index={index}
-                    completed={completed}
+                    completadod={completadod}
                     active={Boolean(active)}
                     locked={Boolean(locked)}
                     href={
@@ -1165,259 +1165,60 @@ function ItinerarioView({
 }
 
 function MockExamsView() {
-  const resultados = [
-    { title: 'Adaptaciones neuromusculares', date: 'Realizado el 12 de mayo de 2025 · 10:30', score: '85%', status: 'Aprobado', ok: true },
-    { title: 'Sistemas energéticos', date: 'Realizado el 8 de mayo de 2025 · 14:15', score: '72%', status: 'Aprobado', ok: true },
-    { title: 'Fundamentos de biomecánica', date: 'Realizado el 5 de mayo de 2025 · 11:45', score: '65%', status: 'Suspendido', ok: false },
-    { title: 'Mecánica de la hipertrofia', date: 'Realizado el 30 de abril de 2025 · 09:20', score: '58%', status: 'Suspendido', ok: false },
-  ];
-
   return (
-    <div className="mock-page">
-      <section className="mock-header">
+    <div className="mock-page exams-standby-page">
+      <section className="mock-header exams-standby-hero">
         <div className="mock-title-block">
           <span>
             <Icon name="target" />
           </span>
           <div>
-            <h1>Simulador de exámenes</h1>
+            <h1>Evaluaciones y exámenes</h1>
             <p>
-              Simula condiciones reales de certificación y evalúa tu preparación
-              con analítica avanzada de rendimiento.
+              La estructura de evaluación de GHC Academy estará dividida en evaluaciones cortas
+              por lección y exámenes por módulo. Esta sección queda preparada, pero todavía no
+              activa, para no mostrar funciones incompletas al alumno.
             </p>
           </div>
         </div>
 
         <div className="mock-feature-strip">
-          <MockFeature icon="clock" title="Sesiones cronometradas" text="Tiempos reales de examen" />
-          <MockFeature icon="chat" title="Feedback inmediato" text="Explicaciones detalladas" />
-          <MockFeature icon="shield" title="Preparación de certificación" text="Alineado con estándares GHC" />
+          <MockFeature icon="document" title="Evaluaciones de lección" text="Comprobaciones breves de comprensión." />
+          <MockFeature icon="exam" title="Exámenes de módulo" text="Evaluación completa al cerrar cada módulo." />
+          <MockFeature icon="certificate" title="Examen final" text="Base futura para la certificación." />
         </div>
       </section>
 
-      <section className="mock-hero-grid">
-        <article className="exam-simulator-card">
-          <div className="exam-simulator-content">
-            <div className="exam-title-row">
-              <h2>Simulador de examen</h2>
-              <span>Destacado</span>
-            </div>
-
-            <p>
-              Realiza una simulación completa que reproduce la experiencia de certificación
-              y pone a prueba tus conocimientos bajo presión.
-            </p>
-
-            <div className="exam-meta-grid">
-              <MockMeta icon="lock" label="Modo" value="Simulación cronometrada" />
-              <MockMeta icon="clock" label="Duración" value="2 horas" />
-              <MockMeta icon="document" label="Preguntas" value="90 preguntas" />
-              <MockMeta icon="target" label="Nota mínima" value="70%" />
-            </div>
-
-            <div className="exam-action-row">
-              <button type="button" className="mock-primary-button">
-                Iniciar simulación
-                <Icon name="arrow" />
-              </button>
-
-              <button type="button" className="mock-ghost-button">
-                Ver detalles del examen
-                <Icon name="arrow" />
-              </button>
-            </div>
-          </div>
-
-          <div className="exam-laptop-visual">
-            <div className="exam-laptop-screen">
-              <span>Simulador</span>
-              <strong>02:00:00</strong>
-              <div className="exam-laptop-rows">
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-            </div>
-          </div>
+      <section className="exams-standby-grid">
+        <article className="exams-standby-card">
+          <span><Icon name="document" /></span>
+          <h2>Evaluaciones por lección</h2>
+          <p>
+            Servirán para comprobar si el alumno ha entendido cada lección. Serán cortas,
+            didácticas y con feedback inmediato.
+          </p>
+          <em>Próximamente</em>
         </article>
 
-        <article className="exam-rules-card">
-          <div className="exam-rules-title">
-            <Icon name="document" />
-            <h2>Reglas del examen</h2>
-          </div>
-
-          <div className="rule-list">
-            {[
-              'Tiempos y condiciones de examen real',
-              'No se puede pausar una vez iniciado',
-              'No se permiten recursos externos',
-              'Respuestas enviadas automáticamente',
-              'Resultados disponibles al instante',
-              'Revisión de explicaciones al finalizar',
-            ].map((rule) => (
-              <div key={rule} className="rule-item">
-                <Icon name="check" />
-                <span>{rule}</span>
-              </div>
-            ))}
-          </div>
-
-          <button type="button" className="mock-secondary-button">
-            Ver reglas completas
-            <Icon name="arrow" />
-          </button>
-        </article>
-      </section>
-
-      <section className="mock-middle-grid">
-        <article className="latest-resultados-card">
-          <div className="mock-card-header">
-            <h2>Últimos resultados</h2>
-            <button type="button">Ver todos los resultados</button>
-          </div>
-
-          <div className="resultados-list">
-            {resultados.map((result) => (
-              <div key={result.title} className="result-row">
-                <span className={result.ok ? 'result-icon-ok' : 'result-icon-fail'}>
-                  <Icon name="document" />
-                </span>
-
-                <div className="result-info">
-                  <strong>{result.title}</strong>
-                  <p>{result.date}</p>
-                </div>
-
-                <div className={result.ok ? 'result-score-ok' : 'result-score-fail'}>
-                  <strong>{result.score}</strong>
-                  <span>{result.status}</span>
-                </div>
-
-                <Icon name="arrow" />
-              </div>
-            ))}
-          </div>
+        <article className="exams-standby-card featured">
+          <span><Icon name="exam" /></span>
+          <h2>Exámenes por módulo</h2>
+          <p>
+            Se activarán al completar todas las lecciones de un módulo. Más adelante permitirán
+            desbloquear el siguiente bloque del curso.
+          </p>
+          <em>En desarrollo</em>
         </article>
 
-        <article className="readiness-card">
-          <div className="mock-card-header">
-            <h2>Nivel de preparación</h2>
-            <button type="button">Ver detalles</button>
-          </div>
-
-          <div className="readiness-ring-wrap">
-            <div
-              className="readiness-ring"
-              style={{
-                background: `conic-gradient(${GREEN} ${78 * 3.6}deg, rgba(255,255,255,0.10) 0deg)`,
-              }}
-            >
-              <div className="readiness-ring-inner">
-                <strong>78%</strong>
-                <span>Preparado</span>
-              </div>
-            </div>
-          </div>
-
-          <p>Estás bien preparado. Sigue practicando para aumentar tu confianza.</p>
-
-          <div className="readiness-footer">
-            <span>Objetivo: 70%</span>
-            <strong>Por encima del objetivo</strong>
-          </div>
+        <article className="exams-standby-card">
+          <span><Icon name="shield" /></span>
+          <h2>Certificación final</h2>
+          <p>
+            Cuando el motor de evaluación esté cerrado, el examen final conectará con la emisión
+            de certificados verificables.
+          </p>
+          <em>Fase posterior</em>
         </article>
-
-        <article className="module-exams-card">
-          <div className="mock-card-header">
-            <h2>Exámenes por módulo</h2>
-            <button type="button">Ver todos los módulos</button>
-          </div>
-
-          <div className="module-exam-list">
-            {[
-              { title: 'Adaptaciones neuromusculares', meta: '3 / 3 Exams', score: 75, color: GREEN },
-              { title: 'Sistemas energéticos', meta: '2 / 2 Exams', score: 72, color: GREEN },
-              { title: 'Fundamentos de biomecánica', meta: '2 / 2 Exams', score: 65, color: '#F7C948' },
-              { title: 'Mecánica de la hipertrofia', meta: '0 / 1 Exams', score: 0, color: '#FF5757' },
-            ].map((item) => (
-              <div key={item.title} className="module-exam-row">
-                <Icon name="document" />
-                <div>
-                  <strong>{item.title}</strong>
-                  <span>{item.meta}</span>
-                  <div className="module-exam-progress">
-                    <div style={{ width: `${item.score}%`, background: item.color }} />
-                  </div>
-                </div>
-                <strong style={{ color: item.color }}>{item.score}%</strong>
-                <Icon name="arrow" />
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="analytics-card">
-        <h2>Analítica de rendimiento</h2>
-
-        <div className="analytics-grid">
-          <div className="average-score-card">
-            <span>Nota media</span>
-            <strong>70%</strong>
-            <p>En 7 intentos</p>
-            <em>▲ 12% vs mes anterior</em>
-            <div className="sparkline" />
-          </div>
-
-          <div className="score-trend-card">
-            <div className="score-trend-tooltip">
-              <span>12 mayo 2025</span>
-              <strong>85%</strong>
-            </div>
-
-            <h3>Tendencia de puntuación</h3>
-            <svg viewBox="0 0 520 170" className="trend-svg" aria-hidden="true">
-              <path
-                d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48"
-                fill="none"
-                stroke={GREEN}
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M20 120 L85 88 L150 100 L215 72 L280 80 L345 62 L410 70 L500 48 L500 160 L20 160 Z"
-                fill="rgba(99,229,70,0.10)"
-              />
-            </svg>
-          </div>
-
-          <div className="focus-area-card">
-            <h3>Fortalezas y áreas de mejora</h3>
-
-            <div className="focus-item">
-              <span className="focus-icon-green">
-                <Icon name="flame" />
-              </span>
-              <div>
-                <strong>Fortalezas</strong>
-                <p>Sistemas energéticos, Neuromuscular</p>
-              </div>
-            </div>
-
-            <div className="focus-item">
-              <span className="focus-icon-gold">
-                <Icon name="target" />
-              </span>
-              <div>
-                <strong>Áreas de mejora</strong>
-                <p>Mecánica de la hipertrofia, Biomechanics</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
     </div>
   );
@@ -1463,7 +1264,7 @@ function CertificadosTab({
       <section className="cert-final-hero">
         <div className="cert-final-copy">
           <p className="cert-final-kicker">Credenciales oficiales</p>
-          <h1>Valida. Demuestra. Avanza.</h1>
+          <h1>Válidoa. Demuestra. Avanza.</h1>
           <p className="cert-final-subtitle">
             Obtén credenciales oficiales de GHC Academy y demuestra tu experiencia con certificados
             verificables, profesionales y preparados para reforzar tu perfil en el sector.
@@ -1576,7 +1377,7 @@ function CertificadosTab({
               </div>
               <h3>Aún no hay certificados emitidos</h3>
               <p>
-                Cuando completes un curso y apruebes el examen final, tu certificado aparecerá en
+                Cuando completados un curso y apruebes el examen final, tu certificado aparecerá en
                 este panel con código de verificación y estado oficial.
               </p>
             </article>
@@ -1705,14 +1506,14 @@ function RendimientoTab({
 }) {
   const email = String(user?.email || profile?.email || 'alumno@ghcacademy.com');
   const role = String(profile?.role || 'student');
-  const completedCourses = Number(stats.completedCursos || 0);
+  const completadodCourses = Number(stats.completadodCursos || 0);
   const modulesCompleted = Number(stats.modules || 0);
   const certificatesCount = Number(stats.certificates || certificates.length || 0);
   const progress = Math.max(0, Math.min(100, Number(stats.globalProgreso || 0)));
   const totalLessonsCompleted = Number(stats.lessons || 0);
-  const activeCourses = Math.max(0, Number(stats.courses || 0) - completedCourses);
+  const activeCourses = Math.max(0, Number(stats.courses || 0) - completadodCourses);
   const learningHours = Math.max(1, Math.round((totalLessonsCompleted || 1) * 0.75));
-  const quizzesPassed = Math.max(0, Math.min(100, progress || (completedCourses ? 86 : 0)));
+  const quizzesPassed = Math.max(0, Math.min(100, progress || (completadodCourses ? 86 : 0)));
   const currentStreak = Math.max(1, Math.min(21, totalLessonsCompleted + certificatesCount + 3));
   const topCourses = [...courseCards]
     .sort((a, b) => b.progressPercent - a.progressPercent)
@@ -1759,7 +1560,7 @@ function RendimientoTab({
             </div>
             <p>{email}</p>
             <p>{role === 'student' ? 'Alumno' : role} · GHC Academy</p>
-            <p className="performance-enrolled"><Icon name="clock" /> Inscrito · {formatShortDate(profile?.created_at || user?.created_at || new Date().toISOString())}</p>
+            <p className="performance-enrolled"><Icon name="clock" /> Inscrito · {formatShortDate(profile?.created_at || user?.created_at || nuevos Date().toISOString())}</p>
           </div>
         </div>
 
@@ -1785,7 +1586,7 @@ function RendimientoTab({
 
       <section className="performance-metrics-strip">
         <PerformanceMetric icon="clock" label="Tiempo total de estudio" value={`${learningHours}h ${totalLessonsCompleted ? '30m' : '00m'}`} trend="+12% vs últimos 30 días" />
-        <PerformanceMetric icon="courses" label="Cursos completados" value={completedCourses} trend={`+${completedCourses || 0} vs últimos 30 días`} />
+        <PerformanceMetric icon="courses" label="Cursos completados" value={completadodCourses} trend={`+${completadodCourses || 0} vs últimos 30 días`} />
         <PerformanceMetric icon="box" label="Módulos completados" value={modulesCompleted} trend={`+${modulesCompleted || 0} vs últimos 30 días`} />
         <PerformanceMetric icon="check" label="Exámenes aprobados" value={`${quizzesPassed}%`} trend="+8% vs últimos 30 días" />
         <PerformanceMetric icon="flame" label="Racha actual" value={`${currentStreak} días`} trend="Sigue así" accent="gold" />
@@ -1866,7 +1667,7 @@ function RendimientoTab({
             </div>
             <div className="performance-total-row">
               <span>Total completado</span>
-              <strong>{completedCourses || 12} cursos</strong>
+              <strong>{completadodCourses || 12} cursos</strong>
             </div>
           </article>
         </div>
@@ -2044,12 +1845,12 @@ function MockMeta({ icon, label, value }: { icon: IconName; label: string; value
 
 function PremiumCourseCard({
   card,
-  completed = false,
+  completadod = false,
   index,
   mode,
 }: {
   card: PanelCard;
-  completed?: boolean;
+  completadod?: boolean;
   index: number;
   mode: ViewModo;
 }) {
@@ -2066,11 +1867,11 @@ function PremiumCourseCard({
       >
         <div className="premium-image-overlay" />
         <div className="course-top-badges">
-          <span className={completed ? 'completed-badge' : 'progress-badge'}>
-            {completed ? 'Completado' : 'En progreso'}
+          <span className={completadod ? 'completadod-badge' : 'progress-badge'}>
+            {completadod ? 'Completado' : 'En progreso'}
           </span>
         </div>
-        <span className="bookmark-icon"><Icon name={completed ? 'check' : 'bookmark'} /></span>
+        <span className="bookmark-icon"><Icon name={completadod ? 'check' : 'bookmark'} /></span>
       </div>
 
       <div className="premium-course-body">
@@ -2091,8 +1892,8 @@ function PremiumCourseCard({
         </div>
 
         <div className="premium-actions">
-          <Link href={href} className={completed ? 'review-button' : 'primary-button-small'}>
-            {completed ? 'Repasar' : 'Continuar'} {!completed && <Icon name="arrow" />}
+          <Link href={href} className={completadod ? 'review-button' : 'primary-button-small'}>
+            {completadod ? 'Repasar' : 'Continuar'} {!completadod && <Icon name="arrow" />}
           </Link>
           <Link href={`/cursos/${getCourseSlug(course)}`} className="secondary-button-small">
             Detalles
@@ -2136,7 +1937,7 @@ function RoadmapModuleRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const title = item.module.title || `Module ${item.index + 1}`;
+  const title = item.module.title || `Módulo ${item.index + 1}`;
 
   if (item.isCurrent || selected) {
     return (
@@ -2144,11 +1945,11 @@ function RoadmapModuleRow({
         <div className="roadmap-current-line" />
         <div className="roadmap-current-content">
           <div className="roadmap-top-badges">
-            <span className="module-mini-label">Module {item.index + 1}</span>
+            <span className="module-mini-label">Módulo {item.index + 1}</span>
             <span className="in-progress-mini">{selected ? 'Seleccionado' : 'En progreso'}</span>
           </div>
           <h3>{title}</h3>
-          <p>{item.completedLecciones} of {item.lessons.length} Lecciones Completado</p>
+          <p>{item.completadodLecciones} of {item.lessons.length} Lecciones Completado</p>
           <div className="progress-track-mini">
             <div className="progress-fill" style={{ width: `${item.progress}%` }} />
           </div>
@@ -2174,7 +1975,7 @@ function RoadmapModuleRow({
       <button type="button" onClick={onSelect} className="roadmap-row locked selectable">
         <div className="roadmap-dot locked"><Icon name="lock" /></div>
         <div className="roadmap-body">
-          <p className="module-mini-label muted">Module {item.index + 1}</p>
+          <p className="module-mini-label muted">Módulo {item.index + 1}</p>
           <h3>{title}</h3>
           <p>{item.lessons.length} Lecciones</p>
         </div>
@@ -2189,7 +1990,7 @@ function RoadmapModuleRow({
         <Icon name={item.isCompletado ? 'check' : 'curriculum'} />
       </div>
       <div className="roadmap-body">
-        <p className="module-mini-label">Module {item.index + 1}</p>
+        <p className="module-mini-label">Módulo {item.index + 1}</p>
         <h3>{title}</h3>
         <p>{item.lessons.length} Lecciones</p>
       </div>
@@ -2204,7 +2005,7 @@ function RoadmapModuleRow({
 function LessonRow({
   lesson,
   index,
-  completed,
+  completadod,
   active,
   locked,
   href,
@@ -2212,7 +2013,7 @@ function LessonRow({
 }: {
   lesson: AnyRecord;
   index: number;
-  completed: boolean;
+  completadod: boolean;
   active: boolean;
   locked: boolean;
   href: string;
@@ -2220,26 +2021,26 @@ function LessonRow({
 }) {
   const contentTipo = getLessonTipo(lesson);
   const icon = getLessonIcon(contentTipo);
-  const title = lesson.title || `Lesson ${index + 1}`;
+  const title = lesson.title || `Lección ${index + 1}`;
   const pdfPath = cleanAssetPath(lesson.pdf_url);
   const videoPath = cleanAssetPath(lesson.video_url);
   const audioPath = cleanAssetPath(lesson.audio_url);
   const hasAssets = Boolean(pdfPath || videoPath || audioPath);
   const statusClass = locked
     ? 'lesson-status locked'
-    : completed
-      ? 'lesson-status completed'
+    : completadod
+      ? 'lesson-status completadod'
       : active
         ? 'lesson-status active'
         : 'lesson-status pending';
 
-  const statusLabel = locked ? 'Bloqueado' : completed ? 'Completado' : active ? 'En progreso' : 'Pendiente';
+  const statusLabel = locked ? 'Bloqueado' : completadod ? 'Completado' : active ? 'En progreso' : 'Pendiente';
 
   const mainContent = (
     <>
       <div className="lesson-name-cell">
-        <span className={completed ? 'lesson-icon done' : active ? 'lesson-icon active' : 'lesson-icon'}>
-          <Icon name={completed ? 'check' : icon} />
+        <span className={completadod ? 'lesson-icon done' : active ? 'lesson-icon active' : 'lesson-icon'}>
+          <Icon name={completadod ? 'check' : icon} />
         </span>
         <div>
           <strong>{`${index + 1}. ${title}`}</strong>
@@ -2297,7 +2098,7 @@ function CertificateCard({ certificate }: { certificate: AnyRecord }) {
       <h3>{certificate.course_title || 'Curso completado'}</h3>
       <div className="profile-grid">
         <ProfileStat label="Nota" value={`${certificate.final_score ?? '—'}%`} />
-        <ProfileStat label="Estado" value="Valid" />
+        <ProfileStat label="Estado" value="Válido" />
         <ProfileStat label="Código" value={certificate.certificate_code || '—'} />
       </div>
       {certificate.verification_slug ? (
@@ -2460,8 +2261,8 @@ async function openStudentPrivateAsset(
 }
 
 function withAlumnoTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  return nuevos Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(nuevos Error(message)), timeoutMs);
 
     Promise.resolve(promise)
       .then((value) => {
@@ -2477,11 +2278,11 @@ function withAlumnoTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, messag
 
 function formatShortDate(value: string) {
   try {
-    return new Intl.DateTimeFormat('es-ES', {
+    return nuevos Intl.DateTimeFormat('es-ES', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
-    }).format(new Date(value));
+    }).format(nuevos Date(value));
   } catch {
     return '—';
   }
@@ -2657,9 +2458,9 @@ function GlobalStyles() {
       .premium-course-image.list { height: 100%; min-height: 216px; }
       .premium-image-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,6,0), rgba(5,7,6,.86)), radial-gradient(circle at top right, rgba(var(--green-rgb),.13), transparent 34%); }
       .course-top-badges { position: absolute; left: 14px; top: 14px; display: flex; gap: 8px; z-index: 2; }
-      .progress-badge,.completed-badge { border-radius: 5px; padding: 6px 9px; font-size: 10px; line-height: 1; letter-spacing: .12em; text-transform: uppercase; font-weight: 900; }
+      .progress-badge,.completadod-badge { border-radius: 5px; padding: 6px 9px; font-size: 10px; line-height: 1; letter-spacing: .12em; text-transform: uppercase; font-weight: 900; }
       .progress-badge { border: 1px solid rgba(var(--green-rgb),.34); background: rgba(var(--green-rgb),.12); color: var(--green); }
-      .completed-badge { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.055); color: rgba(244,246,242,.74); }
+      .completadod-badge { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.055); color: rgba(244,246,242,.74); }
       .bookmark-icon { position: absolute; right: 14px; top: 14px; color: rgba(244,246,242,.76); z-index: 2; width: 24px; height: 24px; display: grid; place-items: center; }
       .premium-course-body { padding: 16px; display: flex; flex-direction: column; flex: 1; min-width: 0; }
       .premium-course-body h3 { margin: 0; min-height: 44px; color: var(--white); font-size: 21px; line-height: 1.08; letter-spacing: -.035em; font-weight: 900; }
@@ -2729,7 +2530,7 @@ function GlobalStyles() {
       .lesson-name-cell p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
       .lesson-type-pill { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 800; }
       .lesson-status { justify-self: start; font-size: 12px; font-weight: 800; }
-      .lesson-status.completed { color: var(--green); font-weight: 900; }
+      .lesson-status.completadod { color: var(--green); font-weight: 900; }
       .lesson-status.active { color: var(--green); background: rgba(var(--green-rgb),.1); border: 1px solid rgba(var(--green-rgb),.2); border-radius: 999px; padding: 6px 9px; font-size: 11px; font-weight: 900; }
       .lesson-status.pending { color: var(--muted); }
       .lesson-status.locked { color: var(--soft); }
@@ -5442,6 +5243,408 @@ function GlobalStyles() {
       }
 
 
+
+      /* GHC ACADEMY · ESTÉTICA APROBADA CONSOLIDADA
+         Oscura premium / grafito / carbón / blanco roto / verde controlado.
+         Esta capa mantiene funcionalidades y fuerza coherencia visual en el área alumno. */
+
+      .student-page {
+        background:
+          radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), .075), transparent 32%),
+          radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
+          linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%) !important;
+      }
+
+      .shell {
+        padding: 22px 24px 34px !important;
+      }
+
+      .sidebar {
+        background:
+          linear-gradient(180deg, rgba(8,11,10,.985), rgba(3,5,4,.965)),
+          #050706 !important;
+        border-right: 1px solid rgba(255,255,255,.075) !important;
+        box-shadow: 18px 0 80px rgba(0,0,0,.22);
+      }
+
+      .nav-item {
+        border-radius: 14px !important;
+        transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
+      }
+
+      .nav-item:hover {
+        color: rgba(244,246,242,.88);
+        background: rgba(255,255,255,.035);
+        border-color: rgba(255,255,255,.08);
+      }
+
+      .nav-item.active {
+        border-color: rgba(var(--green-rgb), .24) !important;
+        background:
+          linear-gradient(90deg, rgba(var(--green-rgb),.145), rgba(var(--green-rgb),.045) 64%, rgba(255,255,255,.018)) !important;
+        color: var(--green) !important;
+        box-shadow: inset 3px 0 0 rgba(var(--green-rgb),.86), 0 12px 34px rgba(var(--green-rgb),.045) !important;
+      }
+
+      .topbar {
+        min-height: 64px !important;
+        border-bottom-color: rgba(255,255,255,.07) !important;
+      }
+
+      .breadcrumb,
+      .topbar-actions a {
+        color: rgba(244,246,242,.66) !important;
+      }
+
+      .topbar-actions a:nth-child(2) {
+        color: var(--green) !important;
+      }
+
+      .notice {
+        border-radius: 18px !important;
+        color: rgba(244,246,242,.78) !important;
+        background:
+          linear-gradient(90deg, rgba(var(--green-rgb),.075), rgba(255,255,255,.022)) !important;
+      }
+
+      .progress-card,
+      .next-card,
+      .panel,
+      .mock-mini,
+      .cert-mini,
+      .roadmap-panel,
+      .lesson-panel,
+      .mock-feature,
+      .exam-simulator-card,
+      .exam-rules-card,
+      .latest-resultados-card,
+      .readiness-card,
+      .module-exams-card,
+      .analytics-card,
+      .premium-course-card,
+      .premium-course-card-list,
+      .certificate-card,
+      .curriculum-metric,
+      .performance-profile-card,
+      .performance-metrics-strip,
+      .performance-progress-card,
+      .performance-cert-card,
+      .performance-activity-card,
+      .performance-top-courses-card,
+      .performance-security-card,
+      .cert-final-available,
+      .cert-final-how,
+      .cert-final-verify,
+      .cert-final-status {
+        border-radius: 22px !important;
+        border: 1px solid rgba(255,255,255,.085) !important;
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.90) !important;
+        box-shadow: 0 24px 82px rgba(0,0,0,.22) !important;
+      }
+
+      .progress-card h2,
+      .panel > h2,
+      .roadmap-panel h2,
+      .lesson-panel h2,
+      .courses-page h1,
+      .curriculum-head h1,
+      .mock-title-block h1,
+      .performance-pro-header h1,
+      .cert-final-copy h1 {
+        letter-spacing: -.055em !important;
+        color: var(--white) !important;
+      }
+
+      .progress-card > p,
+      .next-body p,
+      .roadmap-panel > p,
+      .lesson-panel p,
+      .curriculum-head p,
+      .courses-page > section p,
+      .mock-title-block p,
+      .performance-pro-header p,
+      .cert-final-subtitle {
+        color: rgba(244,246,242,.60) !important;
+      }
+
+      .next-card,
+      .mock-mini,
+      .cert-mini {
+        overflow: hidden !important;
+      }
+
+      .next-image,
+      .premium-course-image,
+      .roadmap-current-image,
+      .exam-laptop-visual {
+        filter: grayscale(.92) contrast(1.06) brightness(.70) !important;
+      }
+
+      .primary-action,
+      .primary-button-small,
+      .mock-primary-button,
+      .cert-final-primary,
+      .cert-pro-primary,
+      .mock-mini button,
+      .cert-mini button {
+        border-radius: 999px !important;
+        background: linear-gradient(135deg, var(--green), #7bee65) !important;
+        color: #061008 !important;
+        font-weight: 950 !important;
+        box-shadow: 0 0 30px rgba(var(--green-rgb),.14) !important;
+      }
+
+      .secondary-button,
+      .secondary-button-small,
+      .review-button,
+      .mock-secondary-button,
+      .mock-ghost-button {
+        border-radius: 999px !important;
+        background: rgba(255,255,255,.04) !important;
+        border-color: rgba(255,255,255,.12) !important;
+        color: rgba(244,246,242,.84) !important;
+      }
+
+      .filters label,
+      .filters button,
+      .filters select,
+      .view-toggle,
+      .curriculum-side-head select {
+        border-radius: 14px !important;
+        background: rgba(255,255,255,.032) !important;
+        border-color: rgba(255,255,255,.09) !important;
+      }
+
+      .filters button.active,
+      .view-toggle button.active {
+        background: rgba(var(--green-rgb),.105) !important;
+        border-color: rgba(var(--green-rgb),.25) !important;
+        color: var(--green) !important;
+      }
+
+      .premium-course-card,
+      .premium-course-card-list {
+        overflow: hidden !important;
+      }
+
+      .premium-course-body h3 {
+        font-weight: 950 !important;
+      }
+
+      .premium-metric,
+      .mini-stats,
+      .compact-row,
+      .roadmap-row,
+      .lesson-row,
+      .profile-stat,
+      .empty-state,
+      .performance-chart-wrap,
+      .performance-insight-row,
+      .performance-cert-row,
+      .performance-security-item,
+      .cert-final-issued,
+      .cert-final-locked,
+      .cert-final-empty {
+        border-radius: 16px !important;
+        border-color: rgba(255,255,255,.075) !important;
+        background: rgba(255,255,255,.026) !important;
+      }
+
+      .roadmap-current-card {
+        border-radius: 20px !important;
+        border-color: rgba(var(--green-rgb),.36) !important;
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.12), transparent 36%),
+          linear-gradient(100deg, rgba(var(--green-rgb),.085), rgba(255,255,255,.024)) !important;
+        box-shadow: 0 22px 70px rgba(0,0,0,.20), 0 0 32px rgba(var(--green-rgb),.055) !important;
+      }
+
+      .roadmap-row.selectable:hover,
+      .roadmap-current-card:hover,
+      .compact-row:hover,
+      .premium-course-card:hover,
+      .premium-course-card-list:hover {
+        transform: translateY(-1px);
+        border-color: rgba(var(--green-rgb),.26) !important;
+      }
+
+      .lesson-row {
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        align-items: stretch !important;
+        padding: 8px !important;
+      }
+
+      .lesson-main-link {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: minmax(0,1fr) 100px 110px;
+        gap: 12px;
+        align-items: center;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .lesson-main-link.disabled {
+        pointer-events: none;
+      }
+
+      .student-asset-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 7px;
+        flex-wrap: wrap;
+        padding-left: 10px;
+      }
+
+      .student-asset-actions button {
+        min-height: 36px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .24);
+        background: rgba(var(--green-rgb), .075);
+        color: var(--green);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 0 11px;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .student-asset-actions button:hover {
+        border-color: rgba(var(--green-rgb), .42);
+        background: rgba(var(--green-rgb), .12);
+        transform: translateY(-1px);
+      }
+
+      .lesson-status.active,
+      .progress-badge,
+      .completed-badge,
+      .in-progress-mini,
+      .cert-final-pill-issued,
+      .cert-final-pill-locked {
+        border-radius: 999px !important;
+      }
+
+      .curriculum-banner {
+        border-radius: 22px !important;
+        border-color: rgba(var(--green-rgb),.16) !important;
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.11), transparent 34%),
+          linear-gradient(90deg, rgba(var(--green-rgb),.07), rgba(255,255,255,.024)) !important;
+      }
+
+      .exams-standby-page {
+        display: grid;
+        gap: 18px;
+      }
+
+      .exams-standby-hero {
+        grid-template-columns: minmax(0, .9fr) minmax(520px, 1fr);
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,.085);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.09), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.92);
+        padding: 22px;
+        box-shadow: 0 24px 82px rgba(0,0,0,.22);
+      }
+
+      .exams-standby-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .exams-standby-card {
+        min-height: 250px;
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,.085);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.065), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.92);
+        padding: 22px;
+        display: grid;
+        align-content: start;
+        gap: 14px;
+        box-shadow: 0 24px 82px rgba(0,0,0,.18);
+      }
+
+      .exams-standby-card.featured {
+        border-color: rgba(var(--green-rgb),.22);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.13), transparent 36%),
+          linear-gradient(145deg, rgba(var(--green-rgb),.055), rgba(255,255,255,.018)),
+          rgba(8,12,10,.94);
+      }
+
+      .exams-standby-card > span {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        background: rgba(var(--green-rgb),.08);
+        border: 1px solid rgba(var(--green-rgb),.18);
+      }
+
+      .exams-standby-card h2 {
+        margin: 0;
+        font-size: 26px;
+        line-height: 1;
+        letter-spacing: -.04em;
+        font-weight: 950;
+      }
+
+      .exams-standby-card p {
+        margin: 0;
+        color: rgba(244,246,242,.60);
+        line-height: 1.62;
+      }
+
+      .exams-standby-card em {
+        width: fit-content;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb),.22);
+        background: rgba(var(--green-rgb),.075);
+        color: var(--green);
+        padding: 7px 10px;
+        font-size: 11px;
+        font-style: normal;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+      }
+
+      @media (max-width: 1120px) {
+        .exams-standby-hero,
+        .exams-standby-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 980px) {
+        .lesson-row,
+        .lesson-main-link {
+          grid-template-columns: 1fr !important;
+        }
+
+        .student-asset-actions {
+          justify-content: flex-start;
+          padding-left: 0;
+          padding-top: 8px;
+        }
+      }
+
     `}</style>
   );
 }
@@ -5472,7 +5675,7 @@ function buildModuleViews({
       (lesson) => String(lesson.module_id) === String(module.id)
     );
 
-    const completedLecciones = moduleLecciones.filter((lesson) =>
+    const completadodLecciones = moduleLecciones.filter((lesson) =>
       lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
     ).length;
 
@@ -5480,7 +5683,7 @@ function buildModuleViews({
       (completion) => String(completion.module_id) === String(module.id)
     );
 
-    const previousModule = courseCard.courseMódulos[index - 1];
+    const previousMódulo = courseCard.courseMódulos[index - 1];
 
     const isUnlocked =
       index === 0 ||
@@ -5493,21 +5696,21 @@ function buildModuleViews({
       Boolean(courseCard.nextLesson) &&
       String(courseCard.nextLesson?.module_id) === String(module.id);
 
-    const nextLessonInsideModule = moduleLecciones.find(
+    const nextLessonInsideMódulo = moduleLecciones.find(
       (lesson) =>
         !lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id))
     );
 
-    const targetLesson = nextLessonInsideModule || moduleLecciones[0];
+    const targetLesson = nextLessonInsideMódulo || moduleLecciones[0];
 
     return {
       module,
       index,
       lessons: moduleLecciones,
-      completedLecciones,
+      completadodLecciones,
       progress:
         moduleLecciones.length > 0
-          ? Math.round((completedLecciones / moduleLecciones.length) * 100)
+          ? Math.round((completadodLecciones / moduleLecciones.length) * 100)
           : isCompletado
             ? 100
             : 0,
@@ -5537,16 +5740,16 @@ function findNextLesson({
   lessonProgreso: AnyRecord[];
   moduleCompletions: AnyRecord[];
 }) {
-  const completedLessonIds = new Set(lessonProgreso.map((item) => String(item.lesson_id)));
-  const completedModuleIds = new Set(moduleCompletions.map((item) => String(item.module_id)));
+  const completadodLessonIds = nuevos Set(lessonProgreso.map((item) => String(item.lesson_id)));
+  const completadodModuleIds = nuevos Set(moduleCompletions.map((item) => String(item.module_id)));
 
   for (let index = 0; index < courseMódulos.length; index++) {
     const module = courseMódulos[index];
 
     const moduleUnlocked =
       index === 0 ||
-      completedModuleIds.has(String(module.id)) ||
-      completedModuleIds.has(String(courseMódulos[index - 1]?.id));
+      completadodModuleIds.has(String(module.id)) ||
+      completadodModuleIds.has(String(courseMódulos[index - 1]?.id));
 
     if (!moduleUnlocked) continue;
 
@@ -5554,7 +5757,7 @@ function findNextLesson({
       .filter((lesson) => String(lesson.module_id) === String(module.id))
       .sort(sortLecciones);
 
-    const nextLesson = moduleLecciones.find((lesson) => !completedLessonIds.has(String(lesson.id)));
+    const nextLesson = moduleLecciones.find((lesson) => !completadodLessonIds.has(String(lesson.id)));
 
     if (nextLesson) return nextLesson;
   }
