@@ -815,6 +815,27 @@ export default function Page() {
               </label>
             </div>
 
+            {(lessonForm.pdfUrl || lessonForm.videoUrl || lessonForm.audioUrl) ? (
+              <div className="lesson-existing-assets">
+                <strong>Archivos privados asociados</strong>
+                {lessonForm.pdfUrl ? (
+                  <button type="button" onClick={() => openPrivateLessonAsset(lessonForm.pdfUrl, setSystemMessage, "PDF")}>
+                    Ver PDF actual
+                  </button>
+                ) : null}
+                {lessonForm.videoUrl ? (
+                  <button type="button" onClick={() => openPrivateLessonAsset(lessonForm.videoUrl, setSystemMessage, "vídeo")}>
+                    Ver vídeo actual
+                  </button>
+                ) : null}
+                {lessonForm.audioUrl ? (
+                  <button type="button" onClick={() => openPrivateLessonAsset(lessonForm.audioUrl, setSystemMessage, "audio")}>
+                    Ver audio actual
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="form-warning">
               <strong>Nota GHC:</strong> los archivos se suben al bucket privado ghc-course-assets. Más adelante serviremos el contenido al alumno con URLs firmadas y control de acceso.
             </div>
@@ -1073,6 +1094,39 @@ function createSlug(value: string) {
   const suffix = Math.random().toString(36).slice(2, 7);
 
   return `${base || "curso-ghc"}-${suffix}`;
+}
+
+async function openPrivateLessonAsset(pathValue: unknown, setSystemMessage: (message: string) => void, label = "archivo") {
+  const path = String(pathValue || "").trim();
+
+  if (!path || path.toLowerCase() === "null") {
+    setSystemMessage(`Esta lección no tiene ${label} asociado.`);
+    return;
+  }
+
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    window.open(path, "_blank", "noopener,noreferrer");
+    setSystemMessage(`Archivo externo abierto para ${label}.`);
+    return;
+  }
+
+  setSystemMessage(`Generando enlace privado temporal para ${label} · ${ADMIN_BUILD_ID}`);
+
+  const { data, error } = await withTimeout(
+    supabase.storage
+      .from(COURSE_ASSETS_BUCKET)
+      .createSignedUrl(path, 60 * 10),
+    12000,
+    `Supabase Storage no respondió al generar enlace firmado para ${label}.`
+  );
+
+  if (error || !data?.signedUrl) {
+    setSystemMessage(`${error?.message || "No se pudo generar enlace privado temporal."} · Revisa que el archivo exista en ${COURSE_ASSETS_BUCKET}.`);
+    return;
+  }
+
+  window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  setSystemMessage(`Enlace privado temporal generado para ${label}. Caduca en 10 minutos.`);
 }
 
 async function buildLessonFormWithUploadedAssets({
@@ -1563,7 +1617,24 @@ function ContenidoAdmin({
                       <strong>{lesson.title || `Lección ${index + 1}`}</strong>
                       <p>{getLessonTypeLabel(lesson.content_type || lesson.type)} · Orden {lesson.sort_order || index + 1} · {lesson.duration_minutes || 0} min</p>
                     </div>
-                    <button type="button" onClick={() => openEditLesson(lesson)}>Editar</button>
+                    <div className="lesson-row-actions">
+                      {lesson.pdf_url ? (
+                        <button type="button" onClick={() => openPrivateLessonAsset(lesson.pdf_url, setSystemMessage, "PDF")}>
+                          Ver PDF
+                        </button>
+                      ) : null}
+                      {lesson.video_url ? (
+                        <button type="button" onClick={() => openPrivateLessonAsset(lesson.video_url, setSystemMessage, "vídeo")}>
+                          Ver vídeo
+                        </button>
+                      ) : null}
+                      {lesson.audio_url ? (
+                        <button type="button" onClick={() => openPrivateLessonAsset(lesson.audio_url, setSystemMessage, "audio")}>
+                          Ver audio
+                        </button>
+                      ) : null}
+                      <button type="button" onClick={() => openEditLesson(lesson)}>Editar</button>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -2137,7 +2208,7 @@ function GlobalStyles() {
 
       .lesson-admin-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18);padding:18px}
       .lesson-admin-list{display:grid;gap:10px}
-      .lesson-admin-row{min-height:66px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);display:grid;grid-template-columns:46px minmax(0,1fr) 92px;gap:12px;align-items:center;padding:12px}
+      .lesson-admin-row{min-height:66px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.026);display:grid;grid-template-columns:46px minmax(0,1fr) minmax(160px,auto);gap:12px;align-items:center;padding:12px}
       .lesson-admin-index{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:rgba(99,229,70,.09);color:var(--green);border:1px solid rgba(99,229,70,.18);font-weight:950}
       .lesson-admin-row strong{display:block;color:var(--white)}
       .lesson-admin-row p{margin:5px 0 0;color:var(--muted);font-size:12px}
@@ -2175,6 +2246,15 @@ function GlobalStyles() {
       .lesson-upload-field input[type="file"]{width:100%;border-radius:12px;border:1px dashed rgba(99,229,70,.28);background:rgba(255,255,255,.035);color:var(--muted);padding:10px;font-size:12px}
       .lesson-upload-field small{display:block;color:rgba(244,246,242,.62);font-size:12px;line-height:1.35;word-break:break-word}
       @media(max-width:1080px){.lesson-upload-grid{grid-template-columns:1fr}}
+
+
+      .lesson-row-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+      .lesson-row-actions button{min-height:34px;border-radius:10px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);cursor:pointer;font-weight:900;padding:0 10px;font-size:12px}
+      .lesson-row-actions button:last-child{border-color:rgba(255,255,255,.10);background:rgba(255,255,255,.035);color:var(--white)}
+      .lesson-existing-assets{border:1px solid rgba(99,229,70,.18);border-radius:16px;background:rgba(99,229,70,.045);padding:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .lesson-existing-assets strong{width:100%;color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.13em}
+      .lesson-existing-assets button{min-height:36px;border-radius:999px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.08);color:var(--green);font-weight:900;padding:0 12px;cursor:pointer}
+      @media(max-width:1080px){.lesson-row-actions{justify-content:flex-start}.lesson-existing-assets{align-items:flex-start}}
 
   `}</style>;
 }
