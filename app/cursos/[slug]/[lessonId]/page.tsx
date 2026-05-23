@@ -285,43 +285,55 @@ export default function LessonPage() {
         )}
 
         {(type === 'pdf' || isMixed || pdfUrl) && pdfUrl && (
-          <section className="ghc-content-card ghc-pdf-card">
-            <div className="ghc-content-head">
-              <div>
-                <p className="ghc-content-label">PDF de la lección</p>
-                <span className="ghc-content-note">
-                  Vista privada temporal. El enlace caduca y no queda público.
-                </span>
+          <section className="ghc-content-card ghc-pdf-studio-card">
+            <div className="ghc-pdf-studio-header">
+              <div className="ghc-pdf-studio-title">
+                <span className="ghc-pdf-studio-kicker">Material privado</span>
+                <h2>PDF de la lección</h2>
+                <p>
+                  Visualización protegida con acceso temporal. El archivo no es público y el enlace caduca.
+                </p>
               </div>
 
-              <div className="ghc-pdf-actions">
-                <button type="button" onClick={() => setPdfFullscreen(true)} className="ghc-private-open">
-                  Ver a pantalla completa
+              <div className="ghc-pdf-studio-actions">
+                <button type="button" onClick={() => setPdfFullscreen(true)}>
+                  Pantalla completa
                 </button>
-                <a href={pdfUrl} target="_blank" rel="noreferrer" className="ghc-private-open muted">
-                  Abrir en pestaña
+                <a href={pdfUrl} target="_blank" rel="noreferrer">
+                  Abrir aparte
                 </a>
               </div>
             </div>
 
-            <iframe src={pdfUrl} className="ghc-pdf" title="PDF privado de la lección" />
+            <div className="ghc-pdf-premium-shell">
+              <div className="ghc-pdf-premium-topbar">
+                <span>GHC Academy · visor privado</span>
+                <strong>{currentLesson?.title || 'Lección'}</strong>
+              </div>
+
+              <iframe
+                src={decoratePdfUrl(pdfUrl)}
+                className="ghc-pdf-premium-frame"
+                title="PDF privado de la lección"
+              />
+            </div>
           </section>
         )}
 
         {pdfFullscreen && pdfUrl && (
-          <div className="ghc-pdf-fullscreen" role="dialog" aria-modal="true">
-            <div className="ghc-pdf-fullscreen-top">
+          <div className="ghc-pdf-premium-fullscreen" role="dialog" aria-modal="true">
+            <div className="ghc-pdf-premium-fullscreen-top">
               <div>
+                <span>GHC Academy · visor privado</span>
                 <strong>{currentLesson?.title || 'PDF de la lección'}</strong>
-                <span>Acceso privado temporal · GHC Academy</span>
               </div>
 
               <button type="button" onClick={() => setPdfFullscreen(false)}>
-                Cerrar
+                Cerrar visor
               </button>
             </div>
 
-            <iframe src={pdfUrl} title="PDF privado a pantalla completa" />
+            <iframe src={decoratePdfUrl(pdfUrl)} title="PDF privado a pantalla completa" />
           </div>
         )}
 
@@ -602,8 +614,248 @@ export default function LessonPage() {
         }
       `}</style>
 
+
+      <style jsx global>{`
+        .ghc-pdf-studio-card {
+          padding: 0 !important;
+          overflow: hidden;
+          border: 1px solid rgba(99,229,70,.16) !important;
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.10), transparent 34%),
+            linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+            rgba(7,10,9,.96) !important;
+          box-shadow: 0 26px 90px rgba(0,0,0,.28);
+        }
+
+        .ghc-pdf-studio-header {
+          min-height: 102px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 22px;
+          border-bottom: 1px solid rgba(255,255,255,.08);
+          background:
+            linear-gradient(90deg, rgba(99,229,70,.08), rgba(255,255,255,.02)),
+            rgba(5,7,6,.62);
+        }
+
+        .ghc-pdf-studio-title {
+          display: grid;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .ghc-pdf-studio-kicker {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .18em;
+          font-size: 10px;
+          font-weight: 950;
+        }
+
+        .ghc-pdf-studio-title h2 {
+          margin: 0;
+          color: #f4f6f2;
+          font-size: clamp(24px, 2.4vw, 36px);
+          line-height: .95;
+          letter-spacing: -.045em;
+          font-weight: 950;
+        }
+
+        .ghc-pdf-studio-title p {
+          margin: 0;
+          color: rgba(244,246,242,.58);
+          font-size: 13px;
+          line-height: 1.55;
+          max-width: 680px;
+        }
+
+        .ghc-pdf-studio-actions {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          flex-shrink: 0;
+        }
+
+        .ghc-pdf-studio-actions button,
+        .ghc-pdf-studio-actions a {
+          min-height: 42px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 16px;
+          text-decoration: none;
+          font-size: 12px;
+          font-weight: 950;
+          letter-spacing: .02em;
+          cursor: pointer;
+        }
+
+        .ghc-pdf-studio-actions button {
+          border: 1px solid rgba(99,229,70,.35);
+          background: linear-gradient(135deg, #63e546, #7bee65);
+          color: #061008;
+          box-shadow: 0 0 30px rgba(99,229,70,.14);
+        }
+
+        .ghc-pdf-studio-actions a {
+          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(255,255,255,.04);
+          color: rgba(244,246,242,.82);
+        }
+
+        .ghc-pdf-premium-shell {
+          padding: 18px;
+          background:
+            radial-gradient(circle at 50% 0%, rgba(99,229,70,.065), transparent 34%),
+            #050706;
+        }
+
+        .ghc-pdf-premium-topbar {
+          min-height: 48px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-bottom: 0;
+          border-radius: 18px 18px 0 0;
+          background:
+            linear-gradient(90deg, rgba(99,229,70,.10), rgba(255,255,255,.025)),
+            rgba(9,13,11,.96);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 0 16px;
+        }
+
+        .ghc-pdf-premium-topbar span {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .16em;
+          font-size: 10px;
+          font-weight: 950;
+          white-space: nowrap;
+        }
+
+        .ghc-pdf-premium-topbar strong {
+          color: rgba(244,246,242,.82);
+          font-size: 12px;
+          font-weight: 850;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ghc-pdf-premium-frame {
+          width: 100%;
+          height: 82vh;
+          min-height: 760px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 0 0 18px 18px;
+          background: rgba(255,255,255,.035);
+          display: block;
+        }
+
+        .ghc-pdf-premium-fullscreen {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background:
+            radial-gradient(circle at top right, rgba(99,229,70,.10), transparent 30%),
+            #050706;
+          display: grid;
+          grid-template-rows: 74px minmax(0, 1fr);
+        }
+
+        .ghc-pdf-premium-fullscreen-top {
+          border-bottom: 1px solid rgba(255,255,255,.09);
+          background:
+            linear-gradient(90deg, rgba(99,229,70,.10), rgba(255,255,255,.02)),
+            rgba(8,12,10,.98);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 12px 20px;
+        }
+
+        .ghc-pdf-premium-fullscreen-top div {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .ghc-pdf-premium-fullscreen-top span {
+          color: #63e546;
+          text-transform: uppercase;
+          letter-spacing: .16em;
+          font-size: 10px;
+          font-weight: 950;
+        }
+
+        .ghc-pdf-premium-fullscreen-top strong {
+          color: #f4f6f2;
+          font-size: 15px;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ghc-pdf-premium-fullscreen-top button {
+          min-height: 42px;
+          border-radius: 999px;
+          border: 1px solid rgba(99,229,70,.35);
+          background: linear-gradient(135deg, #63e546, #7bee65);
+          color: #061008;
+          padding: 0 16px;
+          font-weight: 950;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        .ghc-pdf-premium-fullscreen iframe {
+          width: 100%;
+          height: 100%;
+          border: 0;
+          background: rgba(255,255,255,.035);
+        }
+
+        @media (max-width: 820px) {
+          .ghc-pdf-studio-header {
+            align-items: stretch;
+            flex-direction: column;
+          }
+
+          .ghc-pdf-studio-actions {
+            justify-content: flex-start;
+          }
+
+          .ghc-pdf-premium-topbar {
+            align-items: flex-start;
+            justify-content: center;
+            flex-direction: column;
+            padding: 10px 14px;
+          }
+
+          .ghc-pdf-premium-frame {
+            height: 78vh;
+            min-height: 640px;
+          }
+        }
+      `}</style>
+
     </main>
   )
+}
+
+function decoratePdfUrl(url: string) {
+  if (!url) return ''
+
+  const separator = url.includes('#') ? '&' : '#'
+  return `${url}${separator}toolbar=0&navpanes=0&scrollbar=1&view=FitH`
 }
 
 function getLessonType(lesson: AnyRecord) {
