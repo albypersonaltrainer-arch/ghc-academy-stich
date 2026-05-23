@@ -33,6 +33,7 @@ export default function LessonPage() {
     pdf: ''
   })
   const [assetLoading, setAssetLoading] = useState(false)
+  const [pdfFullscreen, setPdfFullscreen] = useState(false)
   const [completedLessons, setCompletedLessons] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -284,15 +285,44 @@ export default function LessonPage() {
         )}
 
         {(type === 'pdf' || isMixed || pdfUrl) && pdfUrl && (
-          <section className="ghc-content-card">
+          <section className="ghc-content-card ghc-pdf-card">
             <div className="ghc-content-head">
-              <p className="ghc-content-label">PDF de la lección</p>
-              <a href={pdfUrl} target="_blank" rel="noreferrer" className="ghc-private-open">
-                Abrir PDF
-              </a>
+              <div>
+                <p className="ghc-content-label">PDF de la lección</p>
+                <span className="ghc-content-note">
+                  Vista privada temporal. El enlace caduca y no queda público.
+                </span>
+              </div>
+
+              <div className="ghc-pdf-actions">
+                <button type="button" onClick={() => setPdfFullscreen(true)} className="ghc-private-open">
+                  Ver a pantalla completa
+                </button>
+                <a href={pdfUrl} target="_blank" rel="noreferrer" className="ghc-private-open muted">
+                  Abrir en pestaña
+                </a>
+              </div>
             </div>
-            <iframe src={pdfUrl} className="ghc-pdf" />
+
+            <iframe src={pdfUrl} className="ghc-pdf" title="PDF privado de la lección" />
           </section>
+        )}
+
+        {pdfFullscreen && pdfUrl && (
+          <div className="ghc-pdf-fullscreen" role="dialog" aria-modal="true">
+            <div className="ghc-pdf-fullscreen-top">
+              <div>
+                <strong>{currentLesson?.title || 'PDF de la lección'}</strong>
+                <span>Acceso privado temporal · GHC Academy</span>
+              </div>
+
+              <button type="button" onClick={() => setPdfFullscreen(false)}>
+                Cerrar
+              </button>
+            </div>
+
+            <iframe src={pdfUrl} title="PDF privado a pantalla completa" />
+          </div>
         )}
 
         {textContent ? (
@@ -457,6 +487,121 @@ export default function LessonPage() {
           </div>
         </section>
       </div>
+
+      <style jsx global>{`
+        .ghc-pdf-card {
+          padding: 18px !important;
+        }
+
+        .ghc-content-note {
+          display: block;
+          margin-top: 6px;
+          color: rgba(244,246,242,.52);
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .ghc-pdf-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        button.ghc-private-open {
+          cursor: pointer;
+          font: inherit;
+        }
+
+        .ghc-private-open.muted {
+          border-color: rgba(255,255,255,.12);
+          background: rgba(255,255,255,.04);
+          color: rgba(244,246,242,.78);
+        }
+
+        .ghc-pdf {
+          width: 100% !important;
+          min-height: min(82vh, 920px) !important;
+          height: 82vh !important;
+          border: 0;
+          border-radius: 18px;
+          background: rgba(255,255,255,.04);
+        }
+
+        .ghc-pdf-fullscreen {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background: #050706;
+          display: grid;
+          grid-template-rows: 72px minmax(0, 1fr);
+        }
+
+        .ghc-pdf-fullscreen-top {
+          border-bottom: 1px solid rgba(255,255,255,.09);
+          background: rgba(8,12,10,.98);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 12px 18px;
+        }
+
+        .ghc-pdf-fullscreen-top div {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .ghc-pdf-fullscreen-top strong {
+          color: #f4f6f2;
+          font-size: 15px;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ghc-pdf-fullscreen-top span {
+          color: rgba(244,246,242,.54);
+          font-size: 12px;
+        }
+
+        .ghc-pdf-fullscreen-top button {
+          min-height: 40px;
+          border-radius: 999px;
+          border: 1px solid rgba(99,229,70,.26);
+          background: rgba(99,229,70,.09);
+          color: #63e546;
+          padding: 0 16px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .ghc-pdf-fullscreen iframe {
+          width: 100%;
+          height: 100%;
+          border: 0;
+          background: rgba(255,255,255,.04);
+        }
+
+        @media (max-width: 760px) {
+          .ghc-content-head {
+            align-items: stretch;
+            flex-direction: column;
+          }
+
+          .ghc-pdf-actions {
+            justify-content: flex-start;
+          }
+
+          .ghc-pdf {
+            height: 78vh !important;
+            min-height: 640px !important;
+          }
+        }
+      `}</style>
+
     </main>
   )
 }
