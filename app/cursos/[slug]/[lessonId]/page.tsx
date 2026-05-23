@@ -12,6 +12,8 @@ const supabase = createClient(
 const SAMPLE_VIDEO_URL =
   'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
 
+const COURSE_ASSETS_BUCKET = 'ghc-course-assets'
+
 type AnyRecord = Record<string, any>
 
 export default function LessonPage() {
@@ -25,6 +27,12 @@ export default function LessonPage() {
   const [course, setCourse] = useState<AnyRecord | null>(null)
   const [modules, setModules] = useState<AnyRecord[]>([])
   const [currentLesson, setCurrentLesson] = useState<AnyRecord | null>(null)
+  const [signedAssets, setSignedAssets] = useState<{ video: string; audio: string; pdf: string }>({
+    video: '',
+    audio: '',
+    pdf: ''
+  })
+  const [assetLoading, setAssetLoading] = useState(false)
   const [completedLessons, setCompletedLessons] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -148,6 +156,35 @@ export default function LessonPage() {
       ? Math.round((completedLessons.length / allLessons.length) * 100)
       : 0
 
+
+  useEffect(() => {
+    const resolveLessonAssets = async () => {
+      if (!currentLesson) {
+        setSignedAssets({ video: '', audio: '', pdf: '' })
+        return
+      }
+
+      try {
+        setAssetLoading(true)
+
+        const [video, audio, pdf] = await Promise.all([
+          resolvePrivateAssetUrl(getRawVideoPath(currentLesson), 'vídeo'),
+          resolvePrivateAssetUrl(getRawAudioPath(currentLesson), 'audio'),
+          resolvePrivateAssetUrl(getRawPdfPath(currentLesson), 'PDF')
+        ])
+
+        setSignedAssets({ video, audio, pdf })
+      } catch (error) {
+        console.error(error)
+        setErrorMessage(getErrorText(error, 'No se pudieron preparar los archivos privados de la lección.'))
+      } finally {
+        setAssetLoading(false)
+      }
+    }
+
+    resolveLessonAssets()
+  }, [currentLesson])
+
   const goToLesson = (id: string) => {
     router.push(`/cursos/${slug}/${id}`)
   }
@@ -207,31 +244,53 @@ export default function LessonPage() {
     const isMixed = type === 'mixed' || type === 'mixto'
 
     const textContent = getTextContent(currentLesson)
-    const videoUrl = getVideoUrl(currentLesson) || (isMixed ? SAMPLE_VIDEO_URL : '')
-    const audioUrl = getAudioUrl(currentLesson)
-    const pdfUrl = getPdfUrl(currentLesson)
+    const videoUrl = signedAssets.video || ''
+    const audioUrl = signedAssets.audio || ''
+    const pdfUrl = signedAssets.pdf || ''
+    const hasAnyAsset = Boolean(videoUrl || audioUrl || pdfUrl)
 
     return (
       <div className="ghc-content-stack">
-        {(type === 'video' || isMixed) && videoUrl && (
-          <section className="ghc-content-card">
-            <p className="ghc-content-label">Vídeo de la lección</p>
-            <video src={videoUrl} controls className="ghc-video" />
+        {assetLoading && (
+          <section className="ghc-content-card ghc-asset-loading">
+            Preparando acceso privado a los archivos de la lección...
           </section>
         )}
 
-        {(type === 'audio' || isMixed) && audioUrl && (
+        {(type === 'video' || isMixed || videoUrl) && videoUrl && (
           <section className="ghc-content-card">
-            <p className="ghc-content-label">Audio de la lección</p>
+            <div className="ghc-content-head">
+              <p className="ghc-content-label">Vídeo de la lección</p>
+              <a href={videoUrl} target="_blank" rel="noreferrer" className="ghc-private-open">
+                Abrir en pestaña
+              </a>
+            </div>
+            <video src={videoUrl} controls playsInline className="ghc-video" />
+          </section>
+        )}
+
+        {(type === 'audio' || isMixed || audioUrl) && audioUrl && (
+          <section className="ghc-content-card">
+            <div className="ghc-content-head">
+              <p className="ghc-content-label">Audio de la lección</p>
+              <a href={audioUrl} target="_blank" rel="noreferrer" className="ghc-private-open">
+                Abrir en pestaña
+              </a>
+            </div>
             <audio controls className="ghc-audio">
               <source src={audioUrl} />
             </audio>
           </section>
         )}
 
-        {(type === 'pdf' || isMixed) && pdfUrl && (
+        {(type === 'pdf' || isMixed || pdfUrl) && pdfUrl && (
           <section className="ghc-content-card">
-            <p className="ghc-content-label">PDF de la lección</p>
+            <div className="ghc-content-head">
+              <p className="ghc-content-label">PDF de la lección</p>
+              <a href={pdfUrl} target="_blank" rel="noreferrer" className="ghc-private-open">
+                Abrir PDF
+              </a>
+            </div>
             <iframe src={pdfUrl} className="ghc-pdf" />
           </section>
         )}
@@ -241,11 +300,11 @@ export default function LessonPage() {
             className="ghc-content-card ghc-text-content"
             dangerouslySetInnerHTML={{ __html: textContent }}
           />
-        ) : (
+        ) : !hasAnyAsset && !assetLoading ? (
           <section className="ghc-empty-content">
             Esta lección no tiene contenido visible cargado todavía.
           </section>
-        )}
+        ) : null}
       </div>
     )
   }
@@ -423,8 +482,8 @@ function getTextContent(lesson: AnyRecord) {
   )
 }
 
-function getVideoUrl(lesson: AnyRecord) {
-  const candidates = [
+function getRawVideoPath(lesson: AnyRecord) {
+  return findAssetPath([
     lesson.video_url,
     lesson.videoUrl,
     lesson.video,
@@ -437,13 +496,11 @@ function getVideoUrl(lesson: AnyRecord) {
     lesson.url,
     lesson.file_url,
     lesson.content
-  ]
-
-  return findUrlByExtension(candidates, ['.mp4', '.webm', '.mov', '.m4v'])
+  ], ['.mp4', '.webm', '.mov', '.m4v'])
 }
 
-function getAudioUrl(lesson: AnyRecord) {
-  const candidates = [
+function getRawAudioPath(lesson: AnyRecord) {
+  return findAssetPath([
     lesson.audio_url,
     lesson.audioUrl,
     lesson.audio,
@@ -456,13 +513,11 @@ function getAudioUrl(lesson: AnyRecord) {
     lesson.url,
     lesson.file_url,
     lesson.content
-  ]
-
-  return findUrlByExtension(candidates, ['.mp3', '.wav', '.m4a', '.ogg'])
+  ], ['.mp3', '.wav', '.m4a', '.ogg', '.aac'])
 }
 
-function getPdfUrl(lesson: AnyRecord) {
-  const candidates = [
+function getRawPdfPath(lesson: AnyRecord) {
+  return findAssetPath([
     lesson.pdf_url,
     lesson.pdfUrl,
     lesson.pdf,
@@ -474,9 +529,80 @@ function getPdfUrl(lesson: AnyRecord) {
     lesson.media_url,
     lesson.url,
     lesson.content
-  ]
+  ], ['.pdf'])
+}
 
-  return findUrlByExtension(candidates, ['.pdf'])
+async function resolvePrivateAssetUrl(pathValue: any, label: string) {
+  const path = cleanAssetPath(pathValue)
+
+  if (!path) return ''
+
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+
+  const { data, error } = await withLessonTimeout(
+    supabase.storage.from(COURSE_ASSETS_BUCKET).createSignedUrl(path, 60 * 10),
+    12000,
+    `Supabase Storage no respondió al preparar el acceso privado para ${label}.`
+  )
+
+  if (error || !data?.signedUrl) {
+    throw new Error(
+      `${error?.message || `No se pudo generar el acceso privado para ${label}.`} Revisa que el archivo exista en ${COURSE_ASSETS_BUCKET}.`
+    )
+  }
+
+  return data.signedUrl
+}
+
+function cleanAssetPath(value: any) {
+  const path = String(value || '').trim()
+  if (!path || path.toLowerCase() === 'null' || path.toLowerCase() === 'undefined') return ''
+  return path
+}
+
+function findAssetPath(values: any[], extensions: string[]) {
+  const cleanValues = values
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .filter((value) => value && value.toLowerCase() !== 'null' && value.toLowerCase() !== 'undefined')
+
+  const storagePath = cleanValues.find((value) => {
+    if (value.startsWith('http://') || value.startsWith('https://')) return false
+    return extensions.some((extension) => value.toLowerCase().includes(extension))
+  })
+
+  if (storagePath) return storagePath
+
+  const externalUrl = cleanValues.find((value) =>
+    (value.startsWith('http://') || value.startsWith('https://')) &&
+    extensions.some((extension) => value.toLowerCase().includes(extension))
+  )
+
+  return externalUrl || ''
+}
+
+function withLessonTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs)
+
+    Promise.resolve(promise)
+      .then((value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      })
+      .catch((error) => {
+        window.clearTimeout(timer)
+        reject(error)
+      })
+  })
+}
+
+function getErrorText(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message
+  if (typeof error === 'string') return error
+  return fallback
 }
 
 function findUrlByExtension(values: any[], extensions: string[]) {
