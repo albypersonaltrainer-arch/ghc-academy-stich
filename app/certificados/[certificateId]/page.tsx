@@ -18,7 +18,7 @@ type Certificate = {
   status: 'valid' | 'revoked' | string;
 };
 
-const neon = '#00FF41';
+const GREEN = '#63E546';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -77,126 +77,152 @@ export default function CertificateVerificationPage() {
 
   if (loading) {
     return (
-      <main style={pageStyle}>
-        <div style={containerStyle}>
-          <p style={kickerStyle}>GHC Academy</p>
-          <h1 style={titleStyle}>Verificando certificado</h1>
-          <p style={textStyle}>Estamos comprobando la validez del certificado digital.</p>
-        </div>
+      <main className="ghc-certificate-page loading-state">
+        <Background />
+        <section className="status-card">
+          <p>GHC Academy · Digital Credential</p>
+          <h1>Verificando certificado</h1>
+          <span>Estamos comprobando la validez pública de la credencial digital.</span>
+        </section>
+        <GlobalStyles />
       </main>
     );
   }
 
   if (!certificate) {
     return (
-      <main style={pageStyle}>
-        <div style={containerStyle}>
-          <Link href="/cursos" style={backButton}>
-            ← Volver a GHC Academy
-          </Link>
-
-          <section style={errorCardStyle}>
-            <p style={kickerStyle}>Certificado no encontrado</p>
-            <h1 style={errorTitleStyle}>No se pudo verificar</h1>
-            <p style={textStyle}>{message}</p>
-          </section>
-        </div>
+      <main className="ghc-certificate-page loading-state">
+        <Background />
+        <section className="status-card error">
+          <Link href="/cursos" className="ghost-button">← Volver a GHC Academy</Link>
+          <p>Certificado no encontrado</p>
+          <h1>No se pudo verificar</h1>
+          <span>{message}</span>
+        </section>
+        <GlobalStyles />
       </main>
     );
   }
 
   const isValid = certificate.status === 'valid';
+  const publicId =
+    certificate.verification_slug ||
+    certificate.certificate_id ||
+    certificate.id ||
+    certificateId;
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <Link href="/cursos" style={backButton}>
-          ← Volver a GHC Academy
-        </Link>
+    <main className="ghc-certificate-page">
+      <Background />
 
-        <section style={certificateShellStyle}>
-          <div style={certificateHeaderStyle}>
+      <section className="certificate-shell">
+        <header className="certificate-topbar">
+          <Link href="/cursos" className="brand">
+            <span>G</span>
+            <strong>GHC</strong>
+            <em>Academy</em>
+          </Link>
+
+          <nav>
+            <Link href="/alumno">Área alumno</Link>
+            <Link href="/cursos">Cursos</Link>
+            <span className={isValid ? 'state-badge valid' : 'state-badge revoked'}>
+              {isValid ? 'Certificado válido' : 'Certificado revocado'}
+            </span>
+          </nav>
+        </header>
+
+        <section className="certificate-card">
+          <div className="watermark">GHC</div>
+          <div className="card-grid" />
+
+          <div className="certificate-header">
             <div>
-              <p style={kickerStyle}>GHC Academy · Digital Credential</p>
-
-              <h1 style={certificateTitleStyle}>
-                Certificado digital
-              </h1>
-
-              <p style={subtitleStyle}>
-                Verificación pública de finalización académica.
-              </p>
+              <p className="kicker">GHC Academy · Digital Credential</p>
+              <h1>Certificado digital</h1>
+              <span>Verificación pública de finalización académica.</span>
             </div>
 
-            <div style={statusBoxStyle(isValid)}>
-              <p style={smallLabel}>Estado</p>
-              <p style={statusValueStyle(isValid)}>
-                {isValid ? 'Válido' : 'Revocado'}
-              </p>
-            </div>
+            <aside className={isValid ? 'validity valid' : 'validity revoked'}>
+              <small>Estado</small>
+              <strong>{isValid ? 'Válido' : 'Revocado'}</strong>
+              <em>{source === 'preview' ? 'Modo preview' : 'Supabase verificado'}</em>
+            </aside>
           </div>
 
-          <div style={certificateBodyStyle}>
-            <p style={certifiesTextStyle}>GHC Academy certifica que</p>
+          <div className="certificate-body">
+            <p className="certifies">GHC Academy certifica que</p>
+            <h2>{certificate.student_name}</h2>
 
-            <h2 style={studentNameStyle}>{certificate.student_name}</h2>
+            <p className="certifies">ha completado satisfactoriamente el curso</p>
+            <h3>{certificate.course_title}</h3>
 
-            <p style={certifiesTextStyle}>ha completado satisfactoriamente el curso</p>
-
-            <h3 style={courseTitleStyle}>{certificate.course_title}</h3>
-
-            <div style={dataGridStyle}>
-              <div style={dataBoxStyle}>
-                <p style={smallLabel}>Nota final</p>
-                <p style={dataValueStyle}>{certificate.final_score}%</p>
-              </div>
-
-              <div style={dataBoxStyle}>
-                <p style={smallLabel}>Fecha de emisión</p>
-                <p style={dataValueStyle}>{formatDate(certificate.issued_at)}</p>
-              </div>
-
-              <div style={dataBoxStyle}>
-                <p style={smallLabel}>Código</p>
-                <p style={dataValueStyle}>{certificate.certificate_code}</p>
-              </div>
+            <div className="data-grid">
+              <DataBlock label="Nota final" value={`${certificate.final_score}%`} />
+              <DataBlock label="Fecha de emisión" value={formatDate(certificate.issued_at)} />
+              <DataBlock label="Código" value={certificate.certificate_code} />
             </div>
 
-            <div style={verificationPanelStyle}>
+            <section className="verification-panel">
               <div>
-                <p style={smallLabel}>Verificación</p>
-                <p style={verificationTextStyle}>
-                  Este certificado puede verificarse públicamente mediante su código único.
-                </p>
+                <p>Verificación pública</p>
+                <strong>{certificate.certificate_code}</strong>
+                <span>
+                  Este certificado puede verificarse públicamente mediante su código único y su
+                  estado actual en la plataforma.
+                </span>
               </div>
 
-              <span style={sourceBadgeStyle}>
-                {source === 'preview' ? 'Modo preview' : 'Supabase'}
-              </span>
-            </div>
+              <div className="seal">
+                <strong>GHC</strong>
+                <span>{isValid ? 'VALID' : 'REVOKED'}</span>
+              </div>
+            </section>
           </div>
 
-          <div style={footerStyle}>
+          <footer className="certificate-footer">
             <div>
-              <p style={footerBrandStyle}>GHC Academy</p>
-              <p style={footerTextStyle}>Sport Through Science</p>
+              <p>GHC Academy</p>
+              <span>Sport Through Science</span>
             </div>
 
-            <div style={sealStyle}>
-              GHC
+            <div className="public-id">
+              <span>ID público</span>
+              <strong>{publicId}</strong>
             </div>
-          </div>
+          </footer>
         </section>
 
         {source === 'preview' && (
-          <section style={noticeBox}>
+          <section className="preview-notice">
             <strong>Modo preview:</strong> este certificado se ha generado en este navegador para
-            validar el flujo completo. Cuando activemos pagos y control de acceso completo, el
-            certificado se emitirá desde Supabase y quedará asociado al alumno real.
+            validar el flujo completo. En producción, el certificado se emite desde Supabase y queda
+            asociado al alumno real.
           </section>
         )}
-      </div>
+      </section>
+
+      <GlobalStyles />
     </main>
+  );
+}
+
+function DataBlock({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="data-block">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Background() {
+  return (
+    <div className="background" aria-hidden="true">
+      <div className="orb orb-one" />
+      <div className="orb orb-two" />
+      <div className="grid-texture" />
+    </div>
   );
 }
 
@@ -310,261 +336,601 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-const pageStyle: React.CSSProperties = {
-  minHeight: '100vh',
-  background:
-    'radial-gradient(circle at top left, rgba(0,255,65,0.16), transparent 35%), radial-gradient(circle at bottom right, rgba(0,255,65,0.10), transparent 30%), #030504',
-  color: 'white',
-  padding: '32px',
-  fontFamily: 'Arial, Helvetica, sans-serif',
-};
+function GlobalStyles() {
+  return (
+    <style jsx global>{`
+      :root {
+        --green: ${GREEN};
+        --green-rgb: 99, 229, 70;
+        --bg: #050706;
+        --white: #f4f6f2;
+        --muted: rgba(244,246,242,.62);
+        --soft: rgba(244,246,242,.44);
+        --gold: #d6b25e;
+        --danger: #ff7777;
+      }
 
-const containerStyle: React.CSSProperties = {
-  maxWidth: '1120px',
-  margin: '0 auto',
-};
+      * { box-sizing: border-box; }
 
-const backButton: React.CSSProperties = {
-  display: 'inline-block',
-  marginBottom: '28px',
-  color: neon,
-  border: '1px solid rgba(0,255,65,0.45)',
-  padding: '12px 16px',
-  borderRadius: '999px',
-  textDecoration: 'none',
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.16em',
-  textTransform: 'uppercase',
-};
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+      }
 
-const kickerStyle: React.CSSProperties = {
-  color: neon,
-  fontSize: '12px',
-  letterSpacing: '0.34em',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  margin: '0 0 14px',
-};
+      body {
+        color: var(--white);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
 
-const titleStyle: React.CSSProperties = {
-  fontSize: 'clamp(42px, 7vw, 84px)',
-  lineHeight: '0.92',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  letterSpacing: '-0.04em',
-  margin: 0,
-};
+      a { color: inherit; }
 
-const subtitleStyle: React.CSSProperties = {
-  color: 'rgba(255,255,255,0.72)',
-  fontSize: '17px',
-  lineHeight: 1.6,
-  margin: '16px 0 0',
-};
+      .ghc-certificate-page {
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), .075), transparent 32%),
+          radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
+          linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%);
+      }
 
-const textStyle: React.CSSProperties = {
-  color: 'rgba(255,255,255,0.66)',
-  fontSize: '15px',
-  lineHeight: '1.75',
-};
+      .background {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 0;
+      }
 
-const certificateShellStyle: React.CSSProperties = {
-  borderRadius: '38px',
-  border: '1px solid rgba(0,255,65,0.42)',
-  background:
-    'linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03))',
-  padding: '34px',
-  boxShadow: '0 0 90px rgba(0,255,65,0.12)',
-  position: 'relative',
-  overflow: 'hidden',
-};
+      .orb {
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(100px);
+      }
 
-const certificateHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '24px',
-  alignItems: 'flex-start',
-  borderBottom: '1px solid rgba(255,255,255,0.12)',
-  paddingBottom: '28px',
-};
+      .orb-one {
+        width: 520px;
+        height: 520px;
+        top: -220px;
+        left: -180px;
+        background: rgba(var(--green-rgb), .10);
+      }
 
-const certificateTitleStyle: React.CSSProperties = {
-  fontSize: 'clamp(42px, 7vw, 82px)',
-  lineHeight: '0.9',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  letterSpacing: '-0.04em',
-  margin: 0,
-};
+      .orb-two {
+        width: 520px;
+        height: 520px;
+        right: -260px;
+        top: 110px;
+        background: rgba(120,135,130,.09);
+      }
 
-const statusBoxStyle = (valid: boolean): React.CSSProperties => ({
-  minWidth: '170px',
-  borderRadius: '24px',
-  border: valid ? '1px solid rgba(0,255,65,0.55)' : '1px solid rgba(255,80,80,0.45)',
-  background: valid ? 'rgba(0,255,65,0.10)' : 'rgba(255,80,80,0.10)',
-  padding: '18px',
-  textAlign: 'center',
-});
+      .grid-texture {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+        background-size: 42px 42px;
+        opacity: .38;
+        mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
+      }
 
-const smallLabel: React.CSSProperties = {
-  margin: 0,
-  color: 'rgba(255,255,255,0.45)',
-  fontSize: '11px',
-  letterSpacing: '0.22em',
-  textTransform: 'uppercase',
-  fontWeight: 900,
-};
+      .certificate-shell {
+        width: min(1220px, calc(100vw - 42px));
+        margin: 0 auto;
+        padding: 22px 0 44px;
+        position: relative;
+        z-index: 1;
+        display: grid;
+        gap: 18px;
+      }
 
-const statusValueStyle = (valid: boolean): React.CSSProperties => ({
-  margin: '7px 0 0',
-  color: valid ? neon : '#ff7777',
-  fontSize: '24px',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-});
+      .certificate-topbar {
+        min-height: 62px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        border-bottom: 1px solid rgba(255,255,255,.07);
+        padding-bottom: 12px;
+      }
 
-const certificateBodyStyle: React.CSSProperties = {
-  padding: '38px 0 32px',
-  textAlign: 'center',
-};
+      .brand {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--white);
+        text-decoration: none;
+        text-transform: uppercase;
+        letter-spacing: .22em;
+      }
 
-const certifiesTextStyle: React.CSSProperties = {
-  color: 'rgba(255,255,255,0.62)',
-  fontSize: '17px',
-  lineHeight: 1.6,
-  margin: '0 0 12px',
-};
+      .brand span {
+        width: 32px;
+        height: 32px;
+        border-radius: 12px;
+        border: 1px solid rgba(var(--green-rgb), .35);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        font-weight: 950;
+      }
 
-const studentNameStyle: React.CSSProperties = {
-  fontSize: 'clamp(38px, 6vw, 74px)',
-  lineHeight: '0.95',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  margin: '0 0 24px',
-};
+      .brand strong {
+        font-size: 18px;
+        letter-spacing: .18em;
+      }
 
-const courseTitleStyle: React.CSSProperties = {
-  color: neon,
-  fontSize: 'clamp(26px, 4vw, 48px)',
-  lineHeight: '1.05',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  margin: '0 0 34px',
-};
+      .brand em {
+        color: rgba(244,246,242,.62);
+        font-style: normal;
+        font-size: 12px;
+      }
 
-const dataGridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-  gap: '14px',
-  marginTop: '28px',
-};
+      .certificate-topbar nav {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
 
-const dataBoxStyle: React.CSSProperties = {
-  borderRadius: '20px',
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(0,0,0,0.28)',
-  padding: '16px',
-};
+      .certificate-topbar nav a,
+      .ghost-button {
+        min-height: 38px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.78);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 14px;
+        text-decoration: none;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
 
-const dataValueStyle: React.CSSProperties = {
-  margin: '7px 0 0',
-  color: 'white',
-  fontSize: '17px',
-  fontWeight: 900,
-};
+      .state-badge {
+        min-height: 38px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 14px;
+        font-size: 11px;
+        font-weight: 950;
+        letter-spacing: .09em;
+        text-transform: uppercase;
+      }
 
-const verificationPanelStyle: React.CSSProperties = {
-  marginTop: '24px',
-  borderRadius: '24px',
-  border: '1px solid rgba(0,255,65,0.24)',
-  background: 'rgba(0,255,65,0.06)',
-  padding: '18px',
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '18px',
-  alignItems: 'center',
-  textAlign: 'left',
-};
+      .state-badge.valid {
+        border: 1px solid rgba(var(--green-rgb), .26);
+        background: rgba(var(--green-rgb), .085);
+        color: var(--green);
+      }
 
-const verificationTextStyle: React.CSSProperties = {
-  margin: '6px 0 0',
-  color: 'rgba(255,255,255,0.70)',
-  fontSize: '14px',
-  lineHeight: 1.6,
-};
+      .state-badge.revoked {
+        border: 1px solid rgba(255,119,119,.30);
+        background: rgba(255,119,119,.08);
+        color: var(--danger);
+      }
 
-const sourceBadgeStyle: React.CSSProperties = {
-  borderRadius: '999px',
-  border: '1px solid rgba(0,255,65,0.45)',
-  color: neon,
-  padding: '9px 12px',
-  fontSize: '11px',
-  fontWeight: 950,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-};
+      .certificate-card,
+      .status-card,
+      .preview-notice {
+        border-radius: 28px;
+        border: 1px solid rgba(255,255,255,.085);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.92);
+        box-shadow: 0 24px 82px rgba(0,0,0,.22);
+      }
 
-const footerStyle: React.CSSProperties = {
-  borderTop: '1px solid rgba(255,255,255,0.12)',
-  paddingTop: '24px',
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '24px',
-  alignItems: 'center',
-};
+      .certificate-card {
+        position: relative;
+        overflow: hidden;
+        min-height: 720px;
+        padding: clamp(24px, 4vw, 48px);
+      }
 
-const footerBrandStyle: React.CSSProperties = {
-  color: neon,
-  fontSize: '13px',
-  fontWeight: 950,
-  letterSpacing: '0.25em',
-  textTransform: 'uppercase',
-  margin: 0,
-};
+      .certificate-card::before {
+        content: '';
+        position: absolute;
+        inset: 18px;
+        border-radius: 22px;
+        border: 1px solid rgba(var(--green-rgb), .18);
+        pointer-events: none;
+      }
 
-const footerTextStyle: React.CSSProperties = {
-  color: 'rgba(255,255,255,0.58)',
-  fontSize: '13px',
-  margin: '6px 0 0',
-};
+      .watermark {
+        position: absolute;
+        right: -50px;
+        bottom: -94px;
+        color: rgba(var(--green-rgb), .035);
+        font-size: min(28vw, 340px);
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: -.08em;
+        pointer-events: none;
+      }
 
-const sealStyle: React.CSSProperties = {
-  width: '82px',
-  height: '82px',
-  borderRadius: '999px',
-  border: '1px solid rgba(0,255,65,0.6)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: neon,
-  fontWeight: 950,
-  letterSpacing: '0.12em',
-  boxShadow: '0 0 34px rgba(0,255,65,0.20)',
-};
+      .card-grid {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+          linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px);
+        background-size: 64px 64px;
+        opacity: .18;
+        mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+        pointer-events: none;
+      }
 
-const noticeBox: React.CSSProperties = {
-  marginTop: '24px',
-  padding: '22px',
-  borderRadius: '24px',
-  border: '1px solid rgba(0,255,65,0.22)',
-  color: 'rgba(255,255,255,0.72)',
-  background: 'rgba(255,255,255,0.035)',
-  lineHeight: 1.7,
-};
+      .certificate-header,
+      .certificate-body,
+      .certificate-footer {
+        position: relative;
+        z-index: 1;
+      }
 
-const errorCardStyle: React.CSSProperties = {
-  borderRadius: '32px',
-  border: '1px solid rgba(255,80,80,0.38)',
-  background: 'rgba(255,80,80,0.08)',
-  padding: '30px',
-};
+      .certificate-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 210px;
+        gap: 24px;
+        align-items: start;
+        border-bottom: 1px solid rgba(255,255,255,.075);
+        padding-bottom: 30px;
+      }
 
-const errorTitleStyle: React.CSSProperties = {
-  fontSize: 'clamp(36px, 6vw, 66px)',
-  lineHeight: '0.95',
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  margin: 0,
-};
+      .kicker {
+        margin: 0 0 14px;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .18em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .certificate-header h1 {
+        margin: 0;
+        max-width: 790px;
+        color: var(--white);
+        font-size: clamp(42px, 6vw, 82px);
+        line-height: .88;
+        letter-spacing: -.065em;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      .certificate-header > div > span {
+        display: block;
+        margin-top: 16px;
+        color: rgba(244,246,242,.62);
+        line-height: 1.55;
+      }
+
+      .validity {
+        border-radius: 20px;
+        padding: 18px;
+        text-align: center;
+      }
+
+      .validity.valid {
+        border: 1px solid rgba(var(--green-rgb), .28);
+        background: rgba(var(--green-rgb), .075);
+      }
+
+      .validity.revoked {
+        border: 1px solid rgba(255,119,119,.30);
+        background: rgba(255,119,119,.08);
+      }
+
+      .validity small,
+      .validity em,
+      .data-block span,
+      .verification-panel p,
+      .public-id span {
+        display: block;
+        margin: 0;
+        color: rgba(244,246,242,.46);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-weight: 900;
+        font-style: normal;
+      }
+
+      .validity strong {
+        display: block;
+        margin-top: 8px;
+        color: var(--green);
+        font-size: 26px;
+        line-height: 1;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      .validity.revoked strong {
+        color: var(--danger);
+      }
+
+      .validity em {
+        margin-top: 10px;
+        letter-spacing: .08em;
+      }
+
+      .certificate-body {
+        padding: clamp(34px, 5vw, 62px) 0 34px;
+        text-align: center;
+      }
+
+      .certifies {
+        margin: 0 0 14px;
+        color: rgba(244,246,242,.62);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .certificate-body h2 {
+        margin: 0 0 24px;
+        color: var(--white);
+        font-size: clamp(42px, 6vw, 74px);
+        line-height: .95;
+        letter-spacing: -.055em;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      .certificate-body h3 {
+        margin: 0 auto 34px;
+        max-width: 920px;
+        color: var(--green);
+        font-size: clamp(28px, 4vw, 52px);
+        line-height: .98;
+        letter-spacing: -.04em;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      .data-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 0 auto;
+        max-width: 920px;
+      }
+
+      .data-block {
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        padding: 16px;
+        min-width: 0;
+      }
+
+      .data-block strong {
+        display: block;
+        margin-top: 8px;
+        color: var(--white);
+        font-size: 16px;
+        line-height: 1.25;
+        font-weight: 900;
+        overflow-wrap: anywhere;
+      }
+
+      .verification-panel {
+        margin: 24px auto 0;
+        max-width: 920px;
+        border-radius: 22px;
+        border: 1px solid rgba(var(--green-rgb), .18);
+        background: linear-gradient(90deg, rgba(var(--green-rgb),.06), rgba(255,255,255,.022));
+        padding: 18px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 96px;
+        gap: 18px;
+        align-items: center;
+        text-align: left;
+      }
+
+      .verification-panel strong {
+        display: block;
+        margin-top: 8px;
+        color: var(--white);
+        font-size: 18px;
+        font-weight: 950;
+        overflow-wrap: anywhere;
+      }
+
+      .verification-panel span {
+        display: block;
+        margin-top: 8px;
+        color: rgba(244,246,242,.62);
+        line-height: 1.55;
+        font-size: 14px;
+      }
+
+      .seal {
+        width: 86px;
+        height: 86px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .42);
+        background: rgba(var(--green-rgb), .055);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        align-content: center;
+        box-shadow: 0 0 34px rgba(var(--green-rgb), .12);
+      }
+
+      .seal strong,
+      .seal span {
+        display: block;
+      }
+
+      .seal strong {
+        font-size: 19px;
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: .08em;
+      }
+
+      .seal span {
+        color: rgba(244,246,242,.56);
+        margin-top: 6px;
+        font-size: 9px;
+        font-weight: 950;
+        letter-spacing: .12em;
+      }
+
+      .certificate-footer {
+        border-top: 1px solid rgba(255,255,255,.075);
+        padding-top: 22px;
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: end;
+      }
+
+      .certificate-footer p {
+        margin: 0;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 950;
+        letter-spacing: .22em;
+        text-transform: uppercase;
+      }
+
+      .certificate-footer span {
+        display: block;
+        margin-top: 6px;
+        color: rgba(244,246,242,.52);
+        font-size: 13px;
+      }
+
+      .public-id {
+        text-align: right;
+        min-width: 0;
+      }
+
+      .public-id strong {
+        display: block;
+        max-width: 520px;
+        margin-top: 6px;
+        color: rgba(244,246,242,.76);
+        font-size: 13px;
+        overflow-wrap: anywhere;
+      }
+
+      .preview-notice {
+        padding: 18px 20px;
+        color: rgba(244,246,242,.70);
+        line-height: 1.65;
+      }
+
+      .preview-notice strong {
+        color: var(--green);
+      }
+
+      .loading-state {
+        display: grid;
+        place-items: center;
+      }
+
+      .status-card {
+        position: relative;
+        z-index: 1;
+        width: min(780px, calc(100vw - 40px));
+        padding: 34px;
+      }
+
+      .status-card p {
+        margin: 0 0 12px;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .16em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .status-card.error p {
+        color: var(--danger);
+      }
+
+      .status-card h1 {
+        margin: 10px 0;
+        color: var(--white);
+        font-size: clamp(36px, 6vw, 70px);
+        line-height: .92;
+        letter-spacing: -.06em;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      .status-card span {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .status-card .ghost-button {
+        margin-bottom: 22px;
+      }
+
+      @media (max-width: 860px) {
+        .certificate-shell {
+          width: min(100% - 28px, 1220px);
+          padding-top: 16px;
+        }
+
+        .certificate-topbar,
+        .certificate-header,
+        .certificate-footer {
+          align-items: flex-start;
+          grid-template-columns: 1fr;
+          flex-direction: column;
+        }
+
+        .certificate-topbar nav {
+          justify-content: flex-start;
+        }
+
+        .certificate-card {
+          padding: 22px;
+          min-height: auto;
+        }
+
+        .certificate-header h1 {
+          font-size: clamp(38px, 12vw, 56px);
+        }
+
+        .certificate-body h2 {
+          font-size: clamp(36px, 11vw, 54px);
+        }
+
+        .certificate-body h3 {
+          font-size: clamp(26px, 8vw, 40px);
+        }
+
+        .data-grid,
+        .verification-panel {
+          grid-template-columns: 1fr;
+        }
+
+        .seal {
+          justify-self: start;
+        }
+
+        .public-id {
+          text-align: left;
+        }
+      }
+    `}</style>
+  );
+}
