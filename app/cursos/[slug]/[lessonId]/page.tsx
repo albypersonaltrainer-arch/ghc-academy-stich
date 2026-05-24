@@ -9,10 +9,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 )
 
-const SAMPLE_VIDEO_URL =
-  'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
-
 const COURSE_ASSETS_BUCKET = 'ghc-course-assets'
+const GREEN = '#63E546'
 
 type AnyRecord = Record<string, any>
 
@@ -119,6 +117,38 @@ export default function LessonPage() {
     }
   }, [slug, lessonId])
 
+  useEffect(() => {
+    const resolveLessonAssets = async () => {
+      if (!currentLesson) {
+        setSignedAssets({ video: '', audio: '', pdf: '' })
+        return
+      }
+
+      try {
+        setAssetLoading(true)
+
+        const [video, audio, pdf] = await Promise.all([
+          resolvePrivateAssetUrl(getRawVideoPath(currentLesson), 'vídeo'),
+          resolvePrivateAssetUrl(getRawAudioPath(currentLesson), 'audio'),
+          resolvePrivateAssetUrl(getRawPdfPath(currentLesson), 'PDF')
+        ])
+
+        setSignedAssets({ video, audio, pdf })
+      } catch (error) {
+        console.error(error)
+        setErrorMessage(getErrorText(error, 'No se pudieron preparar los archivos privados de la lección.'))
+      } finally {
+        setAssetLoading(false)
+      }
+    }
+
+    resolveLessonAssets()
+  }, [currentLesson])
+
+  useEffect(() => {
+    setCompletionMessage('')
+  }, [lessonId])
+
   const allLessons = useMemo(() => {
     return modules.flatMap((module: AnyRecord) => module.lessons || [])
   }, [modules])
@@ -151,10 +181,6 @@ export default function LessonPage() {
       ? allLessons[currentIndex + 1]
       : null
 
-  const isLastLessonOfModule =
-    currentModuleLessons.length > 0 &&
-    currentIndexInModule === currentModuleLessons.length - 1
-
   const progress =
     allLessons.length > 0
       ? Math.round((completedLessons.length / allLessons.length) * 100)
@@ -172,39 +198,19 @@ export default function LessonPage() {
     currentModuleLessons.length > 0 &&
     completedLessonsInCurrentModule >= currentModuleLessons.length
 
+  const moduleProgress =
+    currentModuleLessons.length > 0
+      ? Math.round((completedLessonsInCurrentModule / currentModuleLessons.length) * 100)
+      : 0
 
-  useEffect(() => {
-    const resolveLessonAssets = async () => {
-      if (!currentLesson) {
-        setSignedAssets({ video: '', audio: '', pdf: '' })
-        return
-      }
-
-      try {
-        setAssetLoading(true)
-
-        const [video, audio, pdf] = await Promise.all([
-          resolvePrivateAssetUrl(getRawVideoPath(currentLesson), 'vídeo'),
-          resolvePrivateAssetUrl(getRawAudioPath(currentLesson), 'audio'),
-          resolvePrivateAssetUrl(getRawPdfPath(currentLesson), 'PDF')
-        ])
-
-        setSignedAssets({ video, audio, pdf })
-      } catch (error) {
-        console.error(error)
-        setErrorMessage(getErrorText(error, 'No se pudieron preparar los archivos privados de la lección.'))
-      } finally {
-        setAssetLoading(false)
-      }
-    }
-
-    resolveLessonAssets()
-  }, [currentLesson])
-
-
-  useEffect(() => {
-    setCompletionMessage('')
-  }, [lessonId])
+  const lessonType = currentLesson ? getLessonTypeLabel(currentLesson, signedAssets) : 'Texto'
+  const rawLessonType = currentLesson ? getLessonType(currentLesson) : 'text'
+  const textContent = currentLesson ? getTextContent(currentLesson) : ''
+  const videoUrl = signedAssets.video || ''
+  const audioUrl = signedAssets.audio || ''
+  const pdfUrl = signedAssets.pdf || ''
+  const hasAnyAsset = Boolean(videoUrl || audioUrl || pdfUrl)
+  const isMixed = rawLessonType === 'mixed' || rawLessonType === 'mixto'
 
   const goToLesson = (id: string) => {
     router.push(`/cursos/${slug}/${id}`)
@@ -216,12 +222,6 @@ export default function LessonPage() {
 
   const goToCatalog = () => {
     router.push('/cursos')
-  }
-
-  const goToModuleExam = () => {
-    if (!course?.id || !currentModule?.id) return
-
-    router.push(`/exam?courseId=${course.id}&moduleId=${currentModule.id}`)
   }
 
   const markAsCompleted = async () => {
@@ -277,1701 +277,400 @@ export default function LessonPage() {
     }
   }
 
-  const renderContent = () => {
-    if (!currentLesson) return null
-
-    const type = getLessonType(currentLesson)
-    const isMixed = type === 'mixed' || type === 'mixto'
-
-    const textContent = getTextContent(currentLesson)
-    const videoUrl = signedAssets.video || ''
-    const audioUrl = signedAssets.audio || ''
-    const pdfUrl = signedAssets.pdf || ''
-    const hasAnyAsset = Boolean(videoUrl || audioUrl || pdfUrl)
-
-    return (
-      <div className="ghc-content-stack">
-        {assetLoading && (
-          <section className="ghc-content-card ghc-asset-loading">
-            Preparando acceso privado a los archivos de la lección...
-          </section>
-        )}
-
-        {(type === 'video' || isMixed || videoUrl) && videoUrl && (
-          <section className="ghc-content-card ghc-media-studio-card">
-            <div className="ghc-media-studio-header">
-              <div>
-                <span className="ghc-media-kicker">Material privado</span>
-                <h2>Vídeo de la lección</h2>
-                <p>Reproducción privada con acceso temporal. El archivo no queda público.</p>
-              </div>
-
-              <button type="button" onClick={() => setVideoFullscreen(true)}>
-                Pantalla completa
-              </button>
-            </div>
-
-            <div className="ghc-video-premium-shell">
-              <div className="ghc-media-topbar">
-                <span>GHC Academy · vídeo privado</span>
-                <strong>{currentLesson?.title || 'Lección'}</strong>
-              </div>
-
-              <video src={videoUrl} controls playsInline className="ghc-video-premium-player" />
-            </div>
-          </section>
-        )}
-
-        {videoFullscreen && videoUrl && (
-          <div className="ghc-video-premium-fullscreen" role="dialog" aria-modal="true">
-            <div className="ghc-video-premium-fullscreen-top">
-              <div>
-                <span>GHC Academy · vídeo privado</span>
-                <strong>{currentLesson?.title || 'Vídeo de la lección'}</strong>
-              </div>
-
-              <button type="button" onClick={() => setVideoFullscreen(false)}>
-                Cerrar visor
-              </button>
-            </div>
-
-            <video src={videoUrl} controls autoPlay playsInline />
-          </div>
-        )}
-
-        {(type === 'audio' || isMixed || audioUrl) && audioUrl && (
-          <section className="ghc-content-card ghc-audio-studio-card">
-            <div className="ghc-media-studio-header">
-              <div>
-                <span className="ghc-media-kicker">Material privado</span>
-                <h2>Audio de la lección</h2>
-                <p>Escucha el audio dentro de GHC Academy sin abrir pestañas externas.</p>
-              </div>
-            </div>
-
-            <div className="ghc-audio-premium-shell">
-              <div className="ghc-audio-orb">
-                <span />
-                <strong>GHC</strong>
-              </div>
-
-              <div className="ghc-audio-player-zone">
-                <span>Audio privado · acceso temporal</span>
-                <strong>{currentLesson?.title || 'Lección'}</strong>
-                <audio controls className="ghc-audio-premium-player">
-                  <source src={audioUrl} />
-                </audio>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {(type === 'pdf' || isMixed || pdfUrl) && pdfUrl && (
-          <section className="ghc-content-card ghc-pdf-studio-card">
-            <div className="ghc-pdf-studio-header">
-              <div className="ghc-pdf-studio-title">
-                <span className="ghc-pdf-studio-kicker">Material privado</span>
-                <h2>PDF de la lección</h2>
-                <p>
-                  Visualización protegida con acceso temporal. El archivo no es público y el enlace caduca.
-                </p>
-              </div>
-
-              <div className="ghc-pdf-studio-actions">
-                <button type="button" onClick={() => setPdfFullscreen(true)}>
-                  Pantalla completa
-                </button>
-                <a href={pdfUrl} target="_blank" rel="noreferrer">
-                  Abrir aparte
-                </a>
-              </div>
-            </div>
-
-            <div className="ghc-pdf-premium-shell">
-              <div className="ghc-pdf-premium-topbar">
-                <span>GHC Academy · visor privado</span>
-                <strong>{currentLesson?.title || 'Lección'}</strong>
-              </div>
-
-              <iframe
-                src={decoratePdfUrl(pdfUrl)}
-                className="ghc-pdf-premium-frame"
-                title="PDF privado de la lección"
-              />
-            </div>
-          </section>
-        )}
-
-        {pdfFullscreen && pdfUrl && (
-          <div className="ghc-pdf-premium-fullscreen" role="dialog" aria-modal="true">
-            <div className="ghc-pdf-premium-fullscreen-top">
-              <div>
-                <span>GHC Academy · visor privado</span>
-                <strong>{currentLesson?.title || 'PDF de la lección'}</strong>
-              </div>
-
-              <button type="button" onClick={() => setPdfFullscreen(false)}>
-                Cerrar visor
-              </button>
-            </div>
-
-            <iframe src={decoratePdfUrl(pdfUrl)} title="PDF privado a pantalla completa" />
-          </div>
-        )}
-
-        {textContent ? (
-          <section
-            className="ghc-content-card ghc-text-content"
-            dangerouslySetInnerHTML={{ __html: textContent }}
-          />
-        ) : !hasAnyAsset && !assetLoading ? (
-          <section className="ghc-empty-content">
-            Esta lección no tiene contenido visible cargado todavía.
-          </section>
-        ) : null}
-      </div>
-    )
-  }
-
   if (loading) {
     return (
-      <main className="ghc-center-page">
-        <div className="ghc-loading-box">Cargando lección...</div>
+      <main className="lesson-dashboard-page loading">
+        <Background />
+        <section className="loading-card">
+          <p>GHC Academy</p>
+          <h1>Cargando lección</h1>
+          <span>Preparando acceso privado, progreso y contenido académico.</span>
+        </section>
+        <GlobalStyles />
       </main>
     )
   }
 
   if (errorMessage) {
     return (
-      <main className="ghc-center-page">
-        <div className="ghc-error-box">
-          <h1>Error de lección</h1>
-          <p>{errorMessage}</p>
-          <button onClick={goToCatalog} className="ghc-primary-button">
+      <main className="lesson-dashboard-page loading">
+        <Background />
+        <section className="loading-card">
+          <p>Error de lección</p>
+          <h1>No se pudo cargar</h1>
+          <span>{errorMessage}</span>
+          <button onClick={goToCatalog} className="primary-action as-button">
             Volver a cursos
           </button>
-        </div>
+        </section>
+        <GlobalStyles />
       </main>
     )
   }
 
   return (
-    <main className="ghc-lesson-page">
-      <div className="ghc-lesson-shell">
-        <aside className="ghc-sidebar">
-          <p className="ghc-kicker">GHC Academy</p>
-          <h2 className="ghc-sidebar-title">{course?.title || 'Curso'}</h2>
+    <main className="lesson-dashboard-page">
+      <Background />
 
-          <div className="ghc-progress-card">
-            <div className="ghc-progress-top">
+      <aside className="icon-rail">
+        <button type="button">☰</button>
+        <span>⌂</span>
+        <span>▤</span>
+        <span>▱</span>
+        <span>🏆</span>
+        <span>⌁</span>
+        <span>⚙</span>
+      </aside>
+
+      <aside className="lesson-sidebar">
+        <div className="brand">
+          <strong>GHC</strong>
+          <span>Academy</span>
+        </div>
+
+        <button type="button" onClick={goToCourse} className="back-link">
+          ← Volver al curso
+        </button>
+
+        <section className="course-mini">
+          <p>Curso actual</p>
+          <h2>{course?.title || 'Curso GHC'}</h2>
+
+          <div className="sidebar-progress">
+            <div className="progress-copy">
               <span>Progreso del curso</span>
               <strong>{progress}%</strong>
             </div>
-
-            <div className="ghc-progress-track">
-              <div className="ghc-progress-fill" style={{ width: `${progress}%` }} />
+            <div className="bar">
+              <div style={{ width: `${progress}%` }} />
             </div>
-
-            <p className="ghc-progress-small">
-              {completedLessons.length} de {allLessons.length} lecciones completadas
-            </p>
+            <small>{completedLessons.length} de {allLessons.length} lecciones completadas</small>
           </div>
+        </section>
 
-          <div className="ghc-module-list">
-            {modules.map((module: AnyRecord, moduleIndex: number) => (
-              <section key={module.id}>
-                <h3 className="ghc-module-title">
-                  Módulo {moduleIndex + 1}: {module.title}
-                </h3>
+        <section className="sidebar-modules">
+          <p>Módulos del curso</p>
 
-                <div className="ghc-lessons-list">
-                  {(module.lessons || []).map((lesson: AnyRecord) => {
-                    const active = String(lesson.id) === lessonId
-                    const completed = completedLessons.includes(String(lesson.id))
+          {modules.map((module: AnyRecord, moduleIndex: number) => {
+            const moduleLessons = module.lessons || []
+            const completedInModule = moduleLessons.filter((lesson: AnyRecord) =>
+              completedLessons.includes(String(lesson.id))
+            ).length
 
-                    return (
-                      <button
-                        key={lesson.id}
-                        onClick={() => goToLesson(String(lesson.id))}
-                        className={`ghc-lesson-item ${active ? 'ghc-lesson-item-active' : ''}`}
-                      >
-                        <span className="ghc-lesson-status">
-                          {completed ? '✓' : active ? '▶' : '○'}
-                        </span>
-                        <span className="ghc-lesson-name">{lesson.title}</span>
-                      </button>
-                    )
-                  })}
+            const expanded = currentModule?.id && String(currentModule.id) === String(module.id)
+
+            return (
+              <article key={module.id} className={expanded ? 'side-module expanded' : 'side-module'}>
+                <div className="side-module-head">
+                  <div>
+                    <strong>Módulo {moduleIndex + 1}</strong>
+                    <span>{module.title || 'Módulo GHC'}</span>
+                  </div>
+                  <em>{completedInModule}/{moduleLessons.length}</em>
                 </div>
-              </section>
-            ))}
+
+                {expanded && (
+                  <div className="side-lessons">
+                    {moduleLessons.map((lesson: AnyRecord, lessonIndex: number) => {
+                      const active = String(lesson.id) === lessonId
+                      const completed = completedLessons.includes(String(lesson.id))
+
+                      return (
+                        <button
+                          key={lesson.id}
+                          type="button"
+                          onClick={() => goToLesson(String(lesson.id))}
+                          className={active ? 'side-lesson active' : 'side-lesson'}
+                        >
+                          <span>{completed ? '✓' : active ? '▶' : '○'}</span>
+                          <div>
+                            <small>{moduleIndex + 1}.{lessonIndex + 1}</small>
+                            <strong>{lesson.title || 'Lección GHC'}</strong>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </article>
+            )
+          })}
+        </section>
+
+        <section className="support-card">
+          <strong>¿Necesitas ayuda?</strong>
+          <span>Accede a soporte y recursos del curso.</span>
+          <button type="button">Ir a soporte</button>
+        </section>
+      </aside>
+
+      <section className="lesson-shell">
+        <header className="lesson-topbar">
+          <div className="breadcrumb">
+            <button type="button" onClick={goToCourse}>{course?.title || 'Curso'}</button>
+            <span>›</span>
+            <strong>{currentModule?.title || 'Módulo'}</strong>
+            <span>›</span>
+            <b>{formatLessonIndex(currentIndexInModule)} {currentLesson?.title || 'Lección'}</b>
           </div>
-        </aside>
 
-        <section className="ghc-main">
-          <div className="ghc-main-inner">
-            <div className="ghc-top-actions">
-              <button onClick={goToCourse} className="ghc-top-back">
-                ← Volver al curso
-              </button>
-              <button onClick={goToCatalog} className="ghc-top-back">
-                Catálogo
-              </button>
-            </div>
+          <div className="top-actions">
+            <button
+              type="button"
+              onClick={markAsCompleted}
+              className={currentLessonCompleted ? 'complete-top done' : 'complete-top'}
+              disabled={completionSaving || currentLessonCompleted}
+            >
+              {completionSaving
+                ? 'Guardando...'
+                : currentLessonCompleted
+                  ? 'Completada'
+                  : 'Marcar como completa'}
+            </button>
 
-            <header className="ghc-hero">
-              <p className="ghc-kicker">GHC Academy · contenido privado</p>
-              <h1 className="ghc-title">{currentLesson?.title}</h1>
+            <button type="button" onClick={() => previousLesson && goToLesson(String(previousLesson.id))} disabled={!previousLesson}>
+              ←
+            </button>
+            <button type="button" onClick={() => nextLesson && goToLesson(String(nextLesson.id))} disabled={!nextLesson}>
+              →
+            </button>
+          </div>
+        </header>
 
-              <div className="ghc-pills">
-                <span className="ghc-pill">{course?.title}</span>
-                <span className="ghc-pill">
-                  Módulo: {currentModule?.title || '—'}
-                </span>
-                <span className="ghc-pill">
-                  Lección {currentIndexInModule + 1} de {currentModuleLessons.length}
-                </span>
-                <span className="ghc-pill">Progreso curso {progress}%</span>
-              </div>
-            </header>
+        <div className="lesson-layout">
+          <main className="lesson-main">
+            <section className="lesson-heading">
+              <p>{formatLessonIndex(currentIndexInModule)} {currentLesson?.title || 'Lección'}</p>
+              <h1>{currentLesson?.title || 'Lección GHC'}</h1>
+              <span>
+                {textContent
+                  ? stripHtml(textContent).slice(0, 170)
+                  : 'Contenido privado de GHC Academy con acceso temporal y seguimiento de progreso.'}
+              </span>
+            </section>
 
-            {renderContent()}
+            <section className="viewer-card">
+              {assetLoading && (
+                <div className="asset-loading">
+                  Preparando acceso privado a los archivos de la lección...
+                </div>
+              )}
 
-            <section className={currentLessonCompleted ? "ghc-complete-card completed" : "ghc-complete-card"}>
-              <div className="ghc-complete-copy">
-                <span>{currentLessonCompleted ? "Progreso guardado" : "Finalizar lección"}</span>
-                <strong>
-                  {currentLessonCompleted
-                    ? "Lección completada"
-                    : "Marca esta lección cuando hayas terminado el contenido."}
-                </strong>
-                <p>
-                  {currentLessonCompleted
-                    ? "Esta lección ya cuenta para tu avance del curso."
-                    : "Tu progreso se actualizará automáticamente en el panel de alumno."}
-                </p>
-              </div>
+              {(rawLessonType === 'video' || isMixed || videoUrl) && videoUrl ? (
+                <div className="video-stage">
+                  <video src={videoUrl} controls playsInline />
+                  <button type="button" onClick={() => setVideoFullscreen(true)}>
+                    Pantalla completa
+                  </button>
+                </div>
+              ) : null}
 
-              <button
-                onClick={markAsCompleted}
-                className="ghc-primary-button"
-                disabled={completionSaving || currentLessonCompleted}
-              >
-                {completionSaving
-                  ? "Guardando progreso..."
-                  : currentLessonCompleted
-                    ? "Lección completada"
-                    : "Marcar lección como completada"}
-              </button>
+              {(rawLessonType === 'audio' || isMixed || audioUrl) && audioUrl ? (
+                <div className="audio-stage">
+                  <div className="audio-brand">GHC</div>
+                  <div>
+                    <p>Audio privado</p>
+                    <strong>{currentLesson?.title || 'Lección'}</strong>
+                    <audio controls>
+                      <source src={audioUrl} />
+                    </audio>
+                  </div>
+                </div>
+              ) : null}
 
-              {completionMessage ? (
-                <div className={currentLessonCompleted ? "ghc-completion-message success" : "ghc-completion-message"}>
-                  {completionMessage}
+              {(rawLessonType === 'pdf' || isMixed || pdfUrl) && pdfUrl ? (
+                <div className="pdf-stage">
+                  <div className="pdf-actions">
+                    <p>PDF privado de la lección</p>
+                    <div>
+                      <button type="button" onClick={() => setPdfFullscreen(true)}>
+                        Pantalla completa
+                      </button>
+                      <a href={pdfUrl} target="_blank" rel="noreferrer">
+                        Abrir aparte
+                      </a>
+                    </div>
+                  </div>
+                  <iframe src={decoratePdfUrl(pdfUrl)} title="PDF privado de la lección" />
+                </div>
+              ) : null}
+
+              {textContent ? (
+                <div className="text-stage" dangerouslySetInnerHTML={{ __html: textContent }} />
+              ) : !hasAnyAsset && !assetLoading ? (
+                <div className="empty-stage">
+                  Esta lección no tiene contenido visible cargado todavía.
                 </div>
               ) : null}
             </section>
 
-            <section className={currentModuleCompleted ? "ghc-module-status-card completed" : "ghc-module-status-card"}>
-              <div>
-                <span>{currentModuleCompleted ? "Módulo completado" : "Estado del módulo"}</span>
-                <strong>
-                  {currentModule?.title || "Módulo actual"}
-                </strong>
-                <p>
-                  {currentModuleCompleted
-                    ? "Has completado todas las lecciones de este módulo. El examen del módulo quedará disponible cuando activemos el sistema de evaluaciones."
-                    : `Llevas ${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas en este módulo.`}
-                </p>
-              </div>
+            <section className="description-card">
+              <h2>Descripción</h2>
+              <p>
+                {textContent
+                  ? stripHtml(textContent).slice(0, 280)
+                  : 'Revisa el contenido de la lección y marca el avance cuando hayas terminado.'}
+              </p>
 
-              <div className="ghc-module-status-progress">
-                <strong>
-                  {currentModuleLessons.length > 0
-                    ? Math.round((completedLessonsInCurrentModule / currentModuleLessons.length) * 100)
-                    : 0}%
-                </strong>
-                <span>{completedLessonsInCurrentModule}/{currentModuleLessons.length}</span>
+              <div className="learning-points">
+                <strong>Qué trabajarás en esta lección</strong>
+                <ul>
+                  <li>Comprender el contenido principal del bloque.</li>
+                  <li>Aplicarlo dentro del itinerario del curso.</li>
+                  <li>Avanzar con seguimiento real del progreso.</li>
+                </ul>
               </div>
             </section>
 
-            <section className="ghc-navigation-grid">
+            <section className="bottom-navigation">
               {previousLesson ? (
-                <button
-                  onClick={() => goToLesson(String(previousLesson.id))}
-                  className="ghc-nav-card"
-                >
-                  <span className="ghc-card-title">← ANTERIOR</span>
-                  <span className="ghc-card-subtitle">{previousLesson.title}</span>
+                <button type="button" onClick={() => goToLesson(String(previousLesson.id))}>
+                  <span>← Lección anterior</span>
+                  <strong>{previousLesson.title}</strong>
                 </button>
               ) : (
-                <div className="ghc-nav-card-muted">
-                  <span className="ghc-card-title">Inicio del curso</span>
-                  <span className="ghc-card-subtitle">No hay lección anterior</span>
+                <div>
+                  <span>Inicio del curso</span>
+                  <strong>No hay lección anterior</strong>
                 </div>
               )}
 
-              {isLastLessonOfModule ? (
-                <article className={currentModuleCompleted ? "ghc-exam-card standby completed" : "ghc-exam-card standby"}>
-                  <span className="ghc-card-title">
-                    {currentModuleCompleted ? "MÓDULO COMPLETADO" : "FINAL DEL MÓDULO"}
-                  </span>
-                  <span className="ghc-card-subtitle">
-                    {currentModuleCompleted
-                      ? "La evaluación/examen del módulo se activará en la siguiente fase."
-                      : `Completa ${Math.max(0, currentModuleLessons.length - completedLessonsInCurrentModule)} lección(es) pendiente(s) antes de la evaluación.`}
-                  </span>
-                  <em>Examen del módulo · Próximamente</em>
-                </article>
-              ) : (
-                <button
-                  onClick={() => nextLesson && goToLesson(String(nextLesson.id))}
-                  className="ghc-nav-card"
-                >
-                  <span className="ghc-card-title">SIGUIENTE →</span>
-                  <span className="ghc-card-subtitle">
-                    {nextLesson?.title || 'Continuar'}
-                  </span>
+              {nextLesson ? (
+                <button type="button" onClick={() => goToLesson(String(nextLesson.id))} className="next">
+                  <span>Siguiente lección →</span>
+                  <strong>{nextLesson.title}</strong>
                 </button>
+              ) : (
+                <div className="next">
+                  <span>Final del curso</span>
+                  <strong>No hay siguiente lección</strong>
+                </div>
               )}
             </section>
+          </main>
+
+          <aside className="lesson-sidepanel">
+            <section className="panel-card">
+              <h3>Progreso del curso</h3>
+              <p><strong>{progress}%</strong> completado</p>
+              <div className="bar">
+                <div style={{ width: `${progress}%` }} />
+              </div>
+              <span>{completedLessons.length} de {allLessons.length} lecciones completadas</span>
+            </section>
+
+            <section className="panel-card lesson-data">
+              <h3>Lección actual</h3>
+              <div><span>Tipo</span><strong>{lessonType}</strong></div>
+              <div><span>Duración</span><strong>{Number(currentLesson?.duration_minutes || 0) > 0 ? `${Number(currentLesson?.duration_minutes || 0)} min` : '—'}</strong></div>
+              <div><span>Estado</span><strong className={currentLessonCompleted ? 'green' : ''}>{currentLessonCompleted ? 'Completada' : 'En progreso'}</strong></div>
+            </section>
+
+            <section className="panel-card resources-card">
+              <h3>Recursos de la lección</h3>
+              <ResourceRow label="PDF" active={Boolean(pdfUrl)} />
+              <ResourceRow label="Vídeo" active={Boolean(videoUrl)} />
+              <ResourceRow label="Audio" active={Boolean(audioUrl)} />
+            </section>
+
+            <section className={currentModuleCompleted ? 'panel-card module-state complete' : 'panel-card module-state'}>
+              <h3>Estado del módulo</h3>
+              <strong>{currentModule?.title || 'Módulo actual'}</strong>
+              <div className="bar">
+                <div style={{ width: `${moduleProgress}%` }} />
+              </div>
+              <p>
+                {currentModuleCompleted
+                  ? 'Módulo completado. La evaluación quedará disponible en la siguiente fase.'
+                  : `${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas.`}
+              </p>
+              <em>Examen del módulo · Próximamente</em>
+            </section>
+
+            <section className="panel-card complete-card">
+              <h3>{currentLessonCompleted ? 'Lección completada' : 'Finalizar lección'}</h3>
+              <p>
+                {currentLessonCompleted
+                  ? 'Esta lección ya cuenta para tu avance.'
+                  : 'Marca la lección como completada cuando termines el contenido.'}
+              </p>
+              <button
+                type="button"
+                onClick={markAsCompleted}
+                disabled={completionSaving || currentLessonCompleted}
+              >
+                {completionSaving
+                  ? 'Guardando...'
+                  : currentLessonCompleted
+                    ? 'Completada'
+                    : 'Marcar como completa'}
+              </button>
+              {completionMessage ? <span className="completion-message">{completionMessage}</span> : null}
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      {videoFullscreen && videoUrl && (
+        <div className="video-fullscreen" role="dialog" aria-modal="true">
+          <div className="fullscreen-top">
+            <div>
+              <span>GHC Academy · vídeo privado</span>
+              <strong>{currentLesson?.title || 'Vídeo de la lección'}</strong>
+            </div>
+            <button type="button" onClick={() => setVideoFullscreen(false)}>Cerrar visor</button>
           </div>
-        </section>
-      </div>
-
-      <style jsx global>{`
-        .ghc-pdf-card {
-          padding: 18px !important;
-        }
-
-        .ghc-content-note {
-          display: block;
-          margin-top: 6px;
-          color: rgba(244,246,242,.52);
-          font-size: 12px;
-          line-height: 1.45;
-        }
-
-        .ghc-pdf-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-        }
-
-        button.ghc-private-open {
-          cursor: pointer;
-          font: inherit;
-        }
-
-        .ghc-private-open.muted {
-          border-color: rgba(255,255,255,.12);
-          background: rgba(255,255,255,.04);
-          color: rgba(244,246,242,.78);
-        }
-
-        .ghc-pdf {
-          width: 100% !important;
-          min-height: min(82vh, 920px) !important;
-          height: 82vh !important;
-          border: 0;
-          border-radius: 18px;
-          background: rgba(255,255,255,.04);
-        }
-
-        .ghc-pdf-fullscreen {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          background: #050706;
-          display: grid;
-          grid-template-rows: 72px minmax(0, 1fr);
-        }
-
-        .ghc-pdf-fullscreen-top {
-          border-bottom: 1px solid rgba(255,255,255,.09);
-          background: rgba(8,12,10,.98);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 18px;
-          padding: 12px 18px;
-        }
-
-        .ghc-pdf-fullscreen-top div {
-          display: grid;
-          gap: 4px;
-          min-width: 0;
-        }
-
-        .ghc-pdf-fullscreen-top strong {
-          color: #f4f6f2;
-          font-size: 15px;
-          line-height: 1.2;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .ghc-pdf-fullscreen-top span {
-          color: rgba(244,246,242,.54);
-          font-size: 12px;
-        }
-
-        .ghc-pdf-fullscreen-top button {
-          min-height: 40px;
-          border-radius: 999px;
-          border: 1px solid rgba(99,229,70,.26);
-          background: rgba(99,229,70,.09);
-          color: #63e546;
-          padding: 0 16px;
-          font-weight: 900;
-          cursor: pointer;
-        }
-
-        .ghc-pdf-fullscreen iframe {
-          width: 100%;
-          height: 100%;
-          border: 0;
-          background: rgba(255,255,255,.04);
-        }
-
-        @media (max-width: 760px) {
-          .ghc-content-head {
-            align-items: stretch;
-            flex-direction: column;
-          }
-
-          .ghc-pdf-actions {
-            justify-content: flex-start;
-          }
-
-          .ghc-pdf {
-            height: 78vh !important;
-            min-height: 640px !important;
-          }
-        }
-      `}</style>
-
-
-      <style jsx global>{`
-        .ghc-pdf-studio-card {
-          padding: 0 !important;
-          overflow: hidden;
-          border: 1px solid rgba(99,229,70,.16) !important;
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.10), transparent 34%),
-            linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
-            rgba(7,10,9,.96) !important;
-          box-shadow: 0 26px 90px rgba(0,0,0,.28);
-        }
-
-        .ghc-pdf-studio-header {
-          min-height: 102px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 18px;
-          padding: 22px;
-          border-bottom: 1px solid rgba(255,255,255,.08);
-          background:
-            linear-gradient(90deg, rgba(99,229,70,.08), rgba(255,255,255,.02)),
-            rgba(5,7,6,.62);
-        }
-
-        .ghc-pdf-studio-title {
-          display: grid;
-          gap: 6px;
-          min-width: 0;
-        }
-
-        .ghc-pdf-studio-kicker {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .18em;
-          font-size: 10px;
-          font-weight: 950;
-        }
-
-        .ghc-pdf-studio-title h2 {
-          margin: 0;
-          color: #f4f6f2;
-          font-size: clamp(24px, 2.4vw, 36px);
-          line-height: .95;
-          letter-spacing: -.045em;
-          font-weight: 950;
-        }
-
-        .ghc-pdf-studio-title p {
-          margin: 0;
-          color: rgba(244,246,242,.58);
-          font-size: 13px;
-          line-height: 1.55;
-          max-width: 680px;
-        }
-
-        .ghc-pdf-studio-actions {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          justify-content: flex-end;
-          flex-wrap: wrap;
-          flex-shrink: 0;
-        }
-
-        .ghc-pdf-studio-actions button,
-        .ghc-pdf-studio-actions a {
-          min-height: 42px;
-          border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 16px;
-          text-decoration: none;
-          font-size: 12px;
-          font-weight: 950;
-          letter-spacing: .02em;
-          cursor: pointer;
-        }
-
-        .ghc-pdf-studio-actions button {
-          border: 1px solid rgba(99,229,70,.35);
-          background: linear-gradient(135deg, #63e546, #7bee65);
-          color: #061008;
-          box-shadow: 0 0 30px rgba(99,229,70,.14);
-        }
-
-        .ghc-pdf-studio-actions a {
-          border: 1px solid rgba(255,255,255,.12);
-          background: rgba(255,255,255,.04);
-          color: rgba(244,246,242,.82);
-        }
-
-        .ghc-pdf-premium-shell {
-          padding: 18px;
-          background:
-            radial-gradient(circle at 50% 0%, rgba(99,229,70,.065), transparent 34%),
-            #050706;
-        }
-
-        .ghc-pdf-premium-topbar {
-          min-height: 48px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-bottom: 0;
-          border-radius: 18px 18px 0 0;
-          background:
-            linear-gradient(90deg, rgba(99,229,70,.10), rgba(255,255,255,.025)),
-            rgba(9,13,11,.96);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          padding: 0 16px;
-        }
-
-        .ghc-pdf-premium-topbar span {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .16em;
-          font-size: 10px;
-          font-weight: 950;
-          white-space: nowrap;
-        }
-
-        .ghc-pdf-premium-topbar strong {
-          color: rgba(244,246,242,.82);
-          font-size: 12px;
-          font-weight: 850;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .ghc-pdf-premium-frame {
-          width: 100%;
-          height: 82vh;
-          min-height: 760px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 0 0 18px 18px;
-          background: rgba(255,255,255,.035);
-          display: block;
-        }
-
-        .ghc-pdf-premium-fullscreen {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.10), transparent 30%),
-            #050706;
-          display: grid;
-          grid-template-rows: 74px minmax(0, 1fr);
-        }
-
-        .ghc-pdf-premium-fullscreen-top {
-          border-bottom: 1px solid rgba(255,255,255,.09);
-          background:
-            linear-gradient(90deg, rgba(99,229,70,.10), rgba(255,255,255,.02)),
-            rgba(8,12,10,.98);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 18px;
-          padding: 12px 20px;
-        }
-
-        .ghc-pdf-premium-fullscreen-top div {
-          display: grid;
-          gap: 4px;
-          min-width: 0;
-        }
-
-        .ghc-pdf-premium-fullscreen-top span {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .16em;
-          font-size: 10px;
-          font-weight: 950;
-        }
-
-        .ghc-pdf-premium-fullscreen-top strong {
-          color: #f4f6f2;
-          font-size: 15px;
-          line-height: 1.2;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .ghc-pdf-premium-fullscreen-top button {
-          min-height: 42px;
-          border-radius: 999px;
-          border: 1px solid rgba(99,229,70,.35);
-          background: linear-gradient(135deg, #63e546, #7bee65);
-          color: #061008;
-          padding: 0 16px;
-          font-weight: 950;
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-
-        .ghc-pdf-premium-fullscreen iframe {
-          width: 100%;
-          height: 100%;
-          border: 0;
-          background: rgba(255,255,255,.035);
-        }
-
-        @media (max-width: 820px) {
-          .ghc-pdf-studio-header {
-            align-items: stretch;
-            flex-direction: column;
-          }
-
-          .ghc-pdf-studio-actions {
-            justify-content: flex-start;
-          }
-
-          .ghc-pdf-premium-topbar {
-            align-items: flex-start;
-            justify-content: center;
-            flex-direction: column;
-            padding: 10px 14px;
-          }
-
-          .ghc-pdf-premium-frame {
-            height: 78vh;
-            min-height: 640px;
-          }
-        }
-      `}</style>
-
-
-      <style jsx global>{`
-        .ghc-media-studio-card,
-        .ghc-audio-studio-card {
-          padding: 0 !important;
-          overflow: hidden;
-          border: 1px solid rgba(99,229,70,.16) !important;
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.10), transparent 34%),
-            linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
-            rgba(7,10,9,.96) !important;
-          box-shadow: 0 26px 90px rgba(0,0,0,.28);
-        }
-
-        .ghc-media-studio-header {
-          min-height: 94px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 18px;
-          padding: 22px;
-          border-bottom: 1px solid rgba(255,255,255,.08);
-          background:
-            linear-gradient(90deg, rgba(99,229,70,.08), rgba(255,255,255,.02)),
-            rgba(5,7,6,.62);
-        }
-
-        .ghc-media-studio-header > div {
-          display: grid;
-          gap: 6px;
-          min-width: 0;
-        }
-
-        .ghc-media-kicker {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .18em;
-          font-size: 10px;
-          font-weight: 950;
-        }
-
-        .ghc-media-studio-header h2 {
-          margin: 0;
-          color: #f4f6f2;
-          font-size: clamp(24px, 2.4vw, 36px);
-          line-height: .95;
-          letter-spacing: -.045em;
-          font-weight: 950;
-        }
-
-        .ghc-media-studio-header p {
-          margin: 0;
-          color: rgba(244,246,242,.58);
-          font-size: 13px;
-          line-height: 1.55;
-          max-width: 680px;
-        }
-
-        .ghc-media-studio-header button {
-          min-height: 42px;
-          border-radius: 999px;
-          border: 1px solid rgba(99,229,70,.35);
-          background: linear-gradient(135deg, #63e546, #7bee65);
-          color: #061008;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 16px;
-          font-size: 12px;
-          font-weight: 950;
-          cursor: pointer;
-          box-shadow: 0 0 30px rgba(99,229,70,.14);
-          flex-shrink: 0;
-        }
-
-        .ghc-video-premium-shell {
-          padding: 18px;
-          background:
-            radial-gradient(circle at 50% 0%, rgba(99,229,70,.065), transparent 34%),
-            #050706;
-        }
-
-        .ghc-media-topbar {
-          min-height: 48px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-bottom: 0;
-          border-radius: 18px 18px 0 0;
-          background:
-            linear-gradient(90deg, rgba(99,229,70,.10), rgba(255,255,255,.025)),
-            rgba(9,13,11,.96);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          padding: 0 16px;
-        }
-
-        .ghc-media-topbar span {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .16em;
-          font-size: 10px;
-          font-weight: 950;
-          white-space: nowrap;
-        }
-
-        .ghc-media-topbar strong {
-          color: rgba(244,246,242,.82);
-          font-size: 12px;
-          font-weight: 850;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .ghc-video-premium-player {
-          width: 100%;
-          max-height: 72vh;
-          min-height: 420px;
-          display: block;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 0 0 18px 18px;
-          background: #000;
-          object-fit: contain;
-        }
-
-        .ghc-video-premium-fullscreen {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.10), transparent 30%),
-            #050706;
-          display: grid;
-          grid-template-rows: 74px minmax(0, 1fr);
-        }
-
-        .ghc-video-premium-fullscreen-top {
-          border-bottom: 1px solid rgba(255,255,255,.09);
-          background:
-            linear-gradient(90deg, rgba(99,229,70,.10), rgba(255,255,255,.02)),
-            rgba(8,12,10,.98);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 18px;
-          padding: 12px 20px;
-        }
-
-        .ghc-video-premium-fullscreen-top div {
-          display: grid;
-          gap: 4px;
-          min-width: 0;
-        }
-
-        .ghc-video-premium-fullscreen-top span {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .16em;
-          font-size: 10px;
-          font-weight: 950;
-        }
-
-        .ghc-video-premium-fullscreen-top strong {
-          color: #f4f6f2;
-          font-size: 15px;
-          line-height: 1.2;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .ghc-video-premium-fullscreen-top button {
-          min-height: 42px;
-          border-radius: 999px;
-          border: 1px solid rgba(99,229,70,.35);
-          background: linear-gradient(135deg, #63e546, #7bee65);
-          color: #061008;
-          padding: 0 16px;
-          font-weight: 950;
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-
-        .ghc-video-premium-fullscreen video {
-          width: 100%;
-          height: 100%;
-          background: #000;
-          object-fit: contain;
-        }
-
-        .ghc-audio-premium-shell {
-          min-height: 172px;
-          padding: 22px;
-          display: grid;
-          grid-template-columns: 118px minmax(0, 1fr);
-          gap: 22px;
-          align-items: center;
-          background:
-            radial-gradient(circle at 12% 50%, rgba(99,229,70,.12), transparent 24%),
-            #050706;
-        }
-
-        .ghc-audio-orb {
-          width: 112px;
-          height: 112px;
-          border-radius: 999px;
-          position: relative;
-          display: grid;
-          place-items: center;
-          color: #63e546;
-          border: 1px solid rgba(99,229,70,.24);
-          background:
-            radial-gradient(circle, rgba(99,229,70,.18), rgba(99,229,70,.04) 62%),
-            rgba(255,255,255,.035);
-          box-shadow: 0 0 52px rgba(99,229,70,.12);
-          overflow: hidden;
-        }
-
-        .ghc-audio-orb span {
-          position: absolute;
-          inset: 18px;
-          border-radius: inherit;
-          border: 1px solid rgba(99,229,70,.18);
-          animation: ghcAudioPulse 2.8s ease-in-out infinite;
-        }
-
-        .ghc-audio-orb strong {
-          font-size: 20px;
-          letter-spacing: .12em;
-          font-weight: 950;
-        }
-
-        @keyframes ghcAudioPulse {
-          0%, 100% { transform: scale(.92); opacity: .45; }
-          50% { transform: scale(1.18); opacity: .12; }
-        }
-
-        .ghc-audio-player-zone {
-          display: grid;
-          gap: 10px;
-          min-width: 0;
-        }
-
-        .ghc-audio-player-zone span {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .15em;
-          font-size: 10px;
-          font-weight: 950;
-        }
-
-        .ghc-audio-player-zone strong {
-          color: #f4f6f2;
-          font-size: clamp(20px, 2vw, 30px);
-          line-height: 1.05;
-          letter-spacing: -.035em;
-          font-weight: 950;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .ghc-audio-premium-player {
-          width: 100%;
-          min-height: 48px;
-          accent-color: #63e546;
-          filter: saturate(.85);
-        }
-
-        @media (max-width: 820px) {
-          .ghc-media-studio-header {
-            align-items: stretch;
-            flex-direction: column;
-          }
-
-          .ghc-video-premium-player {
-            min-height: 260px;
-            max-height: 62vh;
-          }
-
-          .ghc-media-topbar {
-            align-items: flex-start;
-            justify-content: center;
-            flex-direction: column;
-            padding: 10px 14px;
-          }
-
-          .ghc-audio-premium-shell {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
-
-
-      <style jsx global>{`
-        .ghc-complete-card {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 18px;
-          align-items: center;
-          border: 1px solid rgba(99,229,70,.16);
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.11), transparent 34%),
-            linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
-            rgba(7,10,9,.96);
-          border-radius: 24px;
-          padding: 22px;
-          box-shadow: 0 22px 70px rgba(0,0,0,.22);
-        }
-
-        .ghc-complete-card.completed {
-          border-color: rgba(99,229,70,.32);
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.18), transparent 34%),
-            linear-gradient(145deg, rgba(99,229,70,.075), rgba(255,255,255,.018)),
-            rgba(7,10,9,.96);
-        }
-
-        .ghc-complete-copy {
-          display: grid;
-          gap: 6px;
-          min-width: 0;
-        }
-
-        .ghc-complete-copy span {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .18em;
-          font-size: 10px;
-          font-weight: 950;
-        }
-
-        .ghc-complete-copy strong {
-          color: #f4f6f2;
-          font-size: clamp(22px, 2vw, 32px);
-          line-height: 1;
-          letter-spacing: -.04em;
-          font-weight: 950;
-        }
-
-        .ghc-complete-copy p {
-          margin: 0;
-          color: rgba(244,246,242,.58);
-          font-size: 13px;
-          line-height: 1.5;
-        }
-
-        .ghc-complete-card .ghc-primary-button:disabled {
-          opacity: .72;
-          cursor: default;
-          transform: none;
-          filter: saturate(.88);
-        }
-
-        .ghc-completion-message {
-          grid-column: 1 / -1;
-          border: 1px solid rgba(255,255,255,.10);
-          border-radius: 16px;
-          background: rgba(255,255,255,.045);
-          color: rgba(244,246,242,.76);
-          padding: 12px 14px;
-          font-size: 13px;
-          font-weight: 800;
-        }
-
-        .ghc-completion-message.success {
-          border-color: rgba(99,229,70,.26);
-          background: rgba(99,229,70,.08);
-          color: #dfffd8;
-        }
-
-        @media (max-width: 760px) {
-          .ghc-complete-card {
-            grid-template-columns: 1fr;
-          }
-
-          .ghc-complete-card .ghc-primary-button {
-            width: 100%;
-          }
-        }
-      `}</style>
-
-
-      <style jsx global>{`
-        .ghc-module-status-card {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) 108px;
-          gap: 18px;
-          align-items: center;
-          border: 1px solid rgba(255,255,255,.10);
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.08), transparent 34%),
-            linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.016)),
-            rgba(7,10,9,.94);
-          border-radius: 22px;
-          padding: 20px;
-          box-shadow: 0 18px 60px rgba(0,0,0,.18);
-        }
-
-        .ghc-module-status-card.completed {
-          border-color: rgba(99,229,70,.30);
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.16), transparent 34%),
-            linear-gradient(145deg, rgba(99,229,70,.07), rgba(255,255,255,.016)),
-            rgba(7,10,9,.96);
-        }
-
-        .ghc-module-status-card > div:first-child {
-          display: grid;
-          gap: 7px;
-          min-width: 0;
-        }
-
-        .ghc-module-status-card span {
-          color: #63e546;
-          text-transform: uppercase;
-          letter-spacing: .16em;
-          font-size: 10px;
-          font-weight: 950;
-        }
-
-        .ghc-module-status-card strong {
-          color: #f4f6f2;
-          font-size: clamp(21px, 2vw, 30px);
-          line-height: 1;
-          letter-spacing: -.035em;
-          font-weight: 950;
-        }
-
-        .ghc-module-status-card p {
-          margin: 0;
-          color: rgba(244,246,242,.58);
-          line-height: 1.55;
-          font-size: 13px;
-        }
-
-        .ghc-module-status-progress {
-          width: 104px;
-          height: 104px;
-          border-radius: 999px;
-          border: 1px solid rgba(99,229,70,.22);
-          background:
-            radial-gradient(circle, rgba(99,229,70,.13), rgba(99,229,70,.035) 62%),
-            rgba(255,255,255,.025);
-          display: grid;
-          place-items: center;
-          align-content: center;
-          text-align: center;
-          box-shadow: 0 0 42px rgba(99,229,70,.08);
-        }
-
-        .ghc-module-status-progress strong {
-          font-size: 31px;
-          color: #f4f6f2;
-        }
-
-        .ghc-module-status-progress span {
-          color: #63e546;
-          margin-top: 4px;
-        }
-
-        .ghc-exam-card.standby {
-          cursor: default;
-          border: 1px solid rgba(255,255,255,.12);
-          background:
-            radial-gradient(circle at top right, rgba(214,178,94,.13), transparent 34%),
-            linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
-            rgba(7,10,9,.96);
-          opacity: .96;
-        }
-
-        .ghc-exam-card.standby.completed {
-          border-color: rgba(99,229,70,.24);
-          background:
-            radial-gradient(circle at top right, rgba(99,229,70,.14), transparent 34%),
-            linear-gradient(145deg, rgba(99,229,70,.06), rgba(255,255,255,.018)),
-            rgba(7,10,9,.96);
-        }
-
-        .ghc-exam-card.standby em {
-          display: inline-flex;
-          width: fit-content;
-          margin-top: 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(214,178,94,.28);
-          background: rgba(214,178,94,.08);
-          color: #d6b25e;
-          padding: 7px 10px;
-          font-size: 11px;
-          font-style: normal;
-          font-weight: 950;
-          text-transform: uppercase;
-          letter-spacing: .12em;
-        }
-
-        .ghc-exam-card.standby.completed em {
-          border-color: rgba(99,229,70,.28);
-          background: rgba(99,229,70,.08);
-          color: #63e546;
-        }
-
-        @media (max-width: 760px) {
-          .ghc-module-status-card {
-            grid-template-columns: 1fr;
-          }
-
-          .ghc-module-status-progress {
-            width: 92px;
-            height: 92px;
-          }
-        }
-      `}</style>
-
-
-      <style jsx global>{`
-        /* GHC ACADEMY · LECCIÓN CON ESTÉTICA APROBADA
-           Mantiene funcionalidad real: PDF/vídeo/audio privados, progreso, módulo y standby de examen. */
-
-        :root {
-          --green: #63e546;
-          --green-rgb: 99, 229, 70;
-          --bg: #050706;
-          --panel: rgba(8,12,10,.90);
-          --white: #f4f6f2;
-          --muted: rgba(244,246,242,.62);
-          --soft: rgba(244,246,242,.44);
-          --gold: #d6b25e;
-        }
-
-        html,
-        body {
-          background: #050706 !important;
-        }
-
-        .ghc-center-page,
-        .ghc-lesson-page {
-          min-height: 100vh;
-          background:
-            radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), .075), transparent 32%),
-            radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
-            linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%) !important;
-          color: var(--white);
-          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-
-        .ghc-lesson-shell {
-          display: grid !important;
-          grid-template-columns: 305px minmax(0, 1fr) !important;
-          min-height: 100vh !important;
-          max-width: 1780px;
-          margin: 0 auto;
-          border-left: 1px solid rgba(255,255,255,.045);
-          border-right: 1px solid rgba(255,255,255,.045);
-          background:
-            linear-gradient(90deg, rgba(255,255,255,.012), transparent 18%, transparent 82%, rgba(255,255,255,.01));
-        }
-
-        .ghc-sidebar {
-          position: sticky !important;
-          top: 0 !important;
-          height: 100vh !important;
-          overflow-y: auto !important;
-          border-right: 1px solid rgba(255,255,255,.075) !important;
-          background:
-            linear-gradient(180deg, rgba(8,11,10,.985), rgba(3,5,4,.965)),
-            #050706 !important;
-          padding: 28px 22px !important;
-          box-shadow: 18px 0 80px rgba(0,0,0,.22);
-        }
-
-        .ghc-sidebar::-webkit-scrollbar {
-          width: 8px;
-        }
-
-        .ghc-sidebar::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,.08);
-          border-radius: 999px;
-        }
-
-        .ghc-kicker {
-          color: var(--green) !important;
-          text-transform: uppercase;
-          letter-spacing: .18em !important;
-          font-size: 10px !important;
-          font-weight: 950 !important;
-          margin: 0 0 12px !important;
-        }
-
-        .ghc-sidebar-title {
-          margin: 0 0 28px !important;
-          color: var(--white) !important;
-          font-size: 24px !important;
-          line-height: 1.02 !important;
-          letter-spacing: -.045em !important;
-          font-weight: 950 !important;
-        }
-
-        .ghc-progress-card {
-          border-radius: 18px !important;
-          border: 1px solid rgba(255,255,255,.085) !important;
-          background:
-            radial-gradient(circle at top right, rgba(var(--green-rgb), .08), transparent 34%),
-            linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-            rgba(8,12,10,.92) !important;
-          padding: 18px !important;
-          box-shadow: 0 24px 82px rgba(0,0,0,.18) !important;
-        }
-
-        .ghc-progress-top {
-          display: flex !important;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
-        }
-
-        .ghc-progress-top span,
-        .ghc-progress-small {
-          color: rgba(244,246,242,.58) !important;
-          font-size: 12px !important;
-          line-height: 1.45 !important;
-        }
-
-        .ghc-progress-top strong {
-          color: var(--green) !important;
-          font-size: 18px !important;
-          font-weight: 950 !important;
-        }
-
-        .ghc-progress-track {
-          height: 9px !important;
-          border-radius: 999px !important;
-          background: rgba(255,255,255,.075) !important;
-          overflow: hidden;
-          margin: 14px 0 10px !important;
-        }
-
-        .ghc-progress-fill {
-          height: 100% !important;
-          border-radius: 999px !important;
-          background: linear-gradient(90deg, var(--green), #7bee65) !important;
-          box-shadow: 0 0 22px rgba(var(--green-rgb),.26);
-        }
-
-        .ghc-module-list {
-          display: grid !important;
-          gap: 22px !important;
-          margin-top: 28px !important;
-        }
-
-        .ghc-module-title {
-          margin: 0 0 10px !important;
-          color: rgba(244,246,242,.50) !important;
-          text-transform: uppercase;
-          letter-spacing: .15em !important;
-          font-size: 10px !important;
-          font-weight: 950 !important;
-        }
-
-        .ghc-lessons-list {
-          display: grid !important;
-          gap: 8px !important;
-        }
-
-        .ghc-lesson-item {
-          width: 100%;
-          min-height: 46px !important;
-          border-radius: 14px !important;
-          border: 1px solid rgba(255,255,255,.075) !important;
-          background: rgba(255,255,255,.024) !important;
-          color: rgba(244,246,242,.70) !important;
-          display: grid !important;
-          grid-template-columns: 26px minmax(0, 1fr) !important;
-          gap: 10px !important;
-          align-items: center !important;
-          text-align: left !important;
-          padding: 10px 12px !important;
-          cursor: pointer !important;
-          transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
-        }
-
-        .ghc-lesson-item:hover {
-          border-color: rgba(var(--green-rgb),.22) !important;
-          color: rgba(244,246,242,.90) !important;
-          transform: translateY(-1px);
-        }
-
-        .ghc-lesson-item-active {
-          border-color: rgba(var(--green-rgb),.34) !important;
-          background:
-            linear-gradient(90deg, rgba(var(--green-rgb),.12), rgba(255,255,255,.024)) !important;
-          color: var(--white) !important;
-          box-shadow: inset 3px 0 0 rgba(var(--green-rgb),.86), 0 12px 34px rgba(var(--green-rgb),.045) !important;
-        }
-
-        .ghc-lesson-status {
-          color: var(--green) !important;
-          font-weight: 950 !important;
-        }
-
-        .ghc-lesson-name {
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          font-size: 13px !important;
-          font-weight: 850 !important;
-        }
-
-        .ghc-main {
-          min-width: 0;
-          padding: 24px 28px 42px !important;
-        }
-
-        .ghc-main-inner {
-          max-width: 1180px !important;
-          margin: 0 auto !important;
-          display: grid !important;
-          gap: 20px !important;
-        }
-
-        .ghc-top-actions {
-          min-height: 52px !important;
-          display: flex !important;
-          align-items: center !important;
-          gap: 18px !important;
-          border-bottom: 1px solid rgba(255,255,255,.07) !important;
-          padding-bottom: 14px !important;
-        }
-
-        .ghc-top-back {
-          border: 0 !important;
-          background: transparent !important;
-          color: var(--green) !important;
-          padding: 0 !important;
-          cursor: pointer !important;
-          font-size: 12px !important;
-          text-transform: uppercase;
-          letter-spacing: .12em !important;
-          font-weight: 950 !important;
-        }
-
-        .ghc-hero {
-          border-radius: 24px !important;
-          border: 1px solid rgba(255,255,255,.085) !important;
-          background:
-            radial-gradient(circle at top right, rgba(var(--green-rgb), .09), transparent 34%),
-            linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-            rgba(8,12,10,.92) !important;
-          padding: clamp(22px, 3vw, 34px) !important;
-          box-shadow: 0 24px 82px rgba(0,0,0,.22) !important;
-          overflow: hidden;
-          position: relative;
-        }
-
-        .ghc-hero::after {
-          content: '';
-          position: absolute;
-          right: -120px;
-          top: -120px;
-          width: 320px;
-          height: 320px;
-          border-radius: 999px;
-          background: rgba(var(--green-rgb),.08);
-          filter: blur(70px);
-          pointer-events: none;
-        }
-
-        .ghc-title {
-          position: relative;
-          z-index: 1;
-          margin: 0 !important;
-          color: var(--white) !important;
-          font-size: clamp(38px, 4.8vw, 68px) !important;
-          line-height: .92 !important;
-          letter-spacing: -.065em !important;
-          font-weight: 950 !important;
-          max-width: 900px !important;
-        }
-
-        .ghc-pills {
-          position: relative;
-          z-index: 1;
-          display: flex !important;
-          flex-wrap: wrap !important;
-          gap: 8px !important;
-          margin-top: 22px !important;
-        }
-
-        .ghc-pill {
-          min-height: 32px !important;
-          display: inline-flex !important;
-          align-items: center !important;
-          border-radius: 999px !important;
-          border: 1px solid rgba(255,255,255,.085) !important;
-          background: rgba(255,255,255,.035) !important;
-          color: rgba(244,246,242,.76) !important;
-          padding: 0 12px !important;
-          font-size: 11px !important;
-          font-weight: 850 !important;
-        }
-
-        .ghc-content-stack {
-          display: grid !important;
-          gap: 18px !important;
-        }
-
-        .ghc-content-card,
-        .ghc-pdf-studio-card,
-        .ghc-media-studio-card,
-        .ghc-audio-studio-card,
-        .ghc-complete-card,
-        .ghc-module-status-card,
-        .ghc-exam-card,
-        .ghc-nav-card {
-          border-radius: 24px !important;
-          border: 1px solid rgba(255,255,255,.085) !important;
-          background:
-            radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
-            linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-            rgba(8,12,10,.92) !important;
-          box-shadow: 0 24px 82px rgba(0,0,0,.22) !important;
-        }
-
-        .ghc-media-studio-header,
-        .ghc-pdf-studio-header {
-          background:
-            linear-gradient(90deg, rgba(var(--green-rgb),.075), rgba(255,255,255,.022)),
-            rgba(5,7,6,.62) !important;
-          border-bottom: 1px solid rgba(255,255,255,.075) !important;
-        }
-
-        .ghc-media-kicker,
-        .ghc-pdf-studio-kicker,
-        .ghc-content-label,
-        .ghc-complete-copy span,
-        .ghc-module-status-card span {
-          color: var(--green) !important;
-          letter-spacing: .16em !important;
-          font-weight: 950 !important;
-        }
-
-        .ghc-media-studio-header h2,
-        .ghc-pdf-studio-title h2,
-        .ghc-complete-copy strong,
-        .ghc-module-status-card strong {
-          color: var(--white) !important;
-          letter-spacing: -.045em !important;
-          font-weight: 950 !important;
-        }
-
-        .ghc-media-studio-header p,
-        .ghc-pdf-studio-title p,
-        .ghc-complete-copy p,
-        .ghc-module-status-card p,
-        .ghc-content-note {
-          color: rgba(244,246,242,.60) !important;
-        }
-
-        .ghc-video-premium-shell,
-        .ghc-pdf-premium-shell,
-        .ghc-audio-premium-shell {
-          background:
-            radial-gradient(circle at 50% 0%, rgba(var(--green-rgb),.055), transparent 34%),
-            #050706 !important;
-        }
-
-        .ghc-media-topbar,
-        .ghc-pdf-premium-topbar {
-          border-color: rgba(255,255,255,.08) !important;
-          background:
-            linear-gradient(90deg, rgba(var(--green-rgb),.09), rgba(255,255,255,.022)),
-            rgba(9,13,11,.96) !important;
-        }
-
-        .ghc-primary-button,
-        .ghc-media-studio-header button,
-        .ghc-pdf-studio-actions button,
-        .ghc-video-premium-fullscreen-top button,
-        .ghc-pdf-premium-fullscreen-top button {
-          border-radius: 999px !important;
-          border: 1px solid rgba(var(--green-rgb),.30) !important;
-          background: linear-gradient(135deg, var(--green), #7bee65) !important;
-          color: #061008 !important;
-          font-weight: 950 !important;
-          box-shadow: 0 0 30px rgba(var(--green-rgb),.14) !important;
-        }
-
-        .ghc-pdf-studio-actions a {
-          border-radius: 999px !important;
-          background: rgba(255,255,255,.04) !important;
-          color: rgba(244,246,242,.82) !important;
-        }
-
-        .ghc-complete-card,
-        .ghc-module-status-card {
-          padding: 22px !important;
-        }
-
-        .ghc-complete-card.completed,
-        .ghc-module-status-card.completed {
-          border-color: rgba(var(--green-rgb),.26) !important;
-          background:
-            radial-gradient(circle at top right, rgba(var(--green-rgb), .12), transparent 34%),
-            linear-gradient(145deg, rgba(var(--green-rgb),.055), rgba(255,255,255,.018)),
-            rgba(8,12,10,.94) !important;
-        }
-
-        .ghc-navigation-grid {
-          display: grid !important;
-          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          gap: 16px !important;
-        }
-
-        .ghc-nav-card,
-        .ghc-exam-card {
-          min-height: 132px !important;
-          padding: 20px !important;
-          text-align: left !important;
-          color: var(--white) !important;
-          text-decoration: none !important;
-        }
-
-        .ghc-card-title {
-          color: var(--white) !important;
-          font-weight: 950 !important;
-          letter-spacing: -.025em !important;
-        }
-
-        .ghc-card-subtitle {
-          color: rgba(244,246,242,.58) !important;
-          line-height: 1.55 !important;
-        }
-
-        .ghc-exam-card.standby em {
-          border-radius: 999px !important;
-        }
-
-        .ghc-empty-content,
-        .ghc-asset-loading {
-          border-radius: 20px !important;
-          border: 1px dashed rgba(var(--green-rgb),.18) !important;
-          background: rgba(var(--green-rgb),.035) !important;
-          color: rgba(244,246,242,.66) !important;
-        }
-
-        @media (max-width: 1120px) {
-          .ghc-lesson-shell {
-            grid-template-columns: 1fr !important;
-          }
-
-          .ghc-sidebar {
-            position: relative !important;
-            height: auto !important;
-            max-height: none !important;
-            border-right: 0 !important;
-            border-bottom: 1px solid rgba(255,255,255,.075) !important;
-          }
-
-          .ghc-module-list {
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
-          }
-
-          .ghc-main {
-            padding: 20px !important;
-          }
-        }
-
-        @media (max-width: 760px) {
-          .ghc-main {
-            padding: 16px !important;
-          }
-
-          .ghc-title {
-            font-size: clamp(34px, 12vw, 48px) !important;
-          }
-
-          .ghc-navigation-grid,
-          .ghc-complete-card,
-          .ghc-module-status-card {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
-
+          <video src={videoUrl} controls autoPlay playsInline />
+        </div>
+      )}
+
+      {pdfFullscreen && pdfUrl && (
+        <div className="pdf-fullscreen" role="dialog" aria-modal="true">
+          <div className="fullscreen-top">
+            <div>
+              <span>GHC Academy · visor privado</span>
+              <strong>{currentLesson?.title || 'PDF de la lección'}</strong>
+            </div>
+            <button type="button" onClick={() => setPdfFullscreen(false)}>Cerrar visor</button>
+          </div>
+          <iframe src={decoratePdfUrl(pdfUrl)} title="PDF privado a pantalla completa" />
+        </div>
+      )}
+
+      <GlobalStyles />
     </main>
   )
+}
+
+function ResourceRow({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div className={active ? 'resource-row active' : 'resource-row'}>
+      <span>{label}</span>
+      <strong>{active ? 'Disponible' : 'No cargado'}</strong>
+    </div>
+  )
+}
+
+function Background() {
+  return (
+    <div className="background" aria-hidden="true">
+      <div className="orb orb-one" />
+      <div className="orb orb-two" />
+      <div className="grid-texture" />
+    </div>
+  )
+}
+
+function formatLessonIndex(index: number) {
+  if (index < 0) return 'Lección'
+  return `${index + 1}.`
+}
+
+function stripHtml(value: string) {
+  return String(value || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function decoratePdfUrl(url: string) {
@@ -1988,6 +687,21 @@ function getLessonType(lesson: AnyRecord) {
     lesson.lesson_type ||
     'text'
   ).toLowerCase()
+}
+
+function getLessonTypeLabel(lesson: AnyRecord, assets: { video: string; audio: string; pdf: string }) {
+  const rawType = getLessonType(lesson)
+  const hasVideo = Boolean(assets.video) || rawType.includes('video')
+  const hasAudio = Boolean(assets.audio) || rawType.includes('audio')
+  const hasPdf = Boolean(assets.pdf) || rawType.includes('pdf')
+  const isMixed = rawType.includes('mixed') || rawType.includes('mixto')
+
+  if (isMixed || [hasVideo, hasAudio, hasPdf].filter(Boolean).length >= 2) return 'Mixto'
+  if (hasVideo) return 'Vídeo'
+  if (hasAudio) return 'Audio'
+  if (hasPdf) return 'PDF'
+
+  return 'Texto'
 }
 
 function getTextContent(lesson: AnyRecord) {
@@ -2125,18 +839,6 @@ function getErrorText(error: unknown, fallback: string) {
   return fallback
 }
 
-function findUrlByExtension(values: any[], extensions: string[]) {
-  const cleanValues = values
-    .filter(Boolean)
-    .map((value) => String(value).trim())
-
-  const exact = cleanValues.find((value) =>
-    extensions.some((extension) => value.toLowerCase().includes(extension))
-  )
-
-  return exact || ''
-}
-
 function isProbablyText(value: any) {
   if (!value) return false
   const text = String(value)
@@ -2167,7 +869,7 @@ function sortLessonsPremium(a: AnyRecord, b: AnyRecord) {
   if (aNumber !== bNumber) return aNumber - bNumber
 
   const aOrder = Number(a.order ?? a.position ?? a.order_index ?? a.sort_order ?? 999)
-  const bOrder = Number(b.order ?? b.position ?? b.order_index ?? b.sort_order ?? 999)
+  const bOrder = Number(b.order ?? b.position ?? b.sort_order ?? b.order_index ?? 999)
 
   return aOrder - bOrder
 }
@@ -2180,4 +882,983 @@ function extractLessonNumber(title: string = '') {
 function extractModuleNumber(title: string = '') {
   const match = title.match(/m[oó]dulo\s*(\d+)/i)
   return match ? Number(match[1]) : 999
+}
+
+function GlobalStyles() {
+  return (
+    <style jsx global>{`
+      :root {
+        --green: ${GREEN};
+        --green-rgb: 99, 229, 70;
+        --bg: #050706;
+        --panel: rgba(8,12,10,.92);
+        --white: #f4f6f2;
+        --muted: rgba(244,246,242,.62);
+        --soft: rgba(244,246,242,.44);
+        --gold: #d6b25e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+      }
+
+      body {
+        color: var(--white);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .lesson-dashboard-page {
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), .075), transparent 32%),
+          radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
+          linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%);
+        color: var(--white);
+      }
+
+      .background {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 0;
+      }
+
+      .orb {
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(100px);
+      }
+
+      .orb-one {
+        width: 520px;
+        height: 520px;
+        top: -220px;
+        left: -180px;
+        background: rgba(var(--green-rgb), .10);
+      }
+
+      .orb-two {
+        width: 520px;
+        height: 520px;
+        right: -260px;
+        top: 110px;
+        background: rgba(120,135,130,.09);
+      }
+
+      .grid-texture {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+        background-size: 42px 42px;
+        opacity: .34;
+        mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
+      }
+
+      .icon-rail {
+        position: fixed;
+        z-index: 4;
+        left: 0;
+        top: 0;
+        width: 64px;
+        height: 100vh;
+        border-right: 1px solid rgba(255,255,255,.07);
+        background: rgba(4,6,5,.80);
+        display: grid;
+        align-content: start;
+        justify-items: center;
+        gap: 24px;
+        padding: 22px 0;
+      }
+
+      .icon-rail button,
+      .icon-rail span {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid transparent;
+        color: rgba(244,246,242,.48);
+        background: transparent;
+      }
+
+      .icon-rail span:nth-child(3) {
+        color: var(--green);
+        border-color: rgba(var(--green-rgb), .18);
+        background: rgba(var(--green-rgb), .07);
+      }
+
+      .lesson-sidebar {
+        position: fixed;
+        z-index: 3;
+        left: 64px;
+        top: 0;
+        width: 294px;
+        height: 100vh;
+        border-right: 1px solid rgba(255,255,255,.075);
+        background:
+          linear-gradient(180deg, rgba(8,11,10,.985), rgba(3,5,4,.965)),
+          #050706;
+        padding: 22px 22px 18px;
+        display: grid;
+        grid-template-rows: auto auto auto 1fr auto;
+        gap: 18px;
+        box-shadow: 18px 0 80px rgba(0,0,0,.22);
+        overflow: hidden;
+      }
+
+      .brand strong,
+      .brand span {
+        display: block;
+        text-transform: uppercase;
+      }
+
+      .brand strong {
+        color: var(--green);
+        font-size: 32px;
+        line-height: .9;
+        letter-spacing: .02em;
+        font-weight: 950;
+      }
+
+      .brand span {
+        color: var(--green);
+        font-size: 13px;
+        letter-spacing: .18em;
+        font-weight: 950;
+      }
+
+      .back-link {
+        width: fit-content;
+        border: 0;
+        background: transparent;
+        color: var(--green);
+        padding: 0;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      .course-mini p,
+      .sidebar-modules > p {
+        margin: 0 0 10px;
+        color: rgba(244,246,242,.44);
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-size: 10px;
+        font-weight: 900;
+      }
+
+      .course-mini h2 {
+        margin: 0 0 18px;
+        color: var(--white);
+        font-size: 20px;
+        line-height: 1.1;
+        letter-spacing: -.03em;
+      }
+
+      .progress-copy {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        color: rgba(244,246,242,.55);
+        font-size: 12px;
+      }
+
+      .progress-copy strong {
+        color: var(--green);
+      }
+
+      .bar {
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255,255,255,.075);
+        margin: 9px 0;
+      }
+
+      .bar div {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--green), #7bee65);
+        box-shadow: 0 0 22px rgba(var(--green-rgb), .26);
+      }
+
+      .sidebar-progress small {
+        color: rgba(244,246,242,.46);
+      }
+
+      .sidebar-modules {
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+
+      .sidebar-modules::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .sidebar-modules::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: rgba(255,255,255,.08);
+      }
+
+      .side-module {
+        border-top: 1px solid rgba(255,255,255,.07);
+        padding: 14px 0;
+      }
+
+      .side-module.expanded {
+        border-radius: 14px;
+        border: 1px solid rgba(var(--green-rgb), .22);
+        background: rgba(var(--green-rgb), .055);
+        padding: 12px;
+        margin: 8px 0;
+      }
+
+      .side-module-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .side-module-head strong,
+      .side-module-head span {
+        display: block;
+      }
+
+      .side-module-head strong {
+        color: var(--white);
+        font-size: 13px;
+      }
+
+      .side-module-head span,
+      .side-module-head em {
+        color: rgba(244,246,242,.52);
+        font-size: 12px;
+        font-style: normal;
+      }
+
+      .side-lessons {
+        display: grid;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .side-lesson {
+        min-height: 42px;
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+        border: 1px solid transparent;
+        background: transparent;
+        color: rgba(244,246,242,.68);
+        text-align: left;
+        border-radius: 10px;
+        padding: 7px 8px;
+        cursor: pointer;
+      }
+
+      .side-lesson.active {
+        border-color: rgba(var(--green-rgb), .26);
+        background: rgba(var(--green-rgb), .08);
+        color: var(--white);
+      }
+
+      .side-lesson span {
+        color: var(--green);
+      }
+
+      .side-lesson small,
+      .side-lesson strong {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .side-lesson small {
+        color: rgba(244,246,242,.44);
+        font-size: 10px;
+      }
+
+      .side-lesson strong {
+        color: inherit;
+        font-size: 12px;
+      }
+
+      .support-card {
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.085);
+        background: rgba(255,255,255,.026);
+        padding: 16px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .support-card strong {
+        color: var(--white);
+      }
+
+      .support-card span {
+        color: rgba(244,246,242,.52);
+        font-size: 12px;
+      }
+
+      .support-card button {
+        min-height: 36px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .26);
+        background: rgba(var(--green-rgb), .08);
+        color: var(--green);
+        font-weight: 900;
+      }
+
+      .lesson-shell {
+        position: relative;
+        z-index: 1;
+        margin-left: 358px;
+        min-height: 100vh;
+      }
+
+      .lesson-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        min-height: 64px;
+        border-bottom: 1px solid rgba(255,255,255,.075);
+        background: rgba(5,7,6,.82);
+        backdrop-filter: blur(18px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 0 28px;
+      }
+
+      .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        color: rgba(244,246,242,.56);
+      }
+
+      .breadcrumb button {
+        border: 0;
+        background: transparent;
+        color: rgba(244,246,242,.62);
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .breadcrumb strong,
+      .breadcrumb b {
+        color: rgba(244,246,242,.78);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .breadcrumb b {
+        color: var(--white);
+      }
+
+      .top-actions {
+        display: flex;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+
+      .top-actions button,
+      .complete-top,
+      .primary-action {
+        min-height: 42px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.82);
+        padding: 0 14px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      .complete-top,
+      .primary-action {
+        border-color: rgba(255,255,255,.12);
+        background: rgba(255,255,255,.035);
+        color: var(--white);
+      }
+
+      .complete-top.done,
+      .primary-action.as-button {
+        border-color: rgba(var(--green-rgb), .30);
+        background: rgba(var(--green-rgb), .10);
+        color: var(--green);
+      }
+
+      .lesson-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 28px;
+        padding: 38px 34px 46px;
+        align-items: start;
+      }
+
+      .lesson-main {
+        min-width: 0;
+        display: grid;
+        gap: 18px;
+      }
+
+      .lesson-heading p {
+        margin: 0 0 12px;
+        color: var(--white);
+        font-size: clamp(24px, 2.8vw, 34px);
+        font-weight: 950;
+        letter-spacing: -.04em;
+      }
+
+      .lesson-heading h1 {
+        margin: 0;
+        color: var(--white);
+        font-size: clamp(30px, 4vw, 52px);
+        line-height: .96;
+        letter-spacing: -.055em;
+        font-weight: 950;
+      }
+
+      .lesson-heading span {
+        display: block;
+        max-width: 740px;
+        margin-top: 14px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .viewer-card,
+      .description-card,
+      .bottom-navigation button,
+      .bottom-navigation div,
+      .panel-card,
+      .loading-card {
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.085);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.92);
+        box-shadow: 0 24px 82px rgba(0,0,0,.22);
+      }
+
+      .viewer-card {
+        padding: 6px;
+        overflow: hidden;
+      }
+
+      .asset-loading,
+      .empty-stage {
+        padding: 24px;
+        color: rgba(244,246,242,.66);
+      }
+
+      .video-stage {
+        position: relative;
+        background: #020403;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.075);
+      }
+
+      .video-stage video {
+        width: 100%;
+        min-height: 430px;
+        max-height: 68vh;
+        display: block;
+        background: #000;
+        object-fit: contain;
+      }
+
+      .video-stage button,
+      .pdf-actions button,
+      .pdf-actions a {
+        min-height: 38px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .26);
+        background: rgba(var(--green-rgb), .10);
+        color: var(--green);
+        padding: 0 14px;
+        font-weight: 900;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .video-stage > button {
+        position: absolute;
+        right: 18px;
+        top: 18px;
+      }
+
+      .audio-stage {
+        min-height: 160px;
+        display: grid;
+        grid-template-columns: 110px minmax(0, 1fr);
+        gap: 20px;
+        align-items: center;
+        padding: 24px;
+      }
+
+      .audio-brand {
+        width: 92px;
+        height: 92px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(var(--green-rgb), .24);
+        background: rgba(var(--green-rgb), .08);
+        color: var(--green);
+        font-size: 22px;
+        font-weight: 950;
+      }
+
+      .audio-stage p,
+      .audio-stage strong {
+        display: block;
+        margin: 0;
+      }
+
+      .audio-stage p {
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .audio-stage strong {
+        color: var(--white);
+        font-size: 22px;
+        margin: 7px 0 12px;
+      }
+
+      .audio-stage audio {
+        width: 100%;
+        accent-color: var(--green);
+      }
+
+      .pdf-stage {
+        display: grid;
+        gap: 0;
+      }
+
+      .pdf-actions {
+        min-height: 58px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255,255,255,.075);
+      }
+
+      .pdf-actions p {
+        margin: 0;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .pdf-actions > div {
+        display: flex;
+        gap: 8px;
+      }
+
+      .pdf-stage iframe {
+        width: 100%;
+        min-height: 680px;
+        border: 0;
+        background: rgba(255,255,255,.035);
+      }
+
+      .text-stage {
+        padding: 24px;
+        color: rgba(244,246,242,.78);
+        line-height: 1.7;
+      }
+
+      .description-card {
+        padding: 24px;
+      }
+
+      .description-card h2 {
+        margin: 0 0 8px;
+        color: var(--white);
+        font-size: 20px;
+      }
+
+      .description-card p {
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .learning-points {
+        margin-top: 18px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        padding: 16px;
+      }
+
+      .learning-points strong {
+        color: var(--white);
+      }
+
+      .learning-points ul {
+        display: grid;
+        gap: 8px;
+        margin: 12px 0 0;
+        padding-left: 0;
+        list-style: none;
+      }
+
+      .learning-points li {
+        color: rgba(244,246,242,.70);
+      }
+
+      .learning-points li::before {
+        content: '✓';
+        color: var(--green);
+        margin-right: 8px;
+      }
+
+      .bottom-navigation {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .bottom-navigation button,
+      .bottom-navigation div {
+        min-height: 82px;
+        padding: 16px;
+        text-align: left;
+        color: var(--white);
+      }
+
+      .bottom-navigation .next {
+        border-color: rgba(var(--green-rgb), .26);
+      }
+
+      .bottom-navigation span,
+      .bottom-navigation strong {
+        display: block;
+      }
+
+      .bottom-navigation span {
+        color: rgba(244,246,242,.46);
+        margin-bottom: 6px;
+      }
+
+      .lesson-sidepanel {
+        position: sticky;
+        top: 86px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .panel-card {
+        padding: 20px;
+      }
+
+      .panel-card h3 {
+        margin: 0 0 16px;
+        color: var(--white);
+        font-size: 18px;
+      }
+
+      .panel-card p,
+      .panel-card span {
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .panel-card p strong {
+        color: var(--green);
+        font-size: 20px;
+      }
+
+      .lesson-data div,
+      .resource-row {
+        min-height: 36px;
+        border-top: 1px solid rgba(255,255,255,.055);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .lesson-data div span,
+      .resource-row span {
+        color: rgba(244,246,242,.52);
+      }
+
+      .lesson-data div strong,
+      .resource-row strong,
+      .green {
+        color: var(--green) !important;
+      }
+
+      .resource-row:not(.active) strong {
+        color: rgba(244,246,242,.42) !important;
+      }
+
+      .module-state.complete {
+        border-color: rgba(var(--green-rgb), .24);
+      }
+
+      .module-state > strong {
+        display: block;
+        color: var(--white);
+        margin-bottom: 12px;
+      }
+
+      .module-state em {
+        display: inline-flex;
+        width: fit-content;
+        margin-top: 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(214,178,94,.24);
+        background: rgba(214,178,94,.08);
+        color: var(--gold);
+        padding: 7px 10px;
+        font-style: normal;
+        font-size: 10px;
+        font-weight: 950;
+        letter-spacing: .10em;
+        text-transform: uppercase;
+      }
+
+      .complete-card button {
+        width: 100%;
+        min-height: 42px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .30);
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        font-weight: 950;
+        cursor: pointer;
+      }
+
+      .complete-card button:disabled {
+        opacity: .72;
+        cursor: default;
+      }
+
+      .completion-message {
+        display: block;
+        margin-top: 12px;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .video-fullscreen,
+      .pdf-fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #050706;
+        display: grid;
+        grid-template-rows: 74px minmax(0, 1fr);
+      }
+
+      .fullscreen-top {
+        border-bottom: 1px solid rgba(255,255,255,.09);
+        background: rgba(8,12,10,.98);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 12px 20px;
+      }
+
+      .fullscreen-top div {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .fullscreen-top span {
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .16em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .fullscreen-top strong {
+        color: var(--white);
+        font-size: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .fullscreen-top button {
+        min-height: 42px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .30);
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        padding: 0 16px;
+        font-weight: 950;
+        cursor: pointer;
+      }
+
+      .video-fullscreen video,
+      .pdf-fullscreen iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: #000;
+        object-fit: contain;
+      }
+
+      .loading {
+        display: grid;
+        place-items: center;
+      }
+
+      .loading-card {
+        position: relative;
+        z-index: 1;
+        width: min(720px, calc(100vw - 40px));
+        padding: 34px;
+      }
+
+      .loading-card p {
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .16em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .loading-card h1 {
+        margin: 10px 0;
+        font-size: clamp(34px, 5vw, 58px);
+        line-height: .95;
+        letter-spacing: -.06em;
+      }
+
+      .loading-card span {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      @media (max-width: 1320px) {
+        .lesson-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .lesson-sidepanel {
+          position: static;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          display: grid;
+        }
+      }
+
+      @media (max-width: 1040px) {
+        .icon-rail,
+        .lesson-sidebar {
+          display: none;
+        }
+
+        .lesson-shell {
+          margin-left: 0;
+        }
+
+        .lesson-topbar {
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 14px 18px;
+        }
+
+        .lesson-layout {
+          padding: 22px 18px 34px;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .lesson-sidepanel,
+        .bottom-navigation {
+          grid-template-columns: 1fr;
+        }
+
+        .breadcrumb {
+          flex-wrap: wrap;
+        }
+
+        .top-actions {
+          width: 100%;
+          flex-wrap: wrap;
+        }
+
+        .top-actions button,
+        .complete-top {
+          flex: 1;
+        }
+
+        .video-stage video {
+          min-height: 280px;
+        }
+
+        .audio-stage {
+          grid-template-columns: 1fr;
+        }
+
+        .pdf-stage iframe {
+          min-height: 620px;
+        }
+
+        .pdf-actions {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .pdf-actions > div {
+          width: 100%;
+          flex-wrap: wrap;
+        }
+
+        .pdf-actions button,
+        .pdf-actions a {
+          flex: 1;
+        }
+      }
+    `}</style>
+  )
 }
