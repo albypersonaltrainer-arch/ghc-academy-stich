@@ -1249,10 +1249,10 @@ function CertificadosTab({
       <section className="cert-final-hero">
         <div className="cert-final-copy">
           <p className="cert-final-kicker">Credenciales oficiales</p>
-          <h1>Válidoa. Demuestra. Avanza.</h1>
+          <h1>Válido. Verificable. Profesional.</h1>
           <p className="cert-final-subtitle">
-            Obtén credenciales oficiales de GHC Academy y demuestra tu experiencia con certificados
-            verificables, profesionales y preparados para reforzar tu perfil en el sector.
+            Consulta tus credenciales oficiales de GHC Academy, verifica su estado y comparte certificados
+            profesionales vinculados a tu progreso real.
           </p>
         </div>
 
