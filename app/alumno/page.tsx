@@ -457,12 +457,9 @@ export default function AlumnoPage() {
   }, [courseCards, searchTerm, courseEstadoFilter, levelFilter, categoryFilter, sortModo]);
 
   const notifications = useMemo<NotificationItem[]>(() => {
-    const nextHref =
-      mainCourse?.nextLesson && mainCourse?.course
-        ? `/cursos/${getCourseSlug(mainCourse.course)}/${mainCourse.nextLesson.id}`
-        : mainCourse?.course
-          ? `/cursos/${getCourseSlug(mainCourse.course)}`
-          : '/cursos';
+    const nextHref = mainCourse?.course
+      ? `/cursos/${getCourseSlug(mainCourse.course)}`
+      : '/cursos';
 
     return [
       {
@@ -754,13 +751,7 @@ function PanelView({
               <MetaItem icon="document" text={`${mainCourse?.courseLessons.length || 0} Lecciones`} />
             </div>
             <Link
-              href={
-                mainCourse?.nextLesson
-                  ? `/cursos/${getCourseSlug(mainCourse.course)}/${mainCourse.nextLesson.id}`
-                  : mainCourse
-                    ? `/cursos/${getCourseSlug(mainCourse.course)}`
-                    : '/cursos'
-              }
+              href={mainCourse?.course ? `/cursos/${getCourseSlug(mainCourse.course)}` : '/cursos'}
               className="primary-action"
             >
               Continuar formación
@@ -1148,13 +1139,7 @@ function ItinerarioView({
           <p>Avanza cada día. Los pequeños pasos construyen grandes resultados.</p>
         </div>
         <Link
-          href={
-            curriculumCourse?.nextLesson
-              ? `/cursos/${getCourseSlug(curriculumCourse.course)}/${curriculumCourse.nextLesson.id}`
-              : curriculumCourse?.course
-                ? `/cursos/${getCourseSlug(curriculumCourse.course)}`
-                : '/cursos'
-          }
+          href={curriculumCourse?.course ? `/cursos/${getCourseSlug(curriculumCourse.course)}` : '/cursos'}
         >
           Seguir avanzando
           <Icon name="arrow" />
@@ -1855,9 +1840,7 @@ function PremiumCourseCard({
   mode: ViewModo;
 }) {
   const course = card.course;
-  const href = card.nextLesson
-    ? `/cursos/${getCourseSlug(course)}/${card.nextLesson.id}`
-    : `/cursos/${getCourseSlug(course)}`;
+  const href = `/cursos/${getCourseSlug(course)}`;
 
   return (
     <article className={mode === 'grid' ? 'premium-course-card' : 'premium-course-card-list'}>
