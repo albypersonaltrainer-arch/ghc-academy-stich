@@ -142,9 +142,10 @@ export default function CertificateVerificationPage() {
             <header className="ghc-diploma-head">
               <div className="ghc-diploma-brand">
                 <span className="ghc-diploma-logo">G</span>
-                <div>
+                <div className="ghc-diploma-wordmark">
                   <strong>GHC</strong>
                   <em>Academy</em>
+                  <small>Sport Through Science</small>
                 </div>
               </div>
 
@@ -178,7 +179,7 @@ export default function CertificateVerificationPage() {
               </div>
 
               <div className="ghc-diploma-footer-brand">
-                <strong>GHC</strong>
+                <strong>GHC Academy</strong>
                 <span>Sport Through Science</span>
               </div>
 
@@ -636,43 +637,65 @@ function GlobalStyles() {
       .ghc-diploma-brand {
         display: inline-flex;
         align-items: center;
-        gap: 12px;
+        gap: 16px;
+        min-height: 72px;
+        padding: 10px 18px 10px 10px;
+        border-radius: 22px;
+        border: 1px solid rgba(17,23,19,.14);
+        background:
+          radial-gradient(circle at 12% 18%, rgba(var(--ghc-green-rgb), .20), transparent 42%),
+          rgba(17,23,19,.045);
+        box-shadow: 0 12px 38px rgba(17,23,19,.06);
       }
 
       .ghc-diploma-logo {
-        width: 42px;
-        height: 42px;
-        border-radius: 15px;
-        border: 1px solid rgba(17,23,19,.18);
-        background: rgba(17,23,19,.06);
-        color: #24402a;
+        width: 54px;
+        height: 54px;
+        flex: 0 0 54px;
+        border-radius: 18px;
+        border: 1px solid rgba(30,143,50,.34);
+        background:
+          radial-gradient(circle at 35% 28%, rgba(var(--ghc-green-rgb), .28), transparent 46%),
+          rgba(30,143,50,.10);
+        color: #1e8f32;
         display: grid;
         place-items: center;
+        font-size: 22px;
+        line-height: 1;
         font-weight: 950;
+        letter-spacing: -.05em;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
       }
 
-      .ghc-diploma-brand div {
-        display: flex;
-        align-items: baseline;
-        gap: 10px;
+      .ghc-diploma-wordmark {
+        display: grid;
+        gap: 3px;
         text-transform: uppercase;
       }
 
-      .ghc-diploma-brand strong {
+      .ghc-diploma-wordmark strong {
         color: var(--ghc-ink);
-        font-size: 20px;
-        line-height: 1;
+        font-size: 28px;
+        line-height: .9;
         font-weight: 950;
         letter-spacing: .18em;
       }
 
-      .ghc-diploma-brand em {
-        color: rgba(17,23,19,.58);
-        font-size: 12px;
+      .ghc-diploma-wordmark em {
+        color: rgba(17,23,19,.72);
+        font-size: 13px;
         line-height: 1;
         font-style: normal;
-        font-weight: 850;
-        letter-spacing: .24em;
+        font-weight: 900;
+        letter-spacing: .32em;
+      }
+
+      .ghc-diploma-wordmark small {
+        color: #1e8f32;
+        font-size: 9px;
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: .20em;
       }
 
       .ghc-diploma-state {
@@ -821,10 +844,11 @@ function GlobalStyles() {
       .ghc-diploma-footer-brand strong {
         display: block;
         color: #1e8f32;
-        font-size: 16px;
+        font-size: 14px;
         line-height: 1;
         font-weight: 950;
-        letter-spacing: .16em;
+        letter-spacing: .14em;
+        text-transform: uppercase;
       }
 
       .ghc-seal {
@@ -996,6 +1020,14 @@ function GlobalStyles() {
         .ghc-diploma-head {
           align-items: flex-start;
           flex-direction: column;
+        }
+
+        .ghc-diploma-brand {
+          width: 100%;
+        }
+
+        .ghc-diploma-wordmark strong {
+          font-size: 24px;
         }
 
         .ghc-cert-topbar nav {
