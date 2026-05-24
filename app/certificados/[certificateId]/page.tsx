@@ -77,9 +77,9 @@ export default function CertificateVerificationPage() {
 
   if (loading) {
     return (
-      <main className="ghc-credential-page">
+      <main className="ghc-cert-page ghc-cert-center">
         <Background />
-        <section className="ghc-state-card">
+        <section className="ghc-message-card">
           <p>GHC Academy</p>
           <h1>Verificando certificado</h1>
           <span>Estamos comprobando la validez pública de la credencial digital.</span>
@@ -91,10 +91,10 @@ export default function CertificateVerificationPage() {
 
   if (!certificate) {
     return (
-      <main className="ghc-credential-page">
+      <main className="ghc-cert-page ghc-cert-center">
         <Background />
-        <section className="ghc-state-card ghc-state-error">
-          <Link href="/alumno" className="ghc-soft-button">
+        <section className="ghc-message-card ghc-message-error">
+          <Link href="/alumno" className="ghc-soft-link">
             ← Volver al área alumno
           </Link>
           <p>Certificado no encontrado</p>
@@ -114,11 +114,11 @@ export default function CertificateVerificationPage() {
     certificateId;
 
   return (
-    <main className="ghc-credential-page">
+    <main className="ghc-cert-page">
       <Background />
 
-      <section className="ghc-credential-shell">
-        <header className="ghc-credential-topbar">
+      <section className="ghc-cert-shell">
+        <header className="ghc-cert-topbar">
           <Link href="/alumno" className="ghc-top-brand">
             <span>G</span>
             <strong>GHC</strong>
@@ -128,97 +128,89 @@ export default function CertificateVerificationPage() {
           <nav>
             <Link href="/alumno">Área alumno</Link>
             <Link href="/alumno">Mis cursos</Link>
-            <span className={isValid ? 'ghc-state-pill ghc-valid' : 'ghc-state-pill ghc-revoked'}>
+            <span className={isValid ? 'ghc-status-pill is-valid' : 'ghc-status-pill is-revoked'}>
               {isValid ? 'VÁLIDO' : 'REVOCADO'}
             </span>
           </nav>
         </header>
 
-        <section className="ghc-certificate-layout">
-          <article className="ghc-certificate-card">
-            <div className="ghc-card-watermark">GHC</div>
+        <section className="ghc-cert-layout">
+          <article className="ghc-diploma">
+            <div className="ghc-diploma-bg-grid" />
+            <div className="ghc-diploma-watermark">GHC</div>
 
-            <div className="ghc-certificate-brand">
-              <span>G</span>
-              <div>
-                <strong>GHC</strong>
-                <em>Academy</em>
+            <header className="ghc-diploma-head">
+              <div className="ghc-diploma-brand">
+                <span className="ghc-diploma-logo">G</span>
+                <div>
+                  <strong>GHC</strong>
+                  <em>Academy</em>
+                </div>
               </div>
-            </div>
 
-            <div className="ghc-certificate-status-row">
-              <p>Digital credential</p>
-              <span className={isValid ? 'ghc-inline-status ghc-valid' : 'ghc-inline-status ghc-revoked'}>
-                {isValid ? 'VÁLIDO' : 'REVOCADO'}
-              </span>
-            </div>
+              <div className={isValid ? 'ghc-diploma-state is-valid' : 'ghc-diploma-state is-revoked'}>
+                <span>Estado</span>
+                <strong>{isValid ? 'VÁLIDO' : 'REVOCADO'}</strong>
+              </div>
+            </header>
 
-            <div className="ghc-certificate-main">
-              <p className="ghc-certifies">GHC Academy certifica que</p>
+            <section className="ghc-diploma-center">
+              <p className="ghc-diploma-kicker">Certificado oficial · Digital credential</p>
+              <h1>Certificado de logro</h1>
 
-              <h1>{certificate.student_name}</h1>
+              <p className="ghc-certifies">Se otorga a</p>
+              <h2>{certificate.student_name}</h2>
 
-              <p className="ghc-certifies">ha completado satisfactoriamente el curso</p>
+              <p className="ghc-certifies">por completar satisfactoriamente el curso</p>
+              <h3>{certificate.course_title}</h3>
+            </section>
 
-              <h2>{certificate.course_title}</h2>
-            </div>
-
-            <div className="ghc-certificate-data">
+            <section className="ghc-diploma-data">
               <DataItem label="Nota final" value={`${certificate.final_score}%`} />
               <DataItem label="Fecha de emisión" value={formatDate(certificate.issued_at)} />
               <DataItem label="Código único" value={certificate.certificate_code} />
-            </div>
+            </section>
 
-            <div className="ghc-verification-box">
-              <div>
-                <p>Verificación pública</p>
-                <strong>{certificate.certificate_code}</strong>
-                <span>
-                  Credencial verificable vinculada al estado actual del certificado en GHC Academy.
-                </span>
+            <footer className="ghc-diploma-footer">
+              <div className="ghc-signature">
+                <span />
+                <p>Dirección académica</p>
+              </div>
+
+              <div className="ghc-diploma-footer-brand">
+                <strong>GHC</strong>
+                <span>Sport Through Science</span>
               </div>
 
               <div className="ghc-seal">
                 <strong>GHC</strong>
                 <span>{isValid ? 'VALID' : 'REVOKED'}</span>
               </div>
-            </div>
-
-            <footer className="ghc-certificate-footer">
-              <div>
-                <p>GHC Academy</p>
-                <span>Sport Through Science</span>
-              </div>
-
-              <div>
-                <p>ID público</p>
-                <span>{publicId}</span>
-              </div>
             </footer>
           </article>
 
-          <aside className="ghc-certificate-side">
+          <aside className="ghc-verify-panel">
             <section>
-              <p>Estado</p>
-              <strong className={isValid ? 'ghc-text-green' : 'ghc-text-danger'}>
-                {isValid ? 'Certificado válido' : 'Certificado revocado'}
-              </strong>
-              <span>{source === 'preview' ? 'Modo preview' : 'Verificado en Supabase'}</span>
+              <p>Verificación pública</p>
+              <strong>{certificate.certificate_code}</strong>
+              <span>
+                Credencial verificable vinculada al estado actual del certificado en GHC Academy.
+              </span>
             </section>
 
             <section>
               <p>Alumno</p>
               <strong>{certificate.student_name}</strong>
-              <span>Credencial académica GHC</span>
+              <span>{source === 'preview' ? 'Modo preview' : 'Verificado en Supabase'}</span>
             </section>
 
             <section>
-              <p>Curso</p>
-              <strong>{certificate.course_title}</strong>
-              <span>Finalización registrada</span>
+              <p>ID público</p>
+              <strong>{publicId}</strong>
+              <span>Identificador público de consulta.</span>
             </section>
 
-            <Link href="/alumno" className="ghc-primary-button">
+            <Link href="/alumno" className="ghc-primary-link">
               Volver al área alumno
             </Link>
           </aside>
@@ -239,7 +231,7 @@ export default function CertificateVerificationPage() {
 
 function DataItem({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="ghc-data-item">
+    <div className="ghc-diploma-data-item">
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -248,10 +240,10 @@ function DataItem({ label, value }: { label: string; value: string | number }) {
 
 function Background() {
   return (
-    <div className="ghc-background" aria-hidden="true">
-      <div className="ghc-orb ghc-orb-one" />
-      <div className="ghc-orb ghc-orb-two" />
-      <div className="ghc-grid-texture" />
+    <div className="ghc-cert-bg" aria-hidden="true">
+      <div className="ghc-cert-orb ghc-cert-orb-one" />
+      <div className="ghc-cert-orb ghc-cert-orb-two" />
+      <div className="ghc-cert-bg-grid" />
     </div>
   );
 }
@@ -370,13 +362,14 @@ function GlobalStyles() {
   return (
     <style jsx global>{`
       :root {
-        --green: ${GHC_GREEN};
-        --green-rgb: 99, 229, 70;
-        --bg: #050706;
-        --white: #f4f6f2;
-        --muted: rgba(244,246,242,.62);
-        --soft: rgba(244,246,242,.44);
-        --danger: #ff7777;
+        --ghc-green: ${GHC_GREEN};
+        --ghc-green-rgb: 99, 229, 70;
+        --ghc-bg: #050706;
+        --ghc-white: #f4f6f2;
+        --ghc-paper: #eef1dc;
+        --ghc-ink: #111713;
+        --ghc-muted: rgba(244,246,242,.62);
+        --ghc-danger: #ff7777;
       }
 
       * {
@@ -387,11 +380,11 @@ function GlobalStyles() {
       body {
         margin: 0;
         padding: 0;
-        background: var(--bg);
+        background: var(--ghc-bg);
       }
 
       body {
-        color: var(--white);
+        color: var(--ghc-white);
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
@@ -399,17 +392,17 @@ function GlobalStyles() {
         color: inherit;
       }
 
-      .ghc-credential-page {
+      .ghc-cert-page {
         min-height: 100vh;
         position: relative;
         overflow-x: hidden;
         background:
-          radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), .075), transparent 32%),
+          radial-gradient(circle at 12% -10%, rgba(var(--ghc-green-rgb), .075), transparent 32%),
           radial-gradient(circle at 96% 8%, rgba(255,255,255,.035), transparent 28%),
           linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%);
       }
 
-      .ghc-background {
+      .ghc-cert-bg {
         position: fixed;
         inset: 0;
         pointer-events: none;
@@ -417,21 +410,21 @@ function GlobalStyles() {
         z-index: 0;
       }
 
-      .ghc-orb {
+      .ghc-cert-orb {
         position: absolute;
         border-radius: 999px;
         filter: blur(100px);
       }
 
-      .ghc-orb-one {
+      .ghc-cert-orb-one {
         width: 520px;
         height: 520px;
         top: -220px;
         left: -180px;
-        background: rgba(var(--green-rgb), .10);
+        background: rgba(var(--ghc-green-rgb), .10);
       }
 
-      .ghc-orb-two {
+      .ghc-cert-orb-two {
         width: 520px;
         height: 520px;
         right: -260px;
@@ -439,43 +432,41 @@ function GlobalStyles() {
         background: rgba(120,135,130,.09);
       }
 
-      .ghc-grid-texture {
+      .ghc-cert-bg-grid {
         position: absolute;
         inset: 0;
         background-image:
           linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
           linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
         background-size: 42px 42px;
-        opacity: .38;
+        opacity: .34;
         mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
       }
 
-      .ghc-credential-shell {
-        width: min(1380px, calc(100vw - 42px));
+      .ghc-cert-shell {
+        width: min(1440px, calc(100vw - 40px));
         margin: 0 auto;
-        padding: 22px 0 44px;
+        padding: 18px 0 32px;
         position: relative;
         z-index: 1;
         display: grid;
-        gap: 18px;
+        gap: 14px;
       }
 
-      .ghc-credential-topbar {
-        min-height: 62px;
+      .ghc-cert-topbar {
+        min-height: 56px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 18px;
+        gap: 16px;
         border-bottom: 1px solid rgba(255,255,255,.07);
-        padding-bottom: 12px;
+        padding-bottom: 10px;
       }
 
       .ghc-top-brand {
-        min-height: 44px;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 12px;
-        color: var(--white);
         text-decoration: none;
         text-transform: uppercase;
         letter-spacing: .22em;
@@ -485,8 +476,9 @@ function GlobalStyles() {
         width: 32px;
         height: 32px;
         border-radius: 12px;
-        border: 1px solid rgba(var(--green-rgb), .35);
-        color: var(--green);
+        border: 1px solid rgba(var(--ghc-green-rgb), .36);
+        background: rgba(var(--ghc-green-rgb), .075);
+        color: var(--ghc-green);
         display: grid;
         place-items: center;
         font-size: 13px;
@@ -494,7 +486,9 @@ function GlobalStyles() {
       }
 
       .ghc-top-brand strong {
+        color: var(--ghc-white);
         font-size: 18px;
+        font-weight: 950;
         letter-spacing: .18em;
       }
 
@@ -502,19 +496,20 @@ function GlobalStyles() {
         color: rgba(244,246,242,.62);
         font-style: normal;
         font-size: 12px;
+        font-weight: 850;
       }
 
-      .ghc-credential-topbar nav {
+      .ghc-cert-topbar nav {
         display: flex;
         align-items: center;
         justify-content: flex-end;
-        gap: 12px;
+        gap: 10px;
         flex-wrap: wrap;
       }
 
-      .ghc-credential-topbar nav a,
-      .ghc-soft-button {
-        min-height: 38px;
+      .ghc-cert-topbar nav a,
+      .ghc-soft-link {
+        min-height: 36px;
         border-radius: 999px;
         border: 1px solid rgba(255,255,255,.10);
         background: rgba(255,255,255,.035);
@@ -522,7 +517,7 @@ function GlobalStyles() {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0 14px;
+        padding: 0 13px;
         text-decoration: none;
         font-size: 11px;
         font-weight: 900;
@@ -530,77 +525,92 @@ function GlobalStyles() {
         text-transform: uppercase;
       }
 
-      .ghc-state-pill,
-      .ghc-inline-status {
-        min-height: 38px;
-        min-width: 92px;
+      .ghc-status-pill {
+        min-height: 36px;
+        min-width: 90px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0 16px;
+        padding: 0 15px;
         font-size: 11px;
         font-weight: 950;
         letter-spacing: .12em;
         text-transform: uppercase;
-        white-space: nowrap;
       }
 
-      .ghc-valid {
-        border: 1px solid rgba(var(--green-rgb), .26);
-        background: rgba(var(--green-rgb), .085);
-        color: var(--green);
+      .is-valid {
+        border: 1px solid rgba(var(--ghc-green-rgb), .28);
+        background: rgba(var(--ghc-green-rgb), .085);
+        color: var(--ghc-green);
       }
 
-      .ghc-revoked {
+      .is-revoked {
         border: 1px solid rgba(255,119,119,.30);
         background: rgba(255,119,119,.08);
-        color: var(--danger);
+        color: var(--ghc-danger);
       }
 
-      .ghc-certificate-layout {
+      .ghc-cert-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 340px;
-        gap: 18px;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 14px;
         align-items: start;
       }
 
-      .ghc-certificate-card,
-      .ghc-certificate-side section,
-      .ghc-state-card,
-      .ghc-preview-note {
-        border-radius: 24px;
-        border: 1px solid rgba(255,255,255,.085);
-        background:
-          radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
-          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-          rgba(8,12,10,.92);
-        box-shadow: 0 24px 82px rgba(0,0,0,.22);
-      }
-
-      .ghc-certificate-card {
+      .ghc-diploma {
         position: relative;
         overflow: hidden;
-        min-height: 640px;
-        padding: clamp(22px, 3vw, 34px);
+        width: 100%;
+        min-height: clamp(520px, 74vh, 700px);
+        border-radius: 24px;
+        border: 1px solid rgba(255,255,255,.13);
+        background:
+          radial-gradient(circle at 100% 0%, rgba(var(--ghc-green-rgb), .18), transparent 26%),
+          linear-gradient(145deg, rgba(238,241,220,.99), rgba(223,228,201,.96));
+        color: var(--ghc-ink);
+        padding: clamp(20px, 2.7vw, 34px);
+        box-shadow: 0 24px 82px rgba(0,0,0,.28);
         display: grid;
-        gap: 22px;
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        gap: 16px;
       }
 
-      .ghc-certificate-card::before {
+      .ghc-diploma::before {
         content: '';
         position: absolute;
-        inset: 18px;
-        border-radius: 18px;
-        border: 1px solid rgba(var(--green-rgb), .16);
+        inset: 16px;
+        border-radius: 17px;
+        border: 1px solid rgba(17,23,19,.12);
         pointer-events: none;
       }
 
-      .ghc-card-watermark {
+      .ghc-diploma::after {
+        content: '';
+        position: absolute;
+        inset: 28px;
+        border-radius: 12px;
+        border: 1px solid rgba(var(--ghc-green-rgb), .24);
+        pointer-events: none;
+      }
+
+      .ghc-diploma-bg-grid {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(17,23,19,.035) 1px, transparent 1px),
+          linear-gradient(rgba(17,23,19,.035) 1px, transparent 1px);
+        background-size: 44px 44px;
+        opacity: .45;
+        mask-image: radial-gradient(circle at center, black 0%, transparent 76%);
+        pointer-events: none;
+      }
+
+      .ghc-diploma-watermark {
         position: absolute;
         right: -36px;
-        bottom: -72px;
-        color: rgba(var(--green-rgb), .035);
+        bottom: -64px;
+        color: rgba(17,23,19,.045);
         font-size: min(24vw, 280px);
         line-height: 1;
         font-weight: 950;
@@ -608,58 +618,56 @@ function GlobalStyles() {
         pointer-events: none;
       }
 
-      .ghc-certificate-brand,
-      .ghc-certificate-status-row,
-      .ghc-certificate-main,
-      .ghc-certificate-data,
-      .ghc-verification-box,
-      .ghc-certificate-footer {
+      .ghc-diploma-head,
+      .ghc-diploma-center,
+      .ghc-diploma-data,
+      .ghc-diploma-footer {
         position: relative;
         z-index: 1;
       }
 
-      .ghc-certificate-brand {
-        width: fit-content;
-        min-height: 52px;
-        display: inline-flex;
-        align-items: center;
-        gap: 14px;
-        padding: 8px 14px 8px 8px;
-        border-radius: 18px;
-        border: 1px solid rgba(var(--green-rgb), .20);
-        background: linear-gradient(135deg, rgba(var(--green-rgb), .085), rgba(255,255,255,.026));
-        box-shadow: 0 0 34px rgba(var(--green-rgb), .10);
+      .ghc-diploma-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: flex-start;
       }
 
-      .ghc-certificate-brand > span {
-        width: 40px;
-        height: 40px;
-        border-radius: 14px;
-        border: 1px solid rgba(var(--green-rgb), .42);
-        color: var(--green);
+      .ghc-diploma-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .ghc-diploma-logo {
+        width: 42px;
+        height: 42px;
+        border-radius: 15px;
+        border: 1px solid rgba(17,23,19,.18);
+        background: rgba(17,23,19,.06);
+        color: #24402a;
         display: grid;
         place-items: center;
         font-weight: 950;
-        background: rgba(var(--green-rgb), .075);
       }
 
-      .ghc-certificate-brand div {
+      .ghc-diploma-brand div {
         display: flex;
         align-items: baseline;
         gap: 10px;
         text-transform: uppercase;
       }
 
-      .ghc-certificate-brand strong {
-        color: var(--white);
+      .ghc-diploma-brand strong {
+        color: var(--ghc-ink);
         font-size: 20px;
         line-height: 1;
         font-weight: 950;
         letter-spacing: .18em;
       }
 
-      .ghc-certificate-brand em {
-        color: rgba(244,246,242,.64);
+      .ghc-diploma-brand em {
+        color: rgba(17,23,19,.58);
         font-size: 12px;
         line-height: 1;
         font-style: normal;
@@ -667,208 +675,243 @@ function GlobalStyles() {
         letter-spacing: .24em;
       }
 
-      .ghc-certificate-status-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 14px;
-        padding-bottom: 18px;
-        border-bottom: 1px solid rgba(255,255,255,.075);
+      .ghc-diploma-state {
+        min-width: 138px;
+        border-radius: 18px;
+        padding: 13px 14px;
+        text-align: center;
       }
 
-      .ghc-certificate-status-row p,
-      .ghc-certifies,
-      .ghc-data-item span,
-      .ghc-verification-box p,
-      .ghc-certificate-footer p,
-      .ghc-certificate-side p {
-        margin: 0;
-        color: rgba(244,246,242,.46);
+      .ghc-diploma-state span {
+        display: block;
+        color: rgba(17,23,19,.50);
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: .14em;
         font-weight: 900;
       }
 
-      .ghc-certificate-main {
+      .ghc-diploma-state strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 17px;
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: .10em;
+      }
+
+      .ghc-diploma-center {
+        align-self: center;
         text-align: center;
-        padding: clamp(22px, 4vw, 46px) 10px 22px;
+        padding: 8px 12px 4px;
       }
 
-      .ghc-certifies {
-        color: rgba(244,246,242,.62);
-        font-size: 14px;
-        line-height: 1.6;
-        text-transform: none;
-        letter-spacing: 0;
+      .ghc-diploma-kicker {
+        margin: 0 0 9px;
+        color: rgba(17,23,19,.58);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .20em;
+        font-weight: 950;
       }
 
-      .ghc-certificate-main h1 {
-        margin: 12px 0 20px;
-        color: var(--white);
-        font-size: clamp(36px, 5.2vw, 66px);
+      .ghc-diploma-center h1 {
+        margin: 0 0 20px;
+        color: var(--ghc-ink);
+        font-size: clamp(32px, 4vw, 54px);
         line-height: .95;
         letter-spacing: -.055em;
         font-weight: 950;
         text-transform: uppercase;
       }
 
-      .ghc-certificate-main h2 {
-        margin: 14px auto 0;
-        max-width: 860px;
-        color: var(--green);
-        font-size: clamp(28px, 4vw, 48px);
+      .ghc-certifies {
+        margin: 0;
+        color: rgba(17,23,19,.62);
+        font-size: 14px;
+        line-height: 1.5;
+        font-weight: 700;
+      }
+
+      .ghc-diploma-center h2 {
+        margin: 9px 0 16px;
+        color: var(--ghc-ink);
+        font-size: clamp(36px, 4.8vw, 64px);
+        line-height: .95;
+        letter-spacing: -.055em;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      .ghc-diploma-center h3 {
+        margin: 11px auto 0;
+        max-width: 880px;
+        color: #1e8f32;
+        font-size: clamp(25px, 3.3vw, 44px);
         line-height: .98;
         letter-spacing: -.04em;
         font-weight: 950;
         text-transform: uppercase;
       }
 
-      .ghc-certificate-data {
+      .ghc-diploma-data {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
       }
 
-      .ghc-data-item {
+      .ghc-diploma-data-item {
         min-width: 0;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.075);
-        background: rgba(255,255,255,.026);
-        padding: 14px;
+        border-radius: 15px;
+        border: 1px solid rgba(17,23,19,.10);
+        background: rgba(17,23,19,.045);
+        padding: 13px;
       }
 
-      .ghc-data-item strong {
+      .ghc-diploma-data-item span,
+      .ghc-diploma-footer p,
+      .ghc-verify-panel p {
         display: block;
-        margin-top: 8px;
-        color: var(--white);
-        font-size: 15px;
-        line-height: 1.25;
+        margin: 0;
+        color: rgba(17,23,19,.50);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .13em;
         font-weight: 900;
-        overflow-wrap: anywhere;
       }
 
-      .ghc-verification-box {
-        border-radius: 20px;
-        border: 1px solid rgba(var(--green-rgb), .18);
-        background: linear-gradient(90deg, rgba(var(--green-rgb),.06), rgba(255,255,255,.022));
-        padding: 16px;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 86px;
-        gap: 18px;
-        align-items: center;
-      }
-
-      .ghc-verification-box strong {
+      .ghc-diploma-data-item strong {
         display: block;
-        margin-top: 8px;
-        color: var(--white);
-        font-size: 17px;
+        margin-top: 7px;
+        color: var(--ghc-ink);
+        font-size: 14px;
+        line-height: 1.25;
         font-weight: 950;
         overflow-wrap: anywhere;
       }
 
-      .ghc-verification-box span {
+      .ghc-diploma-footer {
+        border-top: 1px solid rgba(17,23,19,.10);
+        padding-top: 14px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 22px;
+        align-items: center;
+      }
+
+      .ghc-signature span {
         display: block;
-        margin-top: 8px;
-        color: rgba(244,246,242,.62);
-        line-height: 1.55;
-        font-size: 13px;
+        width: min(190px, 100%);
+        height: 1px;
+        background: rgba(17,23,19,.32);
+        margin-bottom: 8px;
+      }
+
+      .ghc-diploma-footer span {
+        display: block;
+        margin-top: 5px;
+        color: rgba(17,23,19,.60);
+        font-size: 12px;
+      }
+
+      .ghc-diploma-footer-brand {
+        text-align: right;
+      }
+
+      .ghc-diploma-footer-brand strong {
+        display: block;
+        color: #1e8f32;
+        font-size: 16px;
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: .16em;
       }
 
       .ghc-seal {
-        width: 82px;
-        height: 82px;
+        width: 76px;
+        height: 76px;
         border-radius: 999px;
-        border: 1px solid rgba(var(--green-rgb), .42);
-        background: rgba(var(--green-rgb), .055);
-        color: var(--green);
+        border: 1px solid rgba(30,143,50,.38);
+        background: rgba(30,143,50,.07);
+        color: #1e8f32;
         display: grid;
         place-items: center;
         align-content: center;
-        box-shadow: 0 0 34px rgba(var(--green-rgb), .12);
+      }
+
+      .ghc-seal strong,
+      .ghc-seal span {
+        display: block;
       }
 
       .ghc-seal strong {
-        color: var(--green);
-        font-size: 18px;
+        font-size: 17px;
         line-height: 1;
+        font-weight: 950;
         letter-spacing: .08em;
       }
 
       .ghc-seal span {
         margin-top: 6px;
-        color: rgba(244,246,242,.56);
+        color: rgba(17,23,19,.58);
         font-size: 9px;
         font-weight: 950;
         letter-spacing: .12em;
       }
 
-      .ghc-certificate-footer {
-        border-top: 1px solid rgba(255,255,255,.075);
-        padding-top: 18px;
-        display: flex;
-        justify-content: space-between;
-        gap: 18px;
-        align-items: end;
+      .ghc-verify-panel {
+        display: grid;
+        gap: 12px;
+        position: sticky;
+        top: 14px;
       }
 
-      .ghc-certificate-footer span {
+      .ghc-verify-panel section,
+      .ghc-preview-note,
+      .ghc-message-card {
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,.085);
+        background:
+          radial-gradient(circle at top right, rgba(var(--ghc-green-rgb), .055), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8,12,10,.92);
+        box-shadow: 0 24px 82px rgba(0,0,0,.22);
+      }
+
+      .ghc-verify-panel section {
+        padding: 17px;
+      }
+
+      .ghc-verify-panel p {
+        color: rgba(244,246,242,.46);
+      }
+
+      .ghc-verify-panel strong,
+      .ghc-verify-panel span {
         display: block;
-        margin-top: 6px;
-        max-width: 520px;
-        color: rgba(244,246,242,.62);
-        font-size: 13px;
+      }
+
+      .ghc-verify-panel strong {
+        margin-top: 8px;
+        color: var(--ghc-white);
+        font-size: 16px;
+        line-height: 1.25;
+        font-weight: 950;
         overflow-wrap: anywhere;
       }
 
-      .ghc-certificate-footer div:last-child {
-        text-align: right;
-      }
-
-      .ghc-certificate-side {
-        display: grid;
-        gap: 14px;
-        position: sticky;
-        top: 18px;
-      }
-
-      .ghc-certificate-side section {
-        padding: 18px;
-      }
-
-      .ghc-certificate-side strong,
-      .ghc-certificate-side span {
-        display: block;
-      }
-
-      .ghc-certificate-side strong {
-        margin-top: 8px;
-        color: var(--white);
-        font-size: 17px;
-        line-height: 1.2;
-      }
-
-      .ghc-certificate-side span {
+      .ghc-verify-panel span {
         margin-top: 8px;
         color: rgba(244,246,242,.58);
         line-height: 1.45;
         font-size: 13px;
       }
 
-      .ghc-text-green {
-        color: var(--green) !important;
-      }
-
-      .ghc-text-danger {
-        color: var(--danger) !important;
-      }
-
-      .ghc-primary-button {
+      .ghc-primary-link {
         min-height: 44px;
         border-radius: 999px;
-        border: 1px solid rgba(var(--green-rgb), .30);
-        background: linear-gradient(135deg, var(--green), #7bee65);
+        border: 1px solid rgba(var(--ghc-green-rgb), .30);
+        background: linear-gradient(135deg, var(--ghc-green), #7bee65);
         color: #061008;
         display: inline-flex;
         align-items: center;
@@ -879,7 +922,7 @@ function GlobalStyles() {
         font-weight: 950;
         letter-spacing: .08em;
         text-transform: uppercase;
-        box-shadow: 0 0 30px rgba(var(--green-rgb), .14);
+        box-shadow: 0 0 30px rgba(var(--ghc-green-rgb), .14);
       }
 
       .ghc-preview-note {
@@ -889,32 +932,37 @@ function GlobalStyles() {
       }
 
       .ghc-preview-note strong {
-        color: var(--green);
+        color: var(--ghc-green);
       }
 
-      .ghc-state-card {
+      .ghc-cert-center {
+        display: grid;
+        place-items: center;
+      }
+
+      .ghc-message-card {
         position: relative;
         z-index: 1;
         width: min(780px, calc(100vw - 40px));
         padding: 34px;
       }
 
-      .ghc-state-card p {
+      .ghc-message-card p {
         margin: 0 0 12px;
-        color: var(--green);
+        color: var(--ghc-green);
         text-transform: uppercase;
         letter-spacing: .16em;
         font-size: 10px;
         font-weight: 950;
       }
 
-      .ghc-state-error p {
-        color: var(--danger);
+      .ghc-message-error p {
+        color: var(--ghc-danger);
       }
 
-      .ghc-state-card h1 {
+      .ghc-message-card h1 {
         margin: 10px 0;
-        color: var(--white);
+        color: var(--ghc-white);
         font-size: clamp(36px, 6vw, 70px);
         line-height: .92;
         letter-spacing: -.06em;
@@ -922,72 +970,63 @@ function GlobalStyles() {
         text-transform: uppercase;
       }
 
-      .ghc-state-card span {
-        color: var(--muted);
+      .ghc-message-card span {
+        color: var(--ghc-muted);
         line-height: 1.6;
       }
 
-      @media (max-width: 1080px) {
-        .ghc-certificate-layout {
+      @media (max-width: 1120px) {
+        .ghc-cert-layout {
           grid-template-columns: 1fr;
         }
 
-        .ghc-certificate-side {
+        .ghc-verify-panel {
           position: static;
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
 
       @media (max-width: 760px) {
-        .ghc-credential-shell {
-          width: min(100% - 28px, 1380px);
+        .ghc-cert-shell {
+          width: min(100% - 28px, 1440px);
           padding-top: 16px;
         }
 
-        .ghc-credential-topbar,
-        .ghc-certificate-status-row,
-        .ghc-certificate-footer {
+        .ghc-cert-topbar,
+        .ghc-diploma-head {
           align-items: flex-start;
           flex-direction: column;
         }
 
-        .ghc-credential-topbar nav {
+        .ghc-cert-topbar nav {
           justify-content: flex-start;
         }
 
-        .ghc-certificate-card {
+        .ghc-diploma {
           min-height: auto;
           padding: 20px;
         }
 
-        .ghc-certificate-brand {
-          width: 100%;
+        .ghc-diploma-center h1 {
+          font-size: clamp(30px, 10vw, 44px);
         }
 
-        .ghc-certificate-brand div {
-          flex-wrap: wrap;
-        }
-
-        .ghc-certificate-main h1 {
+        .ghc-diploma-center h2 {
           font-size: clamp(34px, 11vw, 50px);
         }
 
-        .ghc-certificate-main h2 {
-          font-size: clamp(26px, 9vw, 38px);
+        .ghc-diploma-center h3 {
+          font-size: clamp(24px, 8vw, 36px);
         }
 
-        .ghc-certificate-data,
-        .ghc-verification-box,
-        .ghc-certificate-side {
+        .ghc-diploma-data,
+        .ghc-verify-panel,
+        .ghc-diploma-footer {
           grid-template-columns: 1fr;
         }
 
-        .ghc-certificate-footer div:last-child {
+        .ghc-diploma-footer-brand {
           text-align: left;
-        }
-
-        .ghc-seal {
-          justify-self: start;
         }
       }
     `}</style>
