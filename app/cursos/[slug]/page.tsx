@@ -321,6 +321,26 @@ export default function CourseDetailPage() {
     return lessons[0] || null;
   }, [modules, lessons, completedLessonIds, completedModuleIds, isCourseCompleted]);
 
+  const activeModule = useMemo(() => {
+    if (!firstAvailableLesson?.module_id) return modules[0] || null;
+
+    return (
+      modules.find((module) => String(module.id) === String(firstAvailableLesson.module_id)) ||
+      modules[0] ||
+      null
+    );
+  }, [modules, firstAvailableLesson]);
+
+  const activeModuleLessons = activeModule ? getModuleLessons(String(activeModule.id)) : [];
+  const activeModuleCompletedLessons = activeModuleLessons.filter((lesson) =>
+    completedLessonIds.has(String(lesson.id))
+  ).length;
+
+  const activeModulePercent =
+    activeModuleLessons.length > 0
+      ? Math.round((activeModuleCompletedLessons / activeModuleLessons.length) * 100)
+      : 0;
+
   function getModuleLessons(moduleId: string) {
     return lessons
       .filter((lesson) => String(lesson.module_id) === String(moduleId))
@@ -411,7 +431,7 @@ export default function CourseDetailPage() {
 
   if (loading) {
     return (
-      <main className="ghc-course-page loading">
+      <main className="course-dashboard-page loading">
         <Background />
         <section className="loading-card">
           <p>GHC Academy</p>
@@ -425,7 +445,7 @@ export default function CourseDetailPage() {
 
   if (!course) {
     return (
-      <main className="ghc-course-page loading">
+      <main className="course-dashboard-page loading">
         <Background />
         <section className="loading-card">
           <Link href="/cursos" className="ghost-pill">← Volver al catálogo</Link>
@@ -446,305 +466,433 @@ export default function CourseDetailPage() {
     ? `/cursos/${slug}/${firstAvailableLesson.id}`
     : `/cursos/${slug}`;
 
+  const courseTypeLabel = course.course_type || course.type || 'Curso';
   const levelLabel = course.level || 'Nivel GHC';
-  const typeLabel = course.course_type || course.type || 'Curso';
   const durationLabel = Number(course.duration_minutes || 0) > 0
     ? `${Number(course.duration_minutes || 0)} min`
     : 'A tu ritmo';
 
   return (
-    <main className="ghc-course-page">
+    <main className="course-dashboard-page">
       <Background />
 
+      <aside className="rail">
+        <div className="rail-dot active">⌂</div>
+        <div className="rail-dot green">●</div>
+        <div className="rail-dot">◌</div>
+        <div className="rail-dot">◎</div>
+        <div className="rail-dot">◇</div>
+        <div className="rail-dot">⚙</div>
+        <span>GX</span>
+      </aside>
+
+      <aside className="sidebar">
+        <Link href="/alumno" className="brand">
+          <span className="brand-mark">G</span>
+          <strong>GHC</strong>
+          <em>Academy</em>
+        </Link>
+
+        <nav className="side-nav" aria-label="Navegación del alumno">
+          <Link href="/alumno" className="side-item">
+            <span>▦</span>
+            <div>
+              <strong>Panel</strong>
+              <small>Resumen</small>
+            </div>
+          </Link>
+
+          <Link href="/alumno" className="side-item active">
+            <span>▧</span>
+            <div>
+              <strong>Mis cursos</strong>
+              <small>Cursos activos</small>
+            </div>
+          </Link>
+
+          <a href="#modulos" className="side-item">
+            <span>▤</span>
+            <div>
+              <strong>Itinerario</strong>
+              <small>Módulos</small>
+            </div>
+          </a>
+
+          <a href="#evaluacion" className="side-item">
+            <span>☑</span>
+            <div>
+              <strong>Evaluaciones</strong>
+              <small>Próximamente</small>
+            </div>
+          </a>
+
+          <a href="#certificado" className="side-item">
+            <span>▱</span>
+            <div>
+              <strong>Certificados</strong>
+              <small>Credenciales</small>
+            </div>
+          </a>
+
+          <Link href="/alumno" className="side-item">
+            <span>⌁</span>
+            <div>
+              <strong>Rendimiento</strong>
+              <small>Perfil</small>
+            </div>
+          </Link>
+        </nav>
+
+        <div className="student-card">
+          <div className="avatar">A</div>
+          <strong>Alby</strong>
+          <span>Alumno <b>Pro</b></span>
+          <Link href="/alumno">Cerrar sesión</Link>
+        </div>
+
+        <div className="weather-card">
+          <span />
+          <div>
+            <strong>31°C</strong>
+            <small>Soleado</small>
+          </div>
+          <em>⌄</em>
+        </div>
+      </aside>
+
       <section className="course-shell">
-        <header className="course-topbar">
+        <header className="topbar">
           <div className="breadcrumb">
-            <Link href="/alumno">Panel alumno</Link>
+            <Link href="/alumno">Panel</Link>
             <span>›</span>
-            <Link href="/cursos">Cursos</Link>
+            <Link href="/alumno">Mis cursos</Link>
             <span>›</span>
             <strong>{course.title || 'Curso GHC'}</strong>
           </div>
 
-          <div className="top-actions">
-            <Link href="/alumno" className="ghost-pill">Área alumno</Link>
-            <Link href="/cursos" className="ghost-pill">Catálogo</Link>
+          <div className="toplinks">
+            <Link href="/alumno">Inicio</Link>
+            <Link href="/cursos" className="green-link">Explorar cursos</Link>
+            <span className="bell">3</span>
+            <span className="avatar-mini">A</span>
           </div>
         </header>
 
         {systemMessage && <div className="notice">{systemMessage}</div>}
 
-        <section className="course-hero-card">
-          <div className="hero-copy">
-            <p className="kicker">GHC Academy · contenido del curso</p>
-
-            <div className="badge-row">
-              <span>{typeLabel}</span>
-              <span>{levelLabel}</span>
-              {isCourseCompleted && <span className="success">Curso completado</span>}
-              {effectiveCertificate && <span className="gold">Certificado emitido</span>}
-              {finalExamUnlocked && <span className="success">Evaluación final · próximamente</span>}
-            </div>
-
-            <h1>{course.title}</h1>
-
-            {course.subtitle ? <h2>{course.subtitle}</h2> : null}
-
-            <p className="hero-text">
-              {course.description ||
-                'Formación premium basada en ciencia aplicada, estructura y rendimiento.'}
-            </p>
-
-            <div className="hero-actions">
-              <Link href={continueHref} className="primary-action">
-                Continuar formación
-              </Link>
-              <a href="#modulos" className="secondary-action">
-                Ver módulos
-              </a>
-            </div>
-          </div>
-
-          <aside className="course-summary-card">
-            <p className="kicker">Resumen</p>
-
-            <div className="summary-price">
-              <span>Precio</span>
-              <strong>{Number(course.price || 0).toLocaleString('es-ES')}€</strong>
-            </div>
-
-            <div className="summary-grid">
-              <Metric label="Duración" value={durationLabel} />
-              <Metric label="Lecciones" value={totalLessons} />
-              <Metric label="Módulos" value={modules.length} />
-              <Metric label="Certificado" value={effectiveCertificate ? 'Emitido' : course.has_certificate ? 'Sí' : 'No'} />
-            </div>
-
-            <button type="button" className="access-button">
-              {user ? 'Acceso activo' : 'Solicitar acceso'}
-            </button>
-          </aside>
-        </section>
-
-        <section className="status-grid">
-          <article className="status-card">
-            <div>
-              <p className="kicker">Estado del curso</p>
-              <h3>{isCourseCompleted ? 'Curso completado' : 'Curso en progreso'}</h3>
-              <p>
-                {isCourseCompleted
-                  ? 'El curso consta como completado. El siguiente bloque es la certificación digital.'
-                  : 'Avanza por los módulos y lecciones. La evaluación final queda preparada para la siguiente fase del sistema.'}
-              </p>
-            </div>
-
-            {!user && (
-              <div className="preview-note">
-                Vista previa activa. Al iniciar sesión, el progreso real se guardará desde Supabase.
-              </div>
-            )}
-          </article>
-
-          <article className="progress-card">
-            <div className="progress-head">
+        <div className="dashboard-layout">
+          <main className="main-column">
+            <section className="course-heading">
               <div>
-                <p className="kicker">Progreso</p>
-                <h3>{lessonProgressPercent}%</h3>
+                <p className="kicker">Curso activo</p>
+                <h1>{course.title}</h1>
+                <p>
+                  {course.description ||
+                    'Formación premium basada en ciencia aplicada, estructura y rendimiento.'}
+                </p>
               </div>
-              <span>{completedLessons}/{totalLessons}</span>
-            </div>
 
-            <div className="progress-track">
-              <div style={{ width: `${lessonProgressPercent}%` }} />
-            </div>
-
-            <p>{completedModulesCount} de {modules.length} módulos aprobados.</p>
-          </article>
-        </section>
-
-        <section className={finalExamUnlocked || isCourseCompleted ? 'phase-card active' : 'phase-card'}>
-          <div>
-            <p className="kicker">
-              {isCourseCompleted
-                ? 'Cierre académico'
-                : finalExamUnlocked
-                  ? 'Evaluación final preparada'
-                  : 'Evaluación final bloqueada'}
-            </p>
-
-            <h3>
-              {isCourseCompleted
-                ? 'Curso completado'
-                : finalExamUnlocked
-                  ? 'Evaluación final lista para la siguiente fase'
-                  : 'Completa los módulos para preparar la evaluación final'}
-            </h3>
-
-            <p>
-              {isCourseCompleted
-                ? 'El curso ya está cerrado académicamente. La certificación puede emitirse si está disponible.'
-                : finalExamUnlocked
-                  ? 'Has completado los módulos. El motor de evaluaciones se activará más adelante para cerrar esta fase.'
-                  : `Has aprobado ${completedModulesCount} de ${modules.length} módulos.`}
-            </p>
-          </div>
-
-          <div className="phase-status">
-            <span>Estado</span>
-            <strong>{isCourseCompleted ? 'Completado' : finalExamUnlocked ? 'Próximamente' : 'Bloqueado'}</strong>
-          </div>
-        </section>
-
-        <section className={certificateAvailable || effectiveCertificate ? 'certificate-card active' : 'certificate-card'}>
-          <div>
-            <p className="kicker">{certificateAvailable ? 'Certificación digital' : 'Certificación bloqueada'}</p>
-
-            <h3>
-              {effectiveCertificate
-                ? 'Certificado digital emitido'
-                : certificateAvailable
-                  ? 'Certificado digital disponible'
-                  : 'Completa el curso para desbloquear el certificado'}
-            </h3>
-
-            <p>
-              {effectiveCertificate
-                ? `Certificado ${effectiveCertificate.certificate_code} emitido para ${effectiveCertificate.student_name}.`
-                : certificateAvailable
-                  ? 'Puedes emitir tu certificado digital. Quedará asociado al curso y al alumno.'
-                  : 'El certificado solo estará disponible cuando el curso esté completado.'}
-            </p>
-          </div>
-
-          {effectiveCertificate ? (
-            <div className="certificate-actions">
-              <Link href={certificateLink} className="primary-action">
-                Ver certificado
-              </Link>
-              <div className="phase-status">
-                <span>Estado</span>
-                <strong>Válido</strong>
+              <div className="course-progress-inline">
+                <span>Progreso del curso</span>
+                <strong>{lessonProgressPercent}%</strong>
+                <div className="progress-mini">
+                  <div style={{ width: `${lessonProgressPercent}%` }} />
+                </div>
               </div>
-            </div>
-          ) : certificateAvailable ? (
-            <button type="button" onClick={issueCertificate} className="primary-action as-button">
-              {user?.id ? 'Emitir certificado' : 'Emitir certificado de prueba'}
-            </button>
-          ) : (
-            <div className="phase-status">
-              <span>Estado</span>
-              <strong>Bloqueado</strong>
-            </div>
-          )}
-        </section>
+            </section>
 
-        <section id="modulos" className="modules-section">
-          <div className="section-head">
-            <div>
-              <p className="kicker">Contenido académico</p>
-              <h3>Módulos y lecciones</h3>
-            </div>
-            <span>{modules.length} módulos · {totalLessons} lecciones</span>
-          </div>
+            <section className="hero-card">
+              <div className="hero-meta">
+                <Metric label="Nivel" value={levelLabel} />
+                <Metric label="Duración" value={durationLabel} />
+                <Metric label="Módulos" value={modules.length} />
+                <Metric label="Lecciones" value={totalLessons} />
+              </div>
 
-          <div className="modules-list">
-            {modules.map((module, index) => {
-              const moduleLessons = getModuleLessons(String(module.id));
-              const unlocked = isModuleUnlocked(module, index);
-              const moduleCompleted = completedModuleIds.has(String(module.id));
+              <div className="hero-actions">
+                <Link href={continueHref} className="primary-action">
+                  ▶ Continuar curso
+                </Link>
+                <a href="#recursos" className="secondary-action">
+                  ▥ Ver recursos
+                </a>
+              </div>
 
-              const completionRecord = effectiveModuleCompletions.find(
-                (item) => String(item.module_id) === String(module.id)
-              );
+              <div className="hero-image" />
+            </section>
 
-              const completedInModule = moduleLessons.filter((lesson) =>
-                completedLessonIds.has(String(lesson.id))
-              ).length;
+            <nav className="tabs">
+              <a href="#modulos" className="active">Contenido del curso</a>
+              <a href="#recursos">Recursos</a>
+              <a href="#evaluacion">Evaluación</a>
+              <a href="#certificado">Certificado</a>
+            </nav>
 
-              const modulePercent =
-                moduleLessons.length > 0
-                  ? Math.round((completedInModule / moduleLessons.length) * 100)
-                  : 0;
+            <section id="modulos" className="modules-section">
+              <div className="section-title-row">
+                <p className="kicker">Módulos del curso</p>
+                <span>{completedModulesCount}/{modules.length} completados</span>
+              </div>
 
-              return (
-                <article
-                  key={module.id}
-                  className={[
-                    'module-card',
-                    moduleCompleted ? 'completed' : '',
-                    !unlocked ? 'locked' : '',
-                  ].filter(Boolean).join(' ')}
-                >
-                  <div className="module-top">
-                    <div>
-                      <p className="module-number">Módulo {index + 1}</p>
-                      <h4>{module.title || `Módulo ${index + 1}`}</h4>
-                      <p>
-                        {module.description || 'Módulo formativo de GHC Academy.'}
-                      </p>
+              <div className="modules-list">
+                {modules.map((module, index) => {
+                  const moduleLessons = getModuleLessons(String(module.id));
+                  const unlocked = isModuleUnlocked(module, index);
+                  const moduleCompleted = completedModuleIds.has(String(module.id));
 
-                      <div className="module-progress-line">
-                        <div style={{ width: `${modulePercent}%` }} />
-                      </div>
+                  const completionRecord = effectiveModuleCompletions.find(
+                    (item) => String(item.module_id) === String(module.id)
+                  );
 
-                      <span className="module-progress-text">
-                        {completedInModule} de {moduleLessons.length} lecciones completadas
-                      </span>
+                  const completedInModule = moduleLessons.filter((lesson) =>
+                    completedLessonIds.has(String(lesson.id))
+                  ).length;
 
-                      {moduleCompleted && (
-                        <span className="module-score">
-                          Módulo aprobado · Nota: {completionRecord?.final_score || 0}%
-                          {!user ? ' · Preview' : ''}
-                        </span>
-                      )}
-                    </div>
+                  const modulePercent =
+                    moduleLessons.length > 0
+                      ? Math.round((completedInModule / moduleLessons.length) * 100)
+                      : 0;
 
-                    <span className={moduleCompleted ? 'state-pill success' : unlocked ? 'state-pill' : 'state-pill muted'}>
-                      {moduleCompleted ? 'Completado' : unlocked ? 'Disponible' : 'Bloqueado'}
-                    </span>
-                  </div>
+                  const expanded =
+                    activeModule?.id
+                      ? String(activeModule.id) === String(module.id)
+                      : index === 0;
 
-                  <div className="lessons-list">
-                    {moduleLessons.length === 0 && (
-                      <div className="lesson-row">
-                        <div>
-                          <strong>Lecciones pendientes de crear</strong>
-                          <span>Este módulo todavía no tiene contenido visible.</span>
+                  return (
+                    <article
+                      key={module.id}
+                      className={[
+                        'module-card',
+                        expanded ? 'expanded' : '',
+                        moduleCompleted ? 'completed' : '',
+                        !unlocked ? 'locked' : '',
+                      ].filter(Boolean).join(' ')}
+                    >
+                      <div className="module-header">
+                        <div className="module-index">
+                          <span>{index + 1}</span>
                         </div>
-                        <em>—</em>
+
+                        <div className="module-copy">
+                          <strong>{module.title || `Módulo ${index + 1}`}</strong>
+                          <small>
+                            {module.description || 'Bloque formativo de GHC Academy.'}
+                          </small>
+                        </div>
+
+                        <div className="module-state">
+                          <strong>{modulePercent}%</strong>
+                          <span className={moduleCompleted ? 'dot done' : modulePercent > 0 ? 'dot working' : 'dot'} />
+                          <em>{expanded ? '⌃' : '⌄'}</em>
+                        </div>
                       </div>
-                    )}
 
-                    {moduleLessons.map((lesson) => {
-                      const lessonCompleted = completedLessonIds.has(String(lesson.id));
-                      const lessonType = getLessonTypeLabel(lesson);
+                      {expanded && (
+                        <div className="lessons-list">
+                          {moduleLessons.length === 0 && (
+                            <div className="lesson-row empty">
+                              <div>
+                                <strong>Lecciones pendientes de crear</strong>
+                                <span>Este módulo todavía no tiene contenido visible.</span>
+                              </div>
+                              <em>—</em>
+                            </div>
+                          )}
 
-                      return (
-                        <div key={lesson.id} className={lessonCompleted ? 'lesson-row completed' : 'lesson-row'}>
-                          <div>
-                            <strong>
-                              {lessonCompleted ? '✓ ' : ''}
-                              {lesson.title || 'Lección GHC'}
-                            </strong>
-                            <span>{lessonType}</span>
-                          </div>
+                          {moduleLessons.map((lesson, lessonIndex) => {
+                            const lessonCompleted = completedLessonIds.has(String(lesson.id));
+                            const lessonType = getLessonTypeLabel(lesson);
+                            const isCurrent =
+                              firstAvailableLesson?.id &&
+                              String(firstAvailableLesson.id) === String(lesson.id);
 
-                          {unlocked ? (
-                            <Link href={`/cursos/${slug}/${lesson.id}`}>
-                              Abrir
-                            </Link>
-                          ) : (
-                            <em>Bloqueado</em>
+                            return (
+                              <div
+                                key={lesson.id}
+                                className={[
+                                  'lesson-row',
+                                  lessonCompleted ? 'completed' : '',
+                                  isCurrent ? 'current' : '',
+                                ].filter(Boolean).join(' ')}
+                              >
+                                <span className="lesson-icon">
+                                  {lessonCompleted ? '✓' : isCurrent ? '▶' : '▤'}
+                                </span>
+
+                                <div className="lesson-name">
+                                  <small>Lección {index + 1}.{lessonIndex + 1}</small>
+                                  <strong>{lesson.title || 'Lección GHC'}</strong>
+                                </div>
+
+                                <span className="lesson-kind">{lessonType}</span>
+
+                                <span className="lesson-status">
+                                  {lessonCompleted ? 'Completada' : isCurrent ? 'En progreso' : unlocked ? 'Disponible' : 'Bloqueada'}
+                                </span>
+
+                                <span className="lesson-duration">
+                                  {Number(lesson.duration_minutes || 0) > 0
+                                    ? `${Number(lesson.duration_minutes || 0)} min`
+                                    : '—'}
+                                </span>
+
+                                {unlocked ? (
+                                  <Link href={`/cursos/${slug}/${lesson.id}`}>
+                                    Abrir
+                                  </Link>
+                                ) : (
+                                  <em>🔒</em>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {moduleCompleted && (
+                            <div className="module-score">
+                              Módulo aprobado · Nota: {completionRecord?.final_score || 0}%
+                              {!user ? ' · Preview' : ''}
+                            </div>
                           )}
                         </div>
-                      );
-                    })}
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          </main>
+
+          <aside className="right-column">
+            <section className="side-panel progress-panel">
+              <p className="panel-title">Tu progreso</p>
+
+              <div className="progress-ring-row">
+                <div
+                  className="progress-ring"
+                  style={{
+                    background: `conic-gradient(var(--green) ${lessonProgressPercent * 3.6}deg, rgba(255,255,255,.08) 0deg)`,
+                  }}
+                >
+                  <div>
+                    <strong>{lessonProgressPercent}%</strong>
+                    <span>completado</span>
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
+                </div>
+
+                <div className="progress-stats">
+                  <div>
+                    <span>Módulos completados</span>
+                    <strong>{completedModulesCount} de {modules.length}</strong>
+                  </div>
+                  <div>
+                    <span>Lecciones completadas</span>
+                    <strong>{completedLessons} de {totalLessons}</strong>
+                  </div>
+                  <div>
+                    <span>Tipo</span>
+                    <strong>{courseTypeLabel}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <Link href="/alumno" className="panel-link">↗ Ver rendimiento detallado</Link>
+            </section>
+
+            <section className="side-panel next-panel">
+              <p className="panel-title">Siguiente lección</p>
+
+              <div className="next-lesson">
+                <div className="thumb" />
+                <div>
+                  <span>
+                    {activeModule ? activeModule.title || 'Módulo actual' : 'Curso GHC'}
+                  </span>
+                  <strong>{firstAvailableLesson?.title || 'Lección pendiente'}</strong>
+                  <small>
+                    {firstAvailableLesson ? 'En progreso' : 'Sin lecciones disponibles'}
+                  </small>
+                </div>
+              </div>
+
+              <Link href={continueHref} className="primary-action full">
+                Continuar lección ▶
+              </Link>
+            </section>
+
+            <section id="recursos" className="side-panel resources-panel">
+              <p className="panel-title">Recursos privados</p>
+
+              <div className="resource-row">
+                <span>▤ Guías y PDFs</span>
+                <strong>{lessons.filter((lesson) => hasLessonPdf(lesson)).length} archivos</strong>
+              </div>
+              <div className="resource-row">
+                <span>▣ Vídeos</span>
+                <strong>{lessons.filter((lesson) => hasLessonVideo(lesson)).length} vídeos</strong>
+              </div>
+              <div className="resource-row">
+                <span>◉ Audio</span>
+                <strong>{lessons.filter((lesson) => hasLessonAudio(lesson)).length} audios</strong>
+              </div>
+
+              <a href="#modulos" className="panel-link">↗ Ver todos los recursos</a>
+            </section>
+
+            <section id="evaluacion" className={finalExamUnlocked || isCourseCompleted ? 'side-panel module-state-panel active' : 'side-panel module-state-panel'}>
+              <p className="panel-title">Estado del módulo</p>
+              <span>{activeModule?.title || 'Módulo actual'}</span>
+
+              <div className="module-side-progress">
+                <div style={{ width: `${activeModulePercent}%` }} />
+              </div>
+
+              <strong>{activeModulePercent}% completado</strong>
+              <p>
+                {finalExamUnlocked
+                  ? 'Evaluación final preparada para la siguiente fase.'
+                  : 'Completa las lecciones para avanzar al siguiente bloque.'}
+              </p>
+
+              <button type="button">
+                Ver resumen del módulo
+              </button>
+            </section>
+
+            <section id="certificado" className={certificateAvailable || effectiveCertificate ? 'side-panel certificate-panel active' : 'side-panel certificate-panel'}>
+              <p className="panel-title">Certificación</p>
+
+              <strong>
+                {effectiveCertificate
+                  ? 'Certificado emitido'
+                  : certificateAvailable
+                    ? 'Certificado disponible'
+                    : 'Bloqueado'}
+              </strong>
+
+              <p>
+                {effectiveCertificate
+                  ? `Código ${effectiveCertificate.certificate_code}`
+                  : certificateAvailable
+                    ? 'Puedes emitir la certificación digital.'
+                    : 'Completa el curso para desbloquear la certificación.'}
+              </p>
+
+              {effectiveCertificate ? (
+                <Link href={certificateLink} className="secondary-action full">
+                  Ver certificado
+                </Link>
+              ) : certificateAvailable ? (
+                <button type="button" onClick={issueCertificate} className="primary-action as-button full">
+                  Emitir certificado
+                </button>
+              ) : (
+                <button type="button" className="disabled-button" disabled>
+                  Pendiente
+                </button>
+              )}
+            </section>
+          </aside>
+        </div>
       </section>
 
       <GlobalStyles />
@@ -825,19 +973,7 @@ function getLessonTypeLabel(lesson: AnyRecord) {
       ''
   ).toLowerCase();
 
-  const allValues = [
-    lesson.content,
-    lesson.video_url,
-    lesson.audio_url,
-    lesson.pdf_url,
-    lesson.file_url,
-    lesson.url,
-    lesson.media_url,
-    lesson.content_url,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+  const allValues = getLessonAssetText(lesson);
 
   const hasVideo = rawType.includes('video') || /\.(mp4|webm|mov|m4v)/i.test(allValues);
   const hasAudio = rawType.includes('audio') || /\.(mp3|wav|m4a|ogg)/i.test(allValues);
@@ -850,6 +986,40 @@ function getLessonTypeLabel(lesson: AnyRecord) {
   if (hasPdf) return 'PDF';
 
   return 'Texto';
+}
+
+function getLessonAssetText(lesson: AnyRecord) {
+  return [
+    lesson.content,
+    lesson.video_url,
+    lesson.audio_url,
+    lesson.pdf_url,
+    lesson.file_url,
+    lesson.url,
+    lesson.media_url,
+    lesson.content_url,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function hasLessonPdf(lesson: AnyRecord) {
+  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('pdf') ||
+    Boolean(lesson.pdf_url) ||
+    /\.pdf/i.test(getLessonAssetText(lesson));
+}
+
+function hasLessonVideo(lesson: AnyRecord) {
+  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('video') ||
+    Boolean(lesson.video_url) ||
+    /\.(mp4|webm|mov|m4v)/i.test(getLessonAssetText(lesson));
+}
+
+function hasLessonAudio(lesson: AnyRecord) {
+  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('audio') ||
+    Boolean(lesson.audio_url) ||
+    /\.(mp3|wav|m4a|ogg)/i.test(getLessonAssetText(lesson));
 }
 
 function GlobalStyles() {
@@ -890,7 +1060,7 @@ function GlobalStyles() {
         font: inherit;
       }
 
-      .ghc-course-page {
+      .course-dashboard-page {
         min-height: 100vh;
         position: relative;
         overflow-x: hidden;
@@ -938,43 +1108,259 @@ function GlobalStyles() {
           linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
           linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
         background-size: 42px 42px;
-        opacity: .42;
+        opacity: .38;
         mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
       }
 
-      .course-shell {
-        width: min(1360px, calc(100vw - 42px));
-        margin: 0 auto;
-        padding: 22px 0 44px;
-        position: relative;
-        z-index: 1;
+      .rail {
+        position: fixed;
+        z-index: 3;
+        left: 0;
+        top: 0;
+        width: 54px;
+        height: 100vh;
+        border-right: 1px solid rgba(255,255,255,.055);
+        background: rgba(4,6,5,.78);
         display: grid;
+        align-content: start;
+        justify-items: center;
         gap: 18px;
+        padding-top: 88px;
       }
 
-      .course-topbar {
-        min-height: 62px;
+      .rail-dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: rgba(244,246,242,.34);
+        border: 1px solid transparent;
+        font-size: 12px;
+      }
+
+      .rail-dot.active,
+      .rail-dot.green {
+        color: var(--green);
+        background: rgba(var(--green-rgb), .08);
+        border-color: rgba(var(--green-rgb), .18);
+      }
+
+      .rail > span {
+        margin-top: auto;
+        margin-bottom: 28px;
+        color: rgba(244,246,242,.32);
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .sidebar {
+        position: fixed;
+        z-index: 2;
+        left: 54px;
+        top: 0;
+        width: 290px;
+        height: 100vh;
+        border-right: 1px solid rgba(255,255,255,.075);
+        background:
+          linear-gradient(180deg, rgba(8,11,10,.985), rgba(3,5,4,.965)),
+          #050706;
+        padding: 24px 24px 20px;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto auto;
+        gap: 22px;
+        box-shadow: 18px 0 80px rgba(0,0,0,.22);
+      }
+
+      .brand {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--white);
+        text-decoration: none;
+        text-transform: uppercase;
+        letter-spacing: .22em;
+      }
+
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 12px;
+        border: 1px solid rgba(var(--green-rgb), .35);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        font-weight: 950;
+      }
+
+      .brand strong {
+        font-size: 18px;
+        letter-spacing: .18em;
+      }
+
+      .brand em {
+        color: rgba(244,246,242,.62);
+        font-style: normal;
+        font-size: 12px;
+      }
+
+      .side-nav {
+        display: grid;
+        gap: 8px;
+      }
+
+      .side-item {
+        min-height: 58px;
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        border-radius: 16px;
+        color: rgba(244,246,242,.56);
+        text-decoration: none;
+        padding: 9px 12px;
+        border: 1px solid transparent;
+      }
+
+      .side-item span {
+        color: rgba(244,246,242,.46);
+        text-align: center;
+      }
+
+      .side-item strong,
+      .side-item small {
+        display: block;
+      }
+
+      .side-item strong {
+        color: rgba(244,246,242,.76);
+        font-size: 14px;
+        line-height: 1.1;
+      }
+
+      .side-item small {
+        color: rgba(244,246,242,.42);
+        margin-top: 4px;
+      }
+
+      .side-item.active {
+        color: var(--green);
+        border-color: rgba(var(--green-rgb), .20);
+        background: linear-gradient(90deg, rgba(var(--green-rgb),.13), rgba(var(--green-rgb),.035));
+        box-shadow: inset 3px 0 0 rgba(var(--green-rgb),.82);
+      }
+
+      .side-item.active span,
+      .side-item.active strong {
+        color: var(--green);
+      }
+
+      .student-card,
+      .weather-card {
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        padding: 16px;
+      }
+
+      .student-card .avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(var(--green-rgb), .18);
+        color: var(--green);
+        background: rgba(var(--green-rgb), .06);
+        font-weight: 950;
+        margin-bottom: 12px;
+      }
+
+      .student-card strong,
+      .student-card span,
+      .student-card a {
+        display: block;
+      }
+
+      .student-card strong {
+        font-size: 16px;
+      }
+
+      .student-card span {
+        color: rgba(244,246,242,.52);
+        margin-top: 4px;
+      }
+
+      .student-card b {
+        color: var(--green);
+        font-size: 11px;
+        margin-left: 4px;
+      }
+
+      .student-card a {
+        color: rgba(244,246,242,.70);
+        text-decoration: none;
+        margin-top: 14px;
+      }
+
+      .weather-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .weather-card > span {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: #f59d35;
+      }
+
+      .weather-card strong,
+      .weather-card small {
+        display: block;
+      }
+
+      .weather-card small,
+      .weather-card em {
+        color: rgba(244,246,242,.52);
+        font-style: normal;
+      }
+
+      .course-shell {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+        margin-left: 344px;
+        padding: 18px 32px 38px;
+      }
+
+      .topbar {
+        min-height: 52px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 18px;
         border-bottom: 1px solid rgba(255,255,255,.07);
-        padding-bottom: 12px;
+        margin-bottom: 24px;
       }
 
-      .breadcrumb {
+      .breadcrumb,
+      .toplinks {
         display: flex;
         align-items: center;
         gap: 10px;
         min-width: 0;
-        color: rgba(244,246,242,.62);
-        font-size: 12px;
-        font-weight: 850;
       }
 
+      .breadcrumb,
       .breadcrumb a {
-        text-decoration: none;
         color: rgba(244,246,242,.62);
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 850;
       }
 
       .breadcrumb strong {
@@ -984,65 +1370,122 @@ function GlobalStyles() {
         text-overflow: ellipsis;
       }
 
-      .top-actions,
-      .hero-actions,
-      .certificate-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-
-      .ghost-pill,
-      .secondary-action {
-        min-height: 40px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 999px;
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.035);
-        color: rgba(244,246,242,.78);
-        padding: 0 15px;
+      .toplinks a {
         text-decoration: none;
+        color: rgba(244,246,242,.52);
+        text-transform: uppercase;
+        letter-spacing: .14em;
         font-size: 11px;
-        font-weight: 900;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-      }
-
-      .primary-action,
-      .access-button {
-        min-height: 42px;
-        border-radius: 999px;
-        border: 1px solid rgba(var(--green-rgb), .30);
-        background: linear-gradient(135deg, var(--green), #7bee65);
-        color: #061008;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 0 18px;
-        text-decoration: none;
-        font-size: 12px;
         font-weight: 950;
-        letter-spacing: .08em;
+      }
+
+      .toplinks .green-link {
+        color: var(--green);
+      }
+
+      .bell,
+      .avatar-mini {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.08);
+        color: var(--green);
+        font-size: 11px;
+        font-weight: 950;
+      }
+
+      .dashboard-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 24px;
+        align-items: start;
+      }
+
+      .main-column,
+      .right-column {
+        display: grid;
+        gap: 18px;
+      }
+
+      .course-heading {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 330px;
+        gap: 24px;
+        align-items: end;
+      }
+
+      .kicker,
+      .panel-title {
+        margin: 0;
+        color: var(--green);
         text-transform: uppercase;
-        box-shadow: 0 0 30px rgba(var(--green-rgb), .14);
-        cursor: pointer;
+        letter-spacing: .16em;
+        font-size: 10px;
+        font-weight: 950;
       }
 
-      .primary-action.as-button {
-        border: 1px solid rgba(var(--green-rgb), .30);
+      .course-heading h1 {
+        margin: 8px 0 8px;
+        color: var(--white);
+        font-size: clamp(28px, 3.5vw, 46px);
+        line-height: .98;
+        letter-spacing: -.052em;
+        font-weight: 950;
       }
 
-      .course-hero-card,
-      .status-card,
-      .progress-card,
-      .phase-card,
-      .certificate-card,
+      .course-heading p:not(.kicker) {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .course-progress-inline > span {
+        display: block;
+        color: rgba(244,246,242,.46);
+        text-transform: uppercase;
+        letter-spacing: .18em;
+        font-size: 10px;
+        font-weight: 900;
+      }
+
+      .course-progress-inline strong {
+        display: inline-block;
+        color: var(--green);
+        font-size: 28px;
+        line-height: 1;
+        margin: 9px 12px 0 0;
+      }
+
+      .progress-mini,
+      .module-side-progress,
+      .module-progress-line {
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255,255,255,.075);
+      }
+
+      .progress-mini {
+        display: inline-block;
+        width: min(180px, 100%);
+      }
+
+      .progress-mini div,
+      .module-side-progress div,
+      .module-progress-line div {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--green), #7bee65);
+        box-shadow: 0 0 22px rgba(var(--green-rgb), .26);
+      }
+
+      .hero-card,
+      .side-panel,
       .module-card,
-      .loading-card {
+      .loading-card,
+      .notice {
         border-radius: 22px;
         border: 1px solid rgba(255,255,255,.085);
         background:
@@ -1052,411 +1495,539 @@ function GlobalStyles() {
         box-shadow: 0 24px 82px rgba(0,0,0,.22);
       }
 
-      .course-hero-card {
+      .hero-card {
+        position: relative;
+        min-height: 170px;
+        overflow: hidden;
         display: grid;
-        grid-template-columns: minmax(0, 1.24fr) minmax(310px, .56fr);
-        gap: 18px;
-        padding: clamp(22px, 3vw, 34px);
-        align-items: stretch;
+        align-content: space-between;
+        padding: 24px;
       }
 
-      .hero-copy {
-        min-width: 0;
-        display: grid;
-        align-content: center;
+      .hero-card::after,
+      .hero-image {
+        content: '';
+        position: absolute;
+        inset: 0 0 0 auto;
+        width: 55%;
+        background:
+          linear-gradient(90deg, rgba(8,12,10,1), rgba(8,12,10,.72), rgba(8,12,10,.20)),
+          url('https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1200&q=70');
+        background-size: cover;
+        background-position: center;
+        filter: grayscale(1) contrast(1.1) brightness(.62);
+        opacity: .48;
+        pointer-events: none;
       }
 
-      .kicker,
-      .module-number {
-        margin: 0;
-        color: var(--green);
-        text-transform: uppercase;
-        letter-spacing: .16em;
-        font-size: 10px;
-        font-weight: 950;
-      }
-
-      .badge-row {
+      .hero-meta,
+      .hero-actions {
+        position: relative;
+        z-index: 1;
         display: flex;
+        gap: 12px;
         flex-wrap: wrap;
-        gap: 8px;
-        margin: 14px 0 18px;
-      }
-
-      .badge-row span,
-      .state-pill {
-        min-height: 28px;
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        border: 1px solid rgba(255,255,255,.11);
-        background: rgba(255,255,255,.035);
-        color: rgba(244,246,242,.74);
-        padding: 0 10px;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .11em;
-        text-transform: uppercase;
-      }
-
-      .badge-row .success,
-      .state-pill.success,
-      .state-pill:not(.muted) {
-        border-color: rgba(var(--green-rgb), .24);
-        background: rgba(var(--green-rgb), .085);
-        color: var(--green);
-      }
-
-      .badge-row .gold {
-        border-color: rgba(214,178,94,.28);
-        background: rgba(214,178,94,.08);
-        color: var(--gold);
-      }
-
-      .hero-copy h1 {
-        margin: 0;
-        max-width: 880px;
-        color: var(--white);
-        font-size: clamp(34px, 4vw, 56px);
-        line-height: .96;
-        letter-spacing: -.055em;
-        font-weight: 950;
-      }
-
-      .hero-copy h2 {
-        margin: 18px 0 0;
-        max-width: 740px;
-        color: rgba(244,246,242,.88);
-        font-size: clamp(18px, 2vw, 25px);
-        line-height: 1.25;
-        letter-spacing: -.035em;
-        font-weight: 850;
-      }
-
-      .hero-text,
-      .status-card p,
-      .phase-card p,
-      .certificate-card p,
-      .module-card p {
-        color: var(--muted);
-        line-height: 1.65;
-        font-size: 14px;
-      }
-
-      .hero-text {
-        max-width: 780px;
-        margin: 16px 0 0;
       }
 
       .hero-actions {
         margin-top: 24px;
       }
 
-      .course-summary-card {
-        border-radius: 20px;
-        border: 1px solid rgba(255,255,255,.085);
-        background:
-          radial-gradient(circle at top right, rgba(var(--green-rgb), .08), transparent 34%),
-          rgba(5,7,6,.52);
-        padding: 20px;
-        display: grid;
-        align-content: space-between;
-        gap: 16px;
-      }
-
-      .summary-price span,
-      .metric span,
-      .phase-status span {
-        display: block;
-        color: rgba(244,246,242,.48);
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: .14em;
-        font-weight: 900;
-      }
-
-      .summary-price strong {
-        display: block;
-        margin-top: 8px;
-        color: var(--white);
-        font-size: 42px;
-        line-height: 1;
-        letter-spacing: -.055em;
-        font-weight: 950;
-      }
-
-      .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-
-      .metric,
-      .phase-status,
-      .preview-note {
+      .metric {
+        min-width: 105px;
+        min-height: 58px;
         border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.075);
-        background: rgba(255,255,255,.026);
+        border: 1px solid rgba(255,255,255,.085);
+        background: rgba(255,255,255,.032);
         padding: 12px;
       }
 
-      .metric strong,
-      .phase-status strong {
+      .metric span,
+      .resource-row span,
+      .progress-stats span,
+      .phase-status span {
         display: block;
-        margin-top: 6px;
-        color: var(--white);
-        font-size: 16px;
-        line-height: 1.05;
+        color: rgba(244,246,242,.46);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .12em;
         font-weight: 900;
       }
 
-      .status-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1.2fr) minmax(310px, .65fr);
-        gap: 18px;
-      }
-
-      .status-card,
-      .progress-card,
-      .phase-card,
-      .certificate-card {
-        padding: 22px;
-      }
-
-      .status-card h3,
-      .progress-card h3,
-      .phase-card h3,
-      .certificate-card h3,
-      .section-head h3 {
-        margin: 8px 0 0;
+      .metric strong,
+      .resource-row strong,
+      .progress-stats strong,
+      .phase-status strong {
+        display: block;
         color: var(--white);
-        font-size: clamp(22px, 2.4vw, 32px);
-        line-height: 1;
-        letter-spacing: -.045em;
-        font-weight: 950;
-      }
-
-      .preview-note {
-        margin-top: 14px;
-        color: rgba(244,246,242,.68);
-        line-height: 1.5;
+        margin-top: 6px;
         font-size: 13px;
+        font-weight: 900;
       }
 
-      .progress-head {
-        display: flex;
-        justify-content: space-between;
-        gap: 14px;
-        align-items: flex-start;
-      }
-
-      .progress-head span {
+      .primary-action,
+      .secondary-action,
+      .disabled-button {
+        min-height: 42px;
         border-radius: 999px;
-        border: 1px solid rgba(var(--green-rgb), .22);
-        background: rgba(var(--green-rgb), .07);
-        color: var(--green);
-        padding: 8px 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 18px;
+        text-decoration: none;
         font-size: 12px;
         font-weight: 950;
+        letter-spacing: .04em;
+        cursor: pointer;
       }
 
-      .progress-track,
-      .module-progress-line {
-        height: 9px;
-        overflow: hidden;
-        border-radius: 999px;
-        background: rgba(255,255,255,.075);
+      .primary-action {
+        border: 1px solid rgba(var(--green-rgb), .30);
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        box-shadow: 0 0 30px rgba(var(--green-rgb), .14);
       }
 
-      .progress-track {
-        margin: 16px 0 12px;
+      .secondary-action,
+      .disabled-button {
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(255,255,255,.04);
+        color: rgba(244,246,242,.82);
       }
 
-      .progress-track div,
-      .module-progress-line div {
-        height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, var(--green), #7bee65);
-        box-shadow: 0 0 22px rgba(var(--green-rgb), .26);
+      .disabled-button {
+        width: 100%;
+        color: rgba(244,246,242,.44);
+        cursor: default;
       }
 
-      .phase-card,
-      .certificate-card {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-        gap: 18px;
-        align-items: center;
+      .primary-action.full,
+      .secondary-action.full,
+      .primary-action.as-button.full {
+        width: 100%;
       }
 
-      .phase-card.active,
-      .certificate-card.active {
-        border-color: rgba(var(--green-rgb), .22);
-        background:
-          radial-gradient(circle at top right, rgba(var(--green-rgb), .11), transparent 34%),
-          linear-gradient(145deg, rgba(var(--green-rgb), .05), rgba(255,255,255,.018)),
-          rgba(8,12,10,.94);
+      button.primary-action {
+        border: 1px solid rgba(var(--green-rgb), .30);
       }
 
-      .certificate-card.active {
-        border-color: rgba(214,178,94,.24);
-        background:
-          radial-gradient(circle at top right, rgba(214,178,94,.10), transparent 34%),
-          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-          rgba(8,12,10,.94);
+      .tabs {
+        min-height: 50px;
+        display: flex;
+        align-items: end;
+        gap: 32px;
+        border-bottom: 1px solid rgba(255,255,255,.075);
+      }
+
+      .tabs a {
+        position: relative;
+        padding: 0 0 14px;
+        color: rgba(244,246,242,.50);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .tabs a.active {
+        color: var(--green);
+      }
+
+      .tabs a.active::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -1px;
+        height: 2px;
+        background: var(--green);
+        box-shadow: 0 0 20px rgba(var(--green-rgb), .28);
       }
 
       .modules-section {
         display: grid;
-        gap: 16px;
-        margin-top: 4px;
+        gap: 14px;
       }
 
-      .section-head {
+      .section-title-row {
         display: flex;
-        align-items: flex-end;
+        align-items: end;
         justify-content: space-between;
-        gap: 18px;
-        padding: 0 2px;
+        gap: 16px;
       }
 
-      .section-head > span {
-        color: rgba(244,246,242,.48);
+      .section-title-row > span {
+        color: rgba(244,246,242,.42);
         font-size: 11px;
         font-weight: 900;
-        letter-spacing: .12em;
         text-transform: uppercase;
+        letter-spacing: .12em;
       }
 
       .modules-list {
         display: grid;
-        gap: 14px;
+        gap: 10px;
       }
 
       .module-card {
-        padding: 20px;
+        overflow: hidden;
       }
 
       .module-card.completed {
         border-color: rgba(var(--green-rgb), .24);
-        background:
-          radial-gradient(circle at top right, rgba(var(--green-rgb), .12), transparent 34%),
-          linear-gradient(145deg, rgba(var(--green-rgb), .05), rgba(255,255,255,.018)),
-          rgba(8,12,10,.94);
       }
 
       .module-card.locked {
-        opacity: .52;
+        opacity: .54;
       }
 
-      .module-top {
+      .module-header {
+        min-height: 64px;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 18px;
-        align-items: start;
+        grid-template-columns: 54px minmax(0, 1fr) 150px;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 16px;
       }
 
-      .module-card h4 {
-        margin: 8px 0 8px;
-        color: var(--white);
-        font-size: clamp(22px, 2vw, 30px);
-        line-height: 1;
-        letter-spacing: -.04em;
-        font-weight: 950;
+      .module-index {
+        display: grid;
+        place-items: center;
       }
 
-      .module-progress-line {
-        margin: 14px 0 9px;
-      }
-
-      .module-progress-text,
-      .module-score {
-        display: block;
-        color: var(--green);
-        font-size: 11px;
+      .module-index span {
+        width: 31px;
+        height: 31px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: rgba(244,246,242,.70);
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.03);
         font-weight: 900;
-        letter-spacing: .09em;
-        text-transform: uppercase;
       }
 
-      .module-score {
-        margin-top: 8px;
-        color: rgba(244,246,242,.72);
+      .module-card.expanded .module-index span,
+      .module-card.completed .module-index span {
+        color: #061008;
+        background: var(--green);
+      }
+
+      .module-copy strong,
+      .module-copy small {
+        display: block;
+      }
+
+      .module-copy strong {
+        color: var(--white);
+        font-size: 15px;
+        font-weight: 900;
+      }
+
+      .module-copy small {
+        color: rgba(244,246,242,.55);
+        margin-top: 5px;
+      }
+
+      .module-state {
+        display: grid;
+        grid-template-columns: 45px 24px 20px;
+        gap: 8px;
+        align-items: center;
+        justify-content: end;
+      }
+
+      .module-state strong {
+        color: var(--white);
+        font-size: 13px;
+      }
+
+      .module-state em {
+        color: rgba(244,246,242,.54);
+        font-style: normal;
+      }
+
+      .dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        border: 2px solid rgba(255,255,255,.12);
+      }
+
+      .dot.working {
+        border-color: rgba(var(--green-rgb), .60);
+        border-top-color: transparent;
+      }
+
+      .dot.done {
+        border-color: var(--green);
+        background: var(--green);
+        box-shadow: inset 0 0 0 4px rgba(0,0,0,.45);
       }
 
       .lessons-list {
         display: grid;
-        gap: 8px;
-        margin-top: 16px;
+        gap: 0;
+        padding: 0 16px 16px 70px;
       }
 
       .lesson-row {
-        min-height: 58px;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.075);
-        background: rgba(255,255,255,.026);
+        min-height: 48px;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 14px;
+        grid-template-columns: 34px minmax(0, 1fr) 82px 120px 60px 70px;
+        gap: 12px;
         align-items: center;
-        padding: 12px 14px;
+        border-top: 1px solid rgba(255,255,255,.055);
+        color: rgba(244,246,242,.70);
       }
 
-      .lesson-row.completed {
-        border-color: rgba(var(--green-rgb), .18);
-        background: rgba(var(--green-rgb), .045);
+      .lesson-row.empty {
+        grid-template-columns: minmax(0, 1fr) auto;
+        color: rgba(244,246,242,.55);
       }
 
-      .lesson-row strong {
-        display: block;
-        color: rgba(244,246,242,.88);
-        font-size: 14px;
-        line-height: 1.25;
-        font-weight: 850;
-      }
-
-      .lesson-row span {
-        display: inline-flex;
-        width: fit-content;
-        margin-top: 6px;
+      .lesson-icon {
+        width: 22px;
+        height: 22px;
         border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
         border: 1px solid rgba(var(--green-rgb), .18);
         background: rgba(var(--green-rgb), .055);
+        font-size: 11px;
+      }
+
+      .lesson-name small,
+      .lesson-name strong {
+        display: block;
+      }
+
+      .lesson-name small {
+        color: rgba(244,246,242,.46);
+        font-size: 11px;
+      }
+
+      .lesson-name strong {
+        color: rgba(244,246,242,.84);
+        font-size: 13px;
+        font-weight: 850;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .lesson-kind,
+      .lesson-status,
+      .lesson-duration {
+        font-size: 12px;
+      }
+
+      .lesson-status {
         color: var(--green);
-        padding: 4px 8px;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .10em;
-        text-transform: uppercase;
+      }
+
+      .lesson-duration {
+        color: rgba(244,246,242,.46);
       }
 
       .lesson-row a {
-        min-height: 34px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        min-height: 30px;
         border-radius: 999px;
         border: 1px solid rgba(var(--green-rgb), .20);
         background: rgba(var(--green-rgb), .06);
         color: var(--green);
-        padding: 0 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 10px;
         text-decoration: none;
         font-size: 12px;
         font-weight: 950;
       }
 
       .lesson-row em {
-        color: rgba(244,246,242,.42);
+        color: rgba(244,246,242,.36);
         font-style: normal;
         font-size: 12px;
+      }
+
+      .module-score {
+        margin-top: 12px;
+        border-radius: 14px;
+        background: rgba(var(--green-rgb), .055);
+        border: 1px solid rgba(var(--green-rgb), .18);
+        color: var(--green);
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .right-column {
+        position: sticky;
+        top: 18px;
+      }
+
+      .side-panel {
+        padding: 20px;
+      }
+
+      .progress-ring-row {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: 106px minmax(0, 1fr);
+        gap: 16px;
+        align-items: center;
+      }
+
+      .progress-ring {
+        width: 104px;
+        height: 104px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+      }
+
+      .progress-ring > div {
+        width: 78px;
+        height: 78px;
+        border-radius: 999px;
+        background: #070a09;
+        display: grid;
+        place-items: center;
+        align-content: center;
+      }
+
+      .progress-ring strong,
+      .progress-ring span {
+        display: block;
+      }
+
+      .progress-ring strong {
+        color: var(--green);
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      .progress-ring span {
+        color: rgba(244,246,242,.50);
+        font-size: 10px;
+      }
+
+      .progress-stats {
+        display: grid;
+        gap: 10px;
+      }
+
+      .panel-link {
+        margin-top: 16px;
+        display: inline-flex;
+        color: var(--green);
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .next-lesson {
+        margin: 16px 0;
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
+      }
+
+      .thumb {
+        height: 62px;
+        border-radius: 14px;
+        background:
+          linear-gradient(135deg, rgba(var(--green-rgb), .12), rgba(0,0,0,.18)),
+          url('https://images.unsplash.com/photo-1571019613914-85f342c6a11e?auto=format&fit=crop&w=420&q=70');
+        background-size: cover;
+        background-position: center;
+        filter: grayscale(1) brightness(.72);
+      }
+
+      .next-lesson span,
+      .next-lesson strong,
+      .next-lesson small {
+        display: block;
+      }
+
+      .next-lesson span {
+        color: rgba(244,246,242,.48);
+        font-size: 11px;
+      }
+
+      .next-lesson strong {
+        color: var(--white);
+        font-size: 14px;
+        margin-top: 4px;
+      }
+
+      .next-lesson small {
+        color: var(--green);
+        margin-top: 6px;
+      }
+
+      .resource-row {
+        min-height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid rgba(255,255,255,.055);
+      }
+
+      .resource-row span {
+        text-transform: none;
+        letter-spacing: 0;
+        color: rgba(244,246,242,.66);
+        font-size: 13px;
+      }
+
+      .resource-row strong {
+        color: rgba(244,246,242,.62);
+        font-size: 12px;
+      }
+
+      .module-side-progress {
+        margin: 16px 0 12px;
+      }
+
+      .module-state-panel > span,
+      .certificate-panel > strong {
+        display: block;
+        margin-top: 14px;
+        color: var(--white);
+        font-weight: 900;
+      }
+
+      .module-state-panel > strong {
+        display: block;
+        color: var(--green);
+        margin-top: 8px;
+      }
+
+      .module-state-panel p,
+      .certificate-panel p {
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 13px;
+      }
+
+      .module-state-panel button {
+        width: 100%;
+        min-height: 40px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.76);
         font-weight: 850;
       }
 
       .notice {
-        border-radius: 18px;
-        border: 1px solid rgba(var(--green-rgb), .18);
-        background: linear-gradient(90deg, rgba(var(--green-rgb),.06), rgba(255,255,255,.022));
-        color: rgba(244,246,242,.72);
         padding: 14px 16px;
+        color: rgba(244,246,242,.72);
       }
 
       .loading {
@@ -1491,62 +2062,96 @@ function GlobalStyles() {
         line-height: 1.6;
       }
 
-      @media (max-width: 1040px) {
-        .course-hero-card,
-        .status-grid,
-        .phase-card,
-        .certificate-card {
+      @media (max-width: 1320px) {
+        .dashboard-layout {
           grid-template-columns: 1fr;
         }
 
-        .course-summary-card,
-        .phase-status {
-          max-width: none;
+        .right-column {
+          position: static;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          display: grid;
+        }
+
+        .course-heading {
+          grid-template-columns: 1fr;
         }
       }
 
-      @media (max-width: 720px) {
+      @media (max-width: 1040px) {
+        .rail,
+        .sidebar {
+          display: none;
+        }
+
         .course-shell {
-          width: min(100% - 28px, 1360px);
-          padding-top: 16px;
+          margin-left: 0;
+          padding: 16px;
         }
 
-        .course-topbar,
-        .section-head,
-        .module-top {
-          align-items: flex-start;
+        .topbar {
           flex-direction: column;
+          align-items: flex-start;
         }
 
-        .breadcrumb {
-          flex-wrap: wrap;
+        .dashboard-layout {
+          gap: 18px;
         }
+      }
 
-        .top-actions {
-          width: 100%;
-        }
-
-        .ghost-pill,
-        .primary-action,
-        .secondary-action,
-        .access-button {
-          width: 100%;
-        }
-
-        .hero-copy h1 {
-          font-size: clamp(32px, 12vw, 44px);
-        }
-
-        .summary-grid {
+      @media (max-width: 760px) {
+        .right-column {
           grid-template-columns: 1fr;
+        }
+
+        .course-heading h1 {
+          font-size: clamp(30px, 10vw, 42px);
+        }
+
+        .hero-card::after,
+        .hero-image {
+          opacity: .26;
+          width: 100%;
+        }
+
+        .tabs {
+          gap: 18px;
+          overflow-x: auto;
+        }
+
+        .module-header {
+          grid-template-columns: 40px minmax(0, 1fr);
+        }
+
+        .module-state {
+          grid-column: 1 / -1;
+          grid-template-columns: 45px 24px 20px;
+          justify-content: start;
+        }
+
+        .lessons-list {
+          padding: 0 12px 14px;
         }
 
         .lesson-row {
-          grid-template-columns: 1fr;
+          grid-template-columns: 28px minmax(0, 1fr);
         }
 
-        .lesson-row a {
+        .lesson-kind,
+        .lesson-status,
+        .lesson-duration {
+          grid-column: 2;
+        }
+
+        .lesson-row a,
+        .lesson-row em {
+          grid-column: 2;
           width: 100%;
+        }
+
+        .progress-ring-row,
+        .next-lesson {
+          grid-template-columns: 1fr;
         }
       }
     `}</style>
