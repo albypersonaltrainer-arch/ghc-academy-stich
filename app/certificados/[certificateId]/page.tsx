@@ -137,8 +137,10 @@ export default function CertificateVerificationPage() {
           <div className="card-grid" />
 
           <div className="credential-brand">
-            <span className="credential-brand-mark">G</span>
-            <div>
+            <div className="credential-logo-mark">
+              <span>G</span>
+            </div>
+            <div className="credential-logo-text">
               <strong>GHC</strong>
               <em>Academy</em>
             </div>
@@ -590,51 +592,63 @@ function GlobalStyles() {
       .credential-brand {
         position: relative;
         z-index: 1;
-      }
-
-      .credential-brand {
+        width: fit-content;
+        min-height: 52px;
         display: inline-flex;
         align-items: center;
-        gap: 12px;
-        min-height: 42px;
-        margin-bottom: 26px;
-        color: var(--white);
-        text-transform: uppercase;
-        letter-spacing: .22em;
+        gap: 14px;
+        margin: 0 0 30px;
+        padding: 8px 14px 8px 8px;
+        border-radius: 18px;
+        border: 1px solid rgba(var(--green-rgb), .20);
+        background:
+          linear-gradient(135deg, rgba(var(--green-rgb), .085), rgba(255,255,255,.026));
+        box-shadow: 0 0 34px rgba(var(--green-rgb), .10);
       }
 
-      .credential-brand-mark {
-        width: 34px;
-        height: 34px;
-        border-radius: 12px;
-        border: 1px solid rgba(var(--green-rgb), .36);
-        background: rgba(var(--green-rgb), .07);
+      .credential-logo-mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        border: 1px solid rgba(var(--green-rgb), .42);
+        background:
+          radial-gradient(circle at 35% 30%, rgba(var(--green-rgb), .22), transparent 48%),
+          rgba(var(--green-rgb), .075);
         color: var(--green);
         display: grid;
         place-items: center;
-        font-size: 13px;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.035), 0 0 28px rgba(var(--green-rgb), .12);
+      }
+
+      .credential-logo-mark span {
+        font-size: 16px;
+        line-height: 1;
         font-weight: 950;
-        box-shadow: 0 0 26px rgba(var(--green-rgb), .10);
+        letter-spacing: -.04em;
       }
 
-      .credential-brand strong,
-      .credential-brand em {
-        display: inline-block;
-        font-style: normal;
+      .credential-logo-text {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        text-transform: uppercase;
       }
 
-      .credential-brand strong {
-        font-size: 18px;
+      .credential-logo-text strong {
+        color: var(--white);
+        font-size: 20px;
+        line-height: 1;
         font-weight: 950;
         letter-spacing: .18em;
       }
 
-      .credential-brand em {
-        margin-left: 10px;
-        color: rgba(244,246,242,.62);
+      .credential-logo-text em {
+        color: rgba(244,246,242,.64);
         font-size: 12px;
-        font-weight: 800;
-        letter-spacing: .22em;
+        line-height: 1;
+        font-style: normal;
+        font-weight: 850;
+        letter-spacing: .24em;
       }
 
       .certificate-header {
