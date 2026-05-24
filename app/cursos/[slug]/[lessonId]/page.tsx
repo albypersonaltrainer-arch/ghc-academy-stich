@@ -1404,14 +1404,24 @@ function GlobalStyles() {
       .pdf-actions button,
       .pdf-actions a {
         min-height: 38px;
+        height: 38px;
         border-radius: 999px;
         border: 1px solid rgba(var(--green-rgb), .26);
         background: rgba(var(--green-rgb), .10);
         color: var(--green);
         padding: 0 14px;
         font-weight: 900;
+        font-size: 13px;
+        line-height: 1;
         text-decoration: none;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        vertical-align: middle;
+        white-space: nowrap;
+        appearance: none;
+        -webkit-appearance: none;
       }
 
       .video-stage > button {
@@ -1493,7 +1503,10 @@ function GlobalStyles() {
 
       .pdf-actions > div {
         display: flex;
+        align-items: center;
+        justify-content: flex-end;
         gap: 8px;
+        flex-wrap: wrap;
       }
 
       .pdf-stage iframe {
@@ -1857,6 +1870,7 @@ function GlobalStyles() {
         .pdf-actions button,
         .pdf-actions a {
           flex: 1;
+          min-width: 150px;
         }
       }
     `}</style>
