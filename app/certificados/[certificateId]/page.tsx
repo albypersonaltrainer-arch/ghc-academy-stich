@@ -94,7 +94,7 @@ export default function CertificateVerificationPage() {
       <main className="ghc-certificate-page loading-state">
         <Background />
         <section className="status-card error">
-          <Link href="/cursos" className="ghost-button">← Volver a GHC Academy</Link>
+          <Link href="/alumno" className="ghost-button">← Volver al área alumno</Link>
           <p>Certificado no encontrado</p>
           <h1>No se pudo verificar</h1>
           <span>{message}</span>
@@ -117,7 +117,7 @@ export default function CertificateVerificationPage() {
 
       <section className="certificate-shell">
         <header className="certificate-topbar">
-          <Link href="/cursos" className="brand">
+          <Link href="/alumno" className="brand">
             <span>G</span>
             <strong>GHC</strong>
             <em>Academy</em>
@@ -125,7 +125,7 @@ export default function CertificateVerificationPage() {
 
           <nav>
             <Link href="/alumno">Área alumno</Link>
-            <Link href="/cursos">Cursos</Link>
+            <Link href="/alumno">Mis cursos</Link>
             <span className={isValid ? 'state-badge valid' : 'state-badge revoked'}>
               {isValid ? 'VÁLIDO' : 'REVOCADO'}
             </span>
