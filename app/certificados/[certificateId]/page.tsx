@@ -127,7 +127,7 @@ export default function CertificateVerificationPage() {
             <Link href="/alumno">Área alumno</Link>
             <Link href="/cursos">Cursos</Link>
             <span className={isValid ? 'state-badge valid' : 'state-badge revoked'}>
-              {isValid ? 'Certificado válido' : 'Certificado revocado'}
+              {isValid ? 'VÁLIDO' : 'REVOCADO'}
             </span>
           </nav>
         </header>
@@ -135,6 +135,14 @@ export default function CertificateVerificationPage() {
         <section className="certificate-card">
           <div className="watermark">GHC</div>
           <div className="card-grid" />
+
+          <div className="credential-brand">
+            <span className="credential-brand-mark">G</span>
+            <div>
+              <strong>GHC</strong>
+              <em>Academy</em>
+            </div>
+          </div>
 
           <div className="certificate-header">
             <div>
@@ -145,7 +153,7 @@ export default function CertificateVerificationPage() {
 
             <aside className={isValid ? 'validity valid' : 'validity revoked'}>
               <small>Estado</small>
-              <strong>{isValid ? 'Válido' : 'Revocado'}</strong>
+              <strong>{isValid ? 'VÁLIDO' : 'REVOCADO'}</strong>
               <em>{source === 'preview' ? 'Modo preview' : 'Supabase verificado'}</em>
             </aside>
           </div>
@@ -499,15 +507,17 @@ function GlobalStyles() {
 
       .state-badge {
         min-height: 38px;
+        min-width: 92px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0 14px;
+        padding: 0 16px;
         font-size: 11px;
         font-weight: 950;
-        letter-spacing: .09em;
+        letter-spacing: .12em;
         text-transform: uppercase;
+        white-space: nowrap;
       }
 
       .state-badge.valid {
@@ -576,9 +586,55 @@ function GlobalStyles() {
 
       .certificate-header,
       .certificate-body,
-      .certificate-footer {
+      .certificate-footer,
+      .credential-brand {
         position: relative;
         z-index: 1;
+      }
+
+      .credential-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 42px;
+        margin-bottom: 26px;
+        color: var(--white);
+        text-transform: uppercase;
+        letter-spacing: .22em;
+      }
+
+      .credential-brand-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        border: 1px solid rgba(var(--green-rgb), .36);
+        background: rgba(var(--green-rgb), .07);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        font-weight: 950;
+        box-shadow: 0 0 26px rgba(var(--green-rgb), .10);
+      }
+
+      .credential-brand strong,
+      .credential-brand em {
+        display: inline-block;
+        font-style: normal;
+      }
+
+      .credential-brand strong {
+        font-size: 18px;
+        font-weight: 950;
+        letter-spacing: .18em;
+      }
+
+      .credential-brand em {
+        margin-left: 10px;
+        color: rgba(244,246,242,.62);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .22em;
       }
 
       .certificate-header {
@@ -655,7 +711,9 @@ function GlobalStyles() {
         font-size: 26px;
         line-height: 1;
         font-weight: 950;
+        letter-spacing: .08em;
         text-transform: uppercase;
+        white-space: nowrap;
       }
 
       .validity.revoked strong {
