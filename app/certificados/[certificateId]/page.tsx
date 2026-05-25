@@ -144,14 +144,11 @@ async function findCertificate(identifier: string) {
   return null;
 }
 
-function BrandLockup({ small = false }: { small?: boolean }) {
+function Brand() {
   return (
-    <div className={small ? "brand brand-small" : "brand"}>
-      <div className="brand-mark">
-        <img src={LOGO_SRC} alt="GHC Academy" />
-      </div>
-
-      <div className="brand-copy">
+    <div className="brand">
+      <img src={LOGO_SRC} alt="GHC Academy" />
+      <div>
         <strong>GHC ACADEMY</strong>
         <span>SPORT THROUGH SCIENCE</span>
       </div>
@@ -171,9 +168,11 @@ function StateScreen({
   identifier?: string;
 }) {
   return (
-    <main className="certificate-page">
-      <section className="state-shell">
-        <BrandLockup />
+    <main className="page">
+      <div className="ambient-grid" />
+
+      <section className="state">
+        <Brand />
 
         {type === "loading" ? <div className="spinner" /> : null}
 
@@ -190,7 +189,7 @@ function StateScreen({
         </p>
 
         {type !== "loading" ? (
-          <Link href="/alumno" className="primary-button">
+          <Link href="/alumno" className="green-button">
             Volver al área de alumno
           </Link>
         ) : null}
@@ -314,125 +313,119 @@ export default function PublicCertificatePage() {
   }
 
   return (
-    <main className="certificate-page">
-      <div className="page-grid" />
-      <div className="orb orb-one" />
-      <div className="orb orb-two" />
+    <main className="page">
+      <div className="ambient-grid" />
+      <div className="orb orb-left" />
+      <div className="orb orb-right" />
 
       <header className="topbar">
         <div className="topbar-inner">
-          <BrandLockup small />
+          <Brand />
 
-          <Link href="/alumno" className="topbar-link">
-            Área alumno
-          </Link>
+          <nav>
+            <Link href="/alumno" className="nav-link">
+              Área alumno
+            </Link>
+          </nav>
         </div>
       </header>
 
-      <section className="page-shell">
-        <div className="title-row">
-          <div>
-            <p className="eyebrow">Certificado verificable</p>
-            <h1>Validación académica GHC Academy</h1>
-          </div>
-
-          <span
-            className={
-              normalizedCertificate.isRevoked
-                ? "status-pill status-revoked"
-                : "status-pill status-valid"
-            }
-          >
-            {normalizedCertificate.statusLabel}
+      <section className="shell">
+        <div className="hero">
+          <p>CREDENCIAL OFICIAL</p>
+          <h1>
+            VÁLIDO. VERIFICABLE.
+            <br />
+            PROFESIONAL.
+          </h1>
+          <span>
+            Consulta la autenticidad de este certificado oficial de GHC Academy.
           </span>
         </div>
 
-        <div className="main-layout">
-          <article className="certificate-frame">
-            <div className="certificate-card">
-              <div className="inner-line" />
-              <div className="corner-glow" />
+        <div className="layout">
+          <article className="certificate-wrap">
+            <div className="certificate-paper">
+              <div className="paper-line" />
 
-              <div className="certificate-top">
-                <BrandLockup />
+              <div className="paper-top">
+                <Brand />
 
-                <span
+                <div
                   className={
                     normalizedCertificate.isRevoked
-                      ? "certificate-status certificate-status-revoked"
-                      : "certificate-status certificate-status-valid"
+                      ? "paper-status paper-status-revoked"
+                      : "paper-status paper-status-valid"
                   }
                 >
                   {normalizedCertificate.statusLabel}
-                </span>
+                </div>
               </div>
 
-              <div className="certificate-center">
-                <p className="mini-heading">Certifica que</p>
+              <div className="paper-main">
+                <p className="paper-kicker">GHC ACADEMY</p>
 
-                <h2>{normalizedCertificate.studentName}</h2>
+                <h2>CERTIFICADO</h2>
 
-                <div className="green-line" />
+                <p className="paper-subtitle">de logro académico</p>
 
-                <p className="completion-text">
-                  ha completado satisfactoriamente el programa académico
+                <p className="paper-grants">se otorga a</p>
+
+                <h3>{normalizedCertificate.studentName}</h3>
+
+                <p className="paper-text">
+                  por completar satisfactoriamente los requisitos de
                 </p>
 
-                <h3>{normalizedCertificate.courseTitle}</h3>
-
-                <p className="verification-text">
-                  Certificación emitida por GHC Academy bajo criterio académico
-                  profesional, con verificación digital vinculada a alumno,
-                  curso, fecha y estado.
-                </p>
+                <h4>{normalizedCertificate.courseTitle}</h4>
               </div>
 
-              <div className="metrics-row">
-                <div className="metric-card">
+              <div className="paper-footer">
+                <div className="paper-signature">
+                  <div />
+                  <span>DIRECTOR ACADÉMICO</span>
+                </div>
+
+                <div className="paper-seal">
+                  <span>GHC</span>
+                  <small>VERIFIED</small>
+                </div>
+
+                <div className="paper-brand-note">
+                  <strong>GHC</strong>
+                  <span>SPORT THROUGH SCIENCE</span>
+                </div>
+              </div>
+
+              <div className="paper-metrics">
+                <div>
                   <span>Nota final</span>
                   <strong>{normalizedCertificate.finalScore}</strong>
                 </div>
 
-                <div className="metric-card">
+                <div>
                   <span>Fecha emisión</span>
                   <strong>{normalizedCertificate.issuedAt}</strong>
                 </div>
 
-                <div className="metric-card">
+                <div>
                   <span>Código</span>
                   <strong>{normalizedCertificate.code}</strong>
                 </div>
-              </div>
-
-              <div className="certificate-footer">
-                <div className="signature">
-                  <div />
-                  <strong>Dirección académica</strong>
-                  <span>GHC Academy</span>
-                </div>
-
-                <div className="seal">
-                  <span>GHC</span>
-                  <small>Verified</small>
-                </div>
-              </div>
-
-              <div className="id-strip">
-                ID verificable: {normalizedCertificate.verificationSlug}
               </div>
             </div>
           </article>
 
           <aside className="verification-panel">
             <div className="panel-card">
-              <p className="eyebrow">Verificación</p>
+              <p className="panel-eyebrow">VERIFICACIÓN</p>
               <h2>Estado del certificado</h2>
 
               <div
                 className={
                   normalizedCertificate.isRevoked
-                    ? "result-box result-revoked"
-                    : "result-box result-valid"
+                    ? "result result-revoked"
+                    : "result result-valid"
                 }
               >
                 <strong>{normalizedCertificate.statusLabel}</strong>
@@ -464,11 +457,12 @@ export default function PublicCertificatePage() {
 
             <div className="panel-note">
               <p>
-                La autenticidad se comprueba mediante el identificador público
-                del certificado y su estado registrado en GHC Academy.
+                ID verificable:
+                <br />
+                <strong>{normalizedCertificate.verificationSlug}</strong>
               </p>
 
-              <Link href="/alumno" className="primary-button">
+              <Link href="/alumno" className="green-button">
                 Ir al área de alumno
               </Link>
             </div>
@@ -486,17 +480,16 @@ function CertificateStyles() {
     <style jsx global>{`
       :root {
         --bg: #050806;
-        --card: #0a0f0c;
-        --card-soft: #0e1511;
-        --card-deep: #070b08;
-        --line: rgba(255, 255, 255, 0.1);
-        --line-strong: rgba(255, 255, 255, 0.16);
+        --panel: #0a0f0d;
+        --panel-soft: #101712;
         --text: #f4f7f2;
         --muted: #aeb8b1;
-        --muted-dark: #7f8a83;
+        --muted-2: #7f8a83;
         --green: #22d65b;
-        --green-soft: rgba(34, 214, 91, 0.11);
-        --danger: #ff6b6b;
+        --green-soft: rgba(34, 214, 91, 0.12);
+        --line: rgba(255, 255, 255, 0.1);
+        --paper: #eef2e8;
+        --paper-ink: #18231d;
       }
 
       * {
@@ -509,26 +502,25 @@ function CertificateStyles() {
         background: var(--bg);
       }
 
-      .certificate-page {
+      .page {
         position: relative;
         min-height: 100vh;
         overflow-x: hidden;
         background:
-          radial-gradient(circle at 18% 0%, rgba(34, 214, 91, 0.08), transparent 30%),
-          radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.045), transparent 28%),
-          linear-gradient(180deg, #050806 0%, #080d0a 50%, #050806 100%);
+          radial-gradient(circle at 18% 0%, rgba(34, 214, 91, 0.08), transparent 28%),
+          radial-gradient(circle at 84% 16%, rgba(255, 255, 255, 0.045), transparent 28%),
+          linear-gradient(180deg, #050806 0%, #080d0a 48%, #050806 100%);
         color: var(--text);
       }
 
-      .page-grid {
+      .ambient-grid {
         pointer-events: none;
         position: fixed;
         inset: 0;
-        z-index: 0;
         opacity: 0.22;
         background-image:
-          linear-gradient(rgba(255, 255, 255, 0.032) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px);
+          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
         background-size: 46px 46px;
         mask-image: linear-gradient(to bottom, black, transparent 72%);
       }
@@ -537,23 +529,21 @@ function CertificateStyles() {
         pointer-events: none;
         position: fixed;
         z-index: 0;
-        border-radius: 999px;
-        filter: blur(88px);
-      }
-
-      .orb-one {
         width: 34rem;
         height: 34rem;
-        left: -18rem;
-        top: -18rem;
-        background: rgba(34, 214, 91, 0.11);
+        border-radius: 999px;
+        filter: blur(90px);
       }
 
-      .orb-two {
-        width: 32rem;
-        height: 32rem;
-        right: -18rem;
-        bottom: -18rem;
+      .orb-left {
+        top: -19rem;
+        left: -18rem;
+        background: rgba(34, 214, 91, 0.1);
+      }
+
+      .orb-right {
+        right: -20rem;
+        bottom: -19rem;
         background: rgba(130, 145, 136, 0.08);
       }
 
@@ -579,53 +569,30 @@ function CertificateStyles() {
         display: inline-flex;
         align-items: center;
         gap: 12px;
-        min-width: 0;
       }
 
-      .brand-small {
-        transform: scale(0.92);
-        transform-origin: left center;
-      }
-
-      .brand-mark {
-        width: 42px;
-        height: 42px;
-        flex: 0 0 42px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 15px;
-        border: 1px solid rgba(34, 214, 91, 0.24);
-        background:
-          radial-gradient(circle at 50% 0%, rgba(34, 214, 91, 0.14), transparent 58%),
-          #07110c;
-        box-shadow: 0 0 24px rgba(34, 214, 91, 0.1);
-        overflow: hidden;
-      }
-
-      .brand-mark img {
-        display: block;
-        width: 28px;
-        height: 28px;
+      .brand img {
+        width: 30px;
+        height: 30px;
         object-fit: contain;
+        display: block;
       }
 
-      .brand-copy {
+      .brand div {
         display: flex;
-        min-width: 0;
         flex-direction: column;
         line-height: 1;
       }
 
-      .brand-copy strong {
+      .brand strong {
         color: var(--text);
         font-size: 14px;
         font-weight: 950;
-        letter-spacing: 0.22em;
+        letter-spacing: 0.24em;
         white-space: nowrap;
       }
 
-      .brand-copy span {
+      .brand span {
         margin-top: 6px;
         color: #8d9990;
         font-size: 9px;
@@ -634,359 +601,316 @@ function CertificateStyles() {
         white-space: nowrap;
       }
 
-      .topbar-link,
-      .primary-button {
+      .nav-link {
         display: inline-flex;
+        min-height: 40px;
         align-items: center;
         justify-content: center;
         border-radius: 999px;
-        text-decoration: none;
-        font-weight: 950;
-        transition:
-          transform 180ms ease,
-          border-color 180ms ease,
-          background 180ms ease;
-      }
-
-      .topbar-link {
-        min-height: 40px;
-        padding: 0 18px;
         border: 1px solid var(--line);
         background: rgba(255, 255, 255, 0.055);
+        padding: 0 18px;
         color: #dce5de;
+        text-decoration: none;
         font-size: 12px;
+        font-weight: 950;
         text-transform: uppercase;
         letter-spacing: 0.14em;
       }
 
-      .topbar-link:hover {
-        transform: translateY(-1px);
-        border-color: rgba(34, 214, 91, 0.35);
-        background: rgba(34, 214, 91, 0.1);
-      }
-
-      .page-shell {
+      .shell {
         position: relative;
         z-index: 2;
         width: min(1240px, calc(100% - 40px));
         margin: 0 auto;
-        padding: 26px 0 48px;
+        padding: 30px 0 54px;
       }
 
-      .title-row {
-        margin-bottom: 16px;
-        display: flex;
-        align-items: end;
-        justify-content: space-between;
-        gap: 20px;
+      .hero {
+        margin: 0 auto 22px;
+        max-width: 920px;
+        text-align: center;
       }
 
-      .eyebrow {
+      .hero p {
         margin: 0;
         color: var(--green);
         font-size: 12px;
-        line-height: 1.2;
         font-weight: 950;
         text-transform: uppercase;
-        letter-spacing: 0.28em;
+        letter-spacing: 0.32em;
       }
 
-      .title-row h1 {
-        margin: 9px 0 0;
+      .hero h1 {
+        margin: 14px 0 0;
         color: var(--text);
-        font-size: clamp(28px, 3vw, 40px);
-        line-height: 1.02;
+        font-size: clamp(44px, 6vw, 82px);
+        line-height: 0.86;
         font-weight: 950;
-        letter-spacing: -0.055em;
-      }
-
-      .status-pill,
-      .certificate-status {
-        flex: 0 0 auto;
-        border-radius: 999px;
-        font-weight: 950;
+        letter-spacing: -0.075em;
         text-transform: uppercase;
-        white-space: nowrap;
+        text-shadow: 0 0 34px rgba(255, 255, 255, 0.08);
       }
 
-      .status-pill {
-        padding: 10px 16px;
-        font-size: 11px;
-        letter-spacing: 0.18em;
+      .hero span {
+        display: block;
+        margin: 18px auto 0;
+        max-width: 680px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
       }
 
-      .status-valid,
-      .certificate-status-valid {
-        border: 1px solid rgba(34, 214, 91, 0.35);
-        background: rgba(34, 214, 91, 0.1);
-        color: #b9ffd0;
-      }
-
-      .status-revoked,
-      .certificate-status-revoked {
-        border: 1px solid rgba(255, 107, 107, 0.35);
-        background: rgba(255, 107, 107, 0.1);
-        color: #ffb3b3;
-      }
-
-      .main-layout {
+      .layout {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 360px;
         gap: 24px;
         align-items: start;
       }
 
-      .certificate-frame {
+      .certificate-wrap {
         min-width: 0;
-        border-radius: 32px;
-        border: 1px solid var(--line);
-        background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 24%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.022)),
-          #080d0a;
-        padding: 12px;
-        box-shadow:
-          0 28px 90px rgba(0, 0, 0, 0.46),
-          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        padding: 18px 8px 26px;
+        perspective: 1400px;
       }
 
-      .certificate-card {
+      .certificate-paper {
         position: relative;
+        min-height: 430px;
         overflow: hidden;
-        min-height: 540px;
-        border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.13);
+        border-radius: 18px;
+        border: 1px solid rgba(18, 35, 29, 0.22);
         background:
-          radial-gradient(circle at 18% 0%, rgba(34, 214, 91, 0.125), transparent 30%),
-          radial-gradient(circle at 88% 100%, rgba(255, 255, 255, 0.06), transparent 34%),
-          linear-gradient(145deg, #111914 0%, #0a100c 50%, #070f0a 100%);
-        box-shadow: inset 0 0 0 1px rgba(34, 214, 91, 0.045);
-        padding: 28px 34px 26px;
+          radial-gradient(circle at 18% 0%, rgba(34, 214, 91, 0.09), transparent 28%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.42)),
+          var(--paper);
+        color: var(--paper-ink);
+        box-shadow:
+          0 28px 80px rgba(0, 0, 0, 0.36),
+          0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+        padding: 34px 44px 26px;
+        transform: rotate(-2.2deg);
       }
 
-      .inner-line {
+      .paper-line {
         pointer-events: none;
         position: absolute;
         inset: 18px;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.105);
+        border-radius: 14px;
+        border: 1px solid rgba(18, 35, 29, 0.12);
       }
 
-      .corner-glow {
-        pointer-events: none;
-        position: absolute;
-        width: 380px;
-        height: 380px;
-        right: -160px;
-        top: -170px;
-        border-radius: 999px;
-        background: rgba(34, 214, 91, 0.095);
-        filter: blur(70px);
-      }
-
-      .certificate-top {
+      .paper-top {
         position: relative;
         z-index: 2;
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        gap: 22px;
+        gap: 18px;
       }
 
-      .certificate-status {
-        padding: 9px 14px;
+      .paper-top .brand strong {
+        color: #243228;
+      }
+
+      .paper-top .brand span {
+        color: #6c7a70;
+      }
+
+      .paper-top .brand img {
+        width: 26px;
+        height: 26px;
+      }
+
+      .paper-status {
+        border-radius: 999px;
+        padding: 8px 13px;
         font-size: 10px;
+        font-weight: 950;
+        text-transform: uppercase;
         letter-spacing: 0.18em;
       }
 
-      .certificate-center {
+      .paper-status-valid {
+        border: 1px solid rgba(22, 126, 61, 0.25);
+        background: rgba(34, 214, 91, 0.12);
+        color: #0b5e2d;
+      }
+
+      .paper-status-revoked {
+        border: 1px solid rgba(170, 48, 48, 0.24);
+        background: rgba(170, 48, 48, 0.1);
+        color: #8d2323;
+      }
+
+      .paper-main {
         position: relative;
         z-index: 2;
-        width: min(760px, 100%);
-        margin: 38px auto 0;
-        text-align: center;
-      }
-
-      .mini-heading {
-        margin: 0;
-        color: var(--muted-dark);
-        font-size: 11px;
-        font-weight: 950;
-        text-transform: uppercase;
-        letter-spacing: 0.36em;
-      }
-
-      .certificate-center h2 {
-        margin: 20px 0 0;
-        color: var(--text);
-        font-size: clamp(46px, 5.7vw, 72px);
-        line-height: 0.92;
-        font-weight: 950;
-        letter-spacing: -0.07em;
-      }
-
-      .green-line {
-        width: 190px;
-        height: 1px;
-        margin: 23px auto 0;
-        background: linear-gradient(90deg, transparent, var(--green), transparent);
-      }
-
-      .completion-text {
-        margin: 23px auto 0;
-        max-width: 650px;
-        color: var(--muted);
-        font-size: 14px;
-        line-height: 1.7;
-        font-weight: 700;
-      }
-
-      .certificate-center h3 {
-        margin: 10px auto 0;
+        margin: 34px auto 0;
         max-width: 760px;
-        color: var(--green);
-        font-size: clamp(28px, 3vw, 40px);
-        line-height: 1.08;
-        font-weight: 950;
-        letter-spacing: -0.045em;
-      }
-
-      .verification-text {
-        margin: 20px auto 0;
-        max-width: 690px;
-        color: #8d9990;
-        font-size: 13px;
-        line-height: 1.75;
-      }
-
-      .metrics-row {
-        position: relative;
-        z-index: 2;
-        margin-top: 28px;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      .metric-card {
-        min-width: 0;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.105);
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
-          rgba(255, 255, 255, 0.034);
-        padding: 15px;
         text-align: center;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
       }
 
-      .metric-card span {
-        display: block;
-        color: #7e8a83;
-        font-size: 10px;
+      .paper-kicker {
+        margin: 0;
+        color: #3c4b42;
+        font-size: 12px;
         font-weight: 950;
+        letter-spacing: 0.42em;
+      }
+
+      .paper-main h2 {
+        margin: 13px 0 0;
+        color: #243228;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(38px, 5vw, 68px);
+        line-height: 0.9;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+      }
+
+      .paper-subtitle {
+        margin: 6px 0 0;
+        color: #69766d;
+        font-size: 13px;
+        letter-spacing: 0.18em;
         text-transform: uppercase;
-        letter-spacing: 0.22em;
       }
 
-      .metric-card strong {
-        display: block;
-        margin-top: 9px;
-        color: var(--text);
-        font-size: 15px;
-        line-height: 1.25;
-        font-weight: 950;
-        overflow-wrap: anywhere;
+      .paper-grants {
+        margin: 20px 0 0;
+        color: #69766d;
+        font-size: 13px;
       }
 
-      .metric-card:first-child strong {
-        color: var(--green);
-        font-size: 22px;
-      }
-
-      .certificate-footer {
-        position: relative;
-        z-index: 2;
-        margin-top: 30px;
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 24px;
-      }
-
-      .signature div {
-        width: 225px;
-        height: 1px;
-        margin-bottom: 12px;
-        background: rgba(255, 255, 255, 0.24);
-      }
-
-      .signature strong {
-        display: block;
-        color: var(--text);
-        font-size: 14px;
-        font-weight: 950;
-      }
-
-      .signature span {
-        display: block;
-        margin-top: 5px;
-        color: #7e8a83;
-        font-size: 11px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-      }
-
-      .seal {
-        width: 88px;
-        height: 88px;
-        flex: 0 0 auto;
-        border-radius: 999px;
-        border: 1px solid rgba(34, 214, 91, 0.42);
-        background:
-          radial-gradient(circle at 50% 0%, rgba(34, 214, 91, 0.16), transparent 55%),
-          #07110c;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 0 32px rgba(34, 214, 91, 0.15);
-      }
-
-      .seal span {
-        color: var(--text);
-        font-size: 18px;
+      .paper-main h3 {
+        margin: 5px 0 0;
+        color: #203028;
+        font-size: clamp(28px, 4vw, 48px);
         line-height: 1;
         font-weight: 950;
-        letter-spacing: -0.08em;
+        letter-spacing: -0.04em;
       }
 
-      .seal small {
-        margin-top: 6px;
-        color: var(--green);
-        font-size: 8px;
+      .paper-text {
+        margin: 13px 0 0;
+        color: #69766d;
+        font-size: 13px;
+      }
+
+      .paper-main h4 {
+        margin: 8px 0 0;
+        color: #148c45;
+        font-size: clamp(20px, 2.5vw, 31px);
+        line-height: 1.1;
         font-weight: 950;
-        text-transform: uppercase;
-        letter-spacing: 0.22em;
+        letter-spacing: -0.03em;
       }
 
-      .id-strip {
+      .paper-footer {
+        position: relative;
+        z-index: 2;
+        margin-top: 26px;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: end;
+        gap: 20px;
+      }
+
+      .paper-signature div {
+        width: 180px;
+        height: 1px;
+        margin-bottom: 8px;
+        background: rgba(32, 48, 40, 0.35);
+      }
+
+      .paper-signature span,
+      .paper-brand-note span {
+        display: block;
+        color: #69766d;
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .paper-seal {
+        width: 68px;
+        height: 68px;
+        border-radius: 999px;
+        border: 1px solid rgba(34, 214, 91, 0.32);
+        background: rgba(34, 214, 91, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        color: #148c45;
+      }
+
+      .paper-seal span {
+        font-size: 15px;
+        font-weight: 950;
+        letter-spacing: -0.06em;
+      }
+
+      .paper-seal small {
+        margin-top: 4px;
+        font-size: 7px;
+        font-weight: 950;
+        letter-spacing: 0.12em;
+      }
+
+      .paper-brand-note {
+        text-align: right;
+      }
+
+      .paper-brand-note strong {
+        display: block;
+        color: #243228;
+        font-size: 12px;
+        font-weight: 950;
+        letter-spacing: 0.16em;
+      }
+
+      .paper-metrics {
         position: relative;
         z-index: 2;
         margin-top: 22px;
-        border-radius: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.085);
-        background: rgba(0, 0, 0, 0.16);
-        padding: 11px 14px;
-        color: #7e8a83;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .paper-metrics div {
+        min-width: 0;
+        border-radius: 14px;
+        border: 1px solid rgba(32, 48, 40, 0.12);
+        background: rgba(255, 255, 255, 0.36);
+        padding: 12px;
         text-align: center;
-        font-size: 10px;
-        line-height: 1.5;
-        font-weight: 900;
+      }
+
+      .paper-metrics span {
+        display: block;
+        color: #69766d;
+        font-size: 9px;
+        font-weight: 950;
         text-transform: uppercase;
         letter-spacing: 0.18em;
+      }
+
+      .paper-metrics strong {
+        display: block;
+        margin-top: 6px;
+        color: #203028;
+        font-size: 13px;
+        font-weight: 950;
         overflow-wrap: anywhere;
+      }
+
+      .paper-metrics div:first-child strong {
+        color: #148c45;
+        font-size: 17px;
       }
 
       .verification-panel {
@@ -1008,6 +932,15 @@ function CertificateStyles() {
         padding: 22px;
       }
 
+      .panel-eyebrow {
+        margin: 0;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+      }
+
       .panel-card h2 {
         margin: 12px 0 0;
         color: var(--text);
@@ -1017,7 +950,7 @@ function CertificateStyles() {
         letter-spacing: -0.035em;
       }
 
-      .result-box {
+      .result {
         margin-top: 20px;
         border-radius: 20px;
         padding: 16px;
@@ -1033,7 +966,7 @@ function CertificateStyles() {
         background: rgba(255, 107, 107, 0.1);
       }
 
-      .result-box strong {
+      .result strong {
         display: block;
         color: #b9ffd0;
         font-size: 14px;
@@ -1046,13 +979,18 @@ function CertificateStyles() {
         color: #ffb3b3;
       }
 
-      .result-box p,
+      .result p,
       .panel-note p,
-      .state-shell p {
+      .state p {
         margin: 12px 0 0;
         color: var(--muted);
         font-size: 14px;
         line-height: 1.8;
+      }
+
+      .panel-note strong {
+        color: var(--text);
+        overflow-wrap: anywhere;
       }
 
       .panel-card dl {
@@ -1086,36 +1024,38 @@ function CertificateStyles() {
         overflow-wrap: anywhere;
       }
 
-      .primary-button {
+      .green-button {
+        display: inline-flex;
         width: 100%;
         min-height: 48px;
         margin-top: 20px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
         border: 1px solid rgba(34, 214, 91, 0.32);
         background: var(--green);
         color: #06100a;
         padding: 0 20px;
+        text-decoration: none;
         font-size: 14px;
+        font-weight: 950;
         box-shadow: 0 0 30px rgba(34, 214, 91, 0.16);
       }
 
-      .primary-button:hover {
-        transform: translateY(-1px) scale(1.01);
-      }
-
-      .state-shell {
+      .state {
         position: relative;
         z-index: 2;
         width: min(680px, calc(100% - 40px));
-        margin: 0 auto;
         min-height: 100vh;
+        margin: 0 auto;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
+        flex-direction: column;
         text-align: center;
       }
 
-      .state-shell h1 {
+      .state h1 {
         margin: 26px 0 0;
         color: var(--text);
         font-size: 32px;
@@ -1124,7 +1064,7 @@ function CertificateStyles() {
         letter-spacing: -0.045em;
       }
 
-      .state-shell strong {
+      .state strong {
         color: var(--text);
       }
 
@@ -1145,7 +1085,7 @@ function CertificateStyles() {
       }
 
       @media (max-width: 1120px) {
-        .main-layout {
+        .layout {
           grid-template-columns: 1fr;
         }
 
@@ -1156,73 +1096,54 @@ function CertificateStyles() {
 
       @media (max-width: 760px) {
         .topbar-inner,
-        .page-shell {
+        .shell {
           width: min(100% - 28px, 1240px);
         }
 
-        .brand-copy strong {
+        .brand strong {
           font-size: 12px;
           letter-spacing: 0.16em;
         }
 
-        .brand-copy span {
+        .brand span {
           font-size: 8px;
           letter-spacing: 0.22em;
         }
 
-        .topbar-link {
+        .nav-link {
           padding: 0 13px;
           font-size: 10px;
           letter-spacing: 0.1em;
         }
 
-        .title-row {
-          flex-direction: column;
-          align-items: flex-start;
+        .hero h1 {
+          font-size: 44px;
         }
 
-        .certificate-frame {
-          border-radius: 24px;
-          padding: 8px;
-        }
-
-        .certificate-card {
+        .certificate-paper {
           min-height: auto;
-          border-radius: 19px;
           padding: 24px 22px 22px;
+          transform: rotate(-1deg);
         }
 
-        .inner-line {
-          inset: 12px;
-        }
-
-        .certificate-top {
+        .paper-top {
           flex-direction: column;
         }
 
-        .certificate-center {
-          margin-top: 36px;
+        .paper-main h2 {
+          font-size: 38px;
         }
 
-        .certificate-center h2 {
-          font-size: 46px;
-        }
-
-        .certificate-center h3 {
-          font-size: 30px;
-        }
-
-        .metrics-row {
+        .paper-footer {
           grid-template-columns: 1fr;
         }
 
-        .certificate-footer {
-          flex-direction: column;
-          align-items: flex-start;
+        .paper-brand-note {
+          text-align: left;
         }
 
-        .signature div {
-          width: 220px;
+        .paper-metrics {
+          grid-template-columns: 1fr;
         }
       }
     `}</style>
