@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useMemo, useState } from "react";
+import GHCLogo from "../../components/GHCLogo";
 
 type CertificateStatus = "valid" | "revoked" | string;
 
@@ -142,34 +143,10 @@ async function findCertificate(identifier: string) {
   return null;
 }
 
-function GhcMark() {
+function LogoBlock({ variant = "dark" }: { variant?: "dark" | "paper" }) {
   return (
-    <span className="ghc-mark" aria-hidden="true">
-      <svg viewBox="0 0 48 48" role="img">
-        <path
-          d="M24 4.8 40.8 14.4v19.2L24 43.2 7.2 33.6V14.4L24 4.8Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M30.7 18.6a8.8 8.8 0 1 0 1.1 11.7h-7.3v-5.1h13.6v13.1h-4.8l-.4-3.2A14.3 14.3 0 1 1 34 15.1l-3.3 3.5Z"
-          fill="currentColor"
-        />
-      </svg>
-    </span>
-  );
-}
-
-function Brand({ variant = "dark" }: { variant?: "dark" | "paper" }) {
-  return (
-    <div className={`brand brand-${variant}`}>
-      <GhcMark />
-      <div>
-        <strong>GHC ACADEMY</strong>
-        <span>SPORT THROUGH SCIENCE</span>
-      </div>
+    <div className={`logo-block logo-block-${variant}`} aria-label="GHC Academy">
+      <GHCLogo />
     </div>
   );
 }
@@ -190,7 +167,7 @@ function StateScreen({
       <div className="ambient-grid" />
 
       <section className="state">
-        <Brand />
+        <LogoBlock />
 
         {type === "loading" ? <div className="spinner" /> : null}
 
@@ -338,7 +315,7 @@ export default function PublicCertificatePage() {
 
       <header className="topbar">
         <div className="topbar-inner">
-          <Brand />
+          <LogoBlock />
 
           <nav>
             <Link href="/alumno" className="nav-link">
@@ -367,7 +344,7 @@ export default function PublicCertificatePage() {
               <div className="paper-line" />
 
               <div className="paper-top">
-                <Brand variant="paper" />
+                <LogoBlock variant="paper" />
 
                 <div
                   className={
@@ -583,64 +560,30 @@ function CertificateStyles() {
         gap: 20px;
       }
 
-      .brand {
+      .logo-block {
         display: inline-flex;
         align-items: center;
-        gap: 12px;
+        justify-content: flex-start;
+        width: 275px;
+        max-width: 100%;
+        overflow: visible;
       }
 
-      .ghc-mark {
-        display: inline-flex;
-        width: 34px;
-        height: 34px;
-        flex: 0 0 34px;
-        align-items: center;
-        justify-content: center;
-        color: var(--green);
-      }
-
-      .ghc-mark svg {
-        width: 100%;
-        height: 100%;
+      .logo-block svg,
+      .logo-block img {
         display: block;
-        filter: drop-shadow(0 0 10px rgba(34, 214, 91, 0.16));
+        width: 100%;
+        height: auto;
+        max-width: 100%;
       }
 
-      .brand div {
-        display: flex;
-        flex-direction: column;
-        line-height: 1;
+      .logo-block > * {
+        width: 100%;
+        max-width: 100%;
       }
 
-      .brand strong {
-        color: var(--text);
-        font-size: 14px;
-        font-weight: 950;
-        letter-spacing: 0.24em;
-        white-space: nowrap;
-      }
-
-      .brand span {
-        margin-top: 6px;
-        color: #8d9990;
-        font-size: 9px;
-        font-weight: 900;
-        letter-spacing: 0.3em;
-        white-space: nowrap;
-      }
-
-      .brand-paper .ghc-mark {
-        width: 32px;
-        height: 32px;
-        color: #148c45;
-      }
-
-      .brand-paper strong {
-        color: #243228;
-      }
-
-      .brand-paper span {
-        color: #6c7a70;
+      .logo-block-paper {
+        width: 245px;
       }
 
       .nav-link {
@@ -1130,14 +1073,12 @@ function CertificateStyles() {
           width: min(100% - 28px, 1240px);
         }
 
-        .brand strong {
-          font-size: 12px;
-          letter-spacing: 0.16em;
+        .logo-block {
+          width: 220px;
         }
 
-        .brand span {
-          font-size: 8px;
-          letter-spacing: 0.22em;
+        .logo-block-paper {
+          width: 210px;
         }
 
         .nav-link {
