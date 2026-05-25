@@ -19,7 +19,9 @@ export default async function CertificateVerificationPage({ params }: PageProps)
   const certificateId = decodeURIComponent(params.certificateId || '').trim();
   const certificate = await getCertificate(certificateId);
 
-  const isValid = Boolean(certificate && String(certificate.status || '').toLowerCase() !== 'revoked');
+  const isValid = Boolean(
+    certificate && String(certificate.status || '').toLowerCase() !== 'revoked'
+  );
 
   const studentName =
     certificate?.student_name ||
@@ -89,7 +91,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
               <GHCLogo size="sm" showText tagline />
             </div>
 
-            <div className="paper-status-pill">
+            <div className={isValid ? 'paper-status-pill valid' : 'paper-status-pill invalid'}>
               {isValid ? 'Válido' : 'No válido'}
             </div>
 
@@ -153,13 +155,12 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           --green: #63e546;
           --green-rgb: 99, 229, 70;
           --bg: #050706;
-          --panel: rgba(8, 12, 10, 0.92);
           --white: #f4f6f2;
           --muted: rgba(244, 246, 242, 0.62);
           --soft: rgba(244, 246, 242, 0.42);
-          --paper: #f2ead8;
           --paper-text: #1d2825;
-          --line: rgba(255, 255, 255, 0.09);
+          --gold: #d6b25e;
+          --danger: #ff5757;
         }
 
         * {
@@ -186,7 +187,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           position: relative;
           min-height: 100vh;
           overflow: hidden;
-          padding: 34px clamp(20px, 4vw, 58px) 58px;
+          padding: 18px clamp(20px, 4vw, 54px) 44px;
           background:
             radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), 0.10), transparent 32%),
             radial-gradient(circle at 90% 8%, rgba(255,255,255,0.055), transparent 28%),
@@ -241,8 +242,8 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           align-items: center;
           justify-content: space-between;
           gap: 24px;
-          min-height: 58px;
-          margin-bottom: 58px;
+          min-height: 56px;
+          margin-bottom: 22px;
         }
 
         .certificate-logo-link {
@@ -255,12 +256,12 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          border: 1px solid rgba(255,255,255,.10);
-          background: rgba(255,255,255,.035);
-          color: rgba(244,246,242,.78);
           min-height: 40px;
           padding: 0 14px;
           border-radius: 999px;
+          border: 1px solid rgba(255,255,255,.10);
+          background: rgba(255,255,255,.035);
+          color: rgba(244,246,242,.78);
           font-size: 12px;
           font-weight: 900;
           text-transform: uppercase;
@@ -281,8 +282,8 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         }
 
         .status-dot.invalid {
-          background: #ff5757;
-          color: #ff5757;
+          background: var(--danger);
+          color: var(--danger);
         }
 
         .certificate-hero {
@@ -291,8 +292,8 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           text-align: center;
           display: grid;
           justify-items: center;
-          gap: 14px;
-          margin-bottom: 42px;
+          gap: 12px;
+          margin-bottom: 24px;
         }
 
         .certificate-kicker {
@@ -306,37 +307,37 @@ export default async function CertificateVerificationPage({ params }: PageProps)
 
         .certificate-hero h1 {
           margin: 0;
-          max-width: 1180px;
+          max-width: 1060px;
           color: var(--white);
-          font-size: clamp(50px, 8vw, 116px);
-          line-height: .82;
+          font-size: clamp(38px, 5.2vw, 72px);
+          line-height: .88;
           text-transform: uppercase;
-          letter-spacing: -.075em;
+          letter-spacing: -.06em;
           font-weight: 950;
         }
 
         .certificate-subtitle {
-          margin: 8px 0 0;
+          margin: 4px 0 0;
           color: rgba(244,246,242,.68);
-          font-size: 16px;
-          line-height: 1.65;
-          max-width: 700px;
+          font-size: 14px;
+          line-height: 1.6;
+          max-width: 720px;
         }
 
         .certificate-layout {
           position: relative;
           z-index: 2;
           display: grid;
-          grid-template-columns: minmax(0, 1.12fr) minmax(340px, .48fr);
-          gap: 24px;
+          grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+          gap: 18px;
           align-items: start;
-          max-width: 1480px;
+          max-width: 1240px;
           margin: 0 auto;
         }
 
         .certificate-paper-shell,
         .verification-panel {
-          border-radius: 28px;
+          border-radius: 24px;
           border: 1px solid rgba(255,255,255,.09);
           background:
             radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
@@ -346,15 +347,15 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         }
 
         .certificate-paper-shell {
-          padding: clamp(16px, 2vw, 26px);
+          padding: 14px;
           min-width: 0;
         }
 
         .certificate-paper {
           position: relative;
-          min-height: 560px;
+          min-height: 430px;
           overflow: hidden;
-          border-radius: 22px;
+          border-radius: 20px;
           background:
             radial-gradient(circle at 80% 10%, rgba(99,229,70,.08), transparent 26%),
             linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,226,202,.96));
@@ -368,9 +369,9 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         .certificate-paper::before {
           content: '';
           position: absolute;
-          inset: 26px;
+          inset: 22px;
           border: 1px solid rgba(29,40,37,.15);
-          border-radius: 16px;
+          border-radius: 15px;
           pointer-events: none;
         }
 
@@ -387,33 +388,41 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         .paper-brand {
           position: absolute;
           z-index: 3;
-          left: 42px;
-          top: 36px;
-          max-width: 310px;
+          left: 28px;
+          top: 24px;
+          max-width: 250px;
           filter: none;
         }
 
         .paper-status-pill {
           position: absolute;
           z-index: 3;
-          right: 42px;
-          top: 38px;
+          right: 28px;
+          top: 26px;
           border-radius: 999px;
           border: 1px solid rgba(29,40,37,.12);
-          background: rgba(99,229,70,.10);
-          color: #1d6b33;
-          padding: 8px 14px;
-          font-size: 11px;
+          padding: 8px 13px;
+          font-size: 10px;
           text-transform: uppercase;
           letter-spacing: .16em;
           font-weight: 950;
         }
 
+        .paper-status-pill.valid {
+          background: rgba(99,229,70,.10);
+          color: #1d6b33;
+        }
+
+        .paper-status-pill.invalid {
+          background: rgba(255,87,87,.10);
+          color: #a02020;
+        }
+
         .paper-content {
           position: relative;
           z-index: 2;
-          min-height: 420px;
-          padding: 134px 56px 84px;
+          min-height: 320px;
+          padding: 100px 38px 68px;
           display: grid;
           justify-items: center;
           text-align: center;
@@ -421,45 +430,45 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         }
 
         .paper-academy {
-          margin: 0 0 18px;
+          margin: 0 0 12px;
           color: rgba(29,40,37,.62);
-          font-size: 12px;
+          font-size: 10px;
           font-weight: 900;
           text-transform: uppercase;
-          letter-spacing: .36em;
+          letter-spacing: .32em;
         }
 
         .paper-content h2 {
           margin: 0;
           font-family: Georgia, 'Times New Roman', serif;
-          font-size: clamp(52px, 7vw, 96px);
+          font-size: clamp(38px, 4.8vw, 62px);
           line-height: .92;
           text-transform: uppercase;
-          letter-spacing: .16em;
+          letter-spacing: .13em;
           color: rgba(29,40,37,.74);
           font-weight: 700;
         }
 
         .paper-subtitle {
-          margin: 8px 0 24px;
-          font-size: 13px;
+          margin: 5px 0 16px;
+          font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: .28em;
+          letter-spacing: .26em;
           color: rgba(29,40,37,.48);
         }
 
         .paper-small {
-          margin: 0 0 8px;
+          margin: 0 0 7px;
           color: rgba(29,40,37,.52);
-          font-size: 12px;
-          line-height: 1.5;
+          font-size: 11px;
+          line-height: 1.45;
         }
 
         .paper-content h3 {
-          margin: 0 0 22px;
-          max-width: 760px;
+          margin: 0 0 16px;
+          max-width: 720px;
           color: rgba(29,40,37,.82);
-          font-size: clamp(34px, 4vw, 58px);
+          font-size: clamp(28px, 3vw, 40px);
           line-height: 1;
           font-weight: 950;
           letter-spacing: -.045em;
@@ -467,9 +476,9 @@ export default async function CertificateVerificationPage({ params }: PageProps)
 
         .paper-content h4 {
           margin: 0;
-          max-width: 820px;
+          max-width: 660px;
           color: #159d6c;
-          font-size: clamp(24px, 3vw, 42px);
+          font-size: clamp(20px, 2.2vw, 30px);
           line-height: 1.06;
           font-weight: 950;
           letter-spacing: -.04em;
@@ -478,12 +487,12 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         .paper-footer {
           position: absolute;
           z-index: 3;
-          left: 44px;
-          right: 44px;
-          bottom: 34px;
+          left: 28px;
+          right: 28px;
+          bottom: 24px;
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
-          gap: 18px;
+          gap: 16px;
           align-items: end;
         }
 
@@ -494,7 +503,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         .paper-footer span {
           display: block;
           color: rgba(29,40,37,.46);
-          font-size: 10px;
+          font-size: 9px;
           text-transform: uppercase;
           letter-spacing: .16em;
           font-weight: 900;
@@ -502,9 +511,9 @@ export default async function CertificateVerificationPage({ params }: PageProps)
 
         .paper-footer strong {
           display: block;
-          margin-top: 6px;
+          margin-top: 5px;
           color: rgba(29,40,37,.78);
-          font-size: 13px;
+          font-size: 12px;
           line-height: 1.2;
           font-weight: 900;
           white-space: nowrap;
@@ -518,30 +527,30 @@ export default async function CertificateVerificationPage({ params }: PageProps)
 
         .paper-signature i {
           display: block;
-          width: min(210px, 80%);
+          width: min(190px, 80%);
           height: 1px;
-          margin: 0 auto 10px;
+          margin: 0 auto 9px;
           background: rgba(29,40,37,.42);
         }
 
         .verification-panel {
-          padding: 24px;
+          padding: 18px;
           position: sticky;
-          top: 24px;
+          top: 18px;
         }
 
         .verification-panel h2 {
-          margin: 8px 0 18px;
-          font-size: 30px;
+          margin: 8px 0 16px;
+          font-size: 24px;
           line-height: .98;
           letter-spacing: -.045em;
           font-weight: 950;
         }
 
         .verification-box {
-          border-radius: 20px;
-          padding: 18px;
-          margin-bottom: 18px;
+          border-radius: 18px;
+          padding: 16px;
+          margin-bottom: 16px;
         }
 
         .verification-box.valid {
@@ -559,33 +568,33 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         .verification-box strong {
           display: block;
           color: var(--green);
-          font-size: 15px;
+          font-size: 14px;
           text-transform: uppercase;
           letter-spacing: .14em;
           font-weight: 950;
         }
 
         .verification-box.invalid strong {
-          color: #ff5757;
+          color: var(--danger);
         }
 
         .verification-box p {
           margin: 10px 0 0;
           color: rgba(244,246,242,.66);
-          line-height: 1.6;
-          font-size: 14px;
+          line-height: 1.58;
+          font-size: 13px;
         }
 
         .verification-data {
           display: grid;
-          gap: 10px;
+          gap: 9px;
         }
 
         .data-row {
-          border-radius: 16px;
+          border-radius: 15px;
           border: 1px solid rgba(255,255,255,.075);
           background: rgba(255,255,255,.026);
-          padding: 13px 14px;
+          padding: 12px 13px;
           display: grid;
           gap: 5px;
         }
@@ -600,7 +609,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
 
         .data-row strong {
           color: rgba(244,246,242,.88);
-          font-size: 14px;
+          font-size: 13px;
           line-height: 1.25;
           font-weight: 850;
           overflow-wrap: anywhere;
@@ -609,6 +618,11 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         @media (max-width: 1120px) {
           .certificate-layout {
             grid-template-columns: 1fr;
+            max-width: 920px;
+          }
+
+          .certificate-paper {
+            min-height: 430px;
           }
 
           .verification-panel {
@@ -617,13 +631,13 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           }
 
           .certificate-topbar {
-            margin-bottom: 42px;
+            margin-bottom: 24px;
           }
         }
 
         @media (max-width: 760px) {
           .certificate-public-page {
-            padding: 22px 14px 34px;
+            padding: 14px 14px 34px;
           }
 
           .certificate-topbar {
@@ -633,47 +647,51 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           }
 
           .certificate-hero h1 {
-            font-size: clamp(44px, 16vw, 72px);
+            font-size: clamp(34px, 12vw, 54px);
+          }
+
+          .certificate-paper-shell {
+            padding: 10px;
           }
 
           .certificate-paper {
-            min-height: 620px;
+            min-height: 500px;
           }
 
           .paper-brand {
-            left: 24px;
-            top: 28px;
-            max-width: 250px;
+            left: 22px;
+            top: 22px;
+            max-width: 220px;
           }
 
           .paper-status-pill {
-            right: 24px;
-            top: 92px;
+            right: 22px;
+            top: 78px;
           }
 
           .paper-content {
-            padding: 170px 24px 150px;
+            padding: 104px 24px 76px;
           }
 
           .paper-content h2 {
-            font-size: 42px;
-            letter-spacing: .10em;
+            font-size: 32px;
+            letter-spacing: .085em;
           }
 
           .paper-content h3 {
-            font-size: 34px;
+            font-size: 30px;
           }
 
           .paper-content h4 {
-            font-size: 25px;
+            font-size: 22px;
           }
 
           .paper-footer {
-            left: 24px;
-            right: 24px;
-            bottom: 26px;
+            left: 22px;
+            right: 22px;
+            bottom: 22px;
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 10px;
             text-align: left;
           }
 
