@@ -144,9 +144,15 @@ async function findCertificate(identifier: string) {
   return null;
 }
 
-function Brand() {
+function Brand({
+  variant = "dark",
+  size = "normal",
+}: {
+  variant?: "dark" | "paper";
+  size?: "normal" | "small" | "large";
+}) {
   return (
-    <div className="brand">
+    <div className={`brand brand-${variant} brand-${size}`}>
       <img src={LOGO_SRC} alt="GHC Academy" />
       <div>
         <strong>GHC ACADEMY</strong>
@@ -172,7 +178,7 @@ function StateScreen({
       <div className="ambient-grid" />
 
       <section className="state">
-        <Brand />
+        <Brand size="large" />
 
         {type === "loading" ? <div className="spinner" /> : null}
 
@@ -320,7 +326,7 @@ export default function PublicCertificatePage() {
 
       <header className="topbar">
         <div className="topbar-inner">
-          <Brand />
+          <Brand size="small" />
 
           <nav>
             <Link href="/alumno" className="nav-link">
@@ -349,7 +355,7 @@ export default function PublicCertificatePage() {
               <div className="paper-line" />
 
               <div className="paper-top">
-                <Brand />
+                <Brand variant="paper" size="large" />
 
                 <div
                   className={
@@ -569,19 +575,22 @@ function CertificateStyles() {
         display: inline-flex;
         align-items: center;
         gap: 12px;
+        min-width: 0;
       }
 
       .brand img {
-        width: 30px;
-        height: 30px;
+        width: 34px;
+        height: 34px;
         object-fit: contain;
         display: block;
+        flex: 0 0 auto;
       }
 
       .brand div {
         display: flex;
         flex-direction: column;
         line-height: 1;
+        min-width: 0;
       }
 
       .brand strong {
@@ -599,6 +608,67 @@ function CertificateStyles() {
         font-weight: 900;
         letter-spacing: 0.3em;
         white-space: nowrap;
+      }
+
+      .brand-small img {
+        width: 30px;
+        height: 30px;
+      }
+
+      .brand-small strong {
+        font-size: 13px;
+        letter-spacing: 0.22em;
+      }
+
+      .brand-small span {
+        font-size: 8px;
+        letter-spacing: 0.28em;
+      }
+
+      .brand-large img {
+        width: 44px;
+        height: 44px;
+      }
+
+      .brand-large strong {
+        font-size: 16px;
+        letter-spacing: 0.24em;
+      }
+
+      .brand-large span {
+        margin-top: 7px;
+        font-size: 10px;
+        letter-spacing: 0.3em;
+      }
+
+      .brand-paper strong {
+        color: #243228;
+      }
+
+      .brand-paper span {
+        color: #6c7a70;
+      }
+
+      .paper-top .brand {
+        gap: 14px;
+      }
+
+      .paper-top .brand img {
+        width: 46px;
+        height: 46px;
+      }
+
+      .paper-top .brand strong {
+        color: #243228;
+        font-size: 16px;
+        letter-spacing: 0.24em;
+      }
+
+      .paper-top .brand span {
+        margin-top: 7px;
+        color: #6c7a70;
+        font-size: 9px;
+        letter-spacing: 0.28em;
       }
 
       .nav-link {
@@ -709,19 +779,6 @@ function CertificateStyles() {
         gap: 18px;
       }
 
-      .paper-top .brand strong {
-        color: #243228;
-      }
-
-      .paper-top .brand span {
-        color: #6c7a70;
-      }
-
-      .paper-top .brand img {
-        width: 26px;
-        height: 26px;
-      }
-
       .paper-status {
         border-radius: 999px;
         padding: 8px 13px;
@@ -729,6 +786,7 @@ function CertificateStyles() {
         font-weight: 950;
         text-transform: uppercase;
         letter-spacing: 0.18em;
+        flex: 0 0 auto;
       }
 
       .paper-status-valid {
@@ -1100,6 +1158,11 @@ function CertificateStyles() {
           width: min(100% - 28px, 1240px);
         }
 
+        .brand img {
+          width: 30px;
+          height: 30px;
+        }
+
         .brand strong {
           font-size: 12px;
           letter-spacing: 0.16em;
@@ -1108,6 +1171,21 @@ function CertificateStyles() {
         .brand span {
           font-size: 8px;
           letter-spacing: 0.22em;
+        }
+
+        .paper-top .brand img {
+          width: 38px;
+          height: 38px;
+        }
+
+        .paper-top .brand strong {
+          font-size: 12px;
+          letter-spacing: 0.18em;
+        }
+
+        .paper-top .brand span {
+          font-size: 8px;
+          letter-spacing: 0.2em;
         }
 
         .nav-link {
