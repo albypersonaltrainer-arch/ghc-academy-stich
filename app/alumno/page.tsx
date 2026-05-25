@@ -1491,6 +1491,292 @@ function RendimientoTab({
 }) {
   const email = String(user?.email || profile?.email || 'alumno@ghcacademy.com');
   const role = String(profile?.role || 'student');
+  const joinedAt = profile?.created_at || user?.created_at || new Date().toISOString();
+
+  const completedCourses = Number(stats.completadodCursos || 0);
+  const totalCourses = Number(stats.courses || courseCards.length || 0);
+  const activeCourses = Math.max(0, totalCourses - completedCourses);
+  const modulesCompleted = Number(stats.modules || 0);
+  const certificatesCount = Number(stats.certificates || certificates.length || 0);
+  const totalLessonsCompleted = Number(stats.lessons || 0);
+  const progress = Math.max(0, Math.min(100, Number(stats.globalProgreso || 0)));
+
+  const estimatedStudyMinutes = totalLessonsCompleted * 42;
+  const studyHours = Math.floor(estimatedStudyMinutes / 60);
+  const studyMinutes = estimatedStudyMinutes % 60;
+
+  const sortedCourses = [...courseCards].sort((a, b) => b.progressPercent - a.progressPercent);
+  const topCourses = sortedCourses.slice(0, 4);
+  const activeLearningCourse =
+    sortedCourses.find((card) => !card.completion && card.progressPercent > 0) ||
+    sortedCourses.find((card) => !card.completion) ||
+    sortedCourses[0] ||
+    null;
+
+  const recentCertificates = [...certificates]
+    .sort((a, b) => new Date(b.issued_at || b.created_at || 0).getTime() - new Date(a.issued_at || a.created_at || 0).getTime())
+    .slice(0, 3);
+
+  const chartBase = [8, 14, 22, 29, 37, 44, 52, 58, 63, 68, 73, 78];
+  const progressPoints = chartBase.map((point, index) => {
+    if (progress <= 0) return Math.max(3, Math.round(point * 0.18));
+    const weighted = Math.round((point / 78) * progress);
+    return index === chartBase.length - 1 ? progress : Math.max(4, Math.min(100, weighted));
+  });
+
+  const chartPath = progressPoints
+    .map((value, index) => `${index === 0 ? 'M' : 'L'} ${24 + index * 45} ${164 - value * 1.26}`)
+    .join(' ');
+
+  const chartArea = `${chartPath} L ${24 + (progressPoints.length - 1) * 45} 172 L 24 172 Z`;
+  const lastChartX = 24 + (progressPoints.length - 1) * 45;
+  const lastChartY = 164 - progressPoints[progressPoints.length - 1] * 1.26;
+
+  const learningStatus =
+    progress >= 90
+      ? 'Fase final'
+      : progress >= 60
+        ? 'Consolidación'
+        : progress >= 25
+          ? 'En progreso'
+          : 'Inicio de ruta';
+
+  const nextAction = activeLearningCourse?.nextLesson
+    ? `Continúa con la próxima lección de ${activeLearningCourse.course.title || 'tu curso activo'}.`
+    : activeLearningCourse
+      ? `Revisa el dashboard de ${activeLearningCourse.course.title || 'tu curso activo'} para seguir avanzando.`
+      : 'Cuando empieces un curso, aquí aparecerá tu siguiente acción recomendada.';
+
+  return (
+    <div className="performance-clean-page">
+      <section className="performance-clean-hero">
+        <div>
+          <p className="performance-kicker">Rendimiento académico</p>
+          <h1>Perfil de rendimiento</h1>
+          <p>
+            Panel premium para revisar progreso real, credenciales, cursos activos y estado de
+            aprendizaje dentro de GHC Academy.
+          </p>
+        </div>
+
+        <article className="performance-hero-status">
+          <span><Icon name="target" /></span>
+          <div>
+            <small>Estado actual</small>
+            <strong>{learningStatus}</strong>
+            <p>{progress}% de progreso global registrado.</p>
+          </div>
+        </article>
+      </section>
+
+      <section className="performance-profile-clean">
+        <div className="performance-identity">
+          <div className="performance-avatar-clean">{getInitials(displayName)}</div>
+          <div>
+            <div className="performance-name-clean">
+              <h2>{displayName}</h2>
+              <span>Alumno Pro</span>
+            </div>
+            <p>{email}</p>
+            <p>{role === 'student' ? 'Alumno' : role} · Inscrito desde {formatShortDate(joinedAt)}</p>
+          </div>
+        </div>
+
+        <div className="performance-goal-clean">
+          <Icon name="shield" />
+          <div>
+            <strong>Cuenta activa</strong>
+            <p>Acceso operativo a los cursos, progreso, certificados y recursos privados disponibles.</p>
+          </div>
+        </div>
+
+        <div className="performance-next-clean">
+          <Icon name="arrow" />
+          <div>
+            <strong>Siguiente paso recomendado</strong>
+            <p>{nextAction}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="performance-metric-grid-clean">
+        <PerformanceMetric
+          icon="chart"
+          label="Progreso global"
+          value={`${progress}%`}
+          trend={progress > 0 ? 'Dato real de avance' : 'Pendiente de actividad'}
+        />
+        <PerformanceMetric
+          icon="clock"
+          label="Tiempo estimado de estudio"
+          value={`${studyHours}h ${String(studyMinutes).padStart(2, '0')}m`}
+          trend={`${totalLessonsCompleted} lecciones completadas`}
+        />
+        <PerformanceMetric
+          icon="courses"
+          label="Cursos activos"
+          value={activeCourses}
+          trend={`${totalCourses} cursos visibles`}
+        />
+        <PerformanceMetric
+          icon="box"
+          label="Módulos completados"
+          value={modulesCompleted}
+          trend="Según progreso registrado"
+        />
+        <PerformanceMetric
+          icon="certificate"
+          label="Certificados"
+          value={certificatesCount}
+          trend={certificatesCount ? 'Credenciales válidas' : 'Sin emisión todavía'}
+        />
+      </section>
+
+      <section className="performance-main-clean">
+        <article className="performance-chart-card-clean">
+          <div className="performance-card-header clean">
+            <div>
+              <p className="performance-kicker">Evolución</p>
+              <h2>Resumen del progreso académico</h2>
+              <span>Visualización construida a partir del progreso real actual del alumno.</span>
+            </div>
+            <strong>{progress}%</strong>
+          </div>
+
+          <div className="performance-chart-clean">
+            <svg viewBox="0 0 560 190" aria-hidden="true">
+              <defs>
+                <linearGradient id="performanceCleanArea" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="rgba(99,229,70,.38)" />
+                  <stop offset="100%" stopColor="rgba(99,229,70,0)" />
+                </linearGradient>
+              </defs>
+              {[0, 25, 50, 75, 100].map((line) => (
+                <line key={line} x1="24" x2="536" y1={172 - line * 1.34} y2={172 - line * 1.34} />
+              ))}
+              <path d={chartArea} fill="url(#performanceCleanArea)" />
+              <path d={chartPath} fill="none" stroke={GREEN} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx={lastChartX} cy={lastChartY} r="6" />
+            </svg>
+          </div>
+
+          <div className="performance-rings-clean">
+            <PerformanceRing label="Global" value={progress} trend="Progreso" />
+            <PerformanceRing label="Lecciones" value={totalLessonsCompleted > 0 ? Math.min(100, Math.round((totalLessonsCompleted / Math.max(totalLessonsCompleted + 4, 1)) * 100)) : 0} trend="Actividad" />
+            <PerformanceRing label="Cursos" value={totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0} trend="Finalización" />
+            <PerformanceRing label="Certificados" value={certificatesCount > 0 ? 100 : 0} trend="Credencial" />
+          </div>
+        </article>
+
+        <aside className="performance-side-clean">
+          <article className="performance-focus-card">
+            <p className="performance-kicker">Foco</p>
+            <h2>Ruta activa</h2>
+            {activeLearningCourse ? (
+              <>
+                <h3>{activeLearningCourse.course.title || 'Curso GHC Academy'}</h3>
+                <p>
+                  {activeLearningCourse.course.subtitle ||
+                    activeLearningCourse.course.description ||
+                    'Curso activo dentro del itinerario del alumno.'}
+                </p>
+                <div className="performance-focus-progress">
+                  <div style={{ width: `${activeLearningCourse.progressPercent}%` }} />
+                </div>
+                <span>{activeLearningCourse.progressPercent}% completado</span>
+                <Link href={`/cursos/${getCourseSlug(activeLearningCourse.course)}`}>
+                  Abrir curso
+                  <Icon name="arrow" />
+                </Link>
+              </>
+            ) : (
+              <EmptyState text="Aún no hay cursos activos para mostrar como ruta principal." />
+            )}
+          </article>
+
+          <article className="performance-security-card clean">
+            <div className="performance-card-header compact clean">
+              <h2>Cuenta y seguridad</h2>
+            </div>
+            <div className="performance-security-list">
+              <PerformanceSecurityItem icon="shield" title="Email registrado" text={email} status="check" />
+              <PerformanceSecurityItem icon="lock" title="Autenticación avanzada" text="Preparado para activar doble factor más adelante" action="Pendiente" />
+              <PerformanceSecurityItem icon="user" title="Perfil de aprendizaje" text="Datos del alumno conectados a Supabase" status="check" />
+            </div>
+          </article>
+        </aside>
+      </section>
+
+      <section className="performance-lower-clean">
+        <article className="performance-courses-clean">
+          <div className="performance-card-header compact clean">
+            <h2>Cursos con mayor avance</h2>
+            <span>{topCourses.length} visibles</span>
+          </div>
+
+          <div className="performance-course-rank-list clean">
+            {topCourses.length > 0 ? (
+              topCourses.map((card, index) => (
+                <Link
+                  href={`/cursos/${getCourseSlug(card.course)}`}
+                  className="performance-course-row-clean"
+                  key={card.course.id || index}
+                >
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{card.course.title || `Curso GHC ${index + 1}`}</strong>
+                    <div><i style={{ width: `${Math.max(3, card.progressPercent)}%` }} /></div>
+                  </div>
+                  <em>{card.progressPercent}%</em>
+                </Link>
+              ))
+            ) : (
+              <EmptyState text="Cuando el alumno tenga cursos visibles, aparecerán ordenados por avance." />
+            )}
+          </div>
+        </article>
+
+        <article className="performance-certificates-clean">
+          <div className="performance-card-header compact clean">
+            <h2>Certificados obtenidos</h2>
+            <span>{certificatesCount} emitidos</span>
+          </div>
+
+          <div className="performance-cert-list clean">
+            {recentCertificates.length > 0 ? (
+              recentCertificates.map((certificate, index) => (
+                <Link
+                  href={certificate.verification_slug ? `/certificados/${certificate.verification_slug}` : '#'}
+                  className="performance-cert-row-clean"
+                  key={certificate.id || certificate.certificate_code || index}
+                >
+                  <div className="performance-medal-clean">{index + 1}</div>
+                  <div>
+                    <strong>{certificate.course_title || certificate.title || `Certificado ${index + 1}`}</strong>
+                    <p>{certificate.certificate_code || 'Código pendiente'}</p>
+                    <span>Emitido {certificate.issued_at ? formatShortDate(certificate.issued_at) : '—'}</span>
+                  </div>
+                  <em><Icon name="check" /> Válido</em>
+                </Link>
+              ))
+            ) : (
+              <EmptyState text="Cuando se emita un certificado válido, aparecerá aquí con su código verificable." />
+            )}
+          </div>
+        </article>
+      </section>
+    </div>
+  );
+}: {
+  displayName: string;
+  user: AnyRecord | null;
+  profile: AnyRecord | null;
+  stats: AnyRecord;
+  certificates: AnyRecord[];
+  courseCards: PanelCard[];
+}) {
+  const email = String(user?.email || profile?.email || 'alumno@ghcacademy.com');
+  const role = String(profile?.role || 'student');
   const completadodCourses = Number(stats.completadodCursos || 0);
   const modulesCompleted = Number(stats.modules || 0);
   const certificatesCount = Number(stats.certificates || certificates.length || 0);
@@ -2637,259 +2923,216 @@ function GlobalStyles() {
       .empty-state p,.empty-text { margin: 0; color: var(--muted); line-height: 1.6; }
 
 
-      .performance-pro-page {
+      .performance-clean-page {
         display: grid;
         gap: 16px;
       }
 
-      .performance-pro-header {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(360px, .52fr);
-        gap: 16px;
-        align-items: end;
-      }
-
-      .performance-pro-breadcrumb {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        color: rgba(244,246,242,.62);
-        font-size: 12px;
-        font-weight: 850;
-        margin-bottom: 18px;
-      }
-
-      .performance-pro-header h1 {
+      .performance-kicker {
         margin: 0;
-        font-size: clamp(36px, 4vw, 58px);
-        line-height: .92;
-        letter-spacing: -.06em;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .18em;
+        font-size: 11px;
         font-weight: 950;
       }
 
-      .performance-pro-header p {
-        margin: 10px 0 0;
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .performance-pro-quote {
-        min-height: 78px;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.09);
-        background: rgba(255,255,255,.028);
-        padding: 16px 18px;
+      .performance-clean-hero {
         display: grid;
-        align-content: center;
-        gap: 5px;
-        box-shadow: 0 20px 70px rgba(0,0,0,.16);
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+        gap: 16px;
+        align-items: stretch;
       }
 
-      .performance-pro-quote strong {
-        color: var(--green);
-        font-size: 28px;
-        line-height: .5;
-      }
-
-      .performance-pro-quote span {
-        color: rgba(244,246,242,.82);
-        font-weight: 850;
-        line-height: 1.45;
-      }
-
-      .performance-pro-quote em {
-        color: var(--soft);
-        font-style: normal;
-        font-size: 12px;
-      }
-
-      .performance-profile-card,
-      .performance-metrics-strip,
-      .performance-progress-card,
-      .performance-cert-card,
-      .performance-activity-card,
-      .performance-top-courses-card,
-      .performance-security-card {
+      .performance-clean-hero > div,
+      .performance-hero-status,
+      .performance-profile-clean,
+      .performance-metric-grid-clean,
+      .performance-chart-card-clean,
+      .performance-focus-card,
+      .performance-security-card.clean,
+      .performance-courses-clean,
+      .performance-certificates-clean {
         border-radius: 18px;
         border: 1px solid rgba(255,255,255,.09);
         background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.075), transparent 32%),
           linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-          rgba(8,12,10,.88);
+          rgba(8,12,10,.90);
         box-shadow: 0 20px 70px rgba(0,0,0,.18);
       }
 
-      .performance-profile-card {
+      .performance-clean-hero > div {
+        min-height: 188px;
+        padding: 26px;
+        display: grid;
+        align-content: center;
+      }
+
+      .performance-clean-hero h1 {
+        margin: 10px 0 0;
+        font-size: clamp(42px, 5.4vw, 76px);
+        line-height: .88;
+        letter-spacing: -.07em;
+        font-weight: 950;
+      }
+
+      .performance-clean-hero p {
+        margin: 14px 0 0;
+        max-width: 720px;
+        color: var(--muted);
+        line-height: 1.68;
+      }
+
+      .performance-hero-status {
+        padding: 22px;
+        display: grid;
+        grid-template-columns: 54px minmax(0,1fr);
+        gap: 16px;
+        align-items: center;
+      }
+
+      .performance-hero-status > span {
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        background: rgba(var(--green-rgb),.08);
+        border: 1px solid rgba(var(--green-rgb),.20);
+      }
+
+      .performance-hero-status small {
+        color: var(--soft);
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-size: 10px;
+        font-weight: 900;
+      }
+
+      .performance-hero-status strong {
+        display: block;
+        margin-top: 7px;
+        font-size: 28px;
+        line-height: 1;
+        letter-spacing: -.04em;
+      }
+
+      .performance-profile-clean {
         min-height: 154px;
         display: grid;
-        grid-template-columns: minmax(360px, 1.05fr) minmax(280px, .85fr) minmax(300px, .75fr);
+        grid-template-columns: minmax(360px, 1.1fr) minmax(260px,.72fr) minmax(300px,.9fr);
         overflow: hidden;
       }
 
-      .performance-profile-main,
-      .performance-profile-goals,
-      .performance-profile-status {
-        padding: 26px;
+      .performance-identity,
+      .performance-goal-clean,
+      .performance-next-clean {
+        padding: 24px;
       }
 
-      .performance-profile-main,
-      .performance-profile-goals {
+      .performance-identity,
+      .performance-goal-clean {
         border-right: 1px solid rgba(255,255,255,.07);
       }
 
-      .performance-profile-main {
+      .performance-identity {
         display: flex;
         align-items: center;
-        gap: 22px;
+        gap: 20px;
+        min-width: 0;
       }
 
-      .performance-avatar-wrap {
-        position: relative;
-        width: 118px;
-        height: 118px;
-        flex-shrink: 0;
-      }
-
-      .performance-avatar-large {
-        width: 118px;
-        height: 118px;
+      .performance-avatar-clean {
+        width: 104px;
+        height: 104px;
         border-radius: 999px;
         display: grid;
         place-items: center;
         color: var(--green);
-        font-size: 42px;
+        font-size: 38px;
         font-weight: 950;
         letter-spacing: -.05em;
         background:
-          radial-gradient(circle, rgba(var(--green-rgb),.16), rgba(var(--green-rgb),.03) 64%),
-          rgba(0,0,0,.28);
-        border: 1px solid rgba(var(--green-rgb),.18);
-        box-shadow: 0 0 44px rgba(var(--green-rgb),.08);
+          radial-gradient(circle, rgba(var(--green-rgb),.18), rgba(var(--green-rgb),.035) 66%),
+          rgba(0,0,0,.30);
+        border: 1px solid rgba(var(--green-rgb),.20);
+        box-shadow: 0 0 46px rgba(var(--green-rgb),.08);
+        flex-shrink: 0;
       }
 
-      .performance-verified {
-        position: absolute;
-        right: 6px;
-        top: 4px;
-        width: 28px;
-        height: 28px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        background: var(--green);
-        color: #061008;
-        border: 3px solid #080b0a;
-      }
-
-      .performance-name-row {
+      .performance-name-clean {
         display: flex;
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
       }
 
-      .performance-name-row h2 {
+      .performance-name-clean h2 {
         margin: 0;
-        font-size: 30px;
-        line-height: 1;
-        letter-spacing: -.04em;
+        font-size: clamp(25px, 2.3vw, 34px);
+        line-height: .98;
+        letter-spacing: -.045em;
         font-weight: 950;
       }
 
-      .performance-name-row span {
+      .performance-name-clean span {
         border-radius: 999px;
-        padding: 4px 8px;
-        background: rgba(var(--green-rgb),.13);
+        padding: 5px 9px;
+        background: rgba(var(--green-rgb),.12);
         color: var(--green);
         font-size: 11px;
-        font-weight: 900;
+        font-weight: 950;
       }
 
-      .performance-profile-main p,
-      .performance-profile-goals p,
-      .performance-profile-status p {
-        margin: 9px 0 0;
+      .performance-identity p,
+      .performance-goal-clean p,
+      .performance-next-clean p,
+      .performance-focus-card p {
+        margin: 8px 0 0;
         color: var(--muted);
-        line-height: 1.55;
+        line-height: 1.58;
       }
 
-      .performance-enrolled {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-      }
-
-      .performance-profile-goals {
+      .performance-goal-clean,
+      .performance-next-clean {
         display: grid;
-        grid-template-columns: 34px minmax(0, 1fr);
+        grid-template-columns: 38px minmax(0,1fr);
         gap: 14px;
         align-content: center;
       }
 
-      .performance-profile-goals > svg,
-      .performance-profile-status svg {
-        color: var(--soft);
-      }
-
-      .performance-profile-goals h3,
-      .performance-profile-status h3 {
-        margin: 0;
-        font-size: 17px;
-        letter-spacing: -.02em;
-      }
-
-      .performance-profile-goals button {
-        margin-top: 12px;
-        border: 0;
-        background: transparent;
+      .performance-goal-clean > svg,
+      .performance-next-clean > svg {
         color: var(--green);
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 900;
-        cursor: pointer;
+        width: 38px;
+        height: 38px;
+        padding: 9px;
+        border-radius: 13px;
+        border: 1px solid rgba(var(--green-rgb),.18);
+        background: rgba(var(--green-rgb),.07);
       }
 
-      .performance-profile-status {
-        display: grid;
-        align-content: center;
-        gap: 10px;
+      .performance-goal-clean strong,
+      .performance-next-clean strong {
+        font-size: 16px;
+        line-height: 1.2;
       }
 
-      .performance-profile-status > div,
-      .performance-profile-status > strong {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .performance-profile-status > strong {
-        color: var(--green);
-        justify-self: end;
-        margin-top: -32px;
-      }
-
-      .performance-profile-status span {
-        color: var(--muted);
-      }
-
-      .performance-profile-status b {
-        color: var(--white);
-      }
-
-      .performance-metrics-strip {
-        min-height: 120px;
+      .performance-metric-grid-clean {
         display: grid;
         grid-template-columns: repeat(5, minmax(0,1fr));
         overflow: hidden;
       }
 
       .performance-metric-card {
-        padding: 20px;
+        padding: 18px;
         display: flex;
-        gap: 16px;
+        gap: 14px;
         align-items: center;
         border-right: 1px solid rgba(255,255,255,.07);
+        min-width: 0;
       }
 
       .performance-metric-card:last-child {
@@ -2899,32 +3142,33 @@ function GlobalStyles() {
       .performance-metric-card > span {
         width: 42px;
         height: 42px;
-        border-radius: 999px;
+        border-radius: 14px;
         display: grid;
         place-items: center;
-        color: rgba(244,246,242,.72);
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.025);
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.18);
+        background: rgba(var(--green-rgb),.07);
         flex-shrink: 0;
       }
 
       .performance-metric-card > span.gold {
-        color: #f4a72c;
-        border-color: rgba(244,167,44,.22);
-        background: rgba(244,167,44,.08);
+        color: var(--gold);
+        border-color: rgba(214,178,94,.24);
+        background: rgba(214,178,94,.08);
       }
 
       .performance-metric-card p {
         margin: 0;
         color: var(--soft);
-        font-size: 12px;
-        font-weight: 850;
+        font-size: 11px;
+        font-weight: 900;
+        line-height: 1.25;
       }
 
       .performance-metric-card strong {
         display: block;
         margin-top: 6px;
-        font-size: 27px;
+        font-size: clamp(22px, 2.2vw, 32px);
         line-height: 1;
         letter-spacing: -.045em;
       }
@@ -2933,33 +3177,28 @@ function GlobalStyles() {
         display: block;
         margin-top: 7px;
         color: var(--green);
-        font-size: 12px;
+        font-size: 11px;
         font-style: normal;
         font-weight: 850;
+        line-height: 1.25;
       }
 
-      .performance-pro-grid {
+      .performance-main-clean {
         display: grid;
-        grid-template-columns: minmax(0, 1.42fr) minmax(430px, .58fr);
+        grid-template-columns: minmax(0, 1.45fr) minmax(340px, .55fr);
         gap: 16px;
-        align-items: start;
+        align-items: stretch;
       }
 
-      .performance-main-column {
-        display: grid;
-        gap: 16px;
-        min-width: 0;
-      }
-
-      .performance-progress-card,
-      .performance-cert-card,
-      .performance-activity-card,
-      .performance-top-courses-card,
-      .performance-security-card {
+      .performance-chart-card-clean,
+      .performance-focus-card,
+      .performance-security-card.clean,
+      .performance-courses-clean,
+      .performance-certificates-clean {
         padding: 20px;
       }
 
-      .performance-card-header {
+      .performance-card-header.clean {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
@@ -2967,112 +3206,93 @@ function GlobalStyles() {
         margin-bottom: 14px;
       }
 
-      .performance-card-header.compact {
-        margin-bottom: 12px;
-      }
-
-      .performance-card-header h2,
-      .performance-card-header.compact h2 {
-        margin: 0;
-        font-size: 21px;
-        line-height: 1.05;
-        letter-spacing: -.035em;
+      .performance-card-header.clean h2,
+      .performance-card-header.compact.clean h2,
+      .performance-focus-card h2 {
+        margin: 6px 0 0;
+        font-size: 23px;
+        line-height: 1.04;
+        letter-spacing: -.04em;
         font-weight: 950;
       }
 
-      .performance-card-header p {
-        margin: 8px 0 0;
+      .performance-card-header.clean span {
+        display: block;
+        margin-top: 8px;
         color: var(--muted);
         font-size: 13px;
+        line-height: 1.45;
       }
 
-      .performance-card-header button {
-        min-height: 34px;
-        border-radius: 9px;
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.03);
-        color: rgba(244,246,242,.82);
-        padding: 0 12px;
-        cursor: pointer;
-        font-weight: 850;
-        font-size: 12px;
+      .performance-card-header.clean > strong {
+        color: var(--green);
+        font-size: 40px;
+        line-height: .9;
+        letter-spacing: -.06em;
       }
 
-      .performance-chart-wrap {
-        position: relative;
+      .performance-chart-clean {
         min-height: 250px;
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.06);
+        border-radius: 15px;
+        border: 1px solid rgba(255,255,255,.065);
         background:
           linear-gradient(180deg, rgba(255,255,255,.018), rgba(255,255,255,.006)),
-          rgba(0,0,0,.10);
+          rgba(0,0,0,.12);
         overflow: hidden;
         padding: 14px;
       }
 
-      .performance-chart {
+      .performance-chart-clean svg {
         width: 100%;
         height: 230px;
+        display: block;
       }
 
-      .performance-chart line {
+      .performance-chart-clean line {
         stroke: rgba(255,255,255,.045);
         stroke-width: 1;
       }
 
-      .performance-chart circle {
+      .performance-chart-clean circle {
         fill: var(--green);
-        stroke: rgba(5,7,6,.85);
+        stroke: rgba(5,7,6,.88);
         stroke-width: 4;
       }
 
-      .performance-chart-tooltip {
-        position: absolute;
-        right: 26px;
-        top: 58px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(8,12,10,.86);
-        color: var(--white);
-        padding: 9px 12px;
-        font-weight: 950;
-      }
-
-      .performance-rings-row {
+      .performance-rings-clean {
         display: grid;
         grid-template-columns: repeat(4, minmax(0,1fr));
-        gap: 16px;
-        margin-top: 18px;
+        gap: 14px;
+        margin-top: 16px;
       }
 
       .performance-mini-ring-item {
         display: grid;
         justify-items: center;
         gap: 8px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.07);
+        background: rgba(255,255,255,.022);
+        padding: 14px 10px;
       }
 
       .performance-mini-ring {
-        width: 88px;
-        height: 88px;
+        width: 82px;
+        height: 82px;
         border-radius: 999px;
         display: grid;
         place-items: center;
       }
 
-      .performance-mini-ring::before {
-        content: '';
-        position: absolute;
-      }
-
       .performance-mini-ring strong {
-        width: 62px;
-        height: 62px;
+        width: 58px;
+        height: 58px;
         border-radius: 999px;
         display: grid;
         place-items: center;
         background: #080b0a;
         border: 1px solid rgba(255,255,255,.07);
-        font-size: 19px;
+        font-size: 18px;
       }
 
       .performance-mini-ring-item span {
@@ -3085,238 +3305,76 @@ function GlobalStyles() {
       .performance-mini-ring-item em {
         color: var(--green);
         font-style: normal;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 900;
       }
 
-      .performance-insight-row {
-        min-height: 58px;
-        margin-top: 18px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.026);
+      .performance-side-clean {
         display: grid;
-        grid-template-columns: 34px minmax(0,1fr) auto;
-        gap: 12px;
-        align-items: center;
-        padding: 12px 14px;
-      }
-
-      .performance-insight-row > svg {
-        color: var(--gold);
-      }
-
-      .performance-insight-row span {
-        color: var(--muted);
-        line-height: 1.4;
-      }
-
-      .performance-insight-row button {
-        border: 0;
-        background: transparent;
-        color: var(--green);
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 900;
-        cursor: pointer;
-      }
-
-      .performance-side-column {
-        display: grid;
-        grid-template-columns: 1fr;
         gap: 16px;
+        min-width: 0;
       }
 
-      .performance-cert-card,
-      .performance-activity-card,
-      .performance-top-courses-card,
-      .performance-security-card {
-        min-height: 0;
-      }
-
-      .performance-under-progress {
-        margin-top: 0;
-        background:
-          linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.018)),
-          rgba(10,13,12,.88);
-        border: 1px solid rgba(255,255,255,.09);
-        border-radius: 16px;
-        box-shadow: 0 20px 70px rgba(0,0,0,.16);
-      }
-
-      .performance-under-progress .performance-course-rank-list {
-        grid-template-columns: repeat(3, minmax(0,1fr));
+      .performance-focus-card {
         display: grid;
-        gap: 12px;
+        align-content: start;
+        gap: 10px;
       }
 
-      .performance-cert-list,
-      .performance-course-rank-list,
-      .performance-security-list {
-        display: grid;
-        gap: 9px;
-      }
-
-      .performance-cert-row {
-        min-height: 78px;
-        display: grid;
-        grid-template-columns: 48px minmax(0,1fr);
-        gap: 12px;
-        align-items: center;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,.07);
-        background: rgba(255,255,255,.022);
-        padding: 12px;
-      }
-
-      .performance-cert-row.ghost {
-        opacity: .86;
-      }
-
-      .performance-medal {
-        width: 42px;
-        height: 42px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        color: var(--white);
-        border: 2px solid rgba(214,178,94,.36);
-        background:
-          radial-gradient(circle, rgba(214,178,94,.28), rgba(0,0,0,.24));
+      .performance-focus-card h3 {
+        margin: 4px 0 0;
+        font-size: 24px;
+        line-height: 1.05;
+        letter-spacing: -.04em;
         font-weight: 950;
       }
 
-      .performance-cert-row strong,
-      .performance-timeline-item strong,
-      .performance-course-rank strong,
-      .performance-security-item strong {
-        display: block;
-        font-size: 13px;
-        line-height: 1.25;
-        font-weight: 900;
-      }
-
-      .performance-cert-row p,
-      .performance-cert-row span,
-      .performance-timeline-item p,
-      .performance-security-item span {
-        margin: 3px 0 0;
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.35;
-      }
-
-      .performance-cert-row em {
-        grid-column: 2;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        width: fit-content;
-        color: var(--green);
-        font-style: normal;
-        font-size: 11px;
-        font-weight: 900;
+      .performance-focus-progress {
+        height: 9px;
         border-radius: 999px;
-        border: 1px solid rgba(var(--green-rgb),.18);
-        background: rgba(var(--green-rgb),.06);
-        padding: 4px 8px;
+        background: rgba(255,255,255,.10);
+        overflow: hidden;
+        margin-top: 10px;
       }
 
-      .performance-timeline {
-        position: relative;
-        display: grid;
-        gap: 14px;
-        margin-top: 12px;
-      }
-
-      .performance-timeline::before {
-        content: '';
-        position: absolute;
-        left: 7px;
-        top: 9px;
-        bottom: 11px;
-        width: 2px;
-        background: linear-gradient(180deg, var(--green), rgba(var(--green-rgb),.16));
-      }
-
-      .performance-timeline-item {
-        position: relative;
-        display: grid;
-        grid-template-columns: 18px minmax(0,1fr);
-        gap: 12px;
-      }
-
-      .performance-timeline-item > span {
-        width: 14px;
-        height: 14px;
+      .performance-focus-progress div {
+        height: 100%;
         border-radius: 999px;
         background: var(--green);
-        margin-top: 4px;
-        box-shadow: 0 0 18px rgba(var(--green-rgb),.45);
+        box-shadow: 0 0 20px rgba(var(--green-rgb),.26);
       }
 
-      .performance-course-rank {
-        min-height: 48px;
-        display: grid;
-        grid-template-columns: 34px minmax(0,1fr) 44px;
-        gap: 10px;
-        align-items: center;
-      }
-
-      .performance-course-rank > span {
-        width: 28px;
-        height: 28px;
-        border-radius: 8px;
-        display: grid;
-        place-items: center;
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.035);
-        color: var(--muted);
+      .performance-focus-card > span {
+        color: var(--green);
+        font-size: 13px;
         font-weight: 900;
       }
 
-      .performance-course-rank div div {
-        height: 5px;
-        background: rgba(255,255,255,.09);
-        border-radius: 999px;
-        overflow: hidden;
+      .performance-focus-card a {
+        width: fit-content;
+        min-height: 40px;
+        border-radius: 10px;
+        border: 1px solid rgba(var(--green-rgb),.24);
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 15px;
+        font-size: 13px;
+        font-weight: 950;
         margin-top: 8px;
       }
 
-      .performance-course-rank i {
-        height: 100%;
-        display: block;
-        border-radius: 999px;
-        background: var(--green);
-        box-shadow: 0 0 16px rgba(var(--green-rgb),.28);
-      }
-
-      .performance-course-rank em {
-        color: rgba(244,246,242,.78);
-        font-style: normal;
-        font-size: 12px;
-        font-weight: 900;
-        text-align: right;
-      }
-
-      .performance-total-row {
-        margin-top: 14px;
-        padding-top: 14px;
-        border-top: 1px solid rgba(255,255,255,.07);
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .performance-total-row strong {
-        color: var(--green);
+      .performance-security-list {
+        display: grid;
+        gap: 0;
       }
 
       .performance-security-item {
-        min-height: 68px;
+        min-height: 66px;
         display: grid;
         grid-template-columns: 34px minmax(0,1fr) auto;
         gap: 14px;
@@ -3325,8 +3383,33 @@ function GlobalStyles() {
         padding: 12px 0;
       }
 
+      .performance-security-item:last-child {
+        border-bottom: 0;
+      }
+
       .performance-security-item > svg {
-        color: var(--soft);
+        color: var(--green);
+        width: 34px;
+        height: 34px;
+        padding: 8px;
+        border-radius: 12px;
+        border: 1px solid rgba(var(--green-rgb),.14);
+        background: rgba(var(--green-rgb),.055);
+      }
+
+      .performance-security-item strong {
+        display: block;
+        font-size: 13px;
+        line-height: 1.25;
+        font-weight: 900;
+      }
+
+      .performance-security-item span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
       }
 
       .performance-security-item em {
@@ -3347,25 +3430,158 @@ function GlobalStyles() {
         background: rgba(255,255,255,.035);
         color: rgba(244,246,242,.82);
         padding: 0 12px;
-        cursor: pointer;
+        cursor: default;
         font-size: 12px;
         font-weight: 850;
       }
 
+      .performance-lower-clean {
+        display: grid;
+        grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+        gap: 16px;
+      }
+
+      .performance-card-header.compact.clean {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 14px;
+      }
+
+      .performance-card-header.compact.clean > span {
+        color: var(--green);
+        border: 1px solid rgba(var(--green-rgb),.20);
+        background: rgba(var(--green-rgb),.08);
+        border-radius: 999px;
+        padding: 6px 9px;
+        font-size: 11px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .performance-course-rank-list.clean,
+      .performance-cert-list.clean {
+        display: grid;
+        gap: 9px;
+      }
+
+      .performance-course-row-clean,
+      .performance-cert-row-clean {
+        min-height: 68px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.07);
+        background: rgba(255,255,255,.024);
+        display: grid;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        color: var(--white);
+        text-decoration: none;
+      }
+
+      .performance-course-row-clean {
+        grid-template-columns: 36px minmax(0,1fr) 54px;
+      }
+
+      .performance-cert-row-clean {
+        grid-template-columns: 48px minmax(0,1fr) auto;
+      }
+
+      .performance-course-row-clean > span {
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        color: var(--muted);
+        font-weight: 900;
+      }
+
+      .performance-course-row-clean strong,
+      .performance-cert-row-clean strong {
+        display: block;
+        font-size: 14px;
+        line-height: 1.25;
+        font-weight: 900;
+      }
+
+      .performance-course-row-clean div div {
+        height: 6px;
+        background: rgba(255,255,255,.09);
+        border-radius: 999px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+
+      .performance-course-row-clean i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 16px rgba(var(--green-rgb),.28);
+      }
+
+      .performance-course-row-clean em {
+        color: var(--green);
+        font-style: normal;
+        font-size: 12px;
+        font-weight: 950;
+        text-align: right;
+      }
+
+      .performance-medal-clean {
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: #151008;
+        border: 2px solid rgba(214,178,94,.42);
+        background: radial-gradient(circle, #f4df96, #9b701e);
+        font-weight: 950;
+      }
+
+      .performance-cert-row-clean p,
+      .performance-cert-row-clean span {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .performance-cert-row-clean em {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--green);
+        font-style: normal;
+        font-size: 11px;
+        font-weight: 900;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb),.18);
+        background: rgba(var(--green-rgb),.06);
+        padding: 5px 8px;
+        white-space: nowrap;
+      }
+
       @media (max-width: 1480px) {
-        .performance-pro-grid,
-        .performance-pro-header,
-        .performance-profile-card {
+        .performance-clean-hero,
+        .performance-profile-clean,
+        .performance-main-clean,
+        .performance-lower-clean {
           grid-template-columns: 1fr;
         }
 
-        .performance-profile-main,
-        .performance-profile-goals {
+        .performance-identity,
+        .performance-goal-clean {
           border-right: 0;
           border-bottom: 1px solid rgba(255,255,255,.07);
         }
 
-        .performance-metrics-strip {
+        .performance-metric-grid-clean {
           grid-template-columns: repeat(2, minmax(0,1fr));
         }
 
@@ -3374,10 +3590,20 @@ function GlobalStyles() {
         }
       }
 
-      @media (max-width: 920px) {
-        .performance-side-column,
-        .performance-rings-row,
-        .performance-metrics-strip {
+      @media (max-width: 820px) {
+        .performance-clean-hero > div,
+        .performance-hero-status,
+        .performance-chart-card-clean,
+        .performance-focus-card,
+        .performance-security-card.clean,
+        .performance-courses-clean,
+        .performance-certificates-clean {
+          padding: 18px;
+        }
+
+        .performance-profile-clean,
+        .performance-metric-grid-clean,
+        .performance-rings-clean {
           grid-template-columns: 1fr;
         }
 
@@ -3386,16 +3612,21 @@ function GlobalStyles() {
           border-bottom: 1px solid rgba(255,255,255,.07);
         }
 
-        .performance-profile-main,
-        .performance-insight-row {
-          grid-template-columns: 1fr;
+        .performance-metric-card:last-child {
+          border-bottom: 0;
         }
 
-        .performance-profile-main {
+        .performance-identity {
           flex-direction: column;
           align-items: flex-start;
         }
+
+        .performance-course-row-clean,
+        .performance-cert-row-clean {
+          grid-template-columns: 1fr;
+        }
       }
+
 
 
       .loading-page {
