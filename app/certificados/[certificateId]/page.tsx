@@ -31,7 +31,7 @@ const supabase: SupabaseClient | null =
     : null;
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
   );
 }
@@ -153,8 +153,11 @@ function Brand({
 }) {
   return (
     <div className={`brand brand-${variant} brand-${size}`}>
-      <img src={LOGO_SRC} alt="GHC Academy" />
-      <div>
+      <span className="brand-mark">
+        <img src={LOGO_SRC} alt="GHC Academy" />
+      </span>
+
+      <div className="brand-copy">
         <strong>GHC ACADEMY</strong>
         <span>SPORT THROUGH SCIENCE</span>
       </div>
@@ -486,13 +489,9 @@ function CertificateStyles() {
     <style jsx global>{`
       :root {
         --bg: #050806;
-        --panel: #0a0f0d;
-        --panel-soft: #101712;
         --text: #f4f7f2;
         --muted: #aeb8b1;
-        --muted-2: #7f8a83;
         --green: #22d65b;
-        --green-soft: rgba(34, 214, 91, 0.12);
         --line: rgba(255, 255, 255, 0.1);
         --paper: #eef2e8;
         --paper-ink: #18231d;
@@ -574,26 +573,41 @@ function CertificateStyles() {
       .brand {
         display: inline-flex;
         align-items: center;
-        gap: 12px;
+        gap: 13px;
         min-width: 0;
       }
 
-      .brand img {
-        width: 34px;
-        height: 34px;
-        object-fit: contain;
-        display: block;
-        flex: 0 0 auto;
+      .brand-mark {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+        border: 1px solid rgba(34, 214, 91, 0.28);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(34, 214, 91, 0.16), transparent 58%),
+          #07110c;
+        box-shadow: 0 0 24px rgba(34, 214, 91, 0.12);
+        overflow: hidden;
       }
 
-      .brand div {
+      .brand-mark img {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+        display: block;
+      }
+
+      .brand-copy {
         display: flex;
         flex-direction: column;
         line-height: 1;
         min-width: 0;
       }
 
-      .brand strong {
+      .brand-copy strong {
         color: var(--text);
         font-size: 14px;
         font-weight: 950;
@@ -601,7 +615,7 @@ function CertificateStyles() {
         white-space: nowrap;
       }
 
-      .brand span {
+      .brand-copy span {
         margin-top: 6px;
         color: #8d9990;
         font-size: 9px;
@@ -610,64 +624,90 @@ function CertificateStyles() {
         white-space: nowrap;
       }
 
-      .brand-small img {
-        width: 30px;
-        height: 30px;
+      .brand-small .brand-mark {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
+        border-radius: 14px;
       }
 
-      .brand-small strong {
+      .brand-small .brand-mark img {
+        width: 27px;
+        height: 27px;
+      }
+
+      .brand-small .brand-copy strong {
         font-size: 13px;
         letter-spacing: 0.22em;
       }
 
-      .brand-small span {
+      .brand-small .brand-copy span {
         font-size: 8px;
         letter-spacing: 0.28em;
       }
 
-      .brand-large img {
-        width: 44px;
-        height: 44px;
+      .brand-large .brand-mark {
+        width: 56px;
+        height: 56px;
+        flex-basis: 56px;
+        border-radius: 18px;
       }
 
-      .brand-large strong {
+      .brand-large .brand-mark img {
+        width: 40px;
+        height: 40px;
+      }
+
+      .brand-large .brand-copy strong {
         font-size: 16px;
         letter-spacing: 0.24em;
       }
 
-      .brand-large span {
+      .brand-large .brand-copy span {
         margin-top: 7px;
         font-size: 10px;
         letter-spacing: 0.3em;
       }
 
-      .brand-paper strong {
+      .brand-paper .brand-copy strong {
         color: #243228;
       }
 
-      .brand-paper span {
+      .brand-paper .brand-copy span {
         color: #6c7a70;
       }
 
       .paper-top .brand {
-        gap: 14px;
+        gap: 15px;
       }
 
-      .paper-top .brand img {
-        width: 46px;
-        height: 46px;
+      .paper-top .brand-mark {
+        width: 58px;
+        height: 58px;
+        flex-basis: 58px;
+        border-radius: 18px;
+        border-color: rgba(34, 214, 91, 0.36);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(34, 214, 91, 0.18), transparent 58%),
+          #07110c;
+        box-shadow: 0 0 22px rgba(34, 214, 91, 0.12);
       }
 
-      .paper-top .brand strong {
+      .paper-top .brand-mark img {
+        width: 42px;
+        height: 42px;
+      }
+
+      .paper-top .brand-copy strong {
         color: #243228;
-        font-size: 16px;
+        font-size: 17px;
         letter-spacing: 0.24em;
       }
 
-      .paper-top .brand span {
-        margin-top: 7px;
+      .paper-top .brand-copy span {
+        margin-top: 8px;
         color: #6c7a70;
-        font-size: 9px;
+        font-size: 10px;
         letter-spacing: 0.28em;
       }
 
@@ -1158,32 +1198,49 @@ function CertificateStyles() {
           width: min(100% - 28px, 1240px);
         }
 
-        .brand img {
-          width: 30px;
-          height: 30px;
+        .brand {
+          gap: 10px;
         }
 
-        .brand strong {
+        .brand-mark {
+          width: 36px;
+          height: 36px;
+          flex-basis: 36px;
+          border-radius: 13px;
+        }
+
+        .brand-mark img {
+          width: 26px;
+          height: 26px;
+        }
+
+        .brand-copy strong {
           font-size: 12px;
           letter-spacing: 0.16em;
         }
 
-        .brand span {
+        .brand-copy span {
           font-size: 8px;
           letter-spacing: 0.22em;
         }
 
-        .paper-top .brand img {
-          width: 38px;
-          height: 38px;
+        .paper-top .brand-mark {
+          width: 46px;
+          height: 46px;
+          flex-basis: 46px;
         }
 
-        .paper-top .brand strong {
+        .paper-top .brand-mark img {
+          width: 34px;
+          height: 34px;
+        }
+
+        .paper-top .brand-copy strong {
           font-size: 12px;
           letter-spacing: 0.18em;
         }
 
-        .paper-top .brand span {
+        .paper-top .brand-copy span {
           font-size: 8px;
           letter-spacing: 0.2em;
         }
