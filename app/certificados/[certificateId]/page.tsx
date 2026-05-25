@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import GHCLogo from '../../components/GHCLogo';
-
-type AnyRecord = Record<string, any>;
+import DownloadCertificateButton from './DownloadCertificateButton';
 
 type PageProps = {
   params: {
@@ -57,97 +56,176 @@ export default async function CertificateVerificationPage({ params }: PageProps)
     certificate?.grade ??
     null;
 
+  const formattedIssuedDate = issuedDate ? formatDate(issuedDate) : '—';
+  const displayedScore = finalScore !== null ? `${finalScore}%` : 'Aprobado';
+
   return (
     <main className="certificate-public-page">
       <Background />
 
-      <header className="certificate-topbar">
-        <Link href="/" className="certificate-logo-link" aria-label="GHC Academy">
-          <GHCLogo size="sm" showText tagline />
-        </Link>
+      <div className="screen-version">
+        <header className="certificate-topbar">
+          <Link href="/" className="certificate-logo-link" aria-label="GHC Academy">
+            <GHCLogo size="sm" showText tagline />
+          </Link>
 
-        <div className="certificate-topbar-status">
-          <span className={isValid ? 'status-dot valid' : 'status-dot invalid'} />
-          <strong>{isValid ? 'Credencial válida' : 'Credencial no válida'}</strong>
-        </div>
-      </header>
-
-      <section className="certificate-hero">
-        <p className="certificate-kicker">Credencial oficial</p>
-        <h1>
-          Válido. Verificable.
-          <br />
-          Profesional.
-        </h1>
-        <p className="certificate-subtitle">
-          Consulta la autenticidad de este certificado oficial de GHC Academy.
-        </p>
-      </section>
-
-      <section className="certificate-layout">
-        <article className="certificate-paper-shell">
-          <div className="certificate-paper">
-            <div className="paper-brand">
-              <GHCLogo size="sm" showText tagline />
-            </div>
-
-            <div className={isValid ? 'paper-status-pill valid' : 'paper-status-pill invalid'}>
-              {isValid ? 'Válido' : 'No válido'}
-            </div>
-
-            <div className="paper-content">
-              <p className="paper-academy">GHC Academy</p>
-              <h2>Certificado</h2>
-              <p className="paper-subtitle">de logro académico</p>
-
-              <p className="paper-small">se otorga a</p>
-              <h3>{studentName}</h3>
-
-              <p className="paper-small">por completar satisfactoriamente los requisitos de</p>
-              <h4>{courseTitle}</h4>
-            </div>
-
-            <div className="paper-footer">
-              <div>
-                <span>Fecha de emisión</span>
-                <strong>{issuedDate ? formatDate(issuedDate) : '—'}</strong>
-              </div>
-
-              <div className="paper-signature">
-                <i />
-                <span>Dirección académica</span>
-              </div>
-
-              <div>
-                <span>Código</span>
-                <strong>{certificateCode}</strong>
-              </div>
-            </div>
+          <div className="certificate-topbar-status">
+            <span className={isValid ? 'status-dot valid' : 'status-dot invalid'} />
+            <strong>{isValid ? 'Credencial válida' : 'Credencial no válida'}</strong>
           </div>
-        </article>
+        </header>
 
-        <aside className="verification-panel">
-          <p className="certificate-kicker">Verificación</p>
-          <h2>Estado del certificado</h2>
+        <section className="certificate-hero">
+          <p className="certificate-kicker">Credencial oficial</p>
+          <h1>
+            Válido. Verificable.
+            <br />
+            Profesional.
+          </h1>
+          <p className="certificate-subtitle">
+            Consulta la autenticidad de este certificado oficial de GHC Academy.
+          </p>
+        </section>
 
-          <div className={isValid ? 'verification-box valid' : 'verification-box invalid'}>
-            <strong>{isValid ? 'Válido' : 'No válido'}</strong>
-            <p>
-              {isValid
-                ? 'Este certificado figura como válido y verificable en el sistema de GHC Academy.'
-                : 'No hemos podido confirmar este certificado como válido en el sistema.'}
+        <section className="certificate-layout">
+          <article className="certificate-paper-shell">
+            <div className="certificate-paper">
+              <div className="paper-brand">
+                <GHCLogo size="sm" showText tagline />
+              </div>
+
+              <div className={isValid ? 'paper-status-pill valid' : 'paper-status-pill invalid'}>
+                {isValid ? 'Válido' : 'No válido'}
+              </div>
+
+              <div className="paper-content">
+                <p className="paper-academy">GHC Academy</p>
+                <h2>Certificado</h2>
+                <p className="paper-subtitle">de logro académico</p>
+
+                <p className="paper-small">se otorga a</p>
+                <h3>{studentName}</h3>
+
+                <p className="paper-small">por completar satisfactoriamente los requisitos de</p>
+                <h4>{courseTitle}</h4>
+              </div>
+
+              <div className="paper-footer">
+                <div>
+                  <span>Fecha de emisión</span>
+                  <strong>{formattedIssuedDate}</strong>
+                </div>
+
+                <div className="paper-signature">
+                  <i />
+                  <span>Dirección académica</span>
+                </div>
+
+                <div>
+                  <span>Código</span>
+                  <strong>{certificateCode}</strong>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <aside className="verification-panel">
+            <p className="certificate-kicker">Verificación</p>
+            <h2>Estado del certificado</h2>
+
+            <div className={isValid ? 'verification-box valid' : 'verification-box invalid'}>
+              <strong>{isValid ? 'Válido' : 'No válido'}</strong>
+              <p>
+                {isValid
+                  ? 'Este certificado figura como válido y verificable en el sistema de GHC Academy.'
+                  : 'No hemos podido confirmar este certificado como válido en el sistema.'}
+              </p>
+            </div>
+
+            <div className="verification-data">
+              <DataRow label="Alumno" value={studentName} />
+              <DataRow label="Curso" value={courseTitle} />
+              <DataRow label="Código" value={certificateCode} />
+              <DataRow label="Fecha" value={formattedIssuedDate} />
+              <DataRow label="Nota final" value={displayedScore} />
+              <DataRow label="Academia" value="GHC Academy" />
+            </div>
+
+            {isValid ? (
+              <div className="download-area">
+                <DownloadCertificateButton />
+                <p>
+                  El diploma descargable es la única pieza imprimible de la plataforma. No incluye
+                  materiales internos, PDFs de curso ni contenido privado.
+                </p>
+              </div>
+            ) : null}
+          </aside>
+        </section>
+      </div>
+
+      <section className="print-diploma" aria-hidden="true">
+        <div className="print-diploma-page">
+          <div className="print-border-outer" />
+          <div className="print-border-inner" />
+
+          <div className="print-corner print-corner-tl" />
+          <div className="print-corner print-corner-tr" />
+          <div className="print-corner print-corner-bl" />
+          <div className="print-corner print-corner-br" />
+
+          <header className="print-diploma-header">
+            <GHCLogo size="md" showText tagline />
+            <div className="print-valid-badge">
+              <span />
+              Certificado verificable
+            </div>
+          </header>
+
+          <div className="print-diploma-content">
+            <p className="print-kicker">GHC Academy · Sport Through Science</p>
+            <h2>Certificado oficial</h2>
+            <p className="print-subtitle">de finalización y logro académico</p>
+
+            <p className="print-line">Se otorga el presente certificado a</p>
+            <h1>{studentName}</h1>
+
+            <p className="print-line">por completar satisfactoriamente el programa</p>
+            <h3>{courseTitle}</h3>
+
+            <p className="print-description">
+              Esta credencial acredita la superación de los requisitos académicos establecidos por
+              GHC Academy y queda vinculada a un código único verificable.
             </p>
           </div>
 
-          <div className="verification-data">
-            <DataRow label="Alumno" value={studentName} />
-            <DataRow label="Curso" value={courseTitle} />
-            <DataRow label="Código" value={certificateCode} />
-            <DataRow label="Fecha" value={issuedDate ? formatDate(issuedDate) : '—'} />
-            <DataRow label="Nota final" value={finalScore !== null ? `${finalScore}%` : '—'} />
-            <DataRow label="Academia" value="GHC Academy" />
+          <footer className="print-diploma-footer">
+            <div>
+              <span>Fecha de emisión</span>
+              <strong>{formattedIssuedDate}</strong>
+            </div>
+
+            <div className="print-signature">
+              <i />
+              <span>Dirección académica</span>
+              <strong>GHC Academy</strong>
+            </div>
+
+            <div>
+              <span>Código verificable</span>
+              <strong>{certificateCode}</strong>
+            </div>
+          </footer>
+
+          <div className="print-seal">
+            <strong>GHC</strong>
+            <span>Verified</span>
           </div>
-        </aside>
+
+          <div className="print-bottom-note">
+            Verificación pública disponible mediante el código único de certificado.
+          </div>
+        </div>
       </section>
 
       <style>{`
@@ -161,6 +239,9 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           --paper-text: #1d2825;
           --gold: #d6b25e;
           --danger: #ff5757;
+          --ivory: #f3efe2;
+          --ivory-soft: #fbf7ea;
+          --ink: #202a26;
         }
 
         * {
@@ -192,6 +273,11 @@ export default async function CertificateVerificationPage({ params }: PageProps)
             radial-gradient(circle at 12% -10%, rgba(var(--green-rgb), 0.10), transparent 32%),
             radial-gradient(circle at 90% 8%, rgba(255,255,255,0.055), transparent 28%),
             linear-gradient(135deg, #050706 0%, #070a09 46%, #030404 100%);
+        }
+
+        .screen-version {
+          position: relative;
+          z-index: 2;
         }
 
         .background {
@@ -236,8 +322,6 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         }
 
         .certificate-topbar {
-          position: relative;
-          z-index: 2;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -287,8 +371,6 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         }
 
         .certificate-hero {
-          position: relative;
-          z-index: 2;
           text-align: center;
           display: grid;
           justify-items: center;
@@ -325,8 +407,6 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         }
 
         .certificate-layout {
-          position: relative;
-          z-index: 2;
           display: grid;
           grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
           gap: 18px;
@@ -615,6 +695,37 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           overflow-wrap: anywhere;
         }
 
+        .download-area {
+          margin-top: 16px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(255,255,255,.08);
+          display: grid;
+          gap: 10px;
+        }
+
+        .download-diploma-button {
+          width: 100%;
+          min-height: 46px;
+          border: 1px solid rgba(var(--green-rgb), .28);
+          border-radius: 999px;
+          background: linear-gradient(135deg, var(--green), #7bee65);
+          color: #061008;
+          font-weight: 950;
+          cursor: pointer;
+          box-shadow: 0 0 30px rgba(var(--green-rgb), .14);
+        }
+
+        .download-area p {
+          margin: 0;
+          color: rgba(244,246,242,.48);
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .print-diploma {
+          display: none;
+        }
+
         @media (max-width: 1120px) {
           .certificate-layout {
             grid-template-columns: 1fr;
@@ -704,12 +815,323 @@ export default async function CertificateVerificationPage({ params }: PageProps)
             margin-right: 0;
           }
         }
+
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 0;
+          }
+
+          html,
+          body {
+            width: 297mm;
+            height: 210mm;
+            margin: 0;
+            padding: 0;
+            background: var(--ivory);
+          }
+
+          body * {
+            visibility: hidden;
+          }
+
+          .certificate-public-page {
+            width: 297mm;
+            height: 210mm;
+            min-height: 210mm;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            background: var(--ivory);
+          }
+
+          .screen-version,
+          .background {
+            display: none;
+          }
+
+          .print-diploma,
+          .print-diploma * {
+            visibility: visible;
+          }
+
+          .print-diploma {
+            display: block;
+            position: absolute;
+            inset: 0;
+            width: 297mm;
+            height: 210mm;
+            margin: 0;
+            padding: 0;
+            background: var(--ivory);
+            color: var(--ink);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .print-diploma-page {
+            position: relative;
+            width: 297mm;
+            height: 210mm;
+            overflow: hidden;
+            background:
+              radial-gradient(circle at 12% 12%, rgba(99,229,70,.10), transparent 24%),
+              radial-gradient(circle at 88% 12%, rgba(214,178,94,.16), transparent 24%),
+              linear-gradient(135deg, var(--ivory-soft), var(--ivory));
+            color: var(--ink);
+            padding: 20mm 24mm 18mm;
+          }
+
+          .print-border-outer {
+            position: absolute;
+            inset: 10mm;
+            border: 1.2px solid rgba(32,42,38,.34);
+          }
+
+          .print-border-inner {
+            position: absolute;
+            inset: 14mm;
+            border: .6px solid rgba(32,42,38,.18);
+          }
+
+          .print-corner {
+            position: absolute;
+            width: 34mm;
+            height: 34mm;
+            border-color: rgba(99,229,70,.55);
+          }
+
+          .print-corner-tl {
+            top: 10mm;
+            left: 10mm;
+            border-top: 3px solid;
+            border-left: 3px solid;
+          }
+
+          .print-corner-tr {
+            top: 10mm;
+            right: 10mm;
+            border-top: 3px solid;
+            border-right: 3px solid;
+          }
+
+          .print-corner-bl {
+            bottom: 10mm;
+            left: 10mm;
+            border-bottom: 3px solid;
+            border-left: 3px solid;
+          }
+
+          .print-corner-br {
+            bottom: 10mm;
+            right: 10mm;
+            border-bottom: 3px solid;
+            border-right: 3px solid;
+          }
+
+          .print-diploma-header {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18mm;
+          }
+
+          .print-valid-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(32,42,38,.18);
+            border-radius: 999px;
+            padding: 6px 10px;
+            color: rgba(32,42,38,.70);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .13em;
+            font-weight: 900;
+          }
+
+          .print-valid-badge span {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: var(--green);
+            box-shadow: 0 0 14px rgba(99,229,70,.42);
+          }
+
+          .print-diploma-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            display: grid;
+            justify-items: center;
+            align-content: center;
+            min-height: 119mm;
+            padding: 9mm 14mm 2mm;
+          }
+
+          .print-kicker {
+            margin: 0 0 7mm;
+            color: rgba(32,42,38,.62);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .30em;
+            font-weight: 900;
+          }
+
+          .print-diploma-content h2 {
+            margin: 0;
+            color: rgba(32,42,38,.84);
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 24mm;
+            line-height: .88;
+            text-transform: uppercase;
+            letter-spacing: .10em;
+            font-weight: 700;
+          }
+
+          .print-subtitle {
+            margin: 3mm 0 9mm;
+            color: rgba(32,42,38,.50);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .24em;
+            font-weight: 800;
+          }
+
+          .print-line {
+            margin: 0 0 3mm;
+            color: rgba(32,42,38,.56);
+            font-size: 11px;
+            letter-spacing: .04em;
+          }
+
+          .print-diploma-content h1 {
+            margin: 0 0 8mm;
+            max-width: 220mm;
+            color: rgba(32,42,38,.92);
+            font-size: 16mm;
+            line-height: .95;
+            letter-spacing: -.045em;
+            font-weight: 950;
+          }
+
+          .print-diploma-content h3 {
+            margin: 0;
+            max-width: 212mm;
+            color: #159d6c;
+            font-size: 9mm;
+            line-height: 1.02;
+            letter-spacing: -.035em;
+            font-weight: 950;
+          }
+
+          .print-description {
+            max-width: 175mm;
+            margin: 8mm 0 0;
+            color: rgba(32,42,38,.58);
+            font-size: 10.5px;
+            line-height: 1.55;
+          }
+
+          .print-diploma-footer {
+            position: absolute;
+            z-index: 2;
+            left: 24mm;
+            right: 24mm;
+            bottom: 21mm;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            align-items: end;
+            gap: 14mm;
+          }
+
+          .print-diploma-footer span {
+            display: block;
+            color: rgba(32,42,38,.46);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: .16em;
+            font-weight: 900;
+          }
+
+          .print-diploma-footer strong {
+            display: block;
+            margin-top: 4px;
+            color: rgba(32,42,38,.82);
+            font-size: 11px;
+            line-height: 1.2;
+            font-weight: 900;
+          }
+
+          .print-signature {
+            text-align: center;
+          }
+
+          .print-signature i {
+            display: block;
+            width: 52mm;
+            height: 1px;
+            background: rgba(32,42,38,.46);
+            margin: 0 auto 5mm;
+          }
+
+          .print-seal {
+            position: absolute;
+            z-index: 2;
+            right: 28mm;
+            top: 76mm;
+            width: 31mm;
+            height: 31mm;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            align-content: center;
+            text-align: center;
+            background:
+              radial-gradient(circle at 30% 30%, rgba(255,255,255,.90), rgba(214,178,94,.86) 38%, rgba(129,91,24,.78));
+            border: 1px solid rgba(81,55,11,.32);
+            box-shadow: 0 8px 24px rgba(32,42,38,.12);
+          }
+
+          .print-seal strong {
+            display: block;
+            color: rgba(45,31,8,.86);
+            font-size: 17px;
+            line-height: 1;
+            letter-spacing: .08em;
+            font-weight: 950;
+          }
+
+          .print-seal span {
+            margin-top: 3px;
+            color: rgba(45,31,8,.62);
+            font-size: 7px;
+            text-transform: uppercase;
+            letter-spacing: .15em;
+            font-weight: 900;
+          }
+
+          .print-bottom-note {
+            position: absolute;
+            z-index: 2;
+            left: 24mm;
+            right: 24mm;
+            bottom: 10.5mm;
+            text-align: center;
+            color: rgba(32,42,38,.42);
+            font-size: 8px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+          }
+        }
       `}</style>
     </main>
   );
 }
 
-function DataRow({ label, value }: { label: string; value: string }) {
+function DataRow({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="data-row">
       <span>{label}</span>
