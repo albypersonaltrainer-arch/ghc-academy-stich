@@ -68,7 +68,7 @@ const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Panel', helper: 'Resumen', icon: 'dashboard' },
   { id: 'cursos', label: 'Mis cursos', helper: 'Cursos activos', icon: 'courses' },
   { id: 'curriculum', label: 'Itinerario', helper: 'Módulos', icon: 'curriculum' },
-  { id: 'examenes', label: 'Simulador de exámenes', helper: 'Evaluación', icon: 'exam' },
+  { id: 'examenes', label: 'Exámenes', helper: 'Evaluación', icon: 'exam' },
   { id: 'certificados', label: 'Certificados', helper: 'Credenciales', icon: 'certificate' },
   { id: 'perfil', label: 'Rendimiento', helper: 'Perfil', icon: 'performance' },
 ];
@@ -673,7 +673,15 @@ export default function AlumnoPage() {
           />
         )}
 
-        {activeTab === 'examenes' && <MockExamsView />}
+        {activeTab === 'examenes' && (
+          <MockExamsView
+            courseCards={courseCards}
+            mainCourse={mainCourse}
+            moduleViews={moduleViews}
+            lessonProgreso={lessonProgreso}
+            stats={stats}
+          />
+        )}
 
         {activeTab === 'certificados' && (
           <CertificadosTab certificates={certificates} displayName={displayName} />
@@ -786,10 +794,10 @@ function PanelView({
 
       <section className="dashboard-bottom">
         <article className="mock-mini">
-          <h2>Simulador de exámenes</h2>
-          <p>Pon a prueba tus conocimientos en condiciones reales antes de obtener tu certificación final.</p>
+          <h2>Evaluaciones y exámenes</h2>
+          <p>Consulta la estructura de evaluación por lección, módulo y certificación final.</p>
           <button type="button" onClick={() => setActiveTab('examenes')}>
-            Iniciar simulación
+            Ver evaluación
             <Icon name="arrow" />
           </button>
         </article>
@@ -1149,63 +1157,242 @@ function ItinerarioView({
   );
 }
 
-function MockExamsView() {
+function MockExamsView({
+  courseCards,
+  mainCourse,
+  moduleViews,
+  lessonProgreso,
+  stats,
+}: {
+  courseCards: PanelCard[];
+  mainCourse: PanelCard | null;
+  moduleViews: ModuleView[];
+  lessonProgreso: AnyRecord[];
+  stats: AnyRecord;
+}) {
+  const activeCourse = mainCourse || courseCards[0] || null;
+  const activeModule =
+    moduleViews.find((item) => item.isCurrent) ||
+    moduleViews.find((item) => !item.isBloqueado && !item.isCompletado) ||
+    moduleViews[0] ||
+    null;
+
+  const lessonEvaluationItems = activeCourse
+    ? activeCourse.courseLessons.slice(0, 8).map((lesson, index) => {
+        const module = moduleViews.find((item) => String(item.module.id) === String(lesson.module_id));
+        const completadod = lessonProgreso.some((progress) => String(progress.lesson_id) === String(lesson.id));
+        const isNext = Boolean(activeCourse.nextLesson) && String(activeCourse.nextLesson?.id) === String(lesson.id);
+        const isLocked = Boolean(module?.isBloqueado);
+        const status = completadod ? 'available' : isNext ? 'pending' : isLocked ? 'locked' : 'pending';
+
+        return {
+          id: lesson.id || `${lesson.title || 'lesson'}-${index}`,
+          index,
+          title: lesson.title || `Lección ${index + 1}`,
+          moduleTitle: module?.module?.title || 'Módulo del curso',
+          href: `/cursos/${getCourseSlug(activeCourse.course)}/${lesson.id}`,
+          status,
+          label:
+            status === 'available'
+              ? 'Lista para evaluación'
+              : status === 'locked'
+                ? 'Bloqueada'
+                : 'Pendiente de completar',
+        };
+      })
+    : [];
+
+  const moduleExamItems = moduleViews.slice(0, 8).map((item) => {
+    const status = item.isCompletado ? 'available' : item.isBloqueado ? 'locked' : 'pending';
+
+    return {
+      id: item.module.id || `module-${item.index}`,
+      index: item.index,
+      title: item.module.title || `Módulo ${item.index + 1}`,
+      progress: item.progress,
+      lessons: item.lessons.length,
+      href: item.href,
+      status,
+      label:
+        status === 'available'
+          ? 'Preparado'
+          : status === 'locked'
+            ? 'Bloqueado'
+            : 'En progreso',
+    };
+  });
+
+  const finalExamReady = Boolean(activeCourse?.completion || activeCourse?.certificate);
+  const finalProgress = activeCourse?.progressPercent || stats.globalProgreso || 0;
+
   return (
-    <div className="mock-page exams-standby-page">
-      <section className="mock-header exams-standby-hero">
-        <div className="mock-title-block">
-          <span>
-            <Icon name="target" />
-          </span>
-          <div>
-            <h1>Evaluaciones y exámenes</h1>
-            <p>
-              La estructura de evaluación de GHC Academy estará dividida en evaluaciones cortas
-              por lección y exámenes por módulo. Esta sección queda preparada, pero todavía no
-              activa, para no mostrar funciones incompletas al alumno.
-            </p>
+    <div className="exams-page">
+      <section className="exams-hero-panel">
+        <div className="exams-hero-copy">
+          <p className="exams-kicker">Evaluación académica</p>
+          <h1>Evaluaciones y exámenes</h1>
+          <p>
+            La estructura de GHC Academy queda organizada en tres niveles: evaluación breve por
+            lección, examen por módulo y examen final de certificación. La pantalla ya muestra la
+            arquitectura real del alumno sin activar todavía un motor incompleto.
+          </p>
+
+          <div className="exams-hero-metrics">
+            <ExamMetric icon="document" label="Evaluaciones de lección" value={lessonEvaluationItems.length} />
+            <ExamMetric icon="exam" label="Exámenes de módulo" value={moduleExamItems.length} />
+            <ExamMetric icon="certificate" label="Certificación" value={finalExamReady ? 'Lista' : `${finalProgress}%`} />
           </div>
         </div>
 
-        <div className="mock-feature-strip">
-          <MockFeature icon="document" title="Evaluaciones de lección" text="Comprobaciones breves de comprensión." />
-          <MockFeature icon="exam" title="Exámenes de módulo" text="Evaluación completa al cerrar cada módulo." />
-          <MockFeature icon="certificate" title="Examen final" text="Base futura para la certificación." />
+        <aside className="exams-readiness-card">
+          <span><Icon name="target" /></span>
+          <div>
+            <p className="exams-kicker">Curso de referencia</p>
+            <h2>{activeCourse?.course?.title || 'Curso GHC Academy'}</h2>
+            <p>
+              {activeModule
+                ? `Etapa actual: módulo ${activeModule.index + 1}, ${activeModule.progress}% completado.`
+                : 'Cuando el alumno tenga un curso activo, aquí aparecerá su estado de evaluación.'}
+            </p>
+          </div>
+          <div className="exams-progress-line">
+            <i style={{ width: `${Math.max(3, Math.min(100, finalProgress))}%` }} />
+          </div>
+        </aside>
+      </section>
+
+      <section className="exams-structure-grid">
+        <article className="exams-structure-card">
+          <span><Icon name="document" /></span>
+          <small>Nivel 01</small>
+          <h2>Evaluaciones por lección</h2>
+          <p>Comprobaciones cortas para validar comprensión antes de seguir avanzando.</p>
+          <em>Feedback didáctico</em>
+        </article>
+
+        <article className="exams-structure-card featured">
+          <span><Icon name="exam" /></span>
+          <small>Nivel 02</small>
+          <h2>Exámenes por módulo</h2>
+          <p>Evaluación más completa al cerrar cada módulo del itinerario formativo.</p>
+          <em>Desbloqueo académico</em>
+        </article>
+
+        <article className="exams-structure-card">
+          <span><Icon name="shield" /></span>
+          <small>Nivel 03</small>
+          <h2>Examen final</h2>
+          <p>Validación final vinculada a la emisión futura de certificados verificables.</p>
+          <em>Certificación GHC</em>
+        </article>
+      </section>
+
+      <section className="exams-main-grid">
+        <article className="exams-panel-card">
+          <div className="exams-section-head">
+            <div>
+              <p className="exams-kicker">Lecciones</p>
+              <h2>Evaluaciones por lección</h2>
+            </div>
+            <span>{lessonEvaluationItems.length} visibles</span>
+          </div>
+
+          <div className="exams-row-head">
+            <span>Lección</span>
+            <span>Módulo</span>
+            <span>Estado</span>
+          </div>
+
+          <div className="exams-evaluation-list">
+            {lessonEvaluationItems.length === 0 ? (
+              <EmptyState text="Aún no hay lecciones visibles para construir evaluaciones." />
+            ) : (
+              lessonEvaluationItems.map((item) => (
+                <article key={item.id} className={`exam-lesson-row ${item.status}`}>
+                  <div>
+                    <span className="exam-row-icon"><Icon name={item.status === 'locked' ? 'lock' : 'document'} /></span>
+                    <strong>{item.index + 1}. {item.title}</strong>
+                  </div>
+                  <p>{item.moduleTitle}</p>
+                  <em>{item.label}</em>
+                </article>
+              ))
+            )}
+          </div>
+        </article>
+
+        <aside className="exams-panel-card exams-final-card">
+          <div className="exams-section-head compact">
+            <div>
+              <p className="exams-kicker">Final</p>
+              <h2>Examen final</h2>
+            </div>
+            <span>{finalExamReady ? 'Preparado' : 'Bloqueado'}</span>
+          </div>
+
+          <div className="exams-final-visual">
+            <div
+              className="exams-final-ring"
+              style={{ background: `conic-gradient(${GREEN} ${Math.max(0, Math.min(100, finalProgress)) * 3.6}deg, rgba(255,255,255,.10) 0deg)` }}
+            >
+              <strong>{finalProgress}%</strong>
+            </div>
+          </div>
+
+          <p>
+            El examen final quedará disponible cuando el alumno complete el itinerario requerido y
+            el motor de evaluación esté activo. No se muestra un botón falso de inicio hasta que esa
+            funcionalidad exista de verdad.
+          </p>
+
+          <div className="exams-final-status">
+            <div><span>Curso</span><strong>{activeCourse?.course?.title || '—'}</strong></div>
+            <div><span>Estado</span><strong>{finalExamReady ? 'Preparado para certificación' : 'Pendiente de progreso'}</strong></div>
+          </div>
+        </aside>
+      </section>
+
+      <section className="exams-panel-card">
+        <div className="exams-section-head">
+          <div>
+            <p className="exams-kicker">Módulos</p>
+            <h2>Exámenes por módulo</h2>
+          </div>
+          <span>{moduleExamItems.length} módulos</span>
+        </div>
+
+        <div className="exams-module-grid">
+          {moduleExamItems.length === 0 ? (
+            <EmptyState text="Aún no hay módulos visibles para construir exámenes." />
+          ) : (
+            moduleExamItems.map((item) => (
+              <article key={item.id} className={`exam-module-card ${item.status}`}>
+                <div className="exam-module-top">
+                  <span><Icon name={item.status === 'locked' ? 'lock' : item.status === 'available' ? 'check' : 'exam'} /></span>
+                  <em>{item.label}</em>
+                </div>
+                <small>Módulo {item.index + 1}</small>
+                <h3>{item.title}</h3>
+                <p>{item.lessons} lecciones · {item.progress}% completado</p>
+                <div className="exams-progress-line"><i style={{ width: `${Math.max(3, item.progress)}%` }} /></div>
+              </article>
+            ))
+          )}
         </div>
       </section>
-
-      <section className="exams-standby-grid">
-        <article className="exams-standby-card">
-          <span><Icon name="document" /></span>
-          <h2>Evaluaciones por lección</h2>
-          <p>
-            Servirán para comprobar si el alumno ha entendido cada lección. Serán cortas,
-            didácticas y con feedback inmediato.
-          </p>
-          <em>Próximamente</em>
-        </article>
-
-        <article className="exams-standby-card featured">
-          <span><Icon name="exam" /></span>
-          <h2>Exámenes por módulo</h2>
-          <p>
-            Se activarán al completar todas las lecciones de un módulo. Más adelante permitirán
-            desbloquear el siguiente bloque del curso.
-          </p>
-          <em>En desarrollo</em>
-        </article>
-
-        <article className="exams-standby-card">
-          <span><Icon name="shield" /></span>
-          <h2>Certificación final</h2>
-          <p>
-            Cuando el motor de evaluación esté cerrado, el examen final conectará con la emisión
-            de certificados verificables.
-          </p>
-          <em>Fase posterior</em>
-        </article>
-      </section>
     </div>
+  );
+}
+
+function ExamMetric({ icon, label, value }: { icon: IconName; label: string; value: string | number }) {
+  return (
+    <article className="exam-metric-card">
+      <span><Icon name={icon} /></span>
+      <div>
+        <strong>{value}</strong>
+        <p>{label}</p>
+      </div>
+    </article>
   );
 }
 
@@ -5500,56 +5687,101 @@ function GlobalStyles() {
           linear-gradient(90deg, rgba(var(--green-rgb),.07), rgba(255,255,255,.024)) !important;
       }
 
-      .exams-standby-page {
+      .exams-page {
         display: grid;
         gap: 18px;
       }
 
-      .exams-standby-hero {
-        grid-template-columns: minmax(0, .9fr) minmax(520px, 1fr);
-        border-radius: 22px;
-        border: 1px solid rgba(255,255,255,.085);
-        background:
-          radial-gradient(circle at top right, rgba(var(--green-rgb),.09), transparent 34%),
-          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-          rgba(8,12,10,.92);
-        padding: 22px;
-        box-shadow: 0 24px 82px rgba(0,0,0,.22);
+      .exams-kicker {
+        margin: 0;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .18em;
+        font-size: 11px;
+        font-weight: 950;
       }
 
-      .exams-standby-grid {
+      .exams-hero-panel {
+        min-height: 294px;
+        border-radius: 24px;
+        border: 1px solid rgba(255,255,255,.09);
+        background:
+          radial-gradient(circle at 72% 24%, rgba(var(--green-rgb),.14), transparent 32%),
+          linear-gradient(145deg, rgba(255,255,255,.058), rgba(255,255,255,.018)),
+          rgba(8,12,10,.94);
+        box-shadow: 0 24px 82px rgba(0,0,0,.22);
+        padding: 24px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+        gap: 18px;
+        align-items: stretch;
+        overflow: hidden;
+      }
+
+      .exams-hero-copy {
+        display: grid;
+        align-content: center;
+        gap: 14px;
+      }
+
+      .exams-hero-copy h1 {
+        margin: 0;
+        font-size: clamp(44px, 5.6vw, 82px);
+        line-height: .88;
+        letter-spacing: -.07em;
+        font-weight: 950;
+      }
+
+      .exams-hero-copy > p,
+      .exams-readiness-card p,
+      .exams-structure-card p,
+      .exams-final-card > p,
+      .exam-module-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.64;
+      }
+
+      .exams-hero-copy > p {
+        max-width: 820px;
+        font-size: 15px;
+      }
+
+      .exams-hero-metrics {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 16px;
+        gap: 12px;
+        margin-top: 8px;
+        max-width: 820px;
       }
 
-      .exams-standby-card {
-        min-height: 250px;
-        border-radius: 22px;
+      .exam-metric-card,
+      .exams-readiness-card,
+      .exams-structure-card,
+      .exams-panel-card {
+        border-radius: 18px;
         border: 1px solid rgba(255,255,255,.085);
         background:
           radial-gradient(circle at top right, rgba(var(--green-rgb),.065), transparent 34%),
           linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
           rgba(8,12,10,.92);
-        padding: 22px;
+        box-shadow: 0 20px 70px rgba(0,0,0,.16);
+      }
+
+      .exam-metric-card {
+        min-height: 88px;
+        padding: 14px;
         display: grid;
-        align-content: start;
-        gap: 14px;
-        box-shadow: 0 24px 82px rgba(0,0,0,.18);
+        grid-template-columns: 42px minmax(0,1fr);
+        gap: 12px;
+        align-items: center;
       }
 
-      .exams-standby-card.featured {
-        border-color: rgba(var(--green-rgb),.22);
-        background:
-          radial-gradient(circle at top right, rgba(var(--green-rgb),.13), transparent 36%),
-          linear-gradient(145deg, rgba(var(--green-rgb),.055), rgba(255,255,255,.018)),
-          rgba(8,12,10,.94);
-      }
-
-      .exams-standby-card > span {
-        width: 52px;
-        height: 52px;
-        border-radius: 16px;
+      .exam-metric-card > span,
+      .exams-readiness-card > span,
+      .exams-structure-card > span,
+      .exam-row-icon,
+      .exam-module-top > span {
         display: grid;
         place-items: center;
         color: var(--green);
@@ -5557,21 +5789,109 @@ function GlobalStyles() {
         border: 1px solid rgba(var(--green-rgb),.18);
       }
 
-      .exams-standby-card h2 {
-        margin: 0;
+      .exam-metric-card > span,
+      .exam-row-icon,
+      .exam-module-top > span {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+      }
+
+      .exam-metric-card strong {
+        display: block;
         font-size: 26px;
         line-height: 1;
         letter-spacing: -.04em;
         font-weight: 950;
       }
 
-      .exams-standby-card p {
-        margin: 0;
-        color: rgba(244,246,242,.60);
-        line-height: 1.62;
+      .exam-metric-card p {
+        margin: 6px 0 0;
+        color: var(--soft);
+        font-size: 12px;
+        line-height: 1.3;
+        font-weight: 850;
       }
 
-      .exams-standby-card em {
+      .exams-readiness-card {
+        padding: 20px;
+        display: grid;
+        align-content: center;
+        gap: 14px;
+      }
+
+      .exams-readiness-card > span {
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+      }
+
+      .exams-readiness-card h2,
+      .exams-section-head h2,
+      .exams-structure-card h2 {
+        margin: 6px 0 0;
+        font-size: 25px;
+        line-height: 1.02;
+        letter-spacing: -.04em;
+        font-weight: 950;
+      }
+
+      .exams-progress-line {
+        height: 9px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.10);
+        overflow: hidden;
+      }
+
+      .exams-progress-line i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 20px rgba(var(--green-rgb),.28);
+      }
+
+      .exams-structure-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .exams-structure-card {
+        min-height: 238px;
+        padding: 22px;
+        display: grid;
+        align-content: start;
+        gap: 13px;
+      }
+
+      .exams-structure-card.featured {
+        border-color: rgba(var(--green-rgb),.22);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb),.13), transparent 36%),
+          linear-gradient(145deg, rgba(var(--green-rgb),.055), rgba(255,255,255,.018)),
+          rgba(8,12,10,.94);
+      }
+
+      .exams-structure-card > span {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+      }
+
+      .exams-structure-card small,
+      .exam-module-card small {
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .exams-structure-card em,
+      .exams-section-head > span,
+      .exam-lesson-row em,
+      .exam-module-top em {
         width: fit-content;
         border-radius: 999px;
         border: 1px solid rgba(var(--green-rgb),.22);
@@ -5585,10 +5905,244 @@ function GlobalStyles() {
         letter-spacing: .12em;
       }
 
+      .exams-main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.18fr) minmax(330px, .82fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .exams-panel-card {
+        padding: 20px;
+        min-width: 0;
+      }
+
+      .exams-section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+
+      .exams-section-head.compact {
+        margin-bottom: 14px;
+      }
+
+      .exams-row-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(170px, .7fr) 170px;
+        gap: 12px;
+        padding: 0 12px 8px;
+        color: var(--soft);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-weight: 950;
+      }
+
+      .exams-evaluation-list {
+        display: grid;
+        gap: 9px;
+      }
+
+      .exam-lesson-row {
+        min-height: 72px;
+        border-radius: 15px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(170px, .7fr) 170px;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+      }
+
+      .exam-lesson-row.available,
+      .exam-module-card.available {
+        border-color: rgba(var(--green-rgb),.22);
+        background: linear-gradient(90deg, rgba(var(--green-rgb),.08), rgba(255,255,255,.026));
+      }
+
+      .exam-lesson-row.locked,
+      .exam-module-card.locked {
+        opacity: .72;
+        filter: grayscale(.35);
+      }
+
+      .exam-lesson-row > div {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .exam-lesson-row strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 14px;
+      }
+
+      .exam-lesson-row p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .exam-lesson-row.pending em {
+        border-color: rgba(255,255,255,.12);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.70);
+      }
+
+      .exam-lesson-row.locked em,
+      .exam-module-card.locked em,
+      .exams-final-card .exams-section-head > span {
+        border-color: rgba(255,255,255,.12);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.62);
+      }
+
+      .exams-final-card {
+        display: grid;
+        gap: 14px;
+      }
+
+      .exams-final-visual {
+        min-height: 174px;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.07);
+        background:
+          radial-gradient(circle, rgba(var(--green-rgb),.09), transparent 56%),
+          rgba(0,0,0,.14);
+      }
+
+      .exams-final-ring {
+        width: 138px;
+        height: 138px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+      }
+
+      .exams-final-ring strong {
+        width: 98px;
+        height: 98px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: #080b0a;
+        border: 1px solid rgba(255,255,255,.08);
+        font-size: 30px;
+        letter-spacing: -.05em;
+      }
+
+      .exams-final-status {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .exams-final-status div {
+        border-radius: 13px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        padding: 12px;
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .exams-final-status span {
+        color: var(--soft);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .14em;
+        font-weight: 900;
+      }
+
+      .exams-final-status strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+      }
+
+      .exams-module-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+      }
+
+      .exam-module-card {
+        min-height: 182px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        padding: 14px;
+        display: grid;
+        align-content: start;
+        gap: 10px;
+      }
+
+      .exam-module-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .exam-module-card h3 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.05;
+        letter-spacing: -.035em;
+        font-weight: 950;
+      }
+
+      .exam-module-card.pending em {
+        border-color: rgba(255,255,255,.12);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.70);
+      }
+
       @media (max-width: 1120px) {
-        .exams-standby-hero,
-        .exams-standby-grid {
+        .exams-hero-panel,
+        .exams-structure-grid,
+        .exams-main-grid {
           grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .exams-hero-panel,
+        .exams-panel-card,
+        .exams-structure-card {
+          padding: 18px;
+        }
+
+        .exams-hero-metrics,
+        .exams-row-head,
+        .exam-lesson-row,
+        .exams-final-status {
+          grid-template-columns: 1fr;
+        }
+
+        .exams-row-head {
+          display: none;
+        }
+
+        .exam-lesson-row strong,
+        .exam-lesson-row p,
+        .exams-final-status strong {
+          white-space: normal;
         }
       }
 
