@@ -14,6 +14,13 @@ const GREEN = '#63E546'
 
 type AnyRecord = Record<string, any>
 
+type EvaluationResult = {
+  score: number
+  totalQuestions: number
+  correctAnswers: number
+  passed: boolean
+}
+
 export default function LessonPage() {
   const params = useParams()
   const router = useRouter()
@@ -25,6 +32,15 @@ export default function LessonPage() {
   const [course, setCourse] = useState<AnyRecord | null>(null)
   const [modules, setModules] = useState<AnyRecord[]>([])
   const [currentLesson, setCurrentLesson] = useState<AnyRecord | null>(null)
+
+  const [lessonExam, setLessonExam] = useState<AnyRecord | null>(null)
+  const [lessonQuestions, setLessonQuestions] = useState<AnyRecord[]>([])
+  const [evaluationLoading, setEvaluationLoading] = useState(false)
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({})
+  const [evaluationSubmitting, setEvaluationSubmitting] = useState(false)
+  const [evaluationMessage, setEvaluationMessage] = useState('')
+  const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null)
+
   const [signedAssets, setSignedAssets] = useState<{ video: string; audio: string; pdf: string }>({
     video: '',
     audio: '',
@@ -44,6 +60,11 @@ export default function LessonPage() {
       try {
         setLoading(true)
         setErrorMessage('')
+        setLessonExam(null)
+        setLessonQuestions([])
+        setSelectedAnswers({})
+        setEvaluationResult(null)
+        setEvaluationMessage('')
 
         const { data: userData } = await supabase.auth.getUser()
         setUser(userData?.user || null)
@@ -104,6 +125,8 @@ export default function LessonPage() {
           setCompletedLessons((progressData || []).map((item: AnyRecord) => String(item.lesson_id)))
         }
 
+        await loadLessonEvaluation(activeLesson.id, userData?.user?.id || null)
+
         setLoading(false)
       } catch (error) {
         console.error(error)
@@ -147,7 +170,94 @@ export default function LessonPage() {
 
   useEffect(() => {
     setCompletionMessage('')
+    setEvaluationMessage('')
   }, [lessonId])
+
+  const loadLessonEvaluation = async (activeLessonId: string, activeUserId: string | null) => {
+    try {
+      setEvaluationLoading(true)
+
+      const { data: examData, error: examError } = await supabase
+        .from('exams')
+        .select('*')
+        .eq('lesson_id', activeLessonId)
+        .eq('exam_scope', 'lesson')
+        .eq('status', 'published')
+        .maybeSingle()
+
+      if (examError) {
+        console.error(examError)
+        setLessonExam(null)
+        setLessonQuestions([])
+        return
+      }
+
+      if (!examData) {
+        setLessonExam(null)
+        setLessonQuestions([])
+        return
+      }
+
+      setLessonExam(examData)
+
+      const { data: questionsData, error: questionsError } = await supabase
+        .from('exam_questions')
+        .select('*')
+        .eq('exam_id', examData.id)
+        .order('sort_order', { ascending: true })
+
+      if (questionsError) {
+        console.error(questionsError)
+        setLessonQuestions([])
+        setEvaluationMessage('La evaluación existe, pero no se pudieron cargar sus preguntas.')
+        return
+      }
+
+      setLessonQuestions(questionsData || [])
+
+      if (activeUserId) {
+        const { data: latestAttempt } = await supabase
+          .from('exam_attempts')
+          .select('*')
+          .eq('user_id', activeUserId)
+          .eq('exam_id', examData.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (latestAttempt) {
+          setEvaluationResult({
+            score: Number(latestAttempt.score || 0),
+            totalQuestions: Number(latestAttempt.total_questions || 0),
+            correctAnswers: Number(latestAttempt.correct_answers || 0),
+            passed: Boolean(latestAttempt.passed)
+          })
+
+          if (latestAttempt.answers && typeof latestAttempt.answers === 'object') {
+            const restoredAnswers: Record<string, string> = {}
+
+            const storedAnswers = Array.isArray(latestAttempt.answers)
+              ? latestAttempt.answers
+              : latestAttempt.answers?.answers || []
+
+            storedAnswers.forEach((item: AnyRecord) => {
+              if (item?.question_id && item?.selected_answer) {
+                restoredAnswers[String(item.question_id)] = String(item.selected_answer)
+              }
+            })
+
+            setSelectedAnswers(restoredAnswers)
+          }
+        }
+      }
+    } catch (error) {
+      console.error(error)
+      setLessonExam(null)
+      setLessonQuestions([])
+    } finally {
+      setEvaluationLoading(false)
+    }
+  }
 
   const allLessons = useMemo(() => {
     return modules.flatMap((module: AnyRecord) => module.lessons || [])
@@ -212,6 +322,13 @@ export default function LessonPage() {
   const hasAnyAsset = Boolean(videoUrl || audioUrl || pdfUrl)
   const isMixed = rawLessonType === 'mixed' || rawLessonType === 'mixto'
 
+  const lessonExamPassScore = Number(lessonExam?.pass_score || lessonExam?.passing_score || 70)
+  const lessonExamAvailable = Boolean(lessonExam && lessonQuestions.length > 0)
+  const canSubmitEvaluation =
+    currentLessonCompleted &&
+    lessonExamAvailable &&
+    lessonQuestions.every((question: AnyRecord) => Boolean(selectedAnswers[String(question.id)]))
+
   const goToLesson = (id: string) => {
     router.push(`/cursos/${slug}/${id}`)
   }
@@ -268,12 +385,114 @@ export default function LessonPage() {
           : [...prev, String(currentLesson.id)]
       )
 
-      setCompletionMessage('Lección completada correctamente. Tu progreso se ha actualizado.')
+      setCompletionMessage(
+        lessonExamAvailable
+          ? 'Lección completada correctamente. La evaluación de esta lección ya está disponible.'
+          : 'Lección completada correctamente. Tu progreso se ha actualizado.'
+      )
     } catch (error) {
       console.error(error)
       setCompletionMessage('Ha ocurrido un error inesperado al guardar el progreso.')
     } finally {
       setCompletionSaving(false)
+    }
+  }
+
+  const selectEvaluationAnswer = (questionId: string, option: string) => {
+    if (evaluationResult) return
+
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [questionId]: option
+    }))
+
+    setEvaluationMessage('')
+  }
+
+  const submitLessonEvaluation = async () => {
+    if (!user?.id) {
+      setEvaluationMessage('Para guardar tu evaluación, primero debes iniciar sesión.')
+      return
+    }
+
+    if (!lessonExam?.id || !course?.id) {
+      setEvaluationMessage('No se ha encontrado una evaluación válida para esta lección.')
+      return
+    }
+
+    if (!currentLessonCompleted) {
+      setEvaluationMessage('Primero marca la lección como completada para desbloquear la evaluación.')
+      return
+    }
+
+    if (!lessonQuestions.length) {
+      setEvaluationMessage('Esta evaluación todavía no tiene preguntas configuradas.')
+      return
+    }
+
+    if (!canSubmitEvaluation) {
+      setEvaluationMessage('Responde todas las preguntas antes de enviar la evaluación.')
+      return
+    }
+
+    try {
+      setEvaluationSubmitting(true)
+      setEvaluationMessage('Corrigiendo evaluación...')
+
+      const evaluatedAnswers = lessonQuestions.map((question: AnyRecord) => {
+        const selected = selectedAnswers[String(question.id)]
+        const correct = normalizeOption(selected) === normalizeOption(question.correct_option)
+
+        return {
+          question_id: question.id,
+          question: question.question,
+          selected_answer: selected,
+          correct_answer: question.correct_option,
+          is_correct: correct
+        }
+      })
+
+      const correctAnswers = evaluatedAnswers.filter((answer) => answer.is_correct).length
+      const totalQuestions = lessonQuestions.length
+      const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0
+      const passed = score >= lessonExamPassScore
+
+      const { error } = await supabase.from('exam_attempts').insert({
+        user_id: user.id,
+        course_id: course.id,
+        exam_id: lessonExam.id,
+        score,
+        total_questions: totalQuestions,
+        correct_answers: correctAnswers,
+        passed,
+        answers: evaluatedAnswers,
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString()
+      })
+
+      if (error) {
+        console.error(error)
+        setEvaluationMessage('No se pudo guardar el intento de evaluación. Revisa Supabase o inténtalo de nuevo.')
+        return
+      }
+
+      setEvaluationResult({
+        score,
+        totalQuestions,
+        correctAnswers,
+        passed
+      })
+
+      setEvaluationMessage(
+        passed
+          ? 'Evaluación superada. Resultado guardado correctamente.'
+          : 'Evaluación enviada. No has alcanzado la puntuación mínima, pero el intento quedó guardado.'
+      )
+    } catch (error) {
+      console.error(error)
+      setEvaluationMessage('Ha ocurrido un error inesperado al enviar la evaluación.')
+    } finally {
+      setEvaluationSubmitting(false)
     }
   }
 
@@ -522,6 +741,116 @@ export default function LessonPage() {
               </div>
             </section>
 
+            <section className={lessonExam ? 'evaluation-card' : 'evaluation-card empty-evaluation'}>
+              <div className="evaluation-head">
+                <div>
+                  <p>Evaluación de lección</p>
+                  <h2>
+                    {lessonExam
+                      ? lessonExam.title || 'Evaluación disponible'
+                      : evaluationLoading
+                        ? 'Buscando evaluación...'
+                        : 'Sin evaluación publicada'}
+                  </h2>
+                </div>
+
+                {lessonExam ? (
+                  <span className={currentLessonCompleted ? 'evaluation-pill available' : 'evaluation-pill locked'}>
+                    {currentLessonCompleted ? 'Disponible' : 'Bloqueada'}
+                  </span>
+                ) : null}
+              </div>
+
+              {evaluationLoading ? (
+                <div className="evaluation-empty">
+                  Cargando evaluación asociada a esta lección...
+                </div>
+              ) : !lessonExam ? (
+                <div className="evaluation-empty">
+                  Esta lección todavía no tiene una evaluación publicada.
+                </div>
+              ) : !currentLessonCompleted ? (
+                <div className="evaluation-empty locked-copy">
+                  Marca la lección como completada para desbloquear esta evaluación.
+                </div>
+              ) : lessonQuestions.length === 0 ? (
+                <div className="evaluation-empty">
+                  La evaluación está publicada, pero todavía no tiene preguntas configuradas.
+                </div>
+              ) : (
+                <div className="evaluation-body">
+                  <div className="evaluation-meta">
+                    <span>{lessonQuestions.length} pregunta{lessonQuestions.length === 1 ? '' : 's'}</span>
+                    <span>Puntuación mínima: {lessonExamPassScore}%</span>
+                    {evaluationResult ? (
+                      <strong className={evaluationResult.passed ? 'passed' : 'failed'}>
+                        {evaluationResult.passed ? 'Superada' : 'No superada'} · {evaluationResult.score}%
+                      </strong>
+                    ) : null}
+                  </div>
+
+                  <div className="question-list">
+                    {lessonQuestions.map((question: AnyRecord, questionIndex: number) => {
+                      const questionId = String(question.id)
+                      const selected = selectedAnswers[questionId]
+                      const options = getQuestionOptions(question)
+
+                      return (
+                        <article key={question.id} className="question-card">
+                          <div className="question-title">
+                            <span>{questionIndex + 1}</span>
+                            <h3>{question.question || 'Pregunta sin título'}</h3>
+                          </div>
+
+                          <div className="answer-grid">
+                            {options.map((option) => {
+                              const active = selected === option.key
+
+                              return (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  className={active ? 'answer-option selected' : 'answer-option'}
+                                  onClick={() => selectEvaluationAnswer(questionId, option.key)}
+                                  disabled={Boolean(evaluationResult)}
+                                >
+                                  <span>{option.key}</span>
+                                  <strong>{option.text}</strong>
+                                </button>
+                              )
+                            })}
+                          </div>
+
+                          {evaluationResult && question.explanation ? (
+                            <p className="question-explanation">{question.explanation}</p>
+                          ) : null}
+                        </article>
+                      )
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="submit-evaluation"
+                    onClick={submitLessonEvaluation}
+                    disabled={evaluationSubmitting || Boolean(evaluationResult)}
+                  >
+                    {evaluationSubmitting
+                      ? 'Enviando evaluación...'
+                      : evaluationResult
+                        ? 'Evaluación enviada'
+                        : 'Enviar evaluación'}
+                  </button>
+
+                  {evaluationMessage ? (
+                    <span className={evaluationResult?.passed ? 'evaluation-message success' : 'evaluation-message'}>
+                      {evaluationMessage}
+                    </span>
+                  ) : null}
+                </div>
+              )}
+            </section>
+
             <section className="bottom-navigation">
               {previousLesson ? (
                 <button type="button" onClick={() => goToLesson(String(previousLesson.id))}>
@@ -564,6 +893,7 @@ export default function LessonPage() {
               <div><span>Tipo</span><strong>{lessonType}</strong></div>
               <div><span>Duración</span><strong>{Number(currentLesson?.duration_minutes || 0) > 0 ? `${Number(currentLesson?.duration_minutes || 0)} min` : '—'}</strong></div>
               <div><span>Estado</span><strong className={currentLessonCompleted ? 'green' : ''}>{currentLessonCompleted ? 'Completada' : 'En progreso'}</strong></div>
+              <div><span>Evaluación</span><strong className={lessonExam ? 'green' : ''}>{lessonExam ? 'Disponible' : 'No publicada'}</strong></div>
             </section>
 
             <section className="panel-card resources-card">
@@ -581,7 +911,7 @@ export default function LessonPage() {
               </div>
               <p>
                 {currentModuleCompleted
-                  ? 'Módulo completado. La evaluación quedará disponible en la siguiente fase.'
+                  ? 'Módulo completado. Revisa el examen de módulo cuando esté disponible.'
                   : `${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas.`}
               </p>
               <em>Examen del módulo · Próximamente</em>
@@ -591,7 +921,9 @@ export default function LessonPage() {
               <h3>{currentLessonCompleted ? 'Lección completada' : 'Finalizar lección'}</h3>
               <p>
                 {currentLessonCompleted
-                  ? 'Esta lección ya cuenta para tu avance.'
+                  ? lessonExam
+                    ? 'Esta lección ya cuenta para tu avance. La evaluación está disponible en el bloque central.'
+                    : 'Esta lección ya cuenta para tu avance.'
                   : 'Marca la lección como completada cuando termines el contenido.'}
               </p>
               <button
@@ -817,6 +1149,19 @@ function findAssetPath(values: any[], extensions: string[]) {
   return externalUrl || ''
 }
 
+function getQuestionOptions(question: AnyRecord) {
+  return [
+    { key: 'A', text: question.option_a },
+    { key: 'B', text: question.option_b },
+    { key: 'C', text: question.option_c },
+    { key: 'D', text: question.option_d }
+  ].filter((option) => Boolean(option.text))
+}
+
+function normalizeOption(value: any) {
+  return String(value || '').trim().toUpperCase()
+}
+
 function withLessonTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs)
@@ -896,6 +1241,7 @@ function GlobalStyles() {
         --muted: rgba(244,246,242,.62);
         --soft: rgba(244,246,242,.44);
         --gold: #d6b25e;
+        --red: #ff6b6b;
       }
 
       * {
@@ -1359,6 +1705,7 @@ function GlobalStyles() {
 
       .viewer-card,
       .description-card,
+      .evaluation-card,
       .bottom-navigation button,
       .bottom-navigation div,
       .panel-card,
@@ -1522,11 +1869,13 @@ function GlobalStyles() {
         line-height: 1.7;
       }
 
-      .description-card {
+      .description-card,
+      .evaluation-card {
         padding: 24px;
       }
 
-      .description-card h2 {
+      .description-card h2,
+      .evaluation-card h2 {
         margin: 0 0 8px;
         color: var(--white);
         font-size: 20px;
@@ -1565,6 +1914,242 @@ function GlobalStyles() {
         content: '✓';
         color: var(--green);
         margin-right: 8px;
+      }
+
+      .evaluation-card {
+        border-color: rgba(var(--green-rgb), .16);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .10), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+          rgba(8,12,10,.94);
+      }
+
+      .evaluation-card.empty-evaluation {
+        border-color: rgba(255,255,255,.08);
+      }
+
+      .evaluation-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .evaluation-head p {
+        margin: 0 0 8px;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: .16em;
+        font-size: 10px;
+        font-weight: 950;
+      }
+
+      .evaluation-pill {
+        min-height: 30px;
+        border-radius: 999px;
+        padding: 7px 11px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+      }
+
+      .evaluation-pill.available {
+        border: 1px solid rgba(var(--green-rgb), .28);
+        background: rgba(var(--green-rgb), .10);
+        color: var(--green);
+      }
+
+      .evaluation-pill.locked {
+        border: 1px solid rgba(214,178,94,.24);
+        background: rgba(214,178,94,.08);
+        color: var(--gold);
+      }
+
+      .evaluation-empty {
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        padding: 18px;
+        color: rgba(244,246,242,.62);
+        line-height: 1.55;
+      }
+
+      .locked-copy {
+        border-color: rgba(214,178,94,.18);
+        color: rgba(244,246,242,.68);
+      }
+
+      .evaluation-body {
+        display: grid;
+        gap: 18px;
+      }
+
+      .evaluation-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .evaluation-meta span,
+      .evaluation-meta strong {
+        min-height: 30px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,.09);
+        background: rgba(255,255,255,.035);
+        color: rgba(244,246,242,.70);
+        padding: 7px 11px;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .evaluation-meta strong.passed {
+        border-color: rgba(var(--green-rgb), .28);
+        background: rgba(var(--green-rgb), .10);
+        color: var(--green);
+      }
+
+      .evaluation-meta strong.failed {
+        border-color: rgba(255,107,107,.26);
+        background: rgba(255,107,107,.08);
+        color: var(--red);
+      }
+
+      .question-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .question-card {
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.026);
+        padding: 18px;
+      }
+
+      .question-title {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        margin-bottom: 14px;
+      }
+
+      .question-title span {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(var(--green-rgb), .24);
+        background: rgba(var(--green-rgb), .08);
+        color: var(--green);
+        font-size: 13px;
+        font-weight: 950;
+      }
+
+      .question-title h3 {
+        margin: 5px 0 0;
+        color: var(--white);
+        font-size: 16px;
+        line-height: 1.35;
+      }
+
+      .answer-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .answer-option {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 13px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.028);
+        color: rgba(244,246,242,.76);
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .answer-option span {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.11);
+        color: rgba(244,246,242,.62);
+        font-size: 12px;
+        font-weight: 950;
+      }
+
+      .answer-option strong {
+        color: inherit;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .answer-option.selected {
+        border-color: rgba(var(--green-rgb), .34);
+        background: rgba(var(--green-rgb), .095);
+        color: var(--white);
+      }
+
+      .answer-option.selected span {
+        border-color: rgba(var(--green-rgb), .34);
+        background: rgba(var(--green-rgb), .13);
+        color: var(--green);
+      }
+
+      .answer-option:disabled {
+        cursor: default;
+        opacity: .82;
+      }
+
+      .question-explanation {
+        margin: 14px 0 0;
+        border-top: 1px solid rgba(255,255,255,.075);
+        padding-top: 12px;
+        color: rgba(244,246,242,.64);
+        line-height: 1.55;
+        font-size: 13px;
+      }
+
+      .submit-evaluation {
+        min-height: 46px;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .30);
+        background: linear-gradient(135deg, var(--green), #7bee65);
+        color: #061008;
+        padding: 0 18px;
+        font-weight: 950;
+        cursor: pointer;
+      }
+
+      .submit-evaluation:disabled {
+        opacity: .72;
+        cursor: default;
+      }
+
+      .evaluation-message {
+        color: rgba(244,246,242,.72);
+        line-height: 1.55;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .evaluation-message.success {
+        color: var(--green);
       }
 
       .bottom-navigation {
@@ -1871,6 +2456,10 @@ function GlobalStyles() {
         .pdf-actions a {
           flex: 1;
           min-width: 150px;
+        }
+
+        .evaluation-head {
+          flex-direction: column;
         }
       }
     `}</style>
