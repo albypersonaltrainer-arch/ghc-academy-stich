@@ -14,11 +14,33 @@ const GREEN = '#63E546'
 
 type AnyRecord = Record<string, any>
 
-type EvaluationResult = {
+type ExamKind = 'lesson' | 'module'
+
+type ExamResult = {
   score: number
   totalQuestions: number
   correctAnswers: number
   passed: boolean
+}
+
+type ExamState = {
+  exam: AnyRecord | null
+  questions: AnyRecord[]
+  selectedAnswers: Record<string, string>
+  result: ExamResult | null
+  message: string
+  loading: boolean
+  submitting: boolean
+}
+
+const emptyExamState: ExamState = {
+  exam: null,
+  questions: [],
+  selectedAnswers: {},
+  result: null,
+  message: '',
+  loading: false,
+  submitting: false
 }
 
 export default function LessonPage() {
@@ -33,19 +55,16 @@ export default function LessonPage() {
   const [modules, setModules] = useState<AnyRecord[]>([])
   const [currentLesson, setCurrentLesson] = useState<AnyRecord | null>(null)
 
-  const [lessonExam, setLessonExam] = useState<AnyRecord | null>(null)
-  const [lessonQuestions, setLessonQuestions] = useState<AnyRecord[]>([])
-  const [evaluationLoading, setEvaluationLoading] = useState(false)
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({})
-  const [evaluationSubmitting, setEvaluationSubmitting] = useState(false)
-  const [evaluationMessage, setEvaluationMessage] = useState('')
-  const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null)
+  const [lessonExamState, setLessonExamState] = useState<ExamState>(emptyExamState)
+  const [moduleExamState, setModuleExamState] = useState<ExamState>(emptyExamState)
+  const [moduleCompletion, setModuleCompletion] = useState<AnyRecord | null>(null)
 
   const [signedAssets, setSignedAssets] = useState<{ video: string; audio: string; pdf: string }>({
     video: '',
     audio: '',
     pdf: ''
   })
+
   const [assetLoading, setAssetLoading] = useState(false)
   const [pdfFullscreen, setPdfFullscreen] = useState(false)
   const [videoFullscreen, setVideoFullscreen] = useState(false)
@@ -60,14 +79,14 @@ export default function LessonPage() {
       try {
         setLoading(true)
         setErrorMessage('')
-        setLessonExam(null)
-        setLessonQuestions([])
-        setSelectedAnswers({})
-        setEvaluationResult(null)
-        setEvaluationMessage('')
+        setCompletionMessage('')
+        setModuleCompletion(null)
+        setLessonExamState({ ...emptyExamState, loading: true })
+        setModuleExamState({ ...emptyExamState, loading: true })
 
         const { data: userData } = await supabase.auth.getUser()
-        setUser(userData?.user || null)
+        const activeUser = userData?.user || null
+        setUser(activeUser)
 
         const { data: courseData, error: courseError } = await supabase
           .from('courses')
@@ -114,18 +133,47 @@ export default function LessonPage() {
 
         setCurrentLesson(activeLesson)
 
-        if (userData?.user?.id) {
+        const activeModule =
+          orderedModules.find((module: AnyRecord) =>
+            (module.lessons || []).some((lesson: AnyRecord) => String(lesson.id) === lessonId)
+          ) || null
+
+        let completedIds: string[] = []
+
+        if (activeUser?.id) {
           const { data: progressData } = await supabase
             .from('lesson_progress')
             .select('lesson_id')
-            .eq('user_id', userData.user.id)
+            .eq('user_id', activeUser.id)
             .eq('course_id', courseData.id)
             .eq('completed', true)
 
-          setCompletedLessons((progressData || []).map((item: AnyRecord) => String(item.lesson_id)))
+          completedIds = (progressData || []).map((item: AnyRecord) => String(item.lesson_id))
+          setCompletedLessons(completedIds)
+        } else {
+          setCompletedLessons([])
         }
 
-        await loadLessonEvaluation(activeLesson.id, userData?.user?.id || null)
+        await Promise.all([
+          loadExam({
+            kind: 'lesson',
+            courseId: courseData.id,
+            moduleId: activeLesson.module_id || null,
+            lessonId: activeLesson.id,
+            userId: activeUser?.id || null
+          }),
+          loadExam({
+            kind: 'module',
+            courseId: courseData.id,
+            moduleId: activeModule?.id || activeLesson.module_id || null,
+            lessonId: null,
+            userId: activeUser?.id || null
+          }),
+          loadModuleCompletion({
+            userId: activeUser?.id || null,
+            moduleId: activeModule?.id || activeLesson.module_id || null
+          })
+        ])
 
         setLoading(false)
       } catch (error) {
@@ -170,94 +218,9 @@ export default function LessonPage() {
 
   useEffect(() => {
     setCompletionMessage('')
-    setEvaluationMessage('')
+    setLessonExamState((prev) => ({ ...prev, message: '' }))
+    setModuleExamState((prev) => ({ ...prev, message: '' }))
   }, [lessonId])
-
-  const loadLessonEvaluation = async (activeLessonId: string, activeUserId: string | null) => {
-    try {
-      setEvaluationLoading(true)
-
-      const { data: examData, error: examError } = await supabase
-        .from('exams')
-        .select('*')
-        .eq('lesson_id', activeLessonId)
-        .eq('exam_scope', 'lesson')
-        .eq('status', 'published')
-        .maybeSingle()
-
-      if (examError) {
-        console.error(examError)
-        setLessonExam(null)
-        setLessonQuestions([])
-        return
-      }
-
-      if (!examData) {
-        setLessonExam(null)
-        setLessonQuestions([])
-        return
-      }
-
-      setLessonExam(examData)
-
-      const { data: questionsData, error: questionsError } = await supabase
-        .from('exam_questions')
-        .select('*')
-        .eq('exam_id', examData.id)
-        .order('sort_order', { ascending: true })
-
-      if (questionsError) {
-        console.error(questionsError)
-        setLessonQuestions([])
-        setEvaluationMessage('La evaluación existe, pero no se pudieron cargar sus preguntas.')
-        return
-      }
-
-      setLessonQuestions(questionsData || [])
-
-      if (activeUserId) {
-        const { data: latestAttempt } = await supabase
-          .from('exam_attempts')
-          .select('*')
-          .eq('user_id', activeUserId)
-          .eq('exam_id', examData.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (latestAttempt) {
-          setEvaluationResult({
-            score: Number(latestAttempt.score || 0),
-            totalQuestions: Number(latestAttempt.total_questions || 0),
-            correctAnswers: Number(latestAttempt.correct_answers || 0),
-            passed: Boolean(latestAttempt.passed)
-          })
-
-          if (latestAttempt.answers && typeof latestAttempt.answers === 'object') {
-            const restoredAnswers: Record<string, string> = {}
-
-            const storedAnswers = Array.isArray(latestAttempt.answers)
-              ? latestAttempt.answers
-              : latestAttempt.answers?.answers || []
-
-            storedAnswers.forEach((item: AnyRecord) => {
-              if (item?.question_id && item?.selected_answer) {
-                restoredAnswers[String(item.question_id)] = String(item.selected_answer)
-              }
-            })
-
-            setSelectedAnswers(restoredAnswers)
-          }
-        }
-      }
-    } catch (error) {
-      console.error(error)
-      setLessonExam(null)
-      setLessonQuestions([])
-    } finally {
-      setEvaluationLoading(false)
-    }
-  }
 
   const allLessons = useMemo(() => {
     return modules.flatMap((module: AnyRecord) => module.lessons || [])
@@ -321,13 +284,7 @@ export default function LessonPage() {
   const pdfUrl = signedAssets.pdf || ''
   const hasAnyAsset = Boolean(videoUrl || audioUrl || pdfUrl)
   const isMixed = rawLessonType === 'mixed' || rawLessonType === 'mixto'
-
-  const lessonExamPassScore = Number(lessonExam?.pass_score || lessonExam?.passing_score || 70)
-  const lessonExamAvailable = Boolean(lessonExam && lessonQuestions.length > 0)
-  const canSubmitEvaluation =
-    currentLessonCompleted &&
-    lessonExamAvailable &&
-    lessonQuestions.every((question: AnyRecord) => Boolean(selectedAnswers[String(question.id)]))
+  const moduleAlreadyCompleted = Boolean(moduleCompletion?.completed || moduleExamState.result?.passed)
 
   const goToLesson = (id: string) => {
     router.push(`/cursos/${slug}/${id}`)
@@ -339,6 +296,159 @@ export default function LessonPage() {
 
   const goToCatalog = () => {
     router.push('/cursos')
+  }
+
+  const loadExam = async ({
+    kind,
+    courseId,
+    moduleId,
+    lessonId,
+    userId
+  }: {
+    kind: ExamKind
+    courseId: string
+    moduleId: string | null
+    lessonId: string | null
+    userId: string | null
+  }) => {
+    const setState = kind === 'lesson' ? setLessonExamState : setModuleExamState
+
+    try {
+      setState({ ...emptyExamState, loading: true })
+
+      let query = supabase
+        .from('exams')
+        .select('*')
+        .eq('course_id', courseId)
+        .eq('exam_scope', kind)
+        .eq('status', 'published')
+
+      if (kind === 'lesson') {
+        if (!lessonId) {
+          setState({ ...emptyExamState, loading: false })
+          return
+        }
+
+        query = query.eq('lesson_id', lessonId)
+      }
+
+      if (kind === 'module') {
+        if (!moduleId) {
+          setState({ ...emptyExamState, loading: false })
+          return
+        }
+
+        query = query.eq('module_id', moduleId)
+      }
+
+      const { data: examData, error: examError } = await query.limit(1).maybeSingle()
+
+      if (examError) {
+        console.error(examError)
+        setState({
+          ...emptyExamState,
+          loading: false,
+          message: `No se pudo cargar el ${kind === 'lesson' ? 'examen de lección' : 'examen de módulo'}.`
+        })
+        return
+      }
+
+      if (!examData) {
+        setState({ ...emptyExamState, loading: false })
+        return
+      }
+
+      const { data: questionsData, error: questionsError } = await supabase
+        .from('exam_questions')
+        .select('*')
+        .eq('exam_id', examData.id)
+        .order('sort_order', { ascending: true })
+
+      if (questionsError) {
+        console.error(questionsError)
+        setState({
+          ...emptyExamState,
+          exam: examData,
+          loading: false,
+          message: 'El examen existe, pero no se pudieron cargar sus preguntas.'
+        })
+        return
+      }
+
+      let restoredAnswers: Record<string, string> = {}
+      let restoredResult: ExamResult | null = null
+
+      if (userId) {
+        const { data: latestAttempt } = await supabase
+          .from('exam_attempts')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('exam_id', examData.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (latestAttempt) {
+          restoredResult = {
+            score: Number(latestAttempt.score || 0),
+            totalQuestions: Number(latestAttempt.total_questions || 0),
+            correctAnswers: Number(latestAttempt.correct_answers || 0),
+            passed: Boolean(latestAttempt.passed)
+          }
+
+          const storedAnswers = Array.isArray(latestAttempt.answers)
+            ? latestAttempt.answers
+            : latestAttempt.answers?.answers || []
+
+          storedAnswers.forEach((item: AnyRecord) => {
+            if (item?.question_id && item?.selected_answer) {
+              restoredAnswers[String(item.question_id)] = String(item.selected_answer)
+            }
+          })
+        }
+      }
+
+      setState({
+        exam: examData,
+        questions: questionsData || [],
+        selectedAnswers: restoredAnswers,
+        result: restoredResult,
+        message: '',
+        loading: false,
+        submitting: false
+      })
+    } catch (error) {
+      console.error(error)
+      setState({
+        ...emptyExamState,
+        loading: false,
+        message: 'Ha ocurrido un error inesperado al cargar el examen.'
+      })
+    }
+  }
+
+  const loadModuleCompletion = async ({
+    userId,
+    moduleId
+  }: {
+    userId: string | null
+    moduleId: string | null
+  }) => {
+    if (!userId || !moduleId) {
+      setModuleCompletion(null)
+      return
+    }
+
+    const { data } = await supabase
+      .from('module_completions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('module_id', moduleId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    setModuleCompletion(data || null)
   }
 
   const markAsCompleted = async () => {
@@ -386,7 +496,7 @@ export default function LessonPage() {
       )
 
       setCompletionMessage(
-        lessonExamAvailable
+        lessonExamState.exam
           ? 'Lección completada correctamente. La evaluación de esta lección ya está disponible.'
           : 'Lección completada correctamente. Tu progreso se ha actualizado.'
       )
@@ -398,49 +508,66 @@ export default function LessonPage() {
     }
   }
 
-  const selectEvaluationAnswer = (questionId: string, option: string) => {
-    if (evaluationResult) return
+  const selectExamAnswer = (kind: ExamKind, questionId: string, option: string) => {
+    const setState = kind === 'lesson' ? setLessonExamState : setModuleExamState
 
-    setSelectedAnswers((prev) => ({
-      ...prev,
-      [questionId]: option
-    }))
+    setState((prev) => {
+      if (prev.result) return prev
 
-    setEvaluationMessage('')
+      return {
+        ...prev,
+        selectedAnswers: {
+          ...prev.selectedAnswers,
+          [questionId]: option
+        },
+        message: ''
+      }
+    })
   }
 
-  const submitLessonEvaluation = async () => {
+  const submitExam = async (kind: ExamKind) => {
+    const state = kind === 'lesson' ? lessonExamState : moduleExamState
+    const setState = kind === 'lesson' ? setLessonExamState : setModuleExamState
+
     if (!user?.id) {
-      setEvaluationMessage('Para guardar tu evaluación, primero debes iniciar sesión.')
+      setState((prev) => ({ ...prev, message: 'Para guardar el examen, primero debes iniciar sesión.' }))
       return
     }
 
-    if (!lessonExam?.id || !course?.id) {
-      setEvaluationMessage('No se ha encontrado una evaluación válida para esta lección.')
+    if (!course?.id || !state.exam?.id) {
+      setState((prev) => ({ ...prev, message: 'No se ha encontrado un examen válido.' }))
       return
     }
 
-    if (!currentLessonCompleted) {
-      setEvaluationMessage('Primero marca la lección como completada para desbloquear la evaluación.')
+    if (kind === 'lesson' && !currentLessonCompleted) {
+      setState((prev) => ({ ...prev, message: 'Primero marca la lección como completada para desbloquear la evaluación.' }))
       return
     }
 
-    if (!lessonQuestions.length) {
-      setEvaluationMessage('Esta evaluación todavía no tiene preguntas configuradas.')
+    if (kind === 'module' && !currentModuleCompleted) {
+      setState((prev) => ({ ...prev, message: 'Primero completa todas las lecciones del módulo para desbloquear el examen.' }))
       return
     }
 
-    if (!canSubmitEvaluation) {
-      setEvaluationMessage('Responde todas las preguntas antes de enviar la evaluación.')
+    if (!state.questions.length) {
+      setState((prev) => ({ ...prev, message: 'Este examen todavía no tiene preguntas configuradas.' }))
+      return
+    }
+
+    const allAnswered = state.questions.every((question: AnyRecord) =>
+      Boolean(state.selectedAnswers[String(question.id)])
+    )
+
+    if (!allAnswered) {
+      setState((prev) => ({ ...prev, message: 'Responde todas las preguntas antes de enviar.' }))
       return
     }
 
     try {
-      setEvaluationSubmitting(true)
-      setEvaluationMessage('Corrigiendo evaluación...')
+      setState((prev) => ({ ...prev, submitting: true, message: 'Corrigiendo examen...' }))
 
-      const evaluatedAnswers = lessonQuestions.map((question: AnyRecord) => {
-        const selected = selectedAnswers[String(question.id)]
+      const evaluatedAnswers = state.questions.map((question: AnyRecord) => {
+        const selected = state.selectedAnswers[String(question.id)]
         const correct = normalizeOption(selected) === normalizeOption(question.correct_option)
 
         return {
@@ -453,47 +580,124 @@ export default function LessonPage() {
       })
 
       const correctAnswers = evaluatedAnswers.filter((answer) => answer.is_correct).length
-      const totalQuestions = lessonQuestions.length
+      const totalQuestions = state.questions.length
       const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0
-      const passed = score >= lessonExamPassScore
+      const passScore = Number(state.exam.pass_score || state.exam.passing_score || 70)
+      const passed = score >= passScore
 
-      const { error } = await supabase.from('exam_attempts').insert({
-        user_id: user.id,
-        course_id: course.id,
-        exam_id: lessonExam.id,
-        score,
-        total_questions: totalQuestions,
-        correct_answers: correctAnswers,
-        passed,
-        answers: evaluatedAnswers,
-        started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString()
-      })
+      const { data: attemptData, error: attemptError } = await supabase
+        .from('exam_attempts')
+        .insert({
+          user_id: user.id,
+          course_id: course.id,
+          exam_id: state.exam.id,
+          score,
+          total_questions: totalQuestions,
+          correct_answers: correctAnswers,
+          passed,
+          answers: evaluatedAnswers,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString()
+        })
+        .select('*')
+        .maybeSingle()
 
-      if (error) {
-        console.error(error)
-        setEvaluationMessage('No se pudo guardar el intento de evaluación. Revisa Supabase o inténtalo de nuevo.')
+      if (attemptError) {
+        console.error(attemptError)
+        setState((prev) => ({
+          ...prev,
+          submitting: false,
+          message: 'No se pudo guardar el intento. Revisa Supabase o inténtalo de nuevo.'
+        }))
         return
       }
 
-      setEvaluationResult({
+      const result = {
         score,
         totalQuestions,
         correctAnswers,
         passed
-      })
+      }
 
-      setEvaluationMessage(
-        passed
-          ? 'Evaluación superada. Resultado guardado correctamente.'
-          : 'Evaluación enviada. No has alcanzado la puntuación mínima, pero el intento quedó guardado.'
-      )
+      setState((prev) => ({
+        ...prev,
+        result,
+        submitting: false,
+        message: passed
+          ? kind === 'module'
+            ? 'Examen de módulo superado. El módulo ha quedado registrado como completado.'
+            : 'Evaluación superada. Resultado guardado correctamente.'
+          : 'Examen enviado. No has alcanzado la puntuación mínima, pero el intento quedó guardado.'
+      }))
+
+      if (kind === 'module' && passed && currentModule?.id) {
+        await saveModuleCompletion({
+          examAttemptId: attemptData?.id || null,
+          score
+        })
+      }
     } catch (error) {
       console.error(error)
-      setEvaluationMessage('Ha ocurrido un error inesperado al enviar la evaluación.')
-    } finally {
-      setEvaluationSubmitting(false)
+      setState((prev) => ({
+        ...prev,
+        submitting: false,
+        message: 'Ha ocurrido un error inesperado al enviar el examen.'
+      }))
     }
+  }
+
+  const saveModuleCompletion = async ({
+    examAttemptId,
+    score
+  }: {
+    examAttemptId: string | null
+    score: number
+  }) => {
+    if (!user?.id || !course?.id || !currentModule?.id || !moduleExamState.exam?.id) return
+
+    const payload = {
+      user_id: user.id,
+      course_id: course.id,
+      module_id: currentModule.id,
+      exam_id: moduleExamState.exam.id,
+      exam_attempt_id: examAttemptId,
+      completed: true,
+      final_score: score,
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    const { data: existing } = await supabase
+      .from('module_completions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('module_id', currentModule.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existing?.id) {
+      const { data, error } = await supabase
+        .from('module_completions')
+        .update(payload)
+        .eq('id', existing.id)
+        .select('*')
+        .maybeSingle()
+
+      if (!error) setModuleCompletion(data || payload)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('module_completions')
+      .insert({
+        ...payload,
+        created_at: new Date().toISOString()
+      })
+      .select('*')
+      .maybeSingle()
+
+    if (!error) setModuleCompletion(data || payload)
   }
 
   if (loading) {
@@ -741,115 +945,30 @@ export default function LessonPage() {
               </div>
             </section>
 
-            <section className={lessonExam ? 'evaluation-card' : 'evaluation-card empty-evaluation'}>
-              <div className="evaluation-head">
-                <div>
-                  <p>Evaluación de lección</p>
-                  <h2>
-                    {lessonExam
-                      ? lessonExam.title || 'Evaluación disponible'
-                      : evaluationLoading
-                        ? 'Buscando evaluación...'
-                        : 'Sin evaluación publicada'}
-                  </h2>
-                </div>
+            <ExamBlock
+              kind="lesson"
+              titleLabel="Evaluación de lección"
+              emptyTitle="Sin evaluación publicada"
+              loadingTitle="Buscando evaluación..."
+              lockedText="Marca la lección como completada para desbloquear esta evaluación."
+              unlocked={currentLessonCompleted}
+              state={lessonExamState}
+              onSelect={(questionId, option) => selectExamAnswer('lesson', questionId, option)}
+              onSubmit={() => submitExam('lesson')}
+            />
 
-                {lessonExam ? (
-                  <span className={currentLessonCompleted ? 'evaluation-pill available' : 'evaluation-pill locked'}>
-                    {currentLessonCompleted ? 'Disponible' : 'Bloqueada'}
-                  </span>
-                ) : null}
-              </div>
-
-              {evaluationLoading ? (
-                <div className="evaluation-empty">
-                  Cargando evaluación asociada a esta lección...
-                </div>
-              ) : !lessonExam ? (
-                <div className="evaluation-empty">
-                  Esta lección todavía no tiene una evaluación publicada.
-                </div>
-              ) : !currentLessonCompleted ? (
-                <div className="evaluation-empty locked-copy">
-                  Marca la lección como completada para desbloquear esta evaluación.
-                </div>
-              ) : lessonQuestions.length === 0 ? (
-                <div className="evaluation-empty">
-                  La evaluación está publicada, pero todavía no tiene preguntas configuradas.
-                </div>
-              ) : (
-                <div className="evaluation-body">
-                  <div className="evaluation-meta">
-                    <span>{lessonQuestions.length} pregunta{lessonQuestions.length === 1 ? '' : 's'}</span>
-                    <span>Puntuación mínima: {lessonExamPassScore}%</span>
-                    {evaluationResult ? (
-                      <strong className={evaluationResult.passed ? 'passed' : 'failed'}>
-                        {evaluationResult.passed ? 'Superada' : 'No superada'} · {evaluationResult.score}%
-                      </strong>
-                    ) : null}
-                  </div>
-
-                  <div className="question-list">
-                    {lessonQuestions.map((question: AnyRecord, questionIndex: number) => {
-                      const questionId = String(question.id)
-                      const selected = selectedAnswers[questionId]
-                      const options = getQuestionOptions(question)
-
-                      return (
-                        <article key={question.id} className="question-card">
-                          <div className="question-title">
-                            <span>{questionIndex + 1}</span>
-                            <h3>{question.question || 'Pregunta sin título'}</h3>
-                          </div>
-
-                          <div className="answer-grid">
-                            {options.map((option) => {
-                              const active = selected === option.key
-
-                              return (
-                                <button
-                                  key={option.key}
-                                  type="button"
-                                  className={active ? 'answer-option selected' : 'answer-option'}
-                                  onClick={() => selectEvaluationAnswer(questionId, option.key)}
-                                  disabled={Boolean(evaluationResult)}
-                                >
-                                  <span>{option.key}</span>
-                                  <strong>{option.text}</strong>
-                                </button>
-                              )
-                            })}
-                          </div>
-
-                          {evaluationResult && question.explanation ? (
-                            <p className="question-explanation">{question.explanation}</p>
-                          ) : null}
-                        </article>
-                      )
-                    })}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="submit-evaluation"
-                    onClick={submitLessonEvaluation}
-                    disabled={evaluationSubmitting || Boolean(evaluationResult)}
-                  >
-                    {evaluationSubmitting
-                      ? 'Enviando evaluación...'
-                      : evaluationResult
-                        ? 'Evaluación enviada'
-                        : 'Enviar evaluación'}
-                  </button>
-
-                  {evaluationMessage ? (
-                    <span className={evaluationResult?.passed ? 'evaluation-message success' : 'evaluation-message'}>
-                      {evaluationMessage}
-                    </span>
-                  ) : null}
-                </div>
-              )}
-            </section>
+            <ExamBlock
+              kind="module"
+              titleLabel="Examen de módulo"
+              emptyTitle="Sin examen de módulo publicado"
+              loadingTitle="Buscando examen de módulo..."
+              lockedText={`Completa todas las lecciones del módulo para desbloquear este examen. Ahora llevas ${completedLessonsInCurrentModule} de ${currentModuleLessons.length}.`}
+              unlocked={currentModuleCompleted}
+              alreadyCompleted={moduleAlreadyCompleted}
+              state={moduleExamState}
+              onSelect={(questionId, option) => selectExamAnswer('module', questionId, option)}
+              onSubmit={() => submitExam('module')}
+            />
 
             <section className="bottom-navigation">
               {previousLesson ? (
@@ -893,7 +1012,7 @@ export default function LessonPage() {
               <div><span>Tipo</span><strong>{lessonType}</strong></div>
               <div><span>Duración</span><strong>{Number(currentLesson?.duration_minutes || 0) > 0 ? `${Number(currentLesson?.duration_minutes || 0)} min` : '—'}</strong></div>
               <div><span>Estado</span><strong className={currentLessonCompleted ? 'green' : ''}>{currentLessonCompleted ? 'Completada' : 'En progreso'}</strong></div>
-              <div><span>Evaluación</span><strong className={lessonExam ? 'green' : ''}>{lessonExam ? 'Disponible' : 'No publicada'}</strong></div>
+              <div><span>Evaluación</span><strong className={lessonExamState.exam ? 'green' : ''}>{lessonExamState.exam ? 'Disponible' : 'No publicada'}</strong></div>
             </section>
 
             <section className="panel-card resources-card">
@@ -910,18 +1029,20 @@ export default function LessonPage() {
                 <div style={{ width: `${moduleProgress}%` }} />
               </div>
               <p>
-                {currentModuleCompleted
-                  ? 'Módulo completado. Revisa el examen de módulo cuando esté disponible.'
-                  : `${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas.`}
+                {moduleAlreadyCompleted
+                  ? 'Módulo superado y registrado correctamente.'
+                  : currentModuleCompleted
+                    ? 'Todas las lecciones están completadas. El examen de módulo está disponible.'
+                    : `${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas.`}
               </p>
-              <em>Examen del módulo · Próximamente</em>
+              <em>{moduleExamState.exam ? 'Examen del módulo · Disponible' : 'Examen del módulo · No publicado'}</em>
             </section>
 
             <section className="panel-card complete-card">
               <h3>{currentLessonCompleted ? 'Lección completada' : 'Finalizar lección'}</h3>
               <p>
                 {currentLessonCompleted
-                  ? lessonExam
+                  ? lessonExamState.exam
                     ? 'Esta lección ya cuenta para tu avance. La evaluación está disponible en el bloque central.'
                     : 'Esta lección ya cuenta para tu avance.'
                   : 'Marca la lección como completada cuando termines el contenido.'}
@@ -974,6 +1095,141 @@ export default function LessonPage() {
   )
 }
 
+function ExamBlock({
+  kind,
+  titleLabel,
+  emptyTitle,
+  loadingTitle,
+  lockedText,
+  unlocked,
+  alreadyCompleted = false,
+  state,
+  onSelect,
+  onSubmit
+}: {
+  kind: ExamKind
+  titleLabel: string
+  emptyTitle: string
+  loadingTitle: string
+  lockedText: string
+  unlocked: boolean
+  alreadyCompleted?: boolean
+  state: ExamState
+  onSelect: (questionId: string, option: string) => void
+  onSubmit: () => void
+}) {
+  const passScore = Number(state.exam?.pass_score || state.exam?.passing_score || 70)
+  const allAnswered = state.questions.every((question: AnyRecord) =>
+    Boolean(state.selectedAnswers[String(question.id)])
+  )
+
+  return (
+    <section className={state.exam ? `exam-card ${kind}-exam` : 'exam-card empty-exam'}>
+      <div className="exam-head">
+        <div>
+          <p>{titleLabel}</p>
+          <h2>
+            {state.exam
+              ? state.exam.title || titleLabel
+              : state.loading
+                ? loadingTitle
+                : emptyTitle}
+          </h2>
+        </div>
+
+        {state.exam ? (
+          <span className={unlocked ? 'exam-pill available' : 'exam-pill locked'}>
+            {alreadyCompleted ? 'Superado' : unlocked ? 'Disponible' : 'Bloqueado'}
+          </span>
+        ) : null}
+      </div>
+
+      {state.loading ? (
+        <div className="exam-empty">Cargando examen asociado...</div>
+      ) : !state.exam ? (
+        <div className="exam-empty">No hay examen publicado para este bloque todavía.</div>
+      ) : !unlocked ? (
+        <div className="exam-empty locked-copy">{lockedText}</div>
+      ) : state.questions.length === 0 ? (
+        <div className="exam-empty">El examen está publicado, pero todavía no tiene preguntas configuradas.</div>
+      ) : (
+        <div className="exam-body">
+          <div className="exam-meta">
+            <span>{state.questions.length} pregunta{state.questions.length === 1 ? '' : 's'}</span>
+            <span>Puntuación mínima: {passScore}%</span>
+            {state.result ? (
+              <strong className={state.result.passed ? 'passed' : 'failed'}>
+                {state.result.passed ? 'Superado' : 'No superado'} · {state.result.score}%
+              </strong>
+            ) : null}
+          </div>
+
+          <div className="question-list">
+            {state.questions.map((question: AnyRecord, questionIndex: number) => {
+              const questionId = String(question.id)
+              const selected = state.selectedAnswers[questionId]
+              const options = getQuestionOptions(question)
+
+              return (
+                <article key={question.id} className="question-card">
+                  <div className="question-title">
+                    <span>{questionIndex + 1}</span>
+                    <h3>{question.question || 'Pregunta sin título'}</h3>
+                  </div>
+
+                  <div className="answer-grid">
+                    {options.map((option) => {
+                      const active = selected === option.key
+
+                      return (
+                        <button
+                          key={option.key}
+                          type="button"
+                          className={active ? 'answer-option selected' : 'answer-option'}
+                          onClick={() => onSelect(questionId, option.key)}
+                          disabled={Boolean(state.result)}
+                        >
+                          <span>{option.key}</span>
+                          <strong>{option.text}</strong>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {state.result && question.explanation ? (
+                    <p className="question-explanation">{question.explanation}</p>
+                  ) : null}
+                </article>
+              )
+            })}
+          </div>
+
+          <button
+            type="button"
+            className="submit-exam"
+            onClick={onSubmit}
+            disabled={state.submitting || Boolean(state.result) || !allAnswered}
+          >
+            {state.submitting
+              ? 'Enviando...'
+              : state.result
+                ? 'Examen enviado'
+                : allAnswered
+                  ? 'Enviar examen'
+                  : 'Responde todas las preguntas'}
+          </button>
+
+          {state.message ? (
+            <span className={state.result?.passed ? 'exam-message success' : 'exam-message'}>
+              {state.message}
+            </span>
+          ) : null}
+        </div>
+      )}
+    </section>
+  )
+}
+
 function ResourceRow({ label, active }: { label: string; active: boolean }) {
   return (
     <div className={active ? 'resource-row active' : 'resource-row'}>
@@ -1007,7 +1263,6 @@ function stripHtml(value: string) {
 
 function decoratePdfUrl(url: string) {
   if (!url) return ''
-
   const separator = url.includes('#') ? '&' : '#'
   return `${url}${separator}toolbar=0&navpanes=0&scrollbar=1&view=FitH`
 }
@@ -1244,9 +1499,7 @@ function GlobalStyles() {
         --red: #ff6b6b;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
 
       html,
       body {
@@ -1260,13 +1513,8 @@ function GlobalStyles() {
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
-      a {
-        color: inherit;
-      }
-
-      button {
-        font: inherit;
-      }
+      a { color: inherit; }
+      button { font: inherit; }
 
       .lesson-dashboard-page {
         min-height: 100vh;
@@ -1431,9 +1679,7 @@ function GlobalStyles() {
         font-size: 12px;
       }
 
-      .progress-copy strong {
-        color: var(--green);
-      }
+      .progress-copy strong { color: var(--green); }
 
       .bar {
         height: 8px;
@@ -1450,19 +1696,14 @@ function GlobalStyles() {
         box-shadow: 0 0 22px rgba(var(--green-rgb), .26);
       }
 
-      .sidebar-progress small {
-        color: rgba(244,246,242,.46);
-      }
+      .sidebar-progress small { color: rgba(244,246,242,.46); }
 
       .sidebar-modules {
         overflow-y: auto;
         padding-right: 4px;
       }
 
-      .sidebar-modules::-webkit-scrollbar {
-        width: 6px;
-      }
-
+      .sidebar-modules::-webkit-scrollbar { width: 6px; }
       .sidebar-modules::-webkit-scrollbar-thumb {
         border-radius: 999px;
         background: rgba(255,255,255,.08);
@@ -1489,9 +1730,7 @@ function GlobalStyles() {
       }
 
       .side-module-head strong,
-      .side-module-head span {
-        display: block;
-      }
+      .side-module-head span { display: block; }
 
       .side-module-head strong {
         color: var(--white);
@@ -1532,9 +1771,7 @@ function GlobalStyles() {
         color: var(--white);
       }
 
-      .side-lesson span {
-        color: var(--green);
-      }
+      .side-lesson span { color: var(--green); }
 
       .side-lesson small,
       .side-lesson strong {
@@ -1563,9 +1800,7 @@ function GlobalStyles() {
         gap: 8px;
       }
 
-      .support-card strong {
-        color: var(--white);
-      }
+      .support-card strong { color: var(--white); }
 
       .support-card span {
         color: rgba(244,246,242,.52);
@@ -1627,9 +1862,7 @@ function GlobalStyles() {
         text-overflow: ellipsis;
       }
 
-      .breadcrumb b {
-        color: var(--white);
-      }
+      .breadcrumb b { color: var(--white); }
 
       .top-actions {
         display: flex;
@@ -1705,7 +1938,7 @@ function GlobalStyles() {
 
       .viewer-card,
       .description-card,
-      .evaluation-card,
+      .exam-card,
       .bottom-navigation button,
       .bottom-navigation div,
       .panel-card,
@@ -1824,10 +2057,7 @@ function GlobalStyles() {
         accent-color: var(--green);
       }
 
-      .pdf-stage {
-        display: grid;
-        gap: 0;
-      }
+      .pdf-stage { display: grid; gap: 0; }
 
       .pdf-actions {
         min-height: 58px;
@@ -1870,12 +2100,12 @@ function GlobalStyles() {
       }
 
       .description-card,
-      .evaluation-card {
+      .exam-card {
         padding: 24px;
       }
 
       .description-card h2,
-      .evaluation-card h2 {
+      .exam-card h2 {
         margin: 0 0 8px;
         color: var(--white);
         font-size: 20px;
@@ -1894,9 +2124,7 @@ function GlobalStyles() {
         padding: 16px;
       }
 
-      .learning-points strong {
-        color: var(--white);
-      }
+      .learning-points strong { color: var(--white); }
 
       .learning-points ul {
         display: grid;
@@ -1906,9 +2134,7 @@ function GlobalStyles() {
         list-style: none;
       }
 
-      .learning-points li {
-        color: rgba(244,246,242,.70);
-      }
+      .learning-points li { color: rgba(244,246,242,.70); }
 
       .learning-points li::before {
         content: '✓';
@@ -1916,7 +2142,7 @@ function GlobalStyles() {
         margin-right: 8px;
       }
 
-      .evaluation-card {
+      .exam-card {
         border-color: rgba(var(--green-rgb), .16);
         background:
           radial-gradient(circle at top right, rgba(var(--green-rgb), .10), transparent 34%),
@@ -1924,11 +2150,17 @@ function GlobalStyles() {
           rgba(8,12,10,.94);
       }
 
-      .evaluation-card.empty-evaluation {
-        border-color: rgba(255,255,255,.08);
+      .module-exam {
+        border-color: rgba(214,178,94,.20);
+        background:
+          radial-gradient(circle at top right, rgba(214,178,94,.08), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+          rgba(8,12,10,.94);
       }
 
-      .evaluation-head {
+      .empty-exam { border-color: rgba(255,255,255,.08); }
+
+      .exam-head {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
@@ -1936,7 +2168,7 @@ function GlobalStyles() {
         margin-bottom: 18px;
       }
 
-      .evaluation-head p {
+      .exam-head p {
         margin: 0 0 8px;
         color: var(--green);
         text-transform: uppercase;
@@ -1945,7 +2177,11 @@ function GlobalStyles() {
         font-weight: 950;
       }
 
-      .evaluation-pill {
+      .module-exam .exam-head p {
+        color: var(--gold);
+      }
+
+      .exam-pill {
         min-height: 30px;
         border-radius: 999px;
         padding: 7px 11px;
@@ -1958,19 +2194,19 @@ function GlobalStyles() {
         letter-spacing: .12em;
       }
 
-      .evaluation-pill.available {
+      .exam-pill.available {
         border: 1px solid rgba(var(--green-rgb), .28);
         background: rgba(var(--green-rgb), .10);
         color: var(--green);
       }
 
-      .evaluation-pill.locked {
+      .exam-pill.locked {
         border: 1px solid rgba(214,178,94,.24);
         background: rgba(214,178,94,.08);
         color: var(--gold);
       }
 
-      .evaluation-empty {
+      .exam-empty {
         border-radius: 14px;
         border: 1px solid rgba(255,255,255,.075);
         background: rgba(255,255,255,.026);
@@ -1984,20 +2220,20 @@ function GlobalStyles() {
         color: rgba(244,246,242,.68);
       }
 
-      .evaluation-body {
+      .exam-body {
         display: grid;
         gap: 18px;
       }
 
-      .evaluation-meta {
+      .exam-meta {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
         gap: 10px;
       }
 
-      .evaluation-meta span,
-      .evaluation-meta strong {
+      .exam-meta span,
+      .exam-meta strong {
         min-height: 30px;
         border-radius: 999px;
         border: 1px solid rgba(255,255,255,.09);
@@ -2008,13 +2244,13 @@ function GlobalStyles() {
         font-weight: 900;
       }
 
-      .evaluation-meta strong.passed {
+      .exam-meta strong.passed {
         border-color: rgba(var(--green-rgb), .28);
         background: rgba(var(--green-rgb), .10);
         color: var(--green);
       }
 
-      .evaluation-meta strong.failed {
+      .exam-meta strong.failed {
         border-color: rgba(255,107,107,.26);
         background: rgba(255,107,107,.08);
         color: var(--red);
@@ -2051,6 +2287,12 @@ function GlobalStyles() {
         color: var(--green);
         font-size: 13px;
         font-weight: 950;
+      }
+
+      .module-exam .question-title span {
+        border-color: rgba(214,178,94,.24);
+        background: rgba(214,178,94,.08);
+        color: var(--gold);
       }
 
       .question-title h3 {
@@ -2111,6 +2353,17 @@ function GlobalStyles() {
         color: var(--green);
       }
 
+      .module-exam .answer-option.selected {
+        border-color: rgba(214,178,94,.34);
+        background: rgba(214,178,94,.095);
+      }
+
+      .module-exam .answer-option.selected span {
+        border-color: rgba(214,178,94,.34);
+        background: rgba(214,178,94,.13);
+        color: var(--gold);
+      }
+
       .answer-option:disabled {
         cursor: default;
         opacity: .82;
@@ -2125,7 +2378,7 @@ function GlobalStyles() {
         font-size: 13px;
       }
 
-      .submit-evaluation {
+      .submit-exam {
         min-height: 46px;
         border-radius: 999px;
         border: 1px solid rgba(var(--green-rgb), .30);
@@ -2136,21 +2389,19 @@ function GlobalStyles() {
         cursor: pointer;
       }
 
-      .submit-evaluation:disabled {
+      .submit-exam:disabled {
         opacity: .72;
         cursor: default;
       }
 
-      .evaluation-message {
+      .exam-message {
         color: rgba(244,246,242,.72);
         line-height: 1.55;
         font-size: 13px;
         font-weight: 800;
       }
 
-      .evaluation-message.success {
-        color: var(--green);
-      }
+      .exam-message.success { color: var(--green); }
 
       .bottom-navigation {
         display: grid;
@@ -2166,14 +2417,10 @@ function GlobalStyles() {
         color: var(--white);
       }
 
-      .bottom-navigation .next {
-        border-color: rgba(var(--green-rgb), .26);
-      }
+      .bottom-navigation .next { border-color: rgba(var(--green-rgb), .26); }
 
       .bottom-navigation span,
-      .bottom-navigation strong {
-        display: block;
-      }
+      .bottom-navigation strong { display: block; }
 
       .bottom-navigation span {
         color: rgba(244,246,242,.46);
@@ -2187,9 +2434,7 @@ function GlobalStyles() {
         gap: 18px;
       }
 
-      .panel-card {
-        padding: 20px;
-      }
+      .panel-card { padding: 20px; }
 
       .panel-card h3 {
         margin: 0 0 16px;
@@ -2233,9 +2478,7 @@ function GlobalStyles() {
         color: rgba(244,246,242,.42) !important;
       }
 
-      .module-state.complete {
-        border-color: rgba(var(--green-rgb), .24);
-      }
+      .module-state.complete { border-color: rgba(var(--green-rgb), .24); }
 
       .module-state > strong {
         display: block;
@@ -2345,10 +2588,7 @@ function GlobalStyles() {
         object-fit: contain;
       }
 
-      .loading {
-        display: grid;
-        place-items: center;
-      }
+      .loading { display: grid; place-items: center; }
 
       .loading-card {
         position: relative;
@@ -2378,9 +2618,7 @@ function GlobalStyles() {
       }
 
       @media (max-width: 1320px) {
-        .lesson-layout {
-          grid-template-columns: 1fr;
-        }
+        .lesson-layout { grid-template-columns: 1fr; }
 
         .lesson-sidepanel {
           position: static;
@@ -2391,13 +2629,9 @@ function GlobalStyles() {
 
       @media (max-width: 1040px) {
         .icon-rail,
-        .lesson-sidebar {
-          display: none;
-        }
+        .lesson-sidebar { display: none; }
 
-        .lesson-shell {
-          margin-left: 0;
-        }
+        .lesson-shell { margin-left: 0; }
 
         .lesson-topbar {
           flex-direction: column;
@@ -2405,20 +2639,14 @@ function GlobalStyles() {
           padding: 14px 18px;
         }
 
-        .lesson-layout {
-          padding: 22px 18px 34px;
-        }
+        .lesson-layout { padding: 22px 18px 34px; }
       }
 
       @media (max-width: 760px) {
         .lesson-sidepanel,
-        .bottom-navigation {
-          grid-template-columns: 1fr;
-        }
+        .bottom-navigation { grid-template-columns: 1fr; }
 
-        .breadcrumb {
-          flex-wrap: wrap;
-        }
+        .breadcrumb { flex-wrap: wrap; }
 
         .top-actions {
           width: 100%;
@@ -2426,21 +2654,13 @@ function GlobalStyles() {
         }
 
         .top-actions button,
-        .complete-top {
-          flex: 1;
-        }
+        .complete-top { flex: 1; }
 
-        .video-stage video {
-          min-height: 280px;
-        }
+        .video-stage video { min-height: 280px; }
 
-        .audio-stage {
-          grid-template-columns: 1fr;
-        }
+        .audio-stage { grid-template-columns: 1fr; }
 
-        .pdf-stage iframe {
-          min-height: 620px;
-        }
+        .pdf-stage iframe { min-height: 620px; }
 
         .pdf-actions {
           align-items: flex-start;
@@ -2458,9 +2678,7 @@ function GlobalStyles() {
           min-width: 150px;
         }
 
-        .evaluation-head {
-          flex-direction: column;
-        }
+        .exam-head { flex-direction: column; }
       }
     `}</style>
   )
