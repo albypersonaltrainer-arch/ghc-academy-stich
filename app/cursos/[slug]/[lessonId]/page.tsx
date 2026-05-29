@@ -133,7 +133,7 @@ export default function LessonPage() {
 
         setCurrentLesson(activeLesson)
 
-        const activeModule =
+        const activeModule: AnyRecord | null =
           orderedModules.find((module: AnyRecord) =>
             (module.lessons || []).some((lesson: AnyRecord) => String(lesson.id) === lessonId)
           ) || null
