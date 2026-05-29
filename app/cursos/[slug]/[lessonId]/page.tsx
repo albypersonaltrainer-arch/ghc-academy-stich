@@ -33,6 +33,12 @@ type ExamState = {
   submitting: boolean
 }
 
+type ModuleLessonEvaluationStats = {
+  required: number
+  passed: number
+  loading: boolean
+}
+
 const emptyExamState: ExamState = {
   exam: null,
   questions: [],
@@ -58,6 +64,11 @@ export default function LessonPage() {
   const [lessonExamState, setLessonExamState] = useState<ExamState>(emptyExamState)
   const [moduleExamState, setModuleExamState] = useState<ExamState>(emptyExamState)
   const [moduleCompletion, setModuleCompletion] = useState<AnyRecord | null>(null)
+  const [moduleLessonEvaluationStats, setModuleLessonEvaluationStats] = useState<ModuleLessonEvaluationStats>({
+    required: 0,
+    passed: 0,
+    loading: false
+  })
 
   const [signedAssets, setSignedAssets] = useState<{ video: string; audio: string; pdf: string }>({
     video: '',
@@ -81,6 +92,7 @@ export default function LessonPage() {
         setErrorMessage('')
         setCompletionMessage('')
         setModuleCompletion(null)
+        setModuleLessonEvaluationStats({ required: 0, passed: 0, loading: true })
         setLessonExamState({ ...emptyExamState, loading: true })
         setModuleExamState({ ...emptyExamState, loading: true })
 
@@ -168,6 +180,10 @@ export default function LessonPage() {
             moduleId: activeModule?.id || activeLesson.module_id || null,
             lessonId: null,
             userId: activeUser?.id || null
+          }),
+          loadModuleLessonEvaluationProgress({
+            userId: activeUser?.id || null,
+            moduleId: activeModule?.id || activeLesson.module_id || null
           }),
           loadModuleCompletion({
             userId: activeUser?.id || null,
@@ -285,6 +301,12 @@ export default function LessonPage() {
   const hasAnyAsset = Boolean(videoUrl || audioUrl || pdfUrl)
   const isMixed = rawLessonType === 'mixed' || rawLessonType === 'mixto'
   const moduleAlreadyCompleted = Boolean(moduleCompletion?.completed || moduleExamState.result?.passed)
+  const moduleLessonEvaluationsRequired = moduleLessonEvaluationStats.required
+  const moduleLessonEvaluationsPassed = moduleLessonEvaluationStats.passed
+  const moduleLessonEvaluationsReady =
+    moduleLessonEvaluationsRequired === 0 ||
+    moduleLessonEvaluationsPassed >= moduleLessonEvaluationsRequired
+  const moduleExamUnlocked = currentModuleCompleted && moduleLessonEvaluationsReady
 
   const goToLesson = (id: string) => {
     router.push(`/cursos/${slug}/${id}`)
@@ -427,6 +449,71 @@ export default function LessonPage() {
     }
   }
 
+
+  const loadModuleLessonEvaluationProgress = async ({
+    userId,
+    moduleId
+  }: {
+    userId: string | null
+    moduleId: string | null
+  }) => {
+    if (!moduleId) {
+      setModuleLessonEvaluationStats({ required: 0, passed: 0, loading: false })
+      return
+    }
+
+    try {
+      setModuleLessonEvaluationStats((prev) => ({ ...prev, loading: true }))
+
+      const { data: lessonExams, error: lessonExamsError } = await supabase
+        .from('exams')
+        .select('id, lesson_id')
+        .eq('module_id', moduleId)
+        .eq('exam_scope', 'lesson')
+        .eq('status', 'published')
+
+      if (lessonExamsError) {
+        console.error(lessonExamsError)
+        setModuleLessonEvaluationStats({ required: 0, passed: 0, loading: false })
+        return
+      }
+
+      const examIds = (lessonExams || []).map((exam: AnyRecord) => String(exam.id))
+      const required = examIds.length
+
+      if (!userId || required === 0) {
+        setModuleLessonEvaluationStats({ required, passed: 0, loading: false })
+        return
+      }
+
+      const { data: passedAttempts, error: passedAttemptsError } = await supabase
+        .from('exam_attempts')
+        .select('exam_id')
+        .eq('user_id', userId)
+        .eq('passed', true)
+        .in('exam_id', examIds)
+
+      if (passedAttemptsError) {
+        console.error(passedAttemptsError)
+        setModuleLessonEvaluationStats({ required, passed: 0, loading: false })
+        return
+      }
+
+      const passedExamIds = new Set(
+        (passedAttempts || []).map((attempt: AnyRecord) => String(attempt.exam_id))
+      )
+
+      setModuleLessonEvaluationStats({
+        required,
+        passed: passedExamIds.size,
+        loading: false
+      })
+    } catch (error) {
+      console.error(error)
+      setModuleLessonEvaluationStats({ required: 0, passed: 0, loading: false })
+    }
+  }
+
   const loadModuleCompletion = async ({
     userId,
     moduleId
@@ -544,8 +631,13 @@ export default function LessonPage() {
       return
     }
 
-    if (kind === 'module' && !currentModuleCompleted) {
-      setState((prev) => ({ ...prev, message: 'Primero completa todas las lecciones del módulo para desbloquear el examen.' }))
+    if (kind === 'module' && !moduleExamUnlocked) {
+      setState((prev) => ({
+        ...prev,
+        message: currentModuleCompleted
+          ? 'Primero supera las evaluaciones de lección publicadas para este módulo.'
+          : 'Primero completa todas las lecciones del módulo para desbloquear el examen.'
+      }))
       return
     }
 
@@ -962,8 +1054,14 @@ export default function LessonPage() {
               titleLabel="Examen de módulo"
               emptyTitle="Sin examen de módulo publicado"
               loadingTitle="Buscando examen de módulo..."
-              lockedText={`Completa todas las lecciones del módulo para desbloquear este examen. Ahora llevas ${completedLessonsInCurrentModule} de ${currentModuleLessons.length}.`}
-              unlocked={currentModuleCompleted}
+              lockedText={
+                currentModuleCompleted
+                  ? moduleLessonEvaluationsRequired > 0
+                    ? `Completa y supera las evaluaciones de lección del módulo para desbloquear este examen. Ahora llevas ${moduleLessonEvaluationsPassed} de ${moduleLessonEvaluationsRequired} evaluaciones superadas.`
+                    : 'El módulo está completado. El examen se desbloqueará cuando haya evaluaciones de lección requeridas o configuración académica publicada.'
+                  : `Completa todas las lecciones del módulo para desbloquear este examen. Ahora llevas ${completedLessonsInCurrentModule} de ${currentModuleLessons.length}.`
+              }
+              unlocked={moduleExamUnlocked}
               alreadyCompleted={moduleAlreadyCompleted}
               state={moduleExamState}
               onSelect={(questionId, option) => selectExamAnswer('module', questionId, option)}
@@ -1031,11 +1129,21 @@ export default function LessonPage() {
               <p>
                 {moduleAlreadyCompleted
                   ? 'Módulo superado y registrado correctamente.'
-                  : currentModuleCompleted
-                    ? 'Todas las lecciones están completadas. El examen de módulo está disponible.'
-                    : `${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas.`}
+                  : moduleExamUnlocked
+                    ? 'Lecciones completadas y evaluaciones superadas. El examen de módulo está disponible.'
+                    : currentModuleCompleted
+                      ? moduleLessonEvaluationsRequired > 0
+                        ? `${moduleLessonEvaluationsPassed} de ${moduleLessonEvaluationsRequired} evaluaciones de lección superadas.`
+                        : 'Todas las lecciones están completadas. Falta configurar evaluaciones de lección para este módulo.'
+                      : `${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas.`}
               </p>
-              <em>{moduleExamState.exam ? 'Examen del módulo · Disponible' : 'Examen del módulo · No publicado'}</em>
+              <em>
+                {moduleExamState.exam
+                  ? moduleExamUnlocked || moduleAlreadyCompleted
+                    ? 'Examen del módulo · Disponible'
+                    : 'Examen del módulo · Bloqueado'
+                  : 'Examen del módulo · No publicado'}
+              </em>
             </section>
 
             <section className="panel-card complete-card">
