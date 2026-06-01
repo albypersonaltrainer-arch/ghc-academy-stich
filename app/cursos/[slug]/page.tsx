@@ -2478,6 +2478,40 @@ function GlobalStyles() {
         line-height: 1.6;
       }
 
+
+
+      /* Evaluación final a ancho completo cuando se accede desde la pestaña Evaluación.
+         Mantiene la estética actual y solo evita que el examen quede estrecho con una columna negra a la derecha. */
+      .dashboard-layout:has(#evaluacion:target) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .dashboard-layout:has(#evaluacion:target) .right-column {
+        display: none;
+      }
+
+      .dashboard-layout:has(#evaluacion:target) .main-evaluation-section {
+        width: 100%;
+      }
+
+      .dashboard-layout:has(#evaluacion:target) .evaluation-main-card {
+        grid-template-columns: minmax(340px, .64fr) minmax(0, 1.36fr);
+        gap: 24px;
+      }
+
+      .dashboard-layout:has(#evaluacion:target) .main-final-exam-box {
+        padding: 20px;
+      }
+
+      .dashboard-layout:has(#evaluacion:target) .main-final-question-card {
+        padding: 18px;
+      }
+
+      .dashboard-layout:has(#evaluacion:target) .main-final-question-card .final-answer {
+        min-height: 54px;
+        padding: 12px;
+      }
+
       @media (max-width: 1320px) {
         .dashboard-layout {
           grid-template-columns: 1fr;
