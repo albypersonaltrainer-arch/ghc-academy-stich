@@ -69,6 +69,19 @@ export default function CourseDetailPage() {
   const [realCertificate, setRealCertificate] = useState<AnyRecord | null>(null);
   const [finalExamState, setFinalExamState] = useState<FinalExamState>(emptyFinalExamState);
 
+  useEffect(() => {
+    const syncHash = () => {
+      setCurrentHash(window.location.hash || '');
+    };
+
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+
+    return () => {
+      window.removeEventListener('hashchange', syncHash);
+    };
+  }, []);
+
   const [previewModuleCompletions, setPreviewModuleCompletions] = useState<AnyRecord[]>([]);
   const [previewCourseCompletion, setPreviewCourseCompletion] = useState<AnyRecord | null>(null);
   const [previewCertificate, setPreviewCertificate] = useState<PreviewCertificate | null>(null);
@@ -887,7 +900,7 @@ export default function CourseDetailPage() {
 
         {systemMessage && <div className="notice">{systemMessage}</div>}
 
-        <div className="dashboard-layout">
+        <div className={currentHash === '#evaluacion' ? 'dashboard-layout evaluation-focus' : 'dashboard-layout'}>
           <main className="main-column">
             <section className="course-heading">
               <div>
@@ -1823,6 +1836,33 @@ function GlobalStyles() {
       .right-column {
         display: grid;
         gap: 18px;
+      }
+
+
+      /* Vista de evaluación final ensanchada de forma explícita por estado React.
+         No cambia tamaños de letra: solo libera la columna derecha y da todo el ancho útil al examen. */
+      .dashboard-layout.evaluation-focus {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+
+      .dashboard-layout.evaluation-focus .right-column {
+        display: none !important;
+      }
+
+      .dashboard-layout.evaluation-focus .main-column,
+      .dashboard-layout.evaluation-focus .main-evaluation-section {
+        width: 100%;
+        max-width: none;
+      }
+
+      .dashboard-layout.evaluation-focus .evaluation-main-card {
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 24px;
+      }
+
+      .dashboard-layout.evaluation-focus .main-final-exam-box {
+        width: 100%;
+        max-width: none;
       }
 
       .course-heading {
