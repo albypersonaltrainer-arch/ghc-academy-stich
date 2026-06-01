@@ -20,6 +20,33 @@ type PreviewCertificate = {
   status: 'valid';
 };
 
+type FinalExamResult = {
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  passed: boolean;
+};
+
+type FinalExamState = {
+  exam: AnyRecord | null;
+  questions: AnyRecord[];
+  selectedAnswers: Record<string, string>;
+  result: FinalExamResult | null;
+  loading: boolean;
+  submitting: boolean;
+  message: string;
+};
+
+const emptyFinalExamState: FinalExamState = {
+  exam: null,
+  questions: [],
+  selectedAnswers: {},
+  result: null,
+  loading: false,
+  submitting: false,
+  message: '',
+};
+
 const GREEN = '#63E546';
 
 const supabase = createClient(
@@ -40,6 +67,7 @@ export default function CourseDetailPage() {
   const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
   const [courseCompletion, setCourseCompletion] = useState<AnyRecord | null>(null);
   const [realCertificate, setRealCertificate] = useState<AnyRecord | null>(null);
+  const [finalExamState, setFinalExamState] = useState<FinalExamState>(emptyFinalExamState);
 
   const [previewModuleCompletions, setPreviewModuleCompletions] = useState<AnyRecord[]>([]);
   const [previewCourseCompletion, setPreviewCourseCompletion] = useState<AnyRecord | null>(null);
@@ -71,6 +99,61 @@ export default function CourseDetailPage() {
         }
 
         setCourse(courseData);
+        setFinalExamState({ ...emptyFinalExamState, loading: true });
+
+        const { data: finalExamData, error: finalExamError } = await supabase
+          .from('exams')
+          .select('*')
+          .eq('course_id', courseData.id)
+          .eq('exam_scope', 'course')
+          .eq('status', 'published')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (finalExamError) {
+          console.error('Error cargando examen final:', finalExamError);
+          setFinalExamState({
+            ...emptyFinalExamState,
+            loading: false,
+            message: 'No se pudo cargar el examen final del curso.',
+          });
+        } else if (finalExamData?.id) {
+          const { data: finalQuestionsData, error: finalQuestionsError } = await supabase
+            .from('exam_questions')
+            .select('*')
+            .eq('exam_id', finalExamData.id)
+            .order('sort_order', { ascending: true });
+
+          if (finalQuestionsError) {
+            console.error('Error cargando preguntas del examen final:', finalQuestionsError);
+            setFinalExamState({
+              exam: finalExamData,
+              questions: [],
+              selectedAnswers: {},
+              result: null,
+              loading: false,
+              submitting: false,
+              message: 'El examen final existe, pero no se pudieron cargar sus preguntas.',
+            });
+          } else {
+            setFinalExamState({
+              exam: finalExamData,
+              questions: Array.isArray(finalQuestionsData) ? finalQuestionsData : [],
+              selectedAnswers: {},
+              result: null,
+              loading: false,
+              submitting: false,
+              message: '',
+            });
+          }
+        } else {
+          setFinalExamState({
+            ...emptyFinalExamState,
+            loading: false,
+            message: 'Todavía no hay examen final publicado para este curso.',
+          });
+        }
 
         if (!activeUser?.id) {
           loadPreviewModuleCompletions(courseData.id);
@@ -375,6 +458,214 @@ export default function CourseDetailPage() {
     if (!previousModule) return false;
 
     return completedModuleIds.has(String(previousModule.id));
+  }
+
+  function selectFinalExamAnswer(questionId: string, option: string) {
+    setFinalExamState((previous) => ({
+      ...previous,
+      selectedAnswers: {
+        ...previous.selectedAnswers,
+        [questionId]: option,
+      },
+      message: '',
+    }));
+  }
+
+  async function submitFinalExam() {
+    if (!course) return;
+
+    if (!user?.id) {
+      setFinalExamState((previous) => ({
+        ...previous,
+        message: 'Inicia sesión como alumno para guardar el examen final del curso.',
+      }));
+      return;
+    }
+
+    if (!finalExamUnlocked) {
+      setFinalExamState((previous) => ({
+        ...previous,
+        message: isCourseCompleted
+          ? 'Este curso ya figura como completado.'
+          : 'Primero completa todos los módulos para desbloquear el examen final.',
+      }));
+      return;
+    }
+
+    if (!finalExamState.exam?.id || finalExamState.questions.length === 0) {
+      setFinalExamState((previous) => ({
+        ...previous,
+        message: 'El examen final todavía no tiene preguntas configuradas.',
+      }));
+      return;
+    }
+
+    const allAnswered = finalExamState.questions.every((question) =>
+      Boolean(finalExamState.selectedAnswers[String(question.id)])
+    );
+
+    if (!allAnswered) {
+      setFinalExamState((previous) => ({
+        ...previous,
+        message: 'Responde todas las preguntas antes de enviar el examen final.',
+      }));
+      return;
+    }
+
+    try {
+      setFinalExamState((previous) => ({
+        ...previous,
+        submitting: true,
+        message: 'Corrigiendo examen final...',
+      }));
+
+      const evaluatedAnswers = finalExamState.questions.map((question) => {
+        const selected = finalExamState.selectedAnswers[String(question.id)];
+        const correct = normalizeOption(selected) === normalizeOption(question.correct_option);
+
+        return {
+          question_id: question.id,
+          question: question.question,
+          selected_answer: selected,
+          correct_answer: question.correct_option,
+          is_correct: correct,
+        };
+      });
+
+      const correctAnswers = evaluatedAnswers.filter((answer) => answer.is_correct).length;
+      const totalQuestions = finalExamState.questions.length;
+      const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+      const passScore = Number(finalExamState.exam.pass_score || finalExamState.exam.passing_score || 70);
+      const passed = score >= passScore;
+
+      const { data: attemptData, error: attemptError } = await supabase
+        .from('exam_attempts')
+        .insert({
+          user_id: user.id,
+          course_id: course.id,
+          exam_id: finalExamState.exam.id,
+          score,
+          total_questions: totalQuestions,
+          correct_answers: correctAnswers,
+          passed,
+          answers: evaluatedAnswers,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        })
+        .select('*')
+        .maybeSingle();
+
+      if (attemptError) {
+        console.error('Error guardando intento de examen final:', attemptError);
+        setFinalExamState((previous) => ({
+          ...previous,
+          submitting: false,
+          message: 'No se pudo guardar el intento del examen final. Revisa Supabase.',
+        }));
+        return;
+      }
+
+      const result: FinalExamResult = {
+        score,
+        totalQuestions,
+        correctAnswers,
+        passed,
+      };
+
+      setFinalExamState((previous) => ({
+        ...previous,
+        result,
+        submitting: false,
+        message: passed
+          ? `Examen final superado con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}.`
+          : `Examen final enviado con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}, pero no has alcanzado la puntuación mínima.`,
+      }));
+
+      if (passed) {
+        await saveCourseCompletion({
+          examAttemptId: attemptData?.id || null,
+          score,
+        });
+      }
+    } catch (error) {
+      console.error('Error inesperado enviando examen final:', error);
+      setFinalExamState((previous) => ({
+        ...previous,
+        submitting: false,
+        message: 'Ha ocurrido un error inesperado al enviar el examen final.',
+      }));
+    }
+  }
+
+  async function saveCourseCompletion({
+    examAttemptId,
+    score,
+  }: {
+    examAttemptId: string | null;
+    score: number;
+  }) {
+    if (!user?.id || !course?.id || !finalExamState.exam?.id) return;
+
+    const payload = {
+      user_id: user.id,
+      course_id: course.id,
+      exam_id: finalExamState.exam.id,
+      exam_attempt_id: examAttemptId,
+      completed: true,
+      final_score: score,
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: existing } = await supabase
+      .from('course_completions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('course_id', course.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.id) {
+      const { data, error } = await supabase
+        .from('course_completions')
+        .update(payload)
+        .eq('id', existing.id)
+        .select('*')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error actualizando course_completions:', error);
+        setFinalExamState((previous) => ({
+          ...previous,
+          message: 'Examen superado, pero no se pudo actualizar course_completions.',
+        }));
+        return;
+      }
+
+      setCourseCompletion(data || payload);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('course_completions')
+      .insert({
+        ...payload,
+        created_at: new Date().toISOString(),
+      })
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error creando course_completions:', error);
+      setFinalExamState((previous) => ({
+        ...previous,
+        message: 'Examen superado, pero no se pudo crear course_completions.',
+      }));
+      return;
+    }
+
+    setCourseCompletion(data || payload);
   }
 
   async function issueCertificate() {
@@ -854,24 +1145,97 @@ export default function CourseDetailPage() {
               <a href="#modulos" className="panel-link">↗ Ver todos los recursos</a>
             </section>
 
-            <section id="evaluacion" className={finalExamUnlocked || isCourseCompleted ? 'side-panel module-state-panel active' : 'side-panel module-state-panel'}>
-              <p className="panel-title">Estado del módulo</p>
-              <span>{activeModule?.title || 'Módulo actual'}</span>
+            <section id="evaluacion" className={finalExamUnlocked || isCourseCompleted ? 'side-panel final-exam-panel active' : 'side-panel final-exam-panel'}>
+              <p className="panel-title">Evaluación final</p>
 
-              <div className="module-side-progress">
-                <div style={{ width: `${activeModulePercent}%` }} />
-              </div>
+              <strong>
+                {isCourseCompleted
+                  ? 'Curso completado'
+                  : finalExamUnlocked
+                    ? finalExamState.exam?.title || 'Examen final disponible'
+                    : 'Bloqueado'}
+              </strong>
 
-              <strong>{activeModulePercent}% completado</strong>
               <p>
-                {finalExamUnlocked
-                  ? 'Evaluación final preparada para la siguiente fase.'
-                  : 'Completa las lecciones para avanzar al siguiente bloque.'}
+                {isCourseCompleted
+                  ? `Curso superado con ${Number(effectiveCourseCompletion?.final_score || 100)}%. Ya puedes emitir el certificado.`
+                  : finalExamUnlocked
+                    ? 'Responde el examen final para completar oficialmente el curso.'
+                    : 'Completa todos los módulos para desbloquear el examen final del curso.'}
               </p>
 
-              <button type="button">
-                Ver resumen del módulo
-              </button>
+              {finalExamUnlocked && !isCourseCompleted ? (
+                <div className="final-exam-box">
+                  {finalExamState.loading ? (
+                    <p className="exam-helper">Cargando examen final...</p>
+                  ) : finalExamState.questions.length === 0 ? (
+                    <p className="exam-helper">{finalExamState.message || 'El examen final todavía no tiene preguntas configuradas.'}</p>
+                  ) : (
+                    <>
+                      <div className="final-exam-meta">
+                        <span>{finalExamState.questions.length} preguntas</span>
+                        <span>Aprobado mínimo {Number(finalExamState.exam?.pass_score || finalExamState.exam?.passing_score || 70)}%</span>
+                      </div>
+
+                      <div className="final-question-list">
+                        {finalExamState.questions.map((question, index) => (
+                          <article key={question.id} className="final-question-card">
+                            <h4>{index + 1}. {question.question}</h4>
+
+                            {['A', 'B', 'C', 'D'].map((option) => {
+                              const optionText = question[`option_${option.toLowerCase()}`];
+                              if (!optionText) return null;
+
+                              const checked =
+                                finalExamState.selectedAnswers[String(question.id)] === option;
+
+                              return (
+                                <label key={option} className={checked ? 'final-answer selected' : 'final-answer'}>
+                                  <input
+                                    type="radio"
+                                    name={`final-question-${question.id}`}
+                                    checked={checked}
+                                    onChange={() => selectFinalExamAnswer(String(question.id), option)}
+                                  />
+                                  <span>{option}</span>
+                                  <p>{optionText}</p>
+                                </label>
+                              );
+                            })}
+                          </article>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={submitFinalExam}
+                        disabled={finalExamState.submitting}
+                        className="primary-action as-button full"
+                      >
+                        {finalExamState.submitting ? 'Enviando...' : 'Enviar examen final'}
+                      </button>
+
+                      {finalExamState.result ? (
+                        <div className={finalExamState.result.passed ? 'final-result passed' : 'final-result failed'}>
+                          <strong>{finalExamState.result.score}%</strong>
+                          <span>
+                            {finalExamState.result.correctAnswers} de {finalExamState.result.totalQuestions} correctas ·{' '}
+                            {finalExamState.result.passed ? 'Superado' : 'No superado'}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {finalExamState.message ? (
+                        <p className="exam-helper">{finalExamState.message}</p>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="module-side-progress">
+                  <div style={{ width: `${isCourseCompleted ? 100 : lessonProgressPercent}%` }} />
+                </div>
+              )}
             </section>
 
             <section id="certificado" className={certificateAvailable || effectiveCertificate ? 'side-panel certificate-panel active' : 'side-panel certificate-panel'}>
@@ -933,6 +1297,10 @@ function Background() {
       <div className="grid-texture" />
     </div>
   );
+}
+
+function normalizeOption(value: unknown) {
+  return String(value || '').trim().toUpperCase();
 }
 
 function generateCertificateCode(courseTitle: string) {
@@ -2097,6 +2465,137 @@ function GlobalStyles() {
         .course-heading {
           grid-template-columns: 1fr;
         }
+      }
+
+
+      .final-exam-panel {
+        display: grid;
+        gap: 12px;
+      }
+
+      .final-exam-panel > strong {
+        display: block;
+        font-size: 18px;
+        line-height: 1.2;
+        letter-spacing: -.025em;
+      }
+
+      .final-exam-box {
+        display: grid;
+        gap: 12px;
+        margin-top: 4px;
+      }
+
+      .final-exam-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .final-exam-meta span {
+        border-radius: 999px;
+        border: 1px solid rgba(99,229,70,.22);
+        background: rgba(99,229,70,.08);
+        color: var(--green);
+        padding: 6px 9px;
+        font-size: 11px;
+        font-weight: 850;
+      }
+
+      .final-question-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .final-question-card {
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.028);
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .final-question-card h4 {
+        margin: 0 0 2px;
+        font-size: 13px;
+        line-height: 1.35;
+        font-weight: 850;
+      }
+
+      .final-answer {
+        min-height: 38px;
+        border-radius: 11px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.024);
+        display: grid;
+        grid-template-columns: 22px 26px minmax(0,1fr);
+        gap: 8px;
+        align-items: center;
+        padding: 8px;
+        cursor: pointer;
+        color: rgba(244,246,242,.76);
+      }
+
+      .final-answer.selected {
+        border-color: rgba(99,229,70,.42);
+        background: rgba(99,229,70,.09);
+        color: var(--white);
+      }
+
+      .final-answer input {
+        accent-color: var(--green);
+      }
+
+      .final-answer span {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.10);
+        color: var(--green);
+        font-size: 11px;
+        font-weight: 950;
+      }
+
+      .final-answer p {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .final-result {
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.035);
+        padding: 12px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .final-result.passed {
+        border-color: rgba(99,229,70,.28);
+        background: rgba(99,229,70,.08);
+      }
+
+      .final-result.failed {
+        border-color: rgba(255,105,105,.28);
+        background: rgba(255,105,105,.08);
+      }
+
+      .final-result strong {
+        color: var(--green);
+        font-size: 28px;
+        line-height: 1;
+      }
+
+      .final-result span,
+      .exam-helper {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+        margin: 0;
       }
 
       @media (max-width: 1040px) {
