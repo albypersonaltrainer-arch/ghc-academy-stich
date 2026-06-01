@@ -312,10 +312,27 @@ export default function CourseDetailPage() {
       if (!unlocked) continue;
 
       const moduleLessons = getModuleLessons(String(module.id));
+      const moduleCompleted = completedModuleIds.has(String(module.id));
+
       const pending = moduleLessons.find((lesson) => !completedLessonIds.has(String(lesson.id)));
 
       if (pending) return pending;
-      if (moduleLessons[0]) return moduleLessons[0];
+
+      if (!moduleCompleted && moduleLessons[0]) {
+        return moduleLessons[0];
+      }
+    }
+
+    for (let moduleIndex = modules.length - 1; moduleIndex >= 0; moduleIndex -= 1) {
+      const module = modules[moduleIndex];
+      const unlocked = isModuleUnlocked(module, moduleIndex);
+      if (!unlocked) continue;
+
+      const moduleLessons = getModuleLessons(String(module.id));
+
+      if (moduleLessons[0]) {
+        return moduleLessons[0];
+      }
     }
 
     return lessons[0] || null;
