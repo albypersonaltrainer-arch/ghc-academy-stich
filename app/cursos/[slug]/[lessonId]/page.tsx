@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import GHCLogo from '../../../components/GHCLogo'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -961,7 +962,7 @@ export default function LessonPage() {
       <main className="lesson-dashboard-page loading">
         <Background />
         <section className="loading-card">
-          <p>GHC Academy</p>
+          <GHCLogo size="md" showText tagline={false} />
           <h1>Cargando lección</h1>
           <span>Preparando acceso privado, progreso y contenido académico.</span>
         </section>
@@ -975,6 +976,7 @@ export default function LessonPage() {
       <main className="lesson-dashboard-page loading">
         <Background />
         <section className="loading-card">
+          <GHCLogo size="md" showText tagline={false} />
           <p>Error de lección</p>
           <h1>No se pudo cargar</h1>
           <span>{errorMessage}</span>
@@ -1002,9 +1004,8 @@ export default function LessonPage() {
       </aside>
 
       <aside className="lesson-sidebar">
-        <div className="brand">
-          <strong>GHC</strong>
-          <span>Academy</span>
+        <div className="brand-logo">
+          <GHCLogo size="md" showText tagline={false} />
         </div>
 
         <button type="button" onClick={goToCourse} className="back-link">
@@ -1908,6 +1909,13 @@ function GlobalStyles() {
         gap: 18px;
         box-shadow: 18px 0 80px rgba(0,0,0,.22);
         overflow: hidden;
+      }
+
+
+      .brand-logo {
+        min-height: 58px;
+        display: flex;
+        align-items: center;
       }
 
       .brand strong,
