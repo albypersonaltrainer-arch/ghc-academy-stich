@@ -829,7 +829,7 @@ export default function CourseDetailPage() {
             <span>☑</span>
             <div>
               <strong>Evaluaciones</strong>
-              <small>Próximamente</small>
+              <small>Examen final</small>
             </div>
           </a>
 
@@ -1067,6 +1067,126 @@ export default function CourseDetailPage() {
                 })}
               </div>
             </section>
+
+            <section id="evaluacion" className={finalExamUnlocked || isCourseCompleted ? 'main-evaluation-section active' : 'main-evaluation-section locked'}>
+              <div className="section-title-row evaluation-title-row">
+                <div>
+                  <p className="kicker">Evaluación final</p>
+                  <h2>{finalExamState.exam?.title || 'Examen final del curso'}</h2>
+                </div>
+                <span>
+                  {isCourseCompleted
+                    ? 'Curso completado'
+                    : finalExamUnlocked
+                      ? 'Disponible'
+                      : 'Bloqueado'}
+                </span>
+              </div>
+
+              <div className="evaluation-main-card">
+                <div className="evaluation-main-copy">
+                  <span className="evaluation-pill">
+                    {finalExamState.questions.length || 3} preguntas · Aprobado mínimo {Number(finalExamState.exam?.pass_score || finalExamState.exam?.passing_score || 70)}%
+                  </span>
+
+                  <h3>
+                    {isCourseCompleted
+                      ? 'Curso superado'
+                      : finalExamUnlocked
+                        ? 'Completa la evaluación final para cerrar oficialmente el curso'
+                        : 'Completa todos los módulos para desbloquear la evaluación final'}
+                  </h3>
+
+                  <p>
+                    {isCourseCompleted
+                      ? `Curso superado con ${Number(effectiveCourseCompletion?.final_score || 100)}%. Ya puedes pasar a la emisión del certificado.`
+                      : finalExamUnlocked
+                        ? 'Responde las preguntas finales. Al aprobar, la plataforma registrará el curso como completado y se desbloqueará la certificación.'
+                        : 'El examen final se activa cuando todos los módulos del curso están aprobados.'}
+                  </p>
+                </div>
+
+                {finalExamUnlocked && !isCourseCompleted ? (
+                  <div className="final-exam-box main-final-exam-box">
+                    {finalExamState.loading ? (
+                      <p className="exam-helper">Cargando examen final...</p>
+                    ) : finalExamState.questions.length === 0 ? (
+                      <p className="exam-helper">{finalExamState.message || 'El examen final todavía no tiene preguntas configuradas.'}</p>
+                    ) : (
+                      <>
+                        <div className="final-exam-meta">
+                          <span>{finalExamState.questions.length} preguntas</span>
+                          <span>Aprobado mínimo {Number(finalExamState.exam?.pass_score || finalExamState.exam?.passing_score || 70)}%</span>
+                        </div>
+
+                        <div className="final-question-list main-final-question-list">
+                          {finalExamState.questions.map((question, index) => (
+                            <article key={question.id} className="final-question-card main-final-question-card">
+                              <h4>{index + 1}. {question.question}</h4>
+
+                              {['A', 'B', 'C', 'D'].map((option) => {
+                                const optionText = question[`option_${option.toLowerCase()}`];
+                                if (!optionText) return null;
+
+                                const checked =
+                                  finalExamState.selectedAnswers[String(question.id)] === option;
+
+                                return (
+                                  <label key={option} className={checked ? 'final-answer selected' : 'final-answer'}>
+                                    <input
+                                      type="radio"
+                                      name={`final-question-${question.id}`}
+                                      checked={checked}
+                                      onChange={() => selectFinalExamAnswer(String(question.id), option)}
+                                    />
+                                    <span>{option}</span>
+                                    <p>{optionText}</p>
+                                  </label>
+                                );
+                              })}
+                            </article>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={submitFinalExam}
+                          disabled={finalExamState.submitting}
+                          className="primary-action as-button full"
+                        >
+                          {finalExamState.submitting ? 'Enviando...' : 'Enviar examen final'}
+                        </button>
+
+                        {finalExamState.result ? (
+                          <div className={finalExamState.result.passed ? 'final-result passed' : 'final-result failed'}>
+                            <strong>{finalExamState.result.score}%</strong>
+                            <span>
+                              {finalExamState.result.correctAnswers} de {finalExamState.result.totalQuestions} correctas ·{' '}
+                              {finalExamState.result.passed ? 'Superado' : 'No superado'}
+                            </span>
+                          </div>
+                        ) : null}
+
+                        {finalExamState.message ? (
+                          <p className="exam-helper">{finalExamState.message}</p>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="evaluation-locked-box">
+                    <div className="module-side-progress">
+                      <div style={{ width: `${isCourseCompleted ? 100 : lessonProgressPercent}%` }} />
+                    </div>
+                    <p>
+                      {isCourseCompleted
+                        ? 'La evaluación final ya está superada.'
+                        : `${completedModulesCount} de ${modules.length} módulos completados.`}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
           </main>
 
           <aside className="right-column">
@@ -1143,99 +1263,6 @@ export default function CourseDetailPage() {
               </div>
 
               <a href="#modulos" className="panel-link">↗ Ver todos los recursos</a>
-            </section>
-
-            <section id="evaluacion" className={finalExamUnlocked || isCourseCompleted ? 'side-panel final-exam-panel active' : 'side-panel final-exam-panel'}>
-              <p className="panel-title">Evaluación final</p>
-
-              <strong>
-                {isCourseCompleted
-                  ? 'Curso completado'
-                  : finalExamUnlocked
-                    ? finalExamState.exam?.title || 'Examen final disponible'
-                    : 'Bloqueado'}
-              </strong>
-
-              <p>
-                {isCourseCompleted
-                  ? `Curso superado con ${Number(effectiveCourseCompletion?.final_score || 100)}%. Ya puedes emitir el certificado.`
-                  : finalExamUnlocked
-                    ? 'Responde el examen final para completar oficialmente el curso.'
-                    : 'Completa todos los módulos para desbloquear el examen final del curso.'}
-              </p>
-
-              {finalExamUnlocked && !isCourseCompleted ? (
-                <div className="final-exam-box">
-                  {finalExamState.loading ? (
-                    <p className="exam-helper">Cargando examen final...</p>
-                  ) : finalExamState.questions.length === 0 ? (
-                    <p className="exam-helper">{finalExamState.message || 'El examen final todavía no tiene preguntas configuradas.'}</p>
-                  ) : (
-                    <>
-                      <div className="final-exam-meta">
-                        <span>{finalExamState.questions.length} preguntas</span>
-                        <span>Aprobado mínimo {Number(finalExamState.exam?.pass_score || finalExamState.exam?.passing_score || 70)}%</span>
-                      </div>
-
-                      <div className="final-question-list">
-                        {finalExamState.questions.map((question, index) => (
-                          <article key={question.id} className="final-question-card">
-                            <h4>{index + 1}. {question.question}</h4>
-
-                            {['A', 'B', 'C', 'D'].map((option) => {
-                              const optionText = question[`option_${option.toLowerCase()}`];
-                              if (!optionText) return null;
-
-                              const checked =
-                                finalExamState.selectedAnswers[String(question.id)] === option;
-
-                              return (
-                                <label key={option} className={checked ? 'final-answer selected' : 'final-answer'}>
-                                  <input
-                                    type="radio"
-                                    name={`final-question-${question.id}`}
-                                    checked={checked}
-                                    onChange={() => selectFinalExamAnswer(String(question.id), option)}
-                                  />
-                                  <span>{option}</span>
-                                  <p>{optionText}</p>
-                                </label>
-                              );
-                            })}
-                          </article>
-                        ))}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={submitFinalExam}
-                        disabled={finalExamState.submitting}
-                        className="primary-action as-button full"
-                      >
-                        {finalExamState.submitting ? 'Enviando...' : 'Enviar examen final'}
-                      </button>
-
-                      {finalExamState.result ? (
-                        <div className={finalExamState.result.passed ? 'final-result passed' : 'final-result failed'}>
-                          <strong>{finalExamState.result.score}%</strong>
-                          <span>
-                            {finalExamState.result.correctAnswers} de {finalExamState.result.totalQuestions} correctas ·{' '}
-                            {finalExamState.result.passed ? 'Superado' : 'No superado'}
-                          </span>
-                        </div>
-                      ) : null}
-
-                      {finalExamState.message ? (
-                        <p className="exam-helper">{finalExamState.message}</p>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="module-side-progress">
-                  <div style={{ width: `${isCourseCompleted ? 100 : lessonProgressPercent}%` }} />
-                </div>
-              )}
             </section>
 
             <section id="certificado" className={certificateAvailable || effectiveCertificate ? 'side-panel certificate-panel active' : 'side-panel certificate-panel'}>
@@ -2456,6 +2483,14 @@ function GlobalStyles() {
           grid-template-columns: 1fr;
         }
 
+        .evaluation-main-card {
+          grid-template-columns: 1fr;
+        }
+
+        .evaluation-main-copy {
+          position: static;
+        }
+
         .right-column {
           position: static;
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2465,6 +2500,114 @@ function GlobalStyles() {
         .course-heading {
           grid-template-columns: 1fr;
         }
+      }
+
+
+      .main-evaluation-section {
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,.09);
+        background:
+          radial-gradient(circle at top right, rgba(var(--green-rgb), .10), transparent 34%),
+          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+          rgba(8, 12, 10, .90);
+        box-shadow: 0 24px 80px rgba(0,0,0,.22);
+        padding: 22px;
+        scroll-margin-top: 20px;
+      }
+
+      .evaluation-title-row {
+        margin-bottom: 16px;
+      }
+
+      .evaluation-title-row h2 {
+        margin: 6px 0 0;
+        font-size: clamp(26px, 3vw, 42px);
+        line-height: .96;
+        letter-spacing: -.055em;
+        font-weight: 950;
+      }
+
+      .main-evaluation-section.locked {
+        opacity: .92;
+      }
+
+      .evaluation-main-card {
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.026);
+        padding: 18px;
+        display: grid;
+        grid-template-columns: minmax(280px, .55fr) minmax(0, 1.45fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .evaluation-main-copy {
+        position: sticky;
+        top: 18px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .evaluation-pill {
+        width: fit-content;
+        border-radius: 999px;
+        border: 1px solid rgba(var(--green-rgb), .22);
+        background: rgba(var(--green-rgb), .08);
+        color: var(--green);
+        padding: 7px 10px;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .evaluation-main-copy h3 {
+        margin: 0;
+        font-size: clamp(24px, 2.2vw, 34px);
+        line-height: 1;
+        letter-spacing: -.045em;
+        font-weight: 950;
+      }
+
+      .evaluation-main-copy p,
+      .evaluation-locked-box p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .main-final-exam-box {
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(0,0,0,.16);
+        padding: 16px;
+      }
+
+      .main-final-question-list {
+        gap: 14px;
+      }
+
+      .main-final-question-card {
+        padding: 16px;
+      }
+
+      .main-final-question-card h4 {
+        font-size: 15px;
+        line-height: 1.4;
+      }
+
+      .main-final-question-card .final-answer {
+        min-height: 48px;
+        padding: 10px;
+      }
+
+      .main-final-question-card .final-answer p {
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .evaluation-locked-box {
+        display: grid;
+        gap: 12px;
       }
 
 
