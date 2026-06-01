@@ -39,6 +39,14 @@ type ModuleLessonEvaluationStats = {
   loading: boolean
 }
 
+type ModuleUnlockStats = {
+  totalLessons: number
+  completedLessons: number
+  requiredEvaluations: number
+  passedEvaluations: number
+  loading: boolean
+}
+
 const emptyExamState: ExamState = {
   exam: null,
   questions: [],
@@ -69,6 +77,13 @@ export default function LessonPage() {
     passed: 0,
     loading: false
   })
+  const [moduleUnlockStats, setModuleUnlockStats] = useState<ModuleUnlockStats>({
+    totalLessons: 0,
+    completedLessons: 0,
+    requiredEvaluations: 0,
+    passedEvaluations: 0,
+    loading: false
+  })
 
   const [signedAssets, setSignedAssets] = useState<{ video: string; audio: string; pdf: string }>({
     video: '',
@@ -93,6 +108,13 @@ export default function LessonPage() {
         setCompletionMessage('')
         setModuleCompletion(null)
         setModuleLessonEvaluationStats({ required: 0, passed: 0, loading: true })
+        setModuleUnlockStats({
+          totalLessons: 0,
+          completedLessons: 0,
+          requiredEvaluations: 0,
+          passedEvaluations: 0,
+          loading: true
+        })
         setLessonExamState({ ...emptyExamState, loading: true })
         setModuleExamState({ ...emptyExamState, loading: true })
 
@@ -182,6 +204,10 @@ export default function LessonPage() {
             userId: activeUser?.id || null
           }),
           loadModuleLessonEvaluationProgress({
+            userId: activeUser?.id || null,
+            moduleId: activeModule?.id || activeLesson.module_id || null
+          }),
+          loadModuleUnlockStats({
             userId: activeUser?.id || null,
             moduleId: activeModule?.id || activeLesson.module_id || null
           }),
@@ -301,12 +327,17 @@ export default function LessonPage() {
   const hasAnyAsset = Boolean(videoUrl || audioUrl || pdfUrl)
   const isMixed = rawLessonType === 'mixed' || rawLessonType === 'mixto'
   const moduleAlreadyCompleted = Boolean(moduleCompletion?.completed || moduleExamState.result?.passed)
-  const moduleLessonEvaluationsRequired = moduleLessonEvaluationStats.required
-  const moduleLessonEvaluationsPassed = moduleLessonEvaluationStats.passed
+  const moduleLessonEvaluationsRequired = moduleUnlockStats.requiredEvaluations || moduleLessonEvaluationStats.required
+  const moduleLessonEvaluationsPassed = moduleUnlockStats.passedEvaluations || moduleLessonEvaluationStats.passed
+  const moduleLessonsRequired = moduleUnlockStats.totalLessons || currentModuleLessons.length
+  const moduleLessonsCompleted = moduleUnlockStats.completedLessons || completedLessonsInCurrentModule
+  const moduleLessonsReady =
+    moduleLessonsRequired > 0 &&
+    moduleLessonsCompleted >= moduleLessonsRequired
   const moduleLessonEvaluationsReady =
     moduleLessonEvaluationsRequired === 0 ||
     moduleLessonEvaluationsPassed >= moduleLessonEvaluationsRequired
-  const moduleExamUnlocked = currentModuleCompleted && moduleLessonEvaluationsReady
+  const moduleExamUnlocked = moduleLessonsReady && moduleLessonEvaluationsReady
 
   const goToLesson = (id: string) => {
     router.push(`/cursos/${slug}/${id}`)
@@ -514,6 +545,127 @@ export default function LessonPage() {
     }
   }
 
+
+  const loadModuleUnlockStats = async ({
+    userId,
+    moduleId
+  }: {
+    userId: string | null
+    moduleId: string | null
+  }) => {
+    if (!moduleId) {
+      setModuleUnlockStats({
+        totalLessons: 0,
+        completedLessons: 0,
+        requiredEvaluations: 0,
+        passedEvaluations: 0,
+        loading: false
+      })
+      return
+    }
+
+    try {
+      setModuleUnlockStats((prev) => ({ ...prev, loading: true }))
+
+      const { data: lessonRows, error: lessonError } = await supabase
+        .from('lessons')
+        .select('id')
+        .eq('module_id', moduleId)
+
+      if (lessonError) {
+        console.error(lessonError)
+        setModuleUnlockStats({
+          totalLessons: 0,
+          completedLessons: 0,
+          requiredEvaluations: 0,
+          passedEvaluations: 0,
+          loading: false
+        })
+        return
+      }
+
+      const lessonIds = (lessonRows || []).map((lesson: AnyRecord) => String(lesson.id))
+      const totalLessons = lessonIds.length
+
+      let completedLessonsCount = 0
+
+      if (userId && lessonIds.length > 0) {
+        const { data: completedRows, error: completedError } = await supabase
+          .from('lesson_progress')
+          .select('lesson_id')
+          .eq('user_id', userId)
+          .eq('completed', true)
+          .in('lesson_id', lessonIds)
+
+        if (completedError) {
+          console.error(completedError)
+        } else {
+          completedLessonsCount = new Set(
+            (completedRows || []).map((row: AnyRecord) => String(row.lesson_id))
+          ).size
+        }
+      }
+
+      const { data: lessonExamRows, error: lessonExamError } = await supabase
+        .from('exams')
+        .select('id')
+        .eq('module_id', moduleId)
+        .eq('exam_scope', 'lesson')
+        .eq('status', 'published')
+
+      if (lessonExamError) {
+        console.error(lessonExamError)
+        setModuleUnlockStats({
+          totalLessons,
+          completedLessons: completedLessonsCount,
+          requiredEvaluations: 0,
+          passedEvaluations: 0,
+          loading: false
+        })
+        return
+      }
+
+      const lessonExamIds = (lessonExamRows || []).map((exam: AnyRecord) => String(exam.id))
+      const requiredEvaluations = lessonExamIds.length
+
+      let passedEvaluationsCount = 0
+
+      if (userId && lessonExamIds.length > 0) {
+        const { data: passedRows, error: passedError } = await supabase
+          .from('exam_attempts')
+          .select('exam_id')
+          .eq('user_id', userId)
+          .eq('passed', true)
+          .in('exam_id', lessonExamIds)
+
+        if (passedError) {
+          console.error(passedError)
+        } else {
+          passedEvaluationsCount = new Set(
+            (passedRows || []).map((row: AnyRecord) => String(row.exam_id))
+          ).size
+        }
+      }
+
+      setModuleUnlockStats({
+        totalLessons,
+        completedLessons: completedLessonsCount,
+        requiredEvaluations,
+        passedEvaluations: passedEvaluationsCount,
+        loading: false
+      })
+    } catch (error) {
+      console.error(error)
+      setModuleUnlockStats({
+        totalLessons: 0,
+        completedLessons: 0,
+        requiredEvaluations: 0,
+        passedEvaluations: 0,
+        loading: false
+      })
+    }
+  }
+
   const loadModuleCompletion = async ({
     userId,
     moduleId
@@ -634,7 +786,7 @@ export default function LessonPage() {
     if (kind === 'module' && !moduleExamUnlocked) {
       setState((prev) => ({
         ...prev,
-        message: currentModuleCompleted
+        message: moduleLessonsReady
           ? 'Primero supera las evaluaciones de lección publicadas para este módulo.'
           : 'Primero completa todas las lecciones del módulo para desbloquear el examen.'
       }))
@@ -721,6 +873,18 @@ export default function LessonPage() {
             : `Evaluación superada con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}. Resultado guardado correctamente.`
           : `Examen enviado con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}. No has alcanzado la puntuación mínima, pero el intento quedó guardado.`
       }))
+
+      if (kind === 'lesson' && passed && currentModule?.id) {
+        await loadModuleLessonEvaluationProgress({
+          userId: user.id,
+          moduleId: String(currentModule.id)
+        })
+
+        await loadModuleUnlockStats({
+          userId: user.id,
+          moduleId: String(currentModule.id)
+        })
+      }
 
       if (kind === 'module' && passed && currentModule?.id) {
         await saveModuleCompletion({
@@ -1058,8 +1222,8 @@ export default function LessonPage() {
                 currentModuleCompleted
                   ? moduleLessonEvaluationsRequired > 0
                     ? `Completa y supera las evaluaciones de lección del módulo para desbloquear este examen. Ahora llevas ${moduleLessonEvaluationsPassed} de ${moduleLessonEvaluationsRequired} evaluaciones superadas.`
-                    : 'El módulo está completado. El examen se desbloqueará cuando haya evaluaciones de lección requeridas o configuración académica publicada.'
-                  : `Completa todas las lecciones del módulo para desbloquear este examen. Ahora llevas ${completedLessonsInCurrentModule} de ${currentModuleLessons.length}.`
+                    : 'El módulo está completado. No hay evaluaciones de lección publicadas para exigir antes del examen.'
+                  : `Completa todas las lecciones del módulo para desbloquear este examen. Ahora llevas ${moduleLessonsCompleted} de ${moduleLessonsRequired}.`
               }
               unlocked={moduleExamUnlocked}
               alreadyCompleted={moduleAlreadyCompleted}
@@ -1131,11 +1295,11 @@ export default function LessonPage() {
                   ? 'Módulo superado y registrado correctamente.'
                   : moduleExamUnlocked
                     ? 'Lecciones completadas y evaluaciones superadas. El examen de módulo está disponible.'
-                    : currentModuleCompleted
+                    : moduleLessonsReady
                       ? moduleLessonEvaluationsRequired > 0
                         ? `${moduleLessonEvaluationsPassed} de ${moduleLessonEvaluationsRequired} evaluaciones de lección superadas.`
-                        : 'Todas las lecciones están completadas. Falta configurar evaluaciones de lección para este módulo.'
-                      : `${completedLessonsInCurrentModule} de ${currentModuleLessons.length} lecciones completadas.`}
+                        : 'Todas las lecciones están completadas. No hay evaluaciones de lección publicadas para exigir antes del examen.'
+                      : `${moduleLessonsCompleted} de ${moduleLessonsRequired} lecciones completadas.`}
               </p>
               <em>
                 {moduleExamState.exam
