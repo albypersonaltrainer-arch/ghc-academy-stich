@@ -68,6 +68,7 @@ export default function CourseDetailPage() {
   const [courseCompletion, setCourseCompletion] = useState<AnyRecord | null>(null);
   const [realCertificate, setRealCertificate] = useState<AnyRecord | null>(null);
   const [finalExamState, setFinalExamState] = useState<FinalExamState>(emptyFinalExamState);
+  const [currentHash, setCurrentHash] = useState('');
 
   useEffect(() => {
     const syncHash = () => {
