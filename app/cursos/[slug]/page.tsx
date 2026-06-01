@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import GHCLogo from '../../components/GHCLogo';
 
 type AnyRecord = Record<string, any>;
 
@@ -451,7 +452,7 @@ export default function CourseDetailPage() {
       <main className="course-dashboard-page loading">
         <Background />
         <section className="loading-card">
-          <p>GHC Academy</p>
+          <GHCLogo size="md" showText tagline={false} />
           <h1>Cargando curso</h1>
           <span>Preparando módulos, lecciones y progreso del alumno.</span>
         </section>
@@ -504,10 +505,8 @@ export default function CourseDetailPage() {
       </aside>
 
       <aside className="sidebar">
-        <Link href="/alumno" className="brand">
-          <span className="brand-mark">G</span>
-          <strong>GHC</strong>
-          <em>Academy</em>
+        <Link href="/alumno" className="brand official-brand" aria-label="Ir al panel del alumno de GHC Academy">
+          <GHCLogo size="md" showText tagline={false} />
         </Link>
 
         <nav className="side-nav" aria-label="Navegación del alumno">
@@ -1198,6 +1197,11 @@ function GlobalStyles() {
         text-decoration: none;
         text-transform: uppercase;
         letter-spacing: .22em;
+      }
+
+      .brand.official-brand {
+        text-transform: none;
+        letter-spacing: normal;
       }
 
       .brand-mark {
