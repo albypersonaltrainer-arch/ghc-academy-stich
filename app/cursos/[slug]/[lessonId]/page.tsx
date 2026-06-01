@@ -717,9 +717,9 @@ export default function LessonPage() {
         submitting: false,
         message: passed
           ? kind === 'module'
-            ? 'Examen de módulo superado. El módulo ha quedado registrado como completado.'
-            : 'Evaluación superada. Resultado guardado correctamente.'
-          : 'Examen enviado. No has alcanzado la puntuación mínima, pero el intento quedó guardado.'
+            ? `Examen de módulo superado con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}. El módulo ha quedado registrado como completado.`
+            : `Evaluación superada con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}. Resultado guardado correctamente.`
+          : `Examen enviado con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}. No has alcanzado la puntuación mínima, pero el intento quedó guardado.`
       }))
 
       if (kind === 'module' && passed && currentModule?.id) {
@@ -1326,6 +1326,23 @@ function ExamBlock({
                   ? 'Enviar examen'
                   : 'Responde todas las preguntas'}
           </button>
+
+          {state.result ? (
+            <div className={state.result.passed ? 'result-summary passed' : 'result-summary failed'}>
+              <div>
+                <span>Resultado obtenido</span>
+                <strong>{state.result.score}%</strong>
+              </div>
+              <div>
+                <span>Respuestas correctas</span>
+                <strong>{state.result.correctAnswers} de {state.result.totalQuestions}</strong>
+              </div>
+              <div>
+                <span>Estado</span>
+                <strong>{state.result.passed ? 'Superado' : 'No superado'}</strong>
+              </div>
+            </div>
+          ) : null}
 
           {state.message ? (
             <span className={state.result?.passed ? 'exam-message success' : 'exam-message'}>
@@ -2502,6 +2519,57 @@ function GlobalStyles() {
         cursor: default;
       }
 
+      .result-summary {
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.085);
+        background: rgba(255,255,255,.032);
+        padding: 14px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .result-summary div {
+        border-radius: 13px;
+        border: 1px solid rgba(255,255,255,.075);
+        background: rgba(0,0,0,.16);
+        padding: 12px;
+        display: grid;
+        gap: 5px;
+      }
+
+      .result-summary span {
+        color: rgba(244,246,242,.52);
+        font-size: 10px;
+        font-weight: 950;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      .result-summary strong {
+        color: var(--white);
+        font-size: 18px;
+        font-weight: 950;
+      }
+
+      .result-summary.passed {
+        border-color: rgba(var(--green-rgb), .22);
+        background: rgba(var(--green-rgb), .055);
+      }
+
+      .result-summary.passed strong {
+        color: var(--green);
+      }
+
+      .result-summary.failed {
+        border-color: rgba(255,107,107,.22);
+        background: rgba(255,107,107,.055);
+      }
+
+      .result-summary.failed strong {
+        color: var(--red);
+      }
+
       .exam-message {
         color: rgba(244,246,242,.72);
         line-height: 1.55;
@@ -2787,6 +2855,10 @@ function GlobalStyles() {
         }
 
         .exam-head { flex-direction: column; }
+
+        .result-summary {
+          grid-template-columns: 1fr;
+        }
       }
     `}</style>
   )
