@@ -175,7 +175,7 @@ export default function AlumnoPage() {
           .from('lesson_progress')
           .select('*')
           .eq('user_id', activeUser.id)
-          .eq('completadod', true);
+          .eq('completed', true);
 
         setLessonProgreso(Array.isArray(progressData) ? progressData : []);
 
@@ -183,7 +183,7 @@ export default function AlumnoPage() {
           .from('module_completions')
           .select('*')
           .eq('user_id', activeUser.id)
-          .eq('completadod', true);
+          .eq('completed', true);
 
         setModuleCompletions(Array.isArray(moduleCompletionData) ? moduleCompletionData : []);
 
@@ -191,7 +191,7 @@ export default function AlumnoPage() {
           .from('course_completions')
           .select('*')
           .eq('user_id', activeUser.id)
-          .eq('completadod', true);
+          .eq('completed', true);
 
         setCourseCompletions(Array.isArray(courseCompletionData) ? courseCompletionData : []);
 
@@ -6271,9 +6271,31 @@ function findNextLesson({
       .filter((lesson) => String(lesson.module_id) === String(module.id))
       .sort(sortLecciones);
 
+    const moduleCompleted = completadodModuleIds.has(String(module.id));
     const nextLesson = moduleLecciones.find((lesson) => !completadodLessonIds.has(String(lesson.id)));
 
     if (nextLesson) return nextLesson;
+
+    if (!moduleCompleted && moduleLecciones[0]) {
+      return moduleLecciones[0];
+    }
+  }
+
+  for (let index = courseModules.length - 1; index >= 0; index -= 1) {
+    const module = courseModules[index];
+
+    const moduleUnlocked =
+      index === 0 ||
+      completadodModuleIds.has(String(module.id)) ||
+      completadodModuleIds.has(String(courseModules[index - 1]?.id));
+
+    if (!moduleUnlocked) continue;
+
+    const moduleLecciones = courseLessons
+      .filter((lesson) => String(lesson.module_id) === String(module.id))
+      .sort(sortLecciones);
+
+    if (moduleLecciones[0]) return moduleLecciones[0];
   }
 
   return courseLessons[0] || null;
