@@ -9,7 +9,7 @@ type AnyRecord = Record<string, any>;
 type GuardState = "checking" | "allowed" | "denied";
 type ExamScope = "lesson" | "module" | "course";
 type ExamStatus = "draft" | "published" | "hidden";
-type QuestionOption = "A" | "B" | "C" | "D";
+type CorrectOption = "A" | "B" | "C" | "D";
 
 type ExamFormState = {
   id?: string;
@@ -31,18 +31,38 @@ type QuestionFormState = {
   optionB: string;
   optionC: string;
   optionD: string;
-  correctOption: QuestionOption;
+  correctOption: CorrectOption;
   sortOrder: string;
   explanation: string;
 };
 
+type DashboardData = {
+  courses: AnyRecord[];
+  modules: AnyRecord[];
+  lessons: AnyRecord[];
+  exams: AnyRecord[];
+  examQuestions: AnyRecord[];
+  examAttempts: AnyRecord[];
+  profiles: AnyRecord[];
+};
+
 const GREEN = "#63E546";
-const ADMIN_BUILD_ID = "EXAMS-ADMIN-REAL-01 · 2026-06-02";
+const BUILD_ID = "EXAMS-PREMIUM-02 · 2026-06-02";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
+
+const emptyData: DashboardData = {
+  courses: [],
+  modules: [],
+  lessons: [],
+  exams: [],
+  examQuestions: [],
+  examAttempts: [],
+  profiles: [],
+};
 
 const emptyExamForm: ExamFormState = {
   courseId: "",
@@ -67,28 +87,21 @@ const emptyQuestionForm: QuestionFormState = {
   explanation: "",
 };
 
-export default function Page() {
+export default function ExamsAdminPage() {
   const router = useRouter();
-
   const [guardState, setGuardState] = useState<GuardState>("checking");
-  const [adminUser, setAdminUser] = useState<AnyRecord | null>(null);
-  const [profile, setProfile] = useState<AnyRecord | null>(null);
-  const [systemMessage, setSystemMessage] = useState("");
+  const [data, setData] = useState<DashboardData>(emptyData);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const [courses, setCourses] = useState<AnyRecord[]>([]);
-  const [modules, setModules] = useState<AnyRecord[]>([]);
-  const [lessons, setLessons] = useState<AnyRecord[]>([]);
-  const [exams, setExams] = useState<AnyRecord[]>([]);
-  const [questions, setQuestions] = useState<AnyRecord[]>([]);
-  const [attempts, setAttempts] = useState<AnyRecord[]>([]);
+  const [isSavingExam, setIsSavingExam] = useState(false);
+  const [isSavingQuestion, setIsSavingQuestion] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [selectedModuleId, setSelectedModuleId] = useState("");
   const [selectedLessonId, setSelectedLessonId] = useState("");
-  const [selectedScope, setSelectedScope] = useState<ExamScope>("lesson");
+  const [activeScope, setActiveScope] = useState<ExamScope>("lesson");
   const [selectedExamId, setSelectedExamId] = useState("");
+  const [examSearch, setExamSearch] = useState("");
 
   const [examForm, setExamForm] = useState<ExamFormState>(emptyExamForm);
   const [questionForm, setQuestionForm] = useState<QuestionFormState>(emptyQuestionForm);
@@ -103,32 +116,23 @@ export default function Page() {
           return;
         }
 
-        const user = userData.user as AnyRecord;
-        setAdminUser(user);
-
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", user.id)
+          .eq("id", userData.user.id)
           .maybeSingle();
 
-        if (profileError) {
-          console.error(profileError);
-          setGuardState("denied");
-          router.replace("/alumno");
-          return;
-        }
+        if (profileError) throw profileError;
 
-        const role = String(profileData?.role || "").toLowerCase();
+        const role = String(profile?.role || "").toLowerCase();
         if (!["admin", "superadmin", "owner"].includes(role)) {
           setGuardState("denied");
           router.replace("/alumno");
           return;
         }
 
-        setProfile(profileData || null);
         setGuardState("allowed");
-        await loadData();
+        await refreshData("Gestor de exámenes conectado con Supabase.");
       } catch (error) {
         console.error(error);
         setGuardState("denied");
@@ -139,190 +143,147 @@ export default function Page() {
     protectAndLoad();
   }, [router]);
 
-  const displayName = profile?.full_name || adminUser?.user_metadata?.full_name || adminUser?.email || "Admin GHC";
-  const initials = getInitials(displayName);
-
-  const selectedCourse = useMemo(
-    () => courses.find((course) => String(course.id) === selectedCourseId) || courses[0] || null,
-    [courses, selectedCourseId]
-  );
-
-  const courseModules = useMemo(() => {
-    if (!selectedCourse) return [];
-    return modules
-      .filter((module) => String(module.course_id) === String(selectedCourse.id))
-      .slice()
-      .sort((a, b) => Number(a.sort_order ?? a.position ?? 0) - Number(b.sort_order ?? b.position ?? 0));
-  }, [modules, selectedCourse]);
-
-  const selectedModule = useMemo(
-    () => courseModules.find((module) => String(module.id) === selectedModuleId) || courseModules[0] || null,
-    [courseModules, selectedModuleId]
-  );
-
-  const moduleLessons = useMemo(() => {
-    if (!selectedModule) return [];
-    return lessons
-      .filter((lesson) => String(lesson.module_id) === String(selectedModule.id))
-      .slice()
-      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
-  }, [lessons, selectedModule]);
-
-  const selectedLesson = useMemo(
-    () => moduleLessons.find((lesson) => String(lesson.id) === selectedLessonId) || moduleLessons[0] || null,
-    [moduleLessons, selectedLessonId]
-  );
-
-  const filteredExams = useMemo(() => {
-    if (!selectedCourse) return [];
-
-    return exams
-      .filter((exam) => String(exam.course_id) === String(selectedCourse.id))
-      .filter((exam) => normalizeExamScope(exam.exam_scope) === selectedScope)
-      .filter((exam) => {
-        if (selectedScope === "course") return true;
-        if (selectedScope === "module") return selectedModule ? String(exam.module_id) === String(selectedModule.id) : true;
-        if (selectedScope === "lesson") return selectedLesson ? String(exam.lesson_id) === String(selectedLesson.id) : true;
-        return true;
-      })
-      .slice()
-      .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
-  }, [exams, selectedCourse, selectedScope, selectedModule, selectedLesson]);
-
-  const selectedExam = useMemo(
-    () => filteredExams.find((exam) => String(exam.id) === selectedExamId) || filteredExams[0] || null,
-    [filteredExams, selectedExamId]
-  );
-
-  const selectedExamQuestions = useMemo(() => {
-    if (!selectedExam) return [];
-    return questions
-      .filter((question) => String(question.exam_id) === String(selectedExam.id))
-      .slice()
-      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
-  }, [questions, selectedExam]);
-
-  const stats = useMemo(() => {
-    const published = exams.filter((exam) => normalizeExamStatus(exam.status) === "published").length;
-    const draft = exams.filter((exam) => normalizeExamStatus(exam.status) === "draft").length;
-    const hidden = exams.filter((exam) => normalizeExamStatus(exam.status) === "hidden").length;
-    const broken = exams.filter((exam) => questions.filter((q) => String(q.exam_id) === String(exam.id)).length === 0).length;
-
-    return {
-      exams: exams.length,
-      questions: questions.length,
-      attempts: attempts.length,
-      published,
-      draft,
-      hidden,
-      broken,
-    };
-  }, [exams, questions, attempts]);
-
-  useEffect(() => {
-    if (!selectedCourse && courses[0]) {
-      setSelectedCourseId(String(courses[0].id));
-      return;
-    }
-
-    if (selectedCourse && selectedCourseId !== String(selectedCourse.id)) {
-      setSelectedCourseId(String(selectedCourse.id));
-    }
-  }, [courses, selectedCourse, selectedCourseId]);
-
-  useEffect(() => {
-    const firstModuleId = String(courseModules[0]?.id || "");
-    if (!courseModules.some((module) => String(module.id) === selectedModuleId)) {
-      setSelectedModuleId(firstModuleId);
-    }
-  }, [courseModules, selectedModuleId]);
-
-  useEffect(() => {
-    const firstLessonId = String(moduleLessons[0]?.id || "");
-    if (!moduleLessons.some((lesson) => String(lesson.id) === selectedLessonId)) {
-      setSelectedLessonId(firstLessonId);
-    }
-  }, [moduleLessons, selectedLessonId]);
-
-  useEffect(() => {
-    if (!selectedCourse) return;
-
-    const moduleId = selectedScope === "course" ? "" : String(selectedModule?.id || "");
-    const lessonId = selectedScope === "lesson" ? String(selectedLesson?.id || "") : "";
-
-    setExamForm({
-      ...emptyExamForm,
-      courseId: String(selectedCourse.id),
-      moduleId,
-      lessonId,
-      examScope: selectedScope,
-      title: buildDefaultExamTitle(selectedScope, selectedModule, selectedLesson),
-    });
-  }, [selectedCourse, selectedModule, selectedLesson, selectedScope]);
-
-  useEffect(() => {
-    if (!selectedExam) {
-      setSelectedExamId("");
-      setQuestionForm({ ...emptyQuestionForm, sortOrder: String(selectedExamQuestions.length + 1) });
-      return;
-    }
-
-    if (selectedExamId !== String(selectedExam.id)) {
-      setSelectedExamId(String(selectedExam.id));
-    }
-
-    setQuestionForm({
-      ...emptyQuestionForm,
-      examId: String(selectedExam.id),
-      sortOrder: String(selectedExamQuestions.length + 1),
-    });
-  }, [selectedExam, selectedExamId, selectedExamQuestions.length]);
-
-  async function loadData(message?: string) {
+  async function refreshData(message?: string) {
     setIsLoading(true);
     try {
-      const [coursesData, modulesData, lessonsData, examsData, questionsData, attemptsData] = await Promise.all([
-        safeSelect("courses", "*"),
-        safeSelect("modules", "*"),
-        safeSelect("lessons", "*"),
-        safeSelect("exams", "*"),
-        safeSelect("exam_questions", "*"),
-        safeSelect("exam_attempts", "*"),
-      ]);
+      const nextData = await loadDashboardData();
+      setData(nextData);
+      if (message) setNotice(message);
 
-      setCourses(coursesData);
-      setModules(modulesData);
-      setLessons(lessonsData);
-      setExams(examsData);
-      setQuestions(questionsData);
-      setAttempts(attemptsData);
-
-      if (message) setSystemMessage(message);
-    } catch (error) {
-      console.error(error);
-      setSystemMessage(getErrorMessage(error, "No se pudieron cargar los datos de exámenes."));
+      const firstCourseId = selectedCourseId || String(nextData.courses[0]?.id || "");
+      if (!selectedCourseId && firstCourseId) setSelectedCourseId(firstCourseId);
     } finally {
       setIsLoading(false);
     }
   }
 
-  function handleScopeChange(scope: ExamScope) {
-    setSelectedScope(scope);
+  const selectedCourse = useMemo(
+    () => data.courses.find((course) => String(course.id) === selectedCourseId) || data.courses[0] || null,
+    [data.courses, selectedCourseId]
+  );
+
+  const modulesForCourse = useMemo(() => {
+    if (!selectedCourse) return [];
+    return data.modules
+      .filter((module) => String(module.course_id) === String(selectedCourse.id))
+      .slice()
+      .sort((a, b) => Number(a.sort_order ?? a.position ?? 0) - Number(b.sort_order ?? b.position ?? 0));
+  }, [data.modules, selectedCourse]);
+
+  useEffect(() => {
+    if (!selectedCourse) return;
+    const currentModuleExists = modulesForCourse.some((module) => String(module.id) === selectedModuleId);
+    const nextModuleId = currentModuleExists ? selectedModuleId : String(modulesForCourse[0]?.id || "");
+    if (nextModuleId !== selectedModuleId) setSelectedModuleId(nextModuleId);
+  }, [modulesForCourse, selectedCourse, selectedModuleId]);
+
+  const selectedModule = useMemo(
+    () => modulesForCourse.find((module) => String(module.id) === selectedModuleId) || modulesForCourse[0] || null,
+    [modulesForCourse, selectedModuleId]
+  );
+
+  const lessonsForModule = useMemo(() => {
+    if (!selectedModule) return [];
+    return data.lessons
+      .filter((lesson) => String(lesson.module_id) === String(selectedModule.id))
+      .slice()
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+  }, [data.lessons, selectedModule]);
+
+  useEffect(() => {
+    const currentLessonExists = lessonsForModule.some((lesson) => String(lesson.id) === selectedLessonId);
+    const nextLessonId = currentLessonExists ? selectedLessonId : String(lessonsForModule[0]?.id || "");
+    if (nextLessonId !== selectedLessonId) setSelectedLessonId(nextLessonId);
+  }, [lessonsForModule, selectedLessonId]);
+
+  const selectedLesson = useMemo(
+    () => lessonsForModule.find((lesson) => String(lesson.id) === selectedLessonId) || lessonsForModule[0] || null,
+    [lessonsForModule, selectedLessonId]
+  );
+
+  const scopedExams = useMemo(() => {
+    const query = examSearch.trim().toLowerCase();
+
+    return data.exams
+      .filter((exam) => {
+        const examCourseId = String(exam.course_id || "");
+        if (selectedCourse && examCourseId !== String(selectedCourse.id)) return false;
+
+        const scope = normalizeExamScope(exam.exam_scope);
+        if (scope !== activeScope) return false;
+
+        if (activeScope === "module" && selectedModule && exam.module_id && String(exam.module_id) !== String(selectedModule.id)) return false;
+        if (activeScope === "lesson" && selectedLesson && exam.lesson_id && String(exam.lesson_id) !== String(selectedLesson.id)) return false;
+
+        if (!query) return true;
+        return [exam.title, exam.description, exam.status, exam.exam_scope].join(" ").toLowerCase().includes(query);
+      })
+      .slice()
+      .sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
+  }, [data.exams, activeScope, selectedCourse, selectedModule, selectedLesson, examSearch]);
+
+  const selectedExam = useMemo(
+    () => data.exams.find((exam) => String(exam.id) === selectedExamId) || scopedExams[0] || null,
+    [data.exams, selectedExamId, scopedExams]
+  );
+
+  useEffect(() => {
+    const nextExamId = String(selectedExam?.id || "");
+    if (nextExamId && nextExamId !== selectedExamId) {
+      setSelectedExamId(nextExamId);
+    }
+  }, [selectedExam, selectedExamId]);
+
+  const questionsForSelectedExam = useMemo(() => {
+    if (!selectedExam) return [];
+    return data.examQuestions
+      .filter((question) => String(question.exam_id) === String(selectedExam.id))
+      .slice()
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+  }, [data.examQuestions, selectedExam]);
+
+  const stats = useMemo(() => {
+    const published = data.exams.filter((exam) => normalizeExamStatus(exam.status) === "published").length;
+    const draft = data.exams.filter((exam) => normalizeExamStatus(exam.status) === "draft").length;
+    const examsWithoutQuestions = data.exams.filter((exam) => !data.examQuestions.some((q) => String(q.exam_id) === String(exam.id))).length;
+
+    return {
+      exams: data.exams.length,
+      questions: data.examQuestions.length,
+      attempts: data.examAttempts.length,
+      published,
+      draft,
+      examsWithoutQuestions,
+    };
+  }, [data]);
+
+  function prepareNewExam(scope: ExamScope = activeScope) {
+    const title = getDefaultExamTitle(scope, selectedCourse, selectedModule, selectedLesson);
+    const nextForm: ExamFormState = {
+      ...emptyExamForm,
+      courseId: String(selectedCourse?.id || ""),
+      moduleId: scope === "course" ? "" : String(selectedModule?.id || ""),
+      lessonId: scope === "lesson" ? String(selectedLesson?.id || "") : "",
+      title,
+      description: "",
+      examScope: scope,
+      passingScore: "70",
+      status: "draft",
+    };
+
+    setExamForm(nextForm);
+    setQuestionForm(emptyQuestionForm);
     setSelectedExamId("");
-    setSystemMessage(`Modo seleccionado: ${getExamScopeLabel(scope)}.`);
+    setNotice(`Nuevo ${getScopeLabel(scope).toLowerCase()} preparado. Revisa campos y guarda.`);
   }
 
-  function handleEditExam(exam: AnyRecord) {
+  function editExam(exam: AnyRecord) {
     const scope = normalizeExamScope(exam.exam_scope);
-    setSelectedScope(scope);
-    setSelectedExamId(String(exam.id));
-    setSelectedCourseId(String(exam.course_id || ""));
-    setSelectedModuleId(String(exam.module_id || ""));
-    setSelectedLessonId(String(exam.lesson_id || ""));
-
+    setActiveScope(scope);
+    setSelectedExamId(String(exam.id || ""));
     setExamForm({
       id: String(exam.id || ""),
-      courseId: String(exam.course_id || ""),
+      courseId: String(exam.course_id || selectedCourse?.id || ""),
       moduleId: String(exam.module_id || ""),
       lessonId: String(exam.lesson_id || ""),
       title: String(exam.title || ""),
@@ -331,93 +292,25 @@ export default function Page() {
       passingScore: String(exam.passing_score ?? exam.pass_score ?? 70),
       status: normalizeExamStatus(exam.status),
     });
-
-    setSystemMessage("Examen cargado para edición.");
+    setQuestionForm({ ...emptyQuestionForm, examId: String(exam.id || ""), sortOrder: String(questionsForSelectedExam.length + 1) });
+    setNotice(`Editando examen: ${exam.title || "sin título"}`);
   }
 
-  function handleNewExam() {
-    if (!selectedCourse) {
-      setSystemMessage("Primero necesitas seleccionar un curso.");
+  function prepareNewQuestion() {
+    if (!selectedExam?.id) {
+      setNotice("Primero guarda o selecciona un examen antes de crear preguntas.");
       return;
     }
 
-    const nextForm = {
-      ...emptyExamForm,
-      courseId: String(selectedCourse.id),
-      moduleId: selectedScope === "course" ? "" : String(selectedModule?.id || ""),
-      lessonId: selectedScope === "lesson" ? String(selectedLesson?.id || "") : "",
-      examScope: selectedScope,
-      title: buildDefaultExamTitle(selectedScope, selectedModule, selectedLesson),
-    };
-
-    setExamForm(nextForm);
-    setSelectedExamId("");
-    setSystemMessage("Formulario preparado para crear un examen nuevo.");
+    setQuestionForm({
+      ...emptyQuestionForm,
+      examId: String(selectedExam.id),
+      sortOrder: String(questionsForSelectedExam.length + 1),
+    });
+    setNotice("Nueva pregunta preparada. Rellena A/B/C/D y marca la correcta.");
   }
 
-  async function handleExamSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const courseId = examForm.courseId || String(selectedCourse?.id || "");
-    const scope = examForm.examScope;
-    const moduleId = scope === "course" ? "" : examForm.moduleId || String(selectedModule?.id || "");
-    const lessonId = scope === "lesson" ? examForm.lessonId || String(selectedLesson?.id || "") : "";
-
-    if (!courseId) {
-      setSystemMessage("Selecciona un curso antes de guardar el examen.");
-      return;
-    }
-
-    if (scope === "module" && !moduleId) {
-      setSystemMessage("Selecciona un módulo para crear un examen de módulo.");
-      return;
-    }
-
-    if (scope === "lesson" && !lessonId) {
-      setSystemMessage("Selecciona una lección para crear una evaluación de lección.");
-      return;
-    }
-
-    if (!examForm.title.trim()) {
-      setSystemMessage("El examen necesita un título.");
-      return;
-    }
-
-    setIsSaving(true);
-    setSystemMessage("Guardando examen mediante RPC segura GHC...");
-
-    try {
-      const payload = {
-        p_course_id: courseId,
-        p_module_id: moduleId || null,
-        p_lesson_id: lessonId || null,
-        p_title: examForm.title.trim(),
-        p_description: examForm.description.trim() || null,
-        p_exam_scope: scope,
-        p_passing_score: clampPercent(examForm.passingScore),
-        p_status: examForm.status,
-      };
-
-      const request = examForm.id
-        ? supabase.rpc("ghc_admin_update_exam", { p_exam_id: examForm.id, ...payload })
-        : supabase.rpc("ghc_admin_create_exam", payload);
-
-      const { data, error } = await request;
-
-      if (error) throw error;
-
-      setSelectedScope(scope);
-      setSelectedExamId(String((data as AnyRecord)?.id || ""));
-      await loadData(examForm.id ? "Examen actualizado correctamente." : "Examen creado correctamente como borrador.");
-    } catch (error) {
-      console.error(error);
-      setSystemMessage(getErrorMessage(error, "No se pudo guardar el examen. Revisa la función RPC y los permisos admin."));
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  function handleEditQuestion(question: AnyRecord) {
+  function editQuestion(question: AnyRecord) {
     setQuestionForm({
       id: String(question.id || ""),
       examId: String(question.exam_id || selectedExam?.id || ""),
@@ -427,51 +320,91 @@ export default function Page() {
       optionC: String(question.option_c || ""),
       optionD: String(question.option_d || ""),
       correctOption: normalizeCorrectOption(question.correct_option),
-      sortOrder: String(question.sort_order ?? selectedExamQuestions.length + 1),
+      sortOrder: String(question.sort_order || 1),
       explanation: String(question.explanation || ""),
     });
-
-    setSystemMessage("Pregunta cargada para edición.");
+    setNotice("Pregunta cargada en el editor.");
   }
 
-  function handleNewQuestion() {
-    if (!selectedExam) {
-      setSystemMessage("Primero crea o selecciona un examen.");
+  async function submitExam(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!examForm.courseId) {
+      setNotice("Selecciona un curso antes de guardar el examen.");
       return;
     }
 
-    setQuestionForm({
-      ...emptyQuestionForm,
-      examId: String(selectedExam.id),
-      sortOrder: String(selectedExamQuestions.length + 1),
-    });
+    if (examForm.examScope === "module" && !examForm.moduleId) {
+      setNotice("Selecciona un módulo para crear un examen de módulo.");
+      return;
+    }
 
-    setSystemMessage("Formulario preparado para añadir una pregunta nueva.");
+    if (examForm.examScope === "lesson" && !examForm.lessonId) {
+      setNotice("Selecciona una lección para crear una evaluación de lección.");
+      return;
+    }
+
+    if (!examForm.title.trim()) {
+      setNotice("El examen necesita un título.");
+      return;
+    }
+
+    setIsSavingExam(true);
+    try {
+      const passingScore = clampScore(examForm.passingScore);
+      const payload = {
+        p_course_id: examForm.courseId,
+        p_module_id: examForm.examScope === "course" ? null : examForm.moduleId || null,
+        p_lesson_id: examForm.examScope === "lesson" ? examForm.lessonId || null : null,
+        p_title: examForm.title.trim(),
+        p_description: examForm.description.trim() || null,
+        p_exam_scope: examForm.examScope,
+        p_passing_score: passingScore,
+        p_status: examForm.status,
+      };
+
+      const response = examForm.id
+        ? await supabase.rpc("ghc_admin_update_exam", { p_exam_id: examForm.id, ...payload })
+        : await supabase.rpc("ghc_admin_create_exam", payload);
+
+      if (response.error) throw response.error;
+
+      const savedExam = response.data as AnyRecord;
+      await refreshData(examForm.id ? "Examen actualizado correctamente." : "Examen creado correctamente.");
+      setSelectedExamId(String(savedExam?.id || examForm.id || ""));
+      setExamForm({
+        ...examForm,
+        id: String(savedExam?.id || examForm.id || ""),
+      });
+      setQuestionForm({ ...emptyQuestionForm, examId: String(savedExam?.id || examForm.id || ""), sortOrder: "1" });
+    } catch (error) {
+      console.error(error);
+      setNotice(getErrorMessage(error, "No se pudo guardar el examen. Revisa las funciones RPC de Supabase."));
+    } finally {
+      setIsSavingExam(false);
+    }
   }
 
-  async function handleQuestionSubmit(event: FormEvent<HTMLFormElement>) {
+  async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const examId = questionForm.examId || String(selectedExam?.id || "");
-
     if (!examId) {
-      setSystemMessage("Primero selecciona un examen.");
+      setNotice("Primero selecciona o guarda un examen.");
       return;
     }
 
     if (!questionForm.question.trim()) {
-      setSystemMessage("La pregunta no puede estar vacía.");
+      setNotice("La pregunta no puede estar vacía.");
       return;
     }
 
-    if (!questionForm.optionA.trim() || !questionForm.optionB.trim() || !questionForm.optionC.trim() || !questionForm.optionD.trim()) {
-      setSystemMessage("Rellena las opciones A, B, C y D antes de guardar.");
+    if (![questionForm.optionA, questionForm.optionB, questionForm.optionC, questionForm.optionD].every((value) => value.trim())) {
+      setNotice("Las opciones A, B, C y D son obligatorias.");
       return;
     }
 
-    setIsSaving(true);
-    setSystemMessage("Guardando pregunta mediante RPC segura GHC...");
-
+    setIsSavingQuestion(true);
     try {
       const payload = {
         p_exam_id: examId,
@@ -481,61 +414,124 @@ export default function Page() {
         p_option_c: questionForm.optionC.trim(),
         p_option_d: questionForm.optionD.trim(),
         p_correct_option: questionForm.correctOption,
-        p_sort_order: parseInteger(questionForm.sortOrder, selectedExamQuestions.length + 1),
+        p_sort_order: Math.max(1, Math.round(Number(questionForm.sortOrder) || 1)),
         p_explanation: questionForm.explanation.trim() || null,
       };
 
-      const request = questionForm.id
-        ? supabase.rpc("ghc_admin_update_exam_question", { p_question_id: questionForm.id, ...payload })
-        : supabase.rpc("ghc_admin_create_exam_question", payload);
+      const response = questionForm.id
+        ? await supabase.rpc("ghc_admin_update_exam_question", { p_question_id: questionForm.id, ...payload })
+        : await supabase.rpc("ghc_admin_create_exam_question", payload);
 
-      const { error } = await request;
+      if (response.error) throw response.error;
 
-      if (error) throw error;
-
-      await loadData(questionForm.id ? "Pregunta actualizada correctamente." : "Pregunta añadida correctamente.");
-      handleNewQuestion();
+      await refreshData(questionForm.id ? "Pregunta actualizada correctamente." : "Pregunta creada correctamente.");
+      setSelectedExamId(examId);
+      setQuestionForm({ ...emptyQuestionForm, examId, sortOrder: String(questionsForSelectedExam.length + 2) });
     } catch (error) {
       console.error(error);
-      setSystemMessage(getErrorMessage(error, "No se pudo guardar la pregunta. Revisa la función RPC y los permisos admin."));
+      setNotice(getErrorMessage(error, "No se pudo guardar la pregunta."));
     } finally {
-      setIsSaving(false);
+      setIsSavingQuestion(false);
     }
   }
 
-  async function handleDeleteQuestion(question: AnyRecord) {
-    const questionId = String(question.id || "");
-
-    if (!questionId) return;
-
-    const confirmed = window.confirm("¿Eliminar esta pregunta? Esta acción no elimina el examen, solo la pregunta seleccionada.");
-    if (!confirmed) return;
-
-    setIsSaving(true);
-    setSystemMessage("Eliminando pregunta mediante RPC segura GHC...");
+  async function deleteQuestion(question: AnyRecord) {
+    const confirmation = window.confirm("¿Eliminar esta pregunta? Esta acción no elimina el examen.");
+    if (!confirmation) return;
 
     try {
-      const { error } = await supabase.rpc("ghc_admin_delete_exam_question", { p_question_id: questionId });
+      const { error } = await supabase.rpc("ghc_admin_delete_exam_question", {
+        p_question_id: String(question.id),
+      });
+
       if (error) throw error;
-      await loadData("Pregunta eliminada correctamente.");
-      handleNewQuestion();
+      await refreshData("Pregunta eliminada correctamente.");
+      setQuestionForm({ ...emptyQuestionForm, examId: String(selectedExam?.id || ""), sortOrder: String(Math.max(1, questionsForSelectedExam.length)) });
     } catch (error) {
       console.error(error);
-      setSystemMessage(getErrorMessage(error, "No se pudo eliminar la pregunta."));
-    } finally {
-      setIsSaving(false);
+      setNotice(getErrorMessage(error, "No se pudo eliminar la pregunta."));
     }
+  }
+
+  function changeCourse(courseId: string) {
+    const nextCourse = data.courses.find((course) => String(course.id) === courseId);
+    const nextModules = data.modules.filter((module) => String(module.course_id) === courseId);
+    const nextModuleId = String(nextModules[0]?.id || "");
+    const nextLessons = data.lessons.filter((lesson) => String(lesson.module_id) === nextModuleId);
+    const nextLessonId = String(nextLessons[0]?.id || "");
+
+    setSelectedCourseId(courseId);
+    setSelectedModuleId(nextModuleId);
+    setSelectedLessonId(nextLessonId);
+    setSelectedExamId("");
+    setQuestionForm(emptyQuestionForm);
+    setExamForm({
+      ...emptyExamForm,
+      courseId,
+      moduleId: nextModuleId,
+      lessonId: nextLessonId,
+      examScope: activeScope,
+      title: getDefaultExamTitle(activeScope, nextCourse, nextModules[0], nextLessons[0]),
+    });
+  }
+
+  function changeModule(moduleId: string) {
+    const nextModule = data.modules.find((module) => String(module.id) === moduleId);
+    const nextLessons = data.lessons.filter((lesson) => String(lesson.module_id) === moduleId);
+    const nextLessonId = String(nextLessons[0]?.id || "");
+
+    setSelectedModuleId(moduleId);
+    setSelectedLessonId(nextLessonId);
+    setSelectedExamId("");
+    setQuestionForm(emptyQuestionForm);
+    setExamForm({
+      ...emptyExamForm,
+      courseId: String(selectedCourse?.id || ""),
+      moduleId,
+      lessonId: nextLessonId,
+      examScope: activeScope,
+      title: getDefaultExamTitle(activeScope, selectedCourse, nextModule, nextLessons[0]),
+    });
+  }
+
+  function changeLesson(lessonId: string) {
+    const nextLesson = data.lessons.find((lesson) => String(lesson.id) === lessonId);
+    setSelectedLessonId(lessonId);
+    setSelectedExamId("");
+    setQuestionForm(emptyQuestionForm);
+    setExamForm({
+      ...emptyExamForm,
+      courseId: String(selectedCourse?.id || ""),
+      moduleId: String(selectedModule?.id || ""),
+      lessonId,
+      examScope: activeScope,
+      title: getDefaultExamTitle(activeScope, selectedCourse, selectedModule, nextLesson),
+    });
+  }
+
+  function changeScope(scope: ExamScope) {
+    setActiveScope(scope);
+    setSelectedExamId("");
+    setQuestionForm(emptyQuestionForm);
+    setExamForm({
+      ...emptyExamForm,
+      courseId: String(selectedCourse?.id || ""),
+      moduleId: scope === "course" ? "" : String(selectedModule?.id || ""),
+      lessonId: scope === "lesson" ? String(selectedLesson?.id || "") : "",
+      examScope: scope,
+      title: getDefaultExamTitle(scope, selectedCourse, selectedModule, selectedLesson),
+    });
   }
 
   if (guardState === "checking") {
     return (
-      <main className="ghc-exams-page">
-        <GlobalStyles />
-        <Background />
-        <section className="loading-card">
+      <main className="exam-admin-page exam-admin-loading">
+        <ExamStyles />
+        <ExamBackground />
+        <section className="exam-admin-loading-card">
           <GHCLogo size="md" showText tagline={false} />
-          <h1>GHC Exámenes</h1>
-          <p>Verificando acceso administrativo...</p>
+          <h1>Centro de evaluación GHC</h1>
+          <p>Verificando permisos administrativos...</p>
         </section>
       </main>
     );
@@ -544,324 +540,300 @@ export default function Page() {
   if (guardState !== "allowed") return null;
 
   return (
-    <main className="ghc-exams-page">
-      <GlobalStyles />
-      <Background />
+    <main className="exam-admin-page">
+      <ExamStyles />
+      <ExamBackground />
 
-      <header className="admin-header">
-        <div className="brand-block">
-          <GHCLogo size="md" showText tagline={false} />
-          <div>
-            <span>GHC Control Center</span>
-            <strong>Exámenes y evaluaciones</strong>
-          </div>
-        </div>
-
-        <div className="header-actions">
-          <button type="button" onClick={() => router.push("/ghc-control-center")}>Volver al panel</button>
-          <button type="button" onClick={() => loadData("Datos refrescados desde Supabase.")}>{isLoading ? "Cargando..." : "Refrescar"}</button>
-          <div className="user-pill"><span>{initials}</span><strong>{shortName(displayName)}</strong></div>
-        </div>
+      <header className="exam-admin-topbar">
+        <button type="button" className="exam-back-button" onClick={() => router.push("/ghc-control-center")}>← Control Center</button>
+        <div className="exam-admin-brand"><GHCLogo size="sm" showText tagline={false} /></div>
+        <div className="exam-admin-build"><span>{BUILD_ID}</span><strong>RPC segura · Supabase real</strong></div>
       </header>
 
-      <section className="hero-card">
+      <section className="exam-admin-hero">
         <div>
-          <p className="kicker">Admin real · RPC segura · Supabase</p>
-          <h1>Gestor de exámenes</h1>
-          <p>
-            Crea y edita evaluaciones de lección, exámenes de módulo y examen final de curso sin tocar SQL manualmente.
-            La publicación queda bajo control humano.
-          </p>
+          <p className="exam-kicker">Admin real · evaluación académica</p>
+          <h1>Centro de evaluación</h1>
+          <p>Crea y edita evaluaciones de lección, exámenes de módulo y examen final de curso sin tocar SQL manualmente. La publicación queda bajo control humano.</p>
+          <div className="hero-actions">
+            <button type="button" onClick={() => prepareNewExam("lesson")}>+ Evaluación de lección</button>
+            <button type="button" onClick={() => prepareNewExam("module")}>+ Examen de módulo</button>
+            <button type="button" onClick={() => prepareNewExam("course")}>+ Examen final</button>
+          </div>
         </div>
-
-        <aside>
-          <span>{ADMIN_BUILD_ID}</span>
-          <strong>Operativo sobre tablas reales</strong>
-          <p>Usa exams y exam_questions con funciones RPC GHC. Sin datos falsos, sin columnas inventadas.</p>
+        <aside className="exam-hero-panel">
+          <span>GHC Academy</span>
+          <strong>Evaluar, revisar, aprobar</strong>
+          <p>Banco A/B/C/D conectado a exams y exam_questions. Sin datos falsos, sin columnas inventadas y sin publicación automática.</p>
         </aside>
       </section>
 
-      {systemMessage ? <div className="notice">{systemMessage}</div> : null}
+      {notice ? <div className="exam-notice">{notice}</div> : null}
 
-      <section className="stats-grid">
-        <StatCard label="Exámenes" value={stats.exams} helper="Total en Supabase" />
-        <StatCard label="Preguntas" value={stats.questions} helper="Banco real" />
-        <StatCard label="Publicados" value={stats.published} helper={`${stats.draft} borradores`} />
-        <StatCard label="Intentos" value={stats.attempts} helper="exam_attempts" />
-        <StatCard label="Sin preguntas" value={stats.broken} helper="Revisar antes de publicar" warning={stats.broken > 0} />
+      <section className="exam-kpi-grid">
+        <ExamKpi label="Exámenes" value={stats.exams} helper="Total en Supabase" />
+        <ExamKpi label="Preguntas" value={stats.questions} helper="Banco real" />
+        <ExamKpi label="Publicados" value={stats.published} helper={`${stats.draft} borradores`} />
+        <ExamKpi label="Intentos" value={stats.attempts} helper="exam_attempts" />
+        <ExamKpi label="Sin preguntas" value={stats.examsWithoutQuestions} helper="Revisar antes de publicar" warning={stats.examsWithoutQuestions > 0} />
       </section>
 
-      <section className="workspace-grid">
-        <aside className="selector-card">
-          <div className="card-head">
-            <div>
-              <h2>Contexto académico</h2>
-              <p>Selecciona el curso, módulo y lección exactos antes de crear o editar.</p>
-            </div>
+      <section className="exam-admin-layout">
+        <aside className="exam-context-panel">
+          <div className="panel-head">
+            <p className="exam-kicker">Contexto académico</p>
+            <h2>Curso, módulo y lección</h2>
           </div>
 
-          <label>
-            <span>Curso</span>
-            <select
-              value={String(selectedCourse?.id || "")}
-              onChange={(event) => {
-                setSelectedCourseId(event.target.value);
-                setSelectedExamId("");
-                setSystemMessage("Curso seleccionado. Elige módulo, lección o tipo de examen.");
-              }}
-            >
-              {courses.length ? courses.map((course) => (
-                <option key={String(course.id)} value={String(course.id)}>{course.title || course.name || "Curso GHC"}</option>
-              )) : <option value="">Sin cursos</option>}
-            </select>
-          </label>
+          <div className="field-stack">
+            <label>
+              <span>Curso</span>
+              <select value={selectedCourse?.id || ""} onChange={(event) => changeCourse(event.target.value)}>
+                {data.courses.map((course) => <option key={String(course.id)} value={String(course.id)}>{course.title || course.name || "Curso GHC"}</option>)}
+              </select>
+            </label>
 
-          <label>
-            <span>Módulo</span>
-            <select
-              value={String(selectedModule?.id || "")}
-              onChange={(event) => {
-                setSelectedModuleId(event.target.value);
-                setSelectedExamId("");
-                setSystemMessage("Módulo seleccionado.");
-              }}
-              disabled={!courseModules.length}
-            >
-              {courseModules.length ? courseModules.map((module, index) => (
-                <option key={String(module.id || index)} value={String(module.id || "")}>{module.title || module.name || `Módulo ${index + 1}`}</option>
-              )) : <option value="">Este curso no tiene módulos</option>}
-            </select>
-          </label>
+            <label>
+              <span>Módulo</span>
+              <select value={selectedModule?.id || ""} onChange={(event) => changeModule(event.target.value)} disabled={!modulesForCourse.length}>
+                {modulesForCourse.length ? modulesForCourse.map((module, index) => <option key={String(module.id)} value={String(module.id)}>{module.title || module.name || `Módulo ${index + 1}`}</option>) : <option value="">Sin módulos</option>}
+              </select>
+            </label>
 
-          <label>
-            <span>Lección</span>
-            <select
-              value={String(selectedLesson?.id || "")}
-              onChange={(event) => {
-                setSelectedLessonId(event.target.value);
-                setSelectedExamId("");
-                setSystemMessage("Lección seleccionada.");
-              }}
-              disabled={!moduleLessons.length}
-            >
-              {moduleLessons.length ? moduleLessons.map((lesson, index) => (
-                <option key={String(lesson.id || index)} value={String(lesson.id || "")}>{lesson.title || `Lección ${index + 1}`}</option>
-              )) : <option value="">Este módulo no tiene lecciones</option>}
-            </select>
-          </label>
+            <label>
+              <span>Lección</span>
+              <select value={selectedLesson?.id || ""} onChange={(event) => changeLesson(event.target.value)} disabled={!lessonsForModule.length}>
+                {lessonsForModule.length ? lessonsForModule.map((lesson, index) => <option key={String(lesson.id)} value={String(lesson.id)}>{lesson.title || `Lección ${index + 1}`}</option>) : <option value="">Sin lecciones</option>}
+              </select>
+            </label>
+          </div>
 
-          <div className="scope-tabs">
-            <button type="button" className={selectedScope === "lesson" ? "active" : ""} onClick={() => handleScopeChange("lesson")}>Evaluación de lección</button>
-            <button type="button" className={selectedScope === "module" ? "active" : ""} onClick={() => handleScopeChange("module")}>Examen de módulo</button>
-            <button type="button" className={selectedScope === "course" ? "active" : ""} onClick={() => handleScopeChange("course")}>Examen final</button>
+          <div className="scope-tabs" role="tablist" aria-label="Tipo de evaluación">
+            <button type="button" className={activeScope === "lesson" ? "active" : ""} onClick={() => changeScope("lesson")}>Evaluación de lección</button>
+            <button type="button" className={activeScope === "module" ? "active" : ""} onClick={() => changeScope("module")}>Examen de módulo</button>
+            <button type="button" className={activeScope === "course" ? "active" : ""} onClick={() => changeScope("course")}>Examen final</button>
           </div>
 
           <div className="context-summary">
-            <SummaryRow label="Curso" value={selectedCourse?.title || "Sin curso"} />
-            <SummaryRow label="Módulo" value={selectedModule?.title || selectedModule?.name || "Sin módulo"} muted={selectedScope === "course"} />
-            <SummaryRow label="Lección" value={selectedLesson?.title || "Sin lección"} muted={selectedScope !== "lesson"} />
+            <span>Selección activa</span>
+            <strong>{getScopeLabel(activeScope)}</strong>
+            <p>{selectedCourse?.title || "Sin curso"}</p>
+            <p>{activeScope !== "course" ? selectedModule?.title || "Sin módulo" : "Curso completo"}</p>
+            <p>{activeScope === "lesson" ? selectedLesson?.title || "Sin lección" : "—"}</p>
           </div>
         </aside>
 
-        <section className="main-column">
-          <article className="exam-list-card">
-            <div className="card-head">
+        <section className="exam-main-panel">
+          <div className="panel-head with-actions">
+            <div>
+              <p className="exam-kicker">Gestión operativa</p>
+              <h2>{getScopeLabel(activeScope)}</h2>
+            </div>
+            <div className="panel-actions">
+              <button type="button" onClick={() => refreshData("Datos refrescados desde Supabase.")}>{isLoading ? "Refrescando..." : "↻ Refrescar"}</button>
+              <button type="button" className="primary" onClick={() => prepareNewExam(activeScope)}>+ Nuevo examen</button>
+            </div>
+          </div>
+
+          <div className="exam-search-row">
+            <input value={examSearch} onChange={(event) => setExamSearch(event.target.value)} placeholder="Buscar por título, descripción o estado..." />
+          </div>
+
+          <div className="exam-list-premium">
+            {scopedExams.length ? scopedExams.map((exam) => {
+              const questionCount = data.examQuestions.filter((q) => String(q.exam_id) === String(exam.id)).length;
+              const isSelected = selectedExam && String(selectedExam.id) === String(exam.id);
+              return (
+                <button key={String(exam.id)} type="button" className={isSelected ? "exam-row-premium active" : "exam-row-premium"} onClick={() => editExam(exam)}>
+                  <span className={`status-pill ${normalizeExamStatus(exam.status)}`}>{getStatusLabel(exam.status)}</span>
+                  <div>
+                    <strong>{exam.title || "Examen sin título"}</strong>
+                    <p>{getExamContextLabel(exam, data)} · Nota mínima {exam.passing_score ?? exam.pass_score ?? 70}%</p>
+                  </div>
+                  <em>{questionCount} preguntas</em>
+                </button>
+              );
+            }) : (
+              <div className="empty-state">
+                <span>◈</span>
+                <strong>No hay exámenes para esta selección</strong>
+                <p>Crea el primer examen para el curso, módulo o lección seleccionada.</p>
+                <button type="button" onClick={() => prepareNewExam(activeScope)}>Crear ahora</button>
+              </div>
+            )}
+          </div>
+
+          <form className="exam-editor-card" onSubmit={submitExam}>
+            <div className="editor-title-row">
               <div>
-                <h2>{getExamScopeLabel(selectedScope)}</h2>
-                <p>{filteredExams.length} exámenes encontrados para la selección actual.</p>
+                <span>Editor de examen</span>
+                <h3>{examForm.id ? "Editar examen" : "Crear examen"}</h3>
               </div>
-              <button type="button" onClick={handleNewExam}>+ Nuevo examen</button>
+              <strong>{examForm.examScope.toUpperCase()}</strong>
             </div>
 
-            <div className="exam-list">
-              {filteredExams.length ? filteredExams.map((exam) => {
-                const examQuestions = questions.filter((question) => String(question.exam_id) === String(exam.id));
-                const isActive = selectedExam && String(selectedExam.id) === String(exam.id);
-
-                return (
-                  <button
-                    key={String(exam.id)}
-                    type="button"
-                    className={isActive ? "exam-row active" : "exam-row"}
-                    onClick={() => {
-                      setSelectedExamId(String(exam.id));
-                      handleEditExam(exam);
-                    }}
-                  >
-                    <span className={`status-pill ${normalizeExamStatus(exam.status)}`}>{getExamStatusLabel(exam.status)}</span>
-                    <div>
-                      <strong>{exam.title || "Examen sin título"}</strong>
-                      <p>{getExamScopeLabel(exam.exam_scope)} · {examQuestions.length} preguntas · mínimo {exam.passing_score ?? exam.pass_score ?? 70}%</p>
-                    </div>
-                    <em>{isActive ? "Editando" : "Abrir"}</em>
-                  </button>
-                );
-              }) : (
-                <div className="empty-card">
-                  <span>◈</span>
-                  <strong>No hay exámenes para esta selección</strong>
-                  <p>Crea uno como borrador, añade preguntas y publícalo cuando esté revisado.</p>
-                  <button type="button" onClick={handleNewExam}>Crear examen</button>
-                </div>
-              )}
-            </div>
-          </article>
-
-          <article className="editor-card">
-            <div className="card-head">
-              <div>
-                <h2>{examForm.id ? "Editar examen" : "Crear examen"}</h2>
-                <p>Define alcance, título, nota mínima y estado de publicación.</p>
-              </div>
-              {selectedExam ? <button type="button" onClick={() => handleEditExam(selectedExam)}>Recargar seleccionado</button> : null}
-            </div>
-
-            <form className="admin-form" onSubmit={handleExamSubmit}>
-              <div className="form-grid two">
-                <label>
-                  <span>Tipo</span>
-                  <select value={examForm.examScope} onChange={(event) => setExamForm({ ...examForm, examScope: event.target.value as ExamScope })}>
-                    <option value="lesson">Evaluación de lección</option>
-                    <option value="module">Examen de módulo</option>
-                    <option value="course">Examen final de curso</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span>Estado</span>
-                  <select value={examForm.status} onChange={(event) => setExamForm({ ...examForm, status: event.target.value as ExamStatus })}>
-                    <option value="draft">Borrador</option>
-                    <option value="published">Publicado</option>
-                    <option value="hidden">Oculto</option>
-                  </select>
-                </label>
-              </div>
-
+            <div className="form-grid two">
               <label>
                 <span>Título *</span>
                 <input value={examForm.title} onChange={(event) => setExamForm({ ...examForm, title: event.target.value })} />
               </label>
-
               <label>
-                <span>Descripción</span>
-                <textarea value={examForm.description} onChange={(event) => setExamForm({ ...examForm, description: event.target.value })} />
+                <span>Estado</span>
+                <select value={examForm.status} onChange={(event) => setExamForm({ ...examForm, status: event.target.value as ExamStatus })}>
+                  <option value="draft">Borrador</option>
+                  <option value="published">Publicado</option>
+                  <option value="hidden">Oculto</option>
+                </select>
               </label>
+            </div>
 
-              <div className="form-grid three">
-                <label>
-                  <span>Nota mínima %</span>
-                  <input value={examForm.passingScore} onChange={(event) => setExamForm({ ...examForm, passingScore: event.target.value })} placeholder="70" />
-                </label>
+            <div className="form-grid two compact">
+              <label>
+                <span>Tipo</span>
+                <select value={examForm.examScope} onChange={(event) => setExamForm({ ...examForm, examScope: event.target.value as ExamScope })}>
+                  <option value="lesson">Evaluación de lección</option>
+                  <option value="module">Examen de módulo</option>
+                  <option value="course">Examen final de curso</option>
+                </select>
+              </label>
+              <label>
+                <span>Nota mínima (%)</span>
+                <input value={examForm.passingScore} onChange={(event) => setExamForm({ ...examForm, passingScore: event.target.value })} />
+              </label>
+            </div>
 
-                <label>
-                  <span>Curso asociado</span>
-                  <input value={selectedCourse?.title || ""} readOnly />
-                </label>
+            <label>
+              <span>Descripción</span>
+              <textarea value={examForm.description} onChange={(event) => setExamForm({ ...examForm, description: event.target.value })} placeholder="Instrucciones internas o descripción para el examen..." />
+            </label>
 
-                <label>
-                  <span>Destino</span>
-                  <input value={buildDestinationLabel(examForm.examScope, selectedModule, selectedLesson)} readOnly />
-                </label>
-              </div>
-
-              <div className="form-warning">
-                <strong>Regla GHC:</strong> un examen debe tener preguntas A/B/C/D revisadas antes de publicarse. La IA podrá proponer, pero no publica sola.
-              </div>
-
-              <div className="form-actions">
-                <button type="button" onClick={handleNewExam}>Limpiar</button>
-                <button type="submit" disabled={isSaving}>{isSaving ? "Guardando..." : examForm.id ? "Guardar examen" : "Crear examen"}</button>
-              </div>
-            </form>
-          </article>
+            <div className="editor-footer">
+              <button type="button" onClick={() => prepareNewExam(activeScope)}>Limpiar</button>
+              <button type="submit" disabled={isSavingExam}>{isSavingExam ? "Guardando..." : examForm.id ? "Guardar cambios" : "Crear examen"}</button>
+            </div>
+          </form>
         </section>
 
-        <aside className="questions-column">
-          <article className="questions-card">
-            <div className="card-head">
-              <div>
-                <h2>Preguntas</h2>
-                <p>{selectedExam ? `${selectedExamQuestions.length} preguntas en el examen seleccionado.` : "Selecciona o crea un examen."}</p>
-              </div>
-              <button type="button" onClick={handleNewQuestion} disabled={!selectedExam}>+ Pregunta</button>
+        <aside className="question-panel">
+          <div className="panel-head with-actions compact-head">
+            <div>
+              <p className="exam-kicker">Banco de preguntas</p>
+              <h2>Preguntas A/B/C/D</h2>
             </div>
+            <button type="button" onClick={prepareNewQuestion}>+ Pregunta</button>
+          </div>
 
-            <div className="question-list">
-              {selectedExamQuestions.length ? selectedExamQuestions.map((question, index) => (
-                <div key={String(question.id || index)} className="question-row">
-                  <div className="question-number">{index + 1}</div>
-                  <div>
-                    <strong>{question.question}</strong>
-                    <p>Correcta: {question.correct_option || "—"} · Orden {question.sort_order || index + 1}</p>
-                  </div>
-                  <div className="question-actions">
-                    <button type="button" onClick={() => handleEditQuestion(question)}>Editar</button>
-                    <button type="button" onClick={() => handleDeleteQuestion(question)}>Eliminar</button>
-                  </div>
+          <div className="selected-exam-card">
+            <span>Examen seleccionado</span>
+            <strong>{selectedExam?.title || "Ningún examen seleccionado"}</strong>
+            <p>{questionsForSelectedExam.length} preguntas vinculadas</p>
+          </div>
+
+          <div className="question-list">
+            {questionsForSelectedExam.length ? questionsForSelectedExam.map((question, index) => (
+              <article key={String(question.id)} className="question-mini-card">
+                <div>
+                  <span>P{index + 1}</span>
+                  <strong>{question.question}</strong>
+                  <p>Correcta: {question.correct_option || "—"}</p>
                 </div>
-              )) : (
-                <div className="empty-card compact">
-                  <span>?</span>
-                  <strong>{selectedExam ? "Este examen no tiene preguntas" : "Sin examen seleccionado"}</strong>
-                  <p>{selectedExam ? "Añade la primera pregunta A/B/C/D." : "Crea o selecciona un examen para gestionar preguntas."}</p>
+                <div className="question-actions">
+                  <button type="button" onClick={() => editQuestion(question)}>Editar</button>
+                  <button type="button" onClick={() => deleteQuestion(question)}>Eliminar</button>
                 </div>
-              )}
-            </div>
-          </article>
+              </article>
+            )) : (
+              <div className="question-empty">
+                <strong>Sin preguntas todavía</strong>
+                <p>Un examen no debería publicarse sin preguntas A/B/C/D completas.</p>
+              </div>
+            )}
+          </div>
 
-          <article className="question-editor-card">
-            <div className="card-head compact-head">
+          <form className="question-editor" onSubmit={submitQuestion}>
+            <div className="editor-title-row small">
               <div>
-                <h2>{questionForm.id ? "Editar pregunta" : "Añadir pregunta"}</h2>
-                <p>Pregunta de respuesta única con opciones A/B/C/D.</p>
+                <span>Editor de pregunta</span>
+                <h3>{questionForm.id ? "Editar pregunta" : "Nueva pregunta"}</h3>
               </div>
+              <strong>{questionForm.correctOption}</strong>
             </div>
 
-            <form className="admin-form" onSubmit={handleQuestionSubmit}>
+            <label>
+              <span>Pregunta *</span>
+              <textarea value={questionForm.question} onChange={(event) => setQuestionForm({ ...questionForm, question: event.target.value })} />
+            </label>
+
+            <div className="answer-grid">
+              <AnswerField label="A" value={questionForm.optionA} onChange={(value) => setQuestionForm({ ...questionForm, optionA: value })} />
+              <AnswerField label="B" value={questionForm.optionB} onChange={(value) => setQuestionForm({ ...questionForm, optionB: value })} />
+              <AnswerField label="C" value={questionForm.optionC} onChange={(value) => setQuestionForm({ ...questionForm, optionC: value })} />
+              <AnswerField label="D" value={questionForm.optionD} onChange={(value) => setQuestionForm({ ...questionForm, optionD: value })} />
+            </div>
+
+            <div className="form-grid two compact">
               <label>
-                <span>Pregunta *</span>
-                <textarea value={questionForm.question} onChange={(event) => setQuestionForm({ ...questionForm, question: event.target.value })} />
+                <span>Respuesta correcta</span>
+                <select value={questionForm.correctOption} onChange={(event) => setQuestionForm({ ...questionForm, correctOption: event.target.value as CorrectOption })}>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </select>
               </label>
-
-              <div className="option-grid">
-                <OptionField letter="A" value={questionForm.optionA} active={questionForm.correctOption === "A"} onChange={(value) => setQuestionForm({ ...questionForm, optionA: value })} onCorrect={() => setQuestionForm({ ...questionForm, correctOption: "A" })} />
-                <OptionField letter="B" value={questionForm.optionB} active={questionForm.correctOption === "B"} onChange={(value) => setQuestionForm({ ...questionForm, optionB: value })} onCorrect={() => setQuestionForm({ ...questionForm, correctOption: "B" })} />
-                <OptionField letter="C" value={questionForm.optionC} active={questionForm.correctOption === "C"} onChange={(value) => setQuestionForm({ ...questionForm, optionC: value })} onCorrect={() => setQuestionForm({ ...questionForm, correctOption: "C" })} />
-                <OptionField letter="D" value={questionForm.optionD} active={questionForm.correctOption === "D"} onChange={(value) => setQuestionForm({ ...questionForm, optionD: value })} onCorrect={() => setQuestionForm({ ...questionForm, correctOption: "D" })} />
-              </div>
-
-              <div className="form-grid two">
-                <label>
-                  <span>Respuesta correcta</span>
-                  <select value={questionForm.correctOption} onChange={(event) => setQuestionForm({ ...questionForm, correctOption: event.target.value as QuestionOption })}>
-                    <option value="A">A</option>
-                    <option value="B">B</option>
-                    <option value="C">C</option>
-                    <option value="D">D</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span>Orden</span>
-                  <input value={questionForm.sortOrder} onChange={(event) => setQuestionForm({ ...questionForm, sortOrder: event.target.value })} />
-                </label>
-              </div>
-
               <label>
-                <span>Explicación / feedback</span>
-                <textarea value={questionForm.explanation} onChange={(event) => setQuestionForm({ ...questionForm, explanation: event.target.value })} />
+                <span>Orden</span>
+                <input value={questionForm.sortOrder} onChange={(event) => setQuestionForm({ ...questionForm, sortOrder: event.target.value })} />
               </label>
+            </div>
 
-              <div className="form-actions">
-                <button type="button" onClick={handleNewQuestion} disabled={!selectedExam}>Limpiar</button>
-                <button type="submit" disabled={isSaving || !selectedExam}>{isSaving ? "Guardando..." : questionForm.id ? "Guardar pregunta" : "Añadir pregunta"}</button>
-              </div>
-            </form>
-          </article>
+            <label>
+              <span>Explicación</span>
+              <textarea value={questionForm.explanation} onChange={(event) => setQuestionForm({ ...questionForm, explanation: event.target.value })} placeholder="Explicación breve de la respuesta correcta..." />
+            </label>
+
+            <div className="editor-footer">
+              <button type="button" onClick={prepareNewQuestion}>Limpiar</button>
+              <button type="submit" disabled={isSavingQuestion}>{isSavingQuestion ? "Guardando..." : questionForm.id ? "Guardar pregunta" : "Crear pregunta"}</button>
+            </div>
+          </form>
         </aside>
       </section>
     </main>
   );
+}
+
+function AnswerField({ label, value, onChange }: { label: CorrectOption; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="answer-field">
+      <span>{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function ExamKpi({ label, value, helper, warning = false }: { label: string; value: number; helper: string; warning?: boolean }) {
+  return (
+    <article className={warning ? "exam-kpi warning" : "exam-kpi"}>
+      <span>{label}</span>
+      <strong>{new Intl.NumberFormat("es-ES").format(value)}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
+async function loadDashboardData(): Promise<DashboardData> {
+  const [profiles, courses, modules, lessons, exams, examQuestions, examAttempts] = await Promise.all([
+    safeSelect("profiles", "*"),
+    safeSelect("courses", "*"),
+    safeSelect("modules", "*"),
+    safeSelect("lessons", "*"),
+    safeSelect("exams", "*"),
+    safeSelect("exam_questions", "*"),
+    safeSelect("exam_attempts", "*"),
+  ]);
+
+  return { profiles, courses, modules, lessons, exams, examQuestions, examAttempts };
 }
 
 async function safeSelect(table: string, columns: string): Promise<AnyRecord[]> {
@@ -871,40 +843,11 @@ async function safeSelect(table: string, columns: string): Promise<AnyRecord[]> 
       console.warn(`[GHC Exams Admin] No se pudo cargar ${table}:`, error.message);
       return [];
     }
-    return Array.isArray(data) ? data as AnyRecord[] : [];
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.warn(`[GHC Exams Admin] Error leyendo ${table}:`, error);
     return [];
   }
-}
-
-function StatCard({ label, value, helper, warning = false }: { label: string; value: number; helper: string; warning?: boolean }) {
-  return (
-    <article className={warning ? "stat-card warning" : "stat-card"}>
-      <span>{label}</span>
-      <strong>{formatNumber(value)}</strong>
-      <p>{helper}</p>
-    </article>
-  );
-}
-
-function SummaryRow({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
-  return (
-    <div className={muted ? "summary-row muted" : "summary-row"}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function OptionField({ letter, value, active, onChange, onCorrect }: { letter: QuestionOption; value: string; active: boolean; onChange: (value: string) => void; onCorrect: () => void }) {
-  return (
-    <label className={active ? "option-field active" : "option-field"}>
-      <span>Opción {letter}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} />
-      <button type="button" onClick={onCorrect}>{active ? "Correcta" : "Marcar correcta"}</button>
-    </label>
-  );
 }
 
 function normalizeExamScope(value: unknown): ExamScope {
@@ -916,83 +859,84 @@ function normalizeExamScope(value: unknown): ExamScope {
 
 function normalizeExamStatus(value: unknown): ExamStatus {
   const status = String(value || "draft").toLowerCase();
-  if (["published", "publicado"].includes(status)) return "published";
+  if (["published", "publicado", "active", "activo"].includes(status)) return "published";
   if (["hidden", "oculto", "archived", "archivado"].includes(status)) return "hidden";
   return "draft";
 }
 
-function normalizeCorrectOption(value: unknown): QuestionOption {
+function normalizeCorrectOption(value: unknown): CorrectOption {
   const option = String(value || "A").toUpperCase();
-  if (["A", "B", "C", "D"].includes(option)) return option as QuestionOption;
+  if (["A", "B", "C", "D"].includes(option)) return option as CorrectOption;
   return "A";
 }
 
-function getExamScopeLabel(value: unknown) {
-  const scope = normalizeExamScope(value);
+function getScopeLabel(scope: ExamScope) {
   if (scope === "lesson") return "Evaluación de lección";
   if (scope === "module") return "Examen de módulo";
-  return "Examen final de curso";
+  return "Examen final";
 }
 
-function getExamStatusLabel(value: unknown) {
+function getStatusLabel(value: unknown) {
   const status = normalizeExamStatus(value);
   if (status === "published") return "Publicado";
   if (status === "hidden") return "Oculto";
   return "Borrador";
 }
 
-function buildDefaultExamTitle(scope: ExamScope, module: AnyRecord | null, lesson: AnyRecord | null) {
-  if (scope === "lesson") return `Evaluación · ${lesson?.title || "Lección"}`;
-  if (scope === "module") return `Examen de módulo · ${module?.title || module?.name || "Módulo"}`;
-  return "Examen final de curso";
-}
-
-function buildDestinationLabel(scope: ExamScope, module: AnyRecord | null, lesson: AnyRecord | null) {
-  if (scope === "lesson") return lesson?.title || "Lección seleccionada";
-  if (scope === "module") return module?.title || module?.name || "Módulo seleccionado";
-  return "Curso completo";
-}
-
-function clampPercent(value: unknown) {
-  const numeric = Number(String(value || "70").replace(/[^\d,.]/g, "").replace(",", "."));
+function clampScore(value: string) {
+  const numeric = Number(String(value).replace(/[^\d]/g, ""));
   if (!Number.isFinite(numeric)) return 70;
   return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
-function parseInteger(value: unknown, fallback: number) {
-  const numeric = Number(String(value || "").replace(/[^\d-]/g, ""));
-  if (!Number.isFinite(numeric)) return fallback;
-  return Math.max(1, Math.round(numeric));
+function getDefaultExamTitle(scope: ExamScope, course?: AnyRecord | null, module?: AnyRecord | null, lesson?: AnyRecord | null) {
+  if (scope === "lesson") return `Evaluación de lección - ${lesson?.title || "Nueva lección"}`;
+  if (scope === "module") return `Examen de módulo - ${module?.title || "Nuevo módulo"}`;
+  return `Examen final - ${course?.title || "Nuevo curso"}`;
+}
+
+function getExamContextLabel(exam: AnyRecord, data: DashboardData) {
+  const scope = normalizeExamScope(exam.exam_scope);
+  const course = data.courses.find((item) => String(item.id) === String(exam.course_id));
+  const module = data.modules.find((item) => String(item.id) === String(exam.module_id));
+  const lesson = data.lessons.find((item) => String(item.id) === String(exam.lesson_id));
+
+  if (scope === "lesson") return `${course?.title || "Curso"} · ${lesson?.title || "Lección"}`;
+  if (scope === "module") return `${course?.title || "Curso"} · ${module?.title || "Módulo"}`;
+  return `${course?.title || "Curso"} · Examen final`;
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (!error) return fallback;
   if (typeof error === "string") return error;
   if (typeof error === "object" && error !== null) {
-    const candidate = (error as AnyRecord).message || (error as AnyRecord).details || (error as AnyRecord).hint;
-    if (candidate) return String(candidate);
+    const record = error as AnyRecord;
+    return String(record.message || record.details || record.hint || fallback);
   }
   return fallback;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("es-ES").format(value || 0);
+function ExamBackground() {
+  return (
+    <div className="exam-background" aria-hidden="true">
+      <div className="orb one" />
+      <div className="orb two" />
+      <div className="grid" />
+    </div>
+  );
 }
 
-function getInitials(name: string) {
-  return String(name).split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-}
-
-function shortName(name: string) {
-  return String(name).split("@")[0].split(" ")[0] || "Admin";
-}
-
-function Background() {
-  return <div className="admin-background" aria-hidden="true"><div className="admin-orb one" /><div className="admin-orb two" /><div className="admin-grid-texture" /></div>;
-}
-
-function GlobalStyles() {
+function ExamStyles() {
   return <style>{`
-    :root{--green:#63e546;--bg:#050706;--panel:rgba(10,14,12,.90);--line:rgba(255,255,255,.085);--white:#f4f6f2;--muted:rgba(244,246,242,.64);--soft:rgba(244,246,242,.42);--danger:#ff5757;--warning:#f7c948}*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg)}body{color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select,textarea{font:inherit}button{transition:.18s ease}button:hover:not(:disabled){transform:translateY(-1px)}button:disabled{opacity:.48;cursor:not-allowed}.ghc-exams-page{min-height:100vh;background:var(--bg);color:var(--white);position:relative;padding:22px;overflow:hidden}.admin-background{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}.admin-orb{position:absolute;width:520px;height:520px;border-radius:999px;filter:blur(110px)}.admin-orb.one{left:-180px;top:-180px;background:rgba(99,229,70,.09)}.admin-orb.two{right:-240px;top:120px;background:rgba(255,255,255,.055)}.admin-grid-texture{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:42px 42px;opacity:.5;mask-image:radial-gradient(circle at center,black 0%,transparent 84%)}.admin-header,.hero-card,.notice,.stats-grid,.workspace-grid{position:relative;z-index:1}.admin-header{min-height:68px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,rgba(9,13,11,.96),rgba(9,13,11,.72));display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;margin-bottom:16px}.brand-block{display:flex;align-items:center;gap:14px}.brand-block span{display:block;color:var(--green);text-transform:uppercase;letter-spacing:.16em;font-size:10px;font-weight:950}.brand-block strong{display:block;margin-top:4px;font-size:19px;letter-spacing:-.035em}.header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.header-actions button,.form-actions button,.card-head button,.empty-card button,.question-actions button{min-height:40px;border-radius:999px;border:1px solid rgba(255,255,255,.105);background:rgba(255,255,255,.04);color:var(--white);padding:0 14px;font-weight:900;cursor:pointer}.header-actions button:nth-child(2),.form-actions button[type="submit"],.card-head button,.empty-card button{background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;border-color:transparent;box-shadow:0 14px 30px rgba(99,229,70,.14)}.user-pill{height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:9px;padding:0 12px}.user-pill span{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);font-size:12px;font-weight:950}.loading-card{position:relative;z-index:2;width:min(560px,calc(100vw - 40px));margin:20vh auto;border:1px solid var(--line);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025));padding:34px;box-shadow:0 30px 90px rgba(0,0,0,.45)}.loading-card h1{margin:18px 0 0;font-size:38px;line-height:.95;letter-spacing:-.055em}.loading-card p{margin:16px 0 0;color:var(--muted);font-size:16px}.hero-card{min-height:152px;border:1px solid var(--line);border-radius:26px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 80% 20%,rgba(99,229,70,.13),transparent 30%);display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:22px;align-items:center;padding:28px;box-shadow:0 28px 90px rgba(0,0,0,.22)}.kicker{margin:0 0 10px;color:var(--green);text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:950}.hero-card h1{margin:0;font-size:clamp(40px,4vw,62px);line-height:.92;letter-spacing:-.065em;font-weight:950}.hero-card p{margin:12px 0 0;color:var(--muted);line-height:1.6;max-width:800px}.hero-card aside{border-radius:18px;border:1px solid rgba(99,229,70,.2);background:linear-gradient(145deg,rgba(99,229,70,.085),rgba(255,255,255,.025));padding:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 22px 60px rgba(0,0,0,.24)}.hero-card aside span{display:block;color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.hero-card aside strong{display:block;margin-top:10px;font-size:22px;letter-spacing:-.035em;line-height:1.12}.notice{margin:16px 0;border-radius:15px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);color:var(--muted);padding:14px 16px;line-height:1.45}.stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0}.stat-card,.selector-card,.exam-list-card,.editor-card,.questions-card,.question-editor-card{border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18)}.stat-card{padding:16px;min-height:118px}.stat-card span{color:var(--muted);font-size:12px;font-weight:850}.stat-card strong{display:block;margin-top:9px;font-size:31px;letter-spacing:-.045em}.stat-card p{margin:6px 0 0;color:var(--muted);font-size:12px}.stat-card.warning strong{color:var(--warning)}.workspace-grid{display:grid;grid-template-columns:320px minmax(0,1fr) 430px;gap:14px;align-items:start}.selector-card,.exam-list-card,.editor-card,.questions-card,.question-editor-card{padding:18px}.main-column,.questions-column{display:grid;gap:14px}.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}.card-head h2{margin:0;font-size:23px;line-height:1.05;letter-spacing:-.04em}.card-head p{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.selector-card label,.admin-form label{display:grid;gap:7px;margin-top:13px}.selector-card label span,.admin-form label span{color:var(--muted);font-size:12px;font-weight:850}.selector-card select,.admin-form input,.admin-form select,.admin-form textarea{width:100%;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);padding:12px 14px;outline:0}.selector-card option,.admin-form option{background:#080b0a;color:var(--white)}.admin-form textarea{min-height:104px;resize:vertical;line-height:1.55}.scope-tabs{display:grid;gap:8px;margin-top:16px}.scope-tabs button{min-height:44px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.028);color:var(--muted);font-weight:900;cursor:pointer;text-align:left;padding:0 14px}.scope-tabs button.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.09);color:var(--green);box-shadow:inset 3px 0 0 var(--green)}.context-summary{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}.summary-row{display:grid;gap:4px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.045)}.summary-row span{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.summary-row strong{font-size:13px;line-height:1.28}.summary-row.muted{opacity:.45}.exam-list{display:grid;gap:10px}.exam-row{width:100%;min-height:84px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(135deg,rgba(255,255,255,.038),rgba(255,255,255,.018));color:var(--white);display:grid;grid-template-columns:106px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;padding:12px;cursor:pointer}.exam-row:hover,.exam-row.active{border-color:rgba(99,229,70,.24);background:linear-gradient(135deg,rgba(99,229,70,.075),rgba(255,255,255,.018))}.exam-row strong{display:block;font-size:16px}.exam-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.exam-row em{font-style:normal;color:var(--green);font-size:12px;font-weight:950}.status-pill{display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:28px;border-radius:999px;padding:6px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(247,201,72,.26);background:rgba(247,201,72,.1);color:var(--warning)}.status-pill.published{border-color:rgba(99,229,70,.26);background:rgba(99,229,70,.1);color:var(--green)}.status-pill.hidden{border-color:rgba(255,255,255,.13);background:rgba(255,255,255,.055);color:var(--muted)}.empty-card{border:1px solid rgba(255,255,255,.08);border-radius:18px;background:rgba(255,255,255,.026);padding:24px;text-align:center;color:var(--muted)}.empty-card.compact{padding:18px}.empty-card span{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;margin:0 auto 14px;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.18);color:var(--green);font-size:24px;font-weight:950}.empty-card strong{display:block;color:var(--white);font-size:19px}.empty-card p{line-height:1.55}.admin-form{display:grid;gap:13px}.form-grid{display:grid;gap:12px}.form-grid.two{grid-template-columns:1fr 1fr}.form-grid.three{grid-template-columns:1fr 1.2fr 1.2fr}.form-warning{border-radius:14px;border:1px solid rgba(247,201,72,.22);background:rgba(247,201,72,.07);color:var(--muted);padding:12px 14px;line-height:1.5}.form-warning strong{color:var(--warning)}.form-actions{display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--line);padding-top:14px}.question-list{display:grid;gap:10px}.question-row{display:grid;grid-template-columns:42px minmax(0,1fr) 138px;gap:10px;align-items:center;border-radius:15px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.026);padding:11px}.question-number{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(99,229,70,.09);border:1px solid rgba(99,229,70,.18);color:var(--green);font-weight:950}.question-row strong{display:block;font-size:14px;line-height:1.28}.question-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.question-actions{display:grid;gap:7px}.question-actions button{min-height:33px;border-radius:10px;font-size:12px}.question-actions button:last-child{color:var(--danger)}.option-grid{display:grid;gap:9px}.option-field{border:1px solid rgba(255,255,255,.075);border-radius:15px;background:rgba(255,255,255,.026);padding:10px;margin:0!important}.option-field.active{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.07)}.option-field button{min-height:32px;border-radius:999px;border:1px solid rgba(255,255,255,.105);background:rgba(255,255,255,.04);color:var(--muted);font-size:12px;font-weight:900;cursor:pointer}.option-field.active button{background:var(--green);color:#061008;border-color:transparent}.compact-head{margin-bottom:10px}@media(max-width:1520px){.workspace-grid{grid-template-columns:1fr}.questions-column{grid-template-columns:1fr 1fr}.stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:980px){.ghc-exams-page{padding:14px}.admin-header,.hero-card{grid-template-columns:1fr;display:grid}.admin-header{align-items:flex-start}.hero-card{grid-template-columns:1fr}.stats-grid,.questions-column,.form-grid.two,.form-grid.three{grid-template-columns:1fr}.exam-row,.question-row{grid-template-columns:1fr}.header-actions{width:100%}.header-actions button{flex:1}.hero-card h1{font-size:40px}}
+    :root{--exam-green:#63e546;--exam-bg:#050706;--exam-card:rgba(10,14,12,.88);--exam-line:rgba(255,255,255,.085);--exam-white:#f4f6f2;--exam-muted:rgba(244,246,242,.66);--exam-soft:rgba(244,246,242,.42);--exam-warning:#f7c948;--exam-danger:#ff5757}*{box-sizing:border-box}html,body{margin:0;background:var(--exam-bg)}body{color:var(--exam-white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select,textarea{font:inherit}button{transition:.18s ease}button:hover{transform:translateY(-1px)}
+    .exam-admin-page{min-height:100vh;background:var(--exam-bg);color:var(--exam-white);position:relative;padding:24px;overflow:hidden}.exam-admin-page>*:not(.exam-background){position:relative;z-index:1}.exam-background{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}.orb{position:absolute;width:560px;height:560px;border-radius:999px;filter:blur(120px)}.orb.one{left:-180px;top:-180px;background:rgba(99,229,70,.10)}.orb.two{right:-260px;top:180px;background:rgba(255,255,255,.06)}.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at center,black 0%,transparent 84%)}
+    .exam-admin-loading{display:grid;place-items:center}.exam-admin-loading-card{width:min(560px,calc(100vw - 40px));border:1px solid var(--exam-line);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025));padding:34px;box-shadow:0 30px 90px rgba(0,0,0,.45)}.exam-admin-loading-card h1{margin:18px 0 0;font-size:40px;line-height:.95;letter-spacing:-.055em}.exam-admin-loading-card p{color:var(--exam-muted)}
+    .exam-admin-topbar{height:64px;display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--exam-line);border-radius:20px;background:rgba(7,10,8,.8);backdrop-filter:blur(18px);padding:10px 14px;margin-bottom:16px}.exam-back-button{height:42px;border-radius:999px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.07);color:var(--exam-green);font-weight:950;padding:0 16px;cursor:pointer}.exam-admin-brand{display:flex;align-items:center}.exam-admin-build{display:flex;flex-direction:column;align-items:flex-end;gap:2px}.exam-admin-build span{color:var(--exam-green);font-size:10px;text-transform:uppercase;letter-spacing:.15em;font-weight:950}.exam-admin-build strong{color:var(--exam-muted);font-size:12px}
+    .exam-admin-hero{min-height:250px;border:1px solid var(--exam-line);border-radius:28px;background:linear-gradient(90deg,rgba(9,13,11,.98),rgba(9,13,11,.76)),radial-gradient(circle at 78% 30%,rgba(99,229,70,.16),transparent 34%);display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:22px;align-items:center;padding:34px;box-shadow:0 28px 90px rgba(0,0,0,.28);overflow:hidden}.exam-kicker{margin:0 0 10px;color:var(--exam-green);text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:950}.exam-admin-hero h1{margin:0;font-size:clamp(48px,5vw,82px);line-height:.88;letter-spacing:-.075em;font-weight:950}.exam-admin-hero p{max-width:760px;margin:16px 0 0;color:var(--exam-muted);line-height:1.62}.hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.hero-actions button,.panel-actions .primary,.editor-footer button[type="submit"],.question-panel .panel-head button{min-height:42px;border:0;border-radius:999px;background:linear-gradient(135deg,#7cff55,var(--exam-green));color:#061008;font-weight:950;padding:0 18px;cursor:pointer;box-shadow:0 16px 34px rgba(99,229,70,.16)}.hero-actions button:not(:first-child){border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--exam-green);box-shadow:none}.exam-hero-panel{border:1px solid rgba(99,229,70,.22);border-radius:22px;background:linear-gradient(145deg,rgba(99,229,70,.09),rgba(255,255,255,.025));padding:22px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 22px 60px rgba(0,0,0,.24)}.exam-hero-panel span{color:var(--exam-green);text-transform:uppercase;letter-spacing:.16em;font-size:11px;font-weight:950}.exam-hero-panel strong{display:block;margin-top:10px;font-size:24px;line-height:1.1;letter-spacing:-.04em}.exam-hero-panel p{font-size:13px;margin-top:12px;color:var(--exam-muted)}
+    .exam-notice{margin:16px 0;border-radius:16px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.055);color:var(--exam-muted);padding:14px 16px}.exam-kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0}.exam-kpi{min-height:118px;border:1px solid var(--exam-line);border-radius:18px;background:var(--exam-card);padding:16px;box-shadow:0 20px 70px rgba(0,0,0,.18)}.exam-kpi span{color:var(--exam-muted);font-size:12px;font-weight:850}.exam-kpi strong{display:block;margin-top:10px;font-size:34px;letter-spacing:-.05em}.exam-kpi p{margin:4px 0 0;color:var(--exam-green);font-size:12px;font-weight:850}.exam-kpi.warning strong,.exam-kpi.warning p{color:var(--exam-warning)}
+    .exam-admin-layout{display:grid;grid-template-columns:330px minmax(0,1fr) 420px;gap:14px;align-items:start}.exam-context-panel,.exam-main-panel,.question-panel{border:1px solid var(--exam-line);border-radius:22px;background:var(--exam-card);box-shadow:0 24px 80px rgba(0,0,0,.2);padding:18px;min-width:0}.exam-context-panel,.question-panel{position:sticky;top:18px}.panel-head{margin-bottom:16px}.panel-head h2{margin:0;font-size:26px;line-height:1;letter-spacing:-.045em}.panel-head.with-actions{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.panel-head.compact-head h2{font-size:22px}.panel-actions{display:flex;gap:8px;align-items:center}.panel-actions button,.editor-footer button,.question-actions button,.empty-state button{min-height:38px;border-radius:999px;border:1px solid var(--exam-line);background:rgba(255,255,255,.035);color:var(--exam-white);font-weight:900;padding:0 13px;cursor:pointer}.field-stack{display:grid;gap:12px}label{display:grid;gap:7px}label span{color:var(--exam-muted);font-size:12px;font-weight:850}input,select,textarea{width:100%;border-radius:14px;border:1px solid var(--exam-line);background:rgba(255,255,255,.035);color:var(--exam-white);padding:12px 13px;outline:0}textarea{min-height:96px;resize:vertical;line-height:1.55}option{background:#080b0a;color:var(--exam-white)}.scope-tabs{display:grid;gap:8px;margin-top:16px}.scope-tabs button{min-height:48px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.028);color:var(--exam-white);font-weight:900;text-align:left;padding:0 14px;cursor:pointer}.scope-tabs button.active{border-color:rgba(99,229,70,.32);background:rgba(99,229,70,.09);color:var(--exam-green);box-shadow:inset 3px 0 0 var(--exam-green)}.context-summary{margin-top:16px;border-radius:16px;border:1px solid rgba(99,229,70,.16);background:rgba(99,229,70,.045);padding:14px}.context-summary span{color:var(--exam-green);font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}.context-summary strong{display:block;margin:8px 0;font-size:18px}.context-summary p{margin:5px 0;color:var(--exam-muted);font-size:12px;line-height:1.4}
+    .exam-search-row{margin-bottom:12px}.exam-list-premium{display:grid;gap:10px;margin-bottom:14px}.exam-row-premium{width:100%;border-radius:18px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(135deg,rgba(255,255,255,.042),rgba(255,255,255,.016));color:var(--exam-white);display:grid;grid-template-columns:116px minmax(0,1fr) 112px;gap:12px;align-items:center;text-align:left;padding:14px;cursor:pointer}.exam-row-premium.active{border-color:rgba(99,229,70,.32);background:linear-gradient(135deg,rgba(99,229,70,.09),rgba(255,255,255,.018));box-shadow:inset 3px 0 0 var(--exam-green)}.exam-row-premium strong{display:block;font-size:17px;line-height:1.18}.exam-row-premium p{margin:5px 0 0;color:var(--exam-muted);font-size:12px}.exam-row-premium em{font-style:normal;color:var(--exam-green);font-size:12px;font-weight:950;text-align:right}.status-pill{width:max-content;border-radius:999px;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(99,229,70,.26);background:rgba(99,229,70,.1);color:var(--exam-green)}.status-pill.draft{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.1);color:var(--exam-warning)}.status-pill.hidden{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.055);color:var(--exam-muted)}.empty-state,.question-empty{border:1px dashed rgba(99,229,70,.24);border-radius:18px;background:rgba(99,229,70,.035);padding:22px;text-align:center;color:var(--exam-muted)}.empty-state span{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;margin:0 auto 12px;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.18);color:var(--exam-green);font-size:28px}.empty-state strong,.question-empty strong{display:block;color:var(--exam-white);font-size:18px}.empty-state p,.question-empty p{line-height:1.5}.exam-editor-card,.question-editor,.selected-exam-card{border:1px solid rgba(255,255,255,.075);border-radius:20px;background:rgba(255,255,255,.026);padding:16px}.editor-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.editor-title-row span,.selected-exam-card span{color:var(--exam-green);font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}.editor-title-row h3{margin:5px 0 0;font-size:24px;letter-spacing:-.04em;line-height:1}.editor-title-row strong{min-width:48px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.18);color:var(--exam-green);font-weight:950}.editor-title-row.small h3{font-size:20px}.form-grid{display:grid;gap:10px;margin-bottom:10px}.form-grid.two{grid-template-columns:1fr 1fr}.form-grid.compact{margin-top:10px}.editor-footer{display:flex;justify-content:flex-end;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:14px;margin-top:14px}
+    .selected-exam-card{margin-bottom:12px}.selected-exam-card strong{display:block;margin-top:8px;font-size:18px;line-height:1.18}.selected-exam-card p{margin:6px 0 0;color:var(--exam-muted);font-size:12px}.question-list{display:grid;gap:10px;max-height:360px;overflow:auto;padding-right:4px;margin-bottom:12px}.question-mini-card{border-radius:16px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.025);padding:12px}.question-mini-card span{color:var(--exam-green);font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}.question-mini-card strong{display:block;margin-top:6px;line-height:1.3}.question-mini-card p{margin:5px 0 0;color:var(--exam-muted);font-size:12px}.question-actions{display:flex;gap:7px;margin-top:10px}.question-actions button:last-child{color:var(--exam-danger)}.answer-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.answer-field{position:relative}.answer-field span{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:8px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--exam-green);border:1px solid rgba(99,229,70,.18);font-weight:950}.answer-field input{padding-left:44px}
+    @media(max-width:1500px){.exam-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.exam-admin-layout{grid-template-columns:1fr}.exam-context-panel,.question-panel{position:static}.exam-admin-hero{grid-template-columns:1fr}.exam-hero-panel{width:100%}}@media(max-width:820px){.exam-admin-page{padding:14px}.exam-admin-topbar{height:auto;align-items:flex-start;flex-direction:column}.exam-admin-build{align-items:flex-start}.exam-admin-hero{padding:22px}.exam-admin-hero h1{font-size:46px}.hero-actions,.panel-head.with-actions,.panel-actions{flex-direction:column;align-items:stretch}.hero-actions button,.panel-actions button{width:100%}.exam-kpi-grid,.form-grid.two,.answer-grid{grid-template-columns:1fr}.exam-row-premium{grid-template-columns:1fr}.exam-row-premium em{text-align:left}}
   `}</style>;
 }
