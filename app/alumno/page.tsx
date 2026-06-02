@@ -2653,7 +2653,7 @@ function GlobalStyles() {
       .section-title-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
       .section-title-row h2 { margin: 0; font-size: 20px; line-height: 1; letter-spacing: -.03em; font-weight: 850; }
       .section-title-row p { color: var(--soft); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; font-weight: 850; }
-      .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 16px; }
+      .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap: 18px; }
       .course-list { display: grid; gap: 14px; }
       .premium-course-card { min-height: 386px; overflow: hidden; display: flex; flex-direction: column; }
       .premium-course-card-list { min-height: 216px; overflow: hidden; display: grid; grid-template-columns: 320px minmax(0,1fr); }
@@ -2668,11 +2668,16 @@ function GlobalStyles() {
       .premium-course-body { padding: 16px; display: flex; flex-direction: column; flex: 1; min-width: 0; }
       .premium-course-body h3 { margin: 0; min-height: 44px; color: var(--white); font-size: 21px; line-height: 1.08; letter-spacing: -.035em; font-weight: 900; }
       .premium-course-body p { margin: 10px 0 0; min-height: 50px; color: var(--muted); font-size: 14px; line-height: 1.55; }
-      .premium-stats-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: auto; padding-top: 16px; }
-      .premium-metric { min-height: 58px; border-radius: 9px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.032); padding: 10px 8px; display: grid; align-content: center; gap: 4px; min-width: 0; }
-      .premium-metric div { display: flex; align-items: center; gap: 8px; color: rgba(244,246,242,.78); min-width: 0; }
+      .premium-stats-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: auto; padding-top: 16px; }
+      .premium-metric { min-height: 60px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.032); padding: 10px 10px; display: grid; align-content: center; gap: 5px; min-width: 0; overflow: hidden; }
+      .premium-metric div { display: flex; align-items: center; justify-content: center; gap: 7px; color: rgba(244,246,242,.78); min-width: 0; }
+      .premium-metric svg { width: 15px; height: 15px; flex: 0 0 auto; }
+      .premium-metric strong { display: block; min-width: 0; color: var(--white); font-size: 18px; line-height: 1; font-weight: 950; letter-spacing: -.03em; }
+      .premium-metric span { display: block; width: 100%; min-width: 0; overflow: hidden; text-align: center; color: rgba(244,246,242,.72); font-size: 10px; line-height: 1.1; font-weight: 900; letter-spacing: -.01em; white-space: nowrap; text-overflow: ellipsis; }
+
       .card-progress-area { margin-top: 12px; display: grid; gap: 8px; }
       .premium-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+      .premium-course-card-list .premium-stats-grid { max-width: 420px; }
 
       .curriculum-head { display: grid; grid-template-columns: minmax(0, 280px) minmax(0,1fr); gap: 16px; align-items: start; }
       .curriculum-head h1,.courses-page h1 { margin: 0; font-size: 34px; line-height: 1; letter-spacing: -.05em; font-weight: 900; }
@@ -2845,7 +2850,7 @@ function GlobalStyles() {
       .profile-stat { border-radius: 10px; border: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.2); padding: 10px; min-width: 0; display: grid; gap: 5px; }
       .profile-stat span { color: rgba(244,246,242,.6); font-size: 11px; line-height: 1.2; }
       .profile-stat strong { color: var(--white); font-size: 16px; line-height: 1.05; font-weight: 850; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .info-grid,.course-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 14px; }
+      .info-grid,.course-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap: 18px; }
       .info-block { border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); padding: 18px; }
       .info-block > span { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--green); background: rgba(var(--green-rgb),.08); border: 1px solid rgba(var(--green-rgb),.18); margin-bottom: 14px; }
       .info-block h3 { margin: 0; font-size: 18px; line-height: 1.2; font-weight: 850; }
