@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -402,6 +403,10 @@ export default function CourseDetailPage() {
 
   const finalExamUnlocked = allModulesCompleted && !isCourseCompleted;
   const certificateAvailable = isCourseCompleted;
+
+  const courseHeroStyle = {
+    '--course-hero-image': `url(${getPremiumCourseImageUrl(course || {})})`,
+  } as CSSProperties;
 
   const firstAvailableLesson = useMemo(() => {
     for (let moduleIndex = 0; moduleIndex < modules.length; moduleIndex += 1) {
@@ -999,7 +1004,7 @@ export default function CourseDetailPage() {
               </div>
             </section>
 
-            <section className="hero-card">
+            <section className="hero-card" style={courseHeroStyle}>
               <div className="hero-meta">
                 <Metric label="Nivel" value={levelLabel} />
                 <Metric label="Duración" value={durationLabel} />
@@ -1396,6 +1401,55 @@ export default function CourseDetailPage() {
       <GlobalStyles />
     </main>
   );
+}
+
+
+function getCourseImage(course: AnyRecord) {
+  return (
+    course?.cover_image ||
+    course?.cover_image_url ||
+    course?.image ||
+    course?.image_url ||
+    course?.thumbnail ||
+    course?.thumbnail_url ||
+    ''
+  );
+}
+
+function getPremiumCourseImageUrl(course: AnyRecord) {
+  const realImage = getCourseImage(course);
+
+  if (realImage) return realImage;
+
+  const raw = [
+    course?.title,
+    course?.subtitle,
+    course?.description,
+    course?.category,
+    course?.level,
+    course?.tags,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (raw.includes('nutric') || raw.includes('dieta') || raw.includes('suplement')) {
+    return 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1400&q=80';
+  }
+
+  if (raw.includes('salud') || raw.includes('ciencia') || raw.includes('science') || raw.includes('fisiolog')) {
+    return 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1400&q=80';
+  }
+
+  if (raw.includes('rendimiento') || raw.includes('performance') || raw.includes('atleta')) {
+    return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1400&q=80';
+  }
+
+  if (raw.includes('entren') || raw.includes('fitness') || raw.includes('fuerza') || raw.includes('personal')) {
+    return 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1400&q=80';
+  }
+
+  return 'https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1400&q=80';
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {
@@ -2048,7 +2102,7 @@ function GlobalStyles() {
         width: 55%;
         background:
           linear-gradient(90deg, rgba(8,12,10,1), rgba(8,12,10,.72), rgba(8,12,10,.20)),
-          url('https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1200&q=70');
+          var(--course-hero-image, url('https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1200&q=70'));
         background-size: cover;
         background-position: center;
         filter: grayscale(1) contrast(1.1) brightness(.62);
