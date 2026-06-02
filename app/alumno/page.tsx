@@ -67,7 +67,7 @@ const COURSE_ASSETS_BUCKET = 'ghc-course-assets';
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Panel', helper: 'Resumen', icon: 'dashboard' },
   { id: 'cursos', label: 'Mis cursos', helper: 'Cursos activos', icon: 'courses' },
-  { id: 'curriculum', label: 'Itinerario', helper: 'Módulos', icon: 'curriculum' },
+  { id: 'curriculum', label: 'Itinerario', helper: 'Curso oficial', icon: 'curriculum' },
   { id: 'examenes', label: 'Exámenes', helper: 'Evaluación', icon: 'exam' },
   { id: 'certificados', label: 'Certificados', helper: 'Credenciales', icon: 'certificate' },
   { id: 'perfil', label: 'Rendimiento', helper: 'Perfil', icon: 'performance' },
@@ -293,6 +293,10 @@ export default function AlumnoPage() {
 
     return candidates[0] || courseCards[0] || null;
   }, [courseCards]);
+
+  const officialCourseItineraryHref = mainCourse?.course
+    ? `/cursos/${getCourseSlug(mainCourse.course)}`
+    : '/cursos';
 
   const curriculumCourse = useMemo(() => {
     if (selectedItinerarioCourseId) {
@@ -539,20 +543,38 @@ export default function AlumnoPage() {
           </div>
 
           <nav className="nav">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={activeTab === tab.id ? 'nav-item active' : 'nav-item'}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <Icon name={tab.icon} />
-                <span>
-                  <strong>{tab.label}</strong>
-                  <small>{tab.helper}</small>
-                </span>
-              </button>
-            ))}
+            {tabs.map((tab) => {
+              if (tab.id === 'curriculum') {
+                return (
+                  <Link
+                    key={tab.id}
+                    href={officialCourseItineraryHref}
+                    className="nav-item"
+                  >
+                    <Icon name={tab.icon} />
+                    <span>
+                      <strong>{tab.label}</strong>
+                      <small>{tab.helper}</small>
+                    </span>
+                  </Link>
+                );
+              }
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={activeTab === tab.id ? 'nav-item active' : 'nav-item'}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <Icon name={tab.icon} />
+                  <span>
+                    <strong>{tab.label}</strong>
+                    <small>{tab.helper}</small>
+                  </span>
+                </button>
+              );
+            })}
           </nav>
         </div>
 
