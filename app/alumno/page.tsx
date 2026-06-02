@@ -67,7 +67,7 @@ const COURSE_ASSETS_BUCKET = 'ghc-course-assets';
 const tabs: { id: Tab; label: string; helper: string; icon: IconName }[] = [
   { id: 'dashboard', label: 'Panel', helper: 'Resumen', icon: 'dashboard' },
   { id: 'cursos', label: 'Mis cursos', helper: 'Cursos activos', icon: 'courses' },
-  { id: 'curriculum', label: 'Itinerario', helper: 'Curso oficial', icon: 'curriculum' },
+  { id: 'curriculum', label: 'Itinerario', helper: 'Elegir curso', icon: 'curriculum' },
   { id: 'examenes', label: 'Exámenes', helper: 'Evaluación', icon: 'exam' },
   { id: 'certificados', label: 'Certificados', helper: 'Credenciales', icon: 'certificate' },
   { id: 'perfil', label: 'Rendimiento', helper: 'Perfil', icon: 'performance' },
@@ -294,9 +294,25 @@ export default function AlumnoPage() {
     return candidates[0] || courseCards[0] || null;
   }, [courseCards]);
 
-  const officialCourseItineraryHref = mainCourse?.course
-    ? `/cursos/${getCourseSlug(mainCourse.course)}`
-    : '/cursos';
+  const selectedOfficialItineraryCourse = useMemo(() => {
+    if (selectedItinerarioCourseId) {
+      const selected = courseCards.find(
+        (card) => String(card.course.id) === String(selectedItinerarioCourseId)
+      );
+
+      if (selected) return selected;
+    }
+
+    if (courseCards.length === 1) {
+      return courseCards[0];
+    }
+
+    return null;
+  }, [courseCards, selectedItinerarioCourseId]);
+
+  const officialCourseItineraryHref = selectedOfficialItineraryCourse?.course
+    ? `/cursos/${getCourseSlug(selectedOfficialItineraryCourse.course)}`
+    : '';
 
   const curriculumCourse = useMemo(() => {
     if (selectedItinerarioCourseId) {
@@ -545,18 +561,39 @@ export default function AlumnoPage() {
           <nav className="nav">
             {tabs.map((tab) => {
               if (tab.id === 'curriculum') {
+                if (officialCourseItineraryHref) {
+                  return (
+                    <Link
+                      key={tab.id}
+                      href={officialCourseItineraryHref}
+                      className="nav-item"
+                    >
+                      <Icon name={tab.icon} />
+                      <span>
+                        <strong>{tab.label}</strong>
+                        <small>Curso oficial</small>
+                      </span>
+                    </Link>
+                  );
+                }
+
                 return (
-                  <Link
+                  <button
                     key={tab.id}
-                    href={officialCourseItineraryHref}
+                    type="button"
                     className="nav-item"
+                    onClick={() => {
+                      setActiveTab('cursos');
+                      setCourseEstadoFilter('all');
+                      setSystemMessage('Elige un curso y entra en su itinerario oficial.');
+                    }}
                   >
                     <Icon name={tab.icon} />
                     <span>
                       <strong>{tab.label}</strong>
-                      <small>{tab.helper}</small>
+                      <small>Elegir curso</small>
                     </span>
-                  </Link>
+                  </button>
                 );
               }
 
