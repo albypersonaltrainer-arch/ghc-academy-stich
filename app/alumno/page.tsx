@@ -6211,59 +6211,7 @@ function GlobalStyles() {
         backdrop-filter: blur(16px);
       }
 
-    `}
-      /* Ajuste fino SOLO para métricas de cards de cursos.
-         No modifica el itinerario ni el mapa de módulos. */
-      .premium-course-card .premium-stats-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-      }
-
-      .premium-course-card .premium-metric {
-        min-width: 0;
-        overflow: hidden;
-        padding-left: 10px;
-        padding-right: 10px;
-      }
-
-      .premium-course-card .premium-metric div {
-        min-width: 0;
-        justify-content: center;
-        gap: 6px;
-      }
-
-      .premium-course-card .premium-metric svg {
-        width: 14px;
-        height: 14px;
-        flex: 0 0 auto;
-      }
-
-      .premium-course-card .premium-metric strong {
-        font-size: 18px;
-        line-height: 1;
-        letter-spacing: -0.03em;
-      }
-
-      .premium-course-card .premium-metric span {
-        display: block;
-        width: 100%;
-        min-width: 0;
-        overflow: hidden;
-        text-align: center;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        font-size: 10px;
-        line-height: 1.1;
-        letter-spacing: -0.02em;
-      }
-
-      @media (min-width: 1280px) {
-        .premium-course-card .premium-metric span {
-          font-size: 10.5px;
-        }
-      }
-
-      </style>
+    `}</style>
   );
 }
 
