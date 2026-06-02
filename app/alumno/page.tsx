@@ -81,7 +81,7 @@ export default function AlumnoPage() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [courseEstadoFilter, setCourseEstadoFilter] = useState<CourseEstadoFilter>('active');
+  const [courseEstadoFilter, setCourseEstadoFilter] = useState<CourseEstadoFilter>('all');
   const [levelFilter, setLevelFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortModo, setSortModo] = useState<SortModo>('recent');
@@ -287,13 +287,12 @@ export default function AlumnoPage() {
   const completadodCursos = courseCards.filter((card) => Boolean(card.completion));
 
   const mainCourse = useMemo(() => {
-    return (
-      activeCursos.find((card) => card.courseModules.length > 0) ||
-      completadodCursos.find((card) => card.courseModules.length > 0) ||
-      courseCards[0] ||
-      null
-    );
-  }, [activeCursos, completadodCursos, courseCards]);
+    const candidates = courseCards
+      .filter((card) => card.courseModules.length > 0 || card.courseLessons.length > 0)
+      .sort((a, b) => getCoursePriorityScore(b) - getCoursePriorityScore(a));
+
+    return candidates[0] || courseCards[0] || null;
+  }, [courseCards]);
 
   const curriculumCourse = useMemo(() => {
     if (selectedItinerarioCourseId) {
@@ -466,7 +465,9 @@ export default function AlumnoPage() {
         id: 'learning',
         title: 'Continúa tu ruta activa',
         message: mainCourse?.course?.title
-          ? `Tienes pendiente avanzar en ${mainCourse.course.title}.`
+          ? mainCourse.completion
+            ? `Puedes repasar ${mainCourse.course.title} o revisar tu certificado.`
+            : `Tienes pendiente avanzar en ${mainCourse.course.title}.`
           : 'Tienes cursos disponibles para continuar tu formación.',
         type: 'Formación',
         time: 'Ahora',
@@ -744,7 +745,7 @@ function PanelView({
         </article>
 
         <article className="next-card">
-          <div className="next-image" />
+          <div className="next-image" style={{ backgroundImage: getPremiumCourseBackground(mainCourse?.course || {}, 0) }} />
           <div className="next-body">
             <small>En progreso</small>
             <h2>{mainCourse?.course?.title || 'Siguiente módulo'}</h2>
@@ -762,7 +763,7 @@ function PanelView({
               href={mainCourse?.course ? `/cursos/${getCourseSlug(mainCourse.course)}` : '/cursos'}
               className="primary-action"
             >
-              Continuar formación
+              {mainCourse?.completion ? 'Repasar formación' : 'Continuar formación'}
               <Icon name="arrow" />
             </Link>
           </div>
@@ -2151,7 +2152,7 @@ function RoadmapModuleRow({
             <span className="in-progress-mini">{selected ? 'Seleccionado' : 'En progreso'}</span>
           </div>
           <h3>{title}</h3>
-          <p>{item.completadodLecciones} of {item.lessons.length} Lecciones Completado</p>
+          <p>{item.completadodLecciones} de {item.lessons.length} lecciones completadas</p>
           <div className="progress-track-mini">
             <div className="progress-fill" style={{ width: `${item.progress}%` }} />
           </div>
@@ -2164,7 +2165,7 @@ function RoadmapModuleRow({
           className="roadmap-current-image"
           style={{
             backgroundImage: `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.74)), url(${
-              getCourseImage(course || {}) || 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80'
+              getPremiumCourseImageUrl(course || {}, item.index)
             })`,
           }}
         />
@@ -2246,7 +2247,7 @@ function LessonRow({
         </span>
         <div>
           <strong>{`${index + 1}. ${title}`}</strong>
-          <p>{lesson.description || lesson.subtitle || lesson.content || 'Contenido académico del módulo'}</p>
+          <p>{getLessonSummary(lesson)}</p>
         </div>
       </div>
       <span className="lesson-type-pill"><Icon name={icon} /> {contentTipo}</span>
@@ -2593,7 +2594,7 @@ function GlobalStyles() {
       .mini-stat div { display: grid; gap: 2px; }
 
       .next-card { min-height: 330px; display: grid; grid-template-columns: .72fr 1fr; overflow: hidden; }
-      .next-image { background: linear-gradient(90deg, rgba(5,7,6,.08), rgba(5,7,6,.92)), url(https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80); background-size: cover; background-position: center; filter: grayscale(1) contrast(1.08) brightness(.7); }
+      .next-image { background-size: cover; background-position: center; filter: grayscale(1) contrast(1.08) brightness(.7); }
       .next-body { padding: 24px; display: flex; flex-direction: column; }
       .next-body small { color: var(--green); text-transform: uppercase; letter-spacing: .16em; font-weight: 900; }
       .next-body h2 { margin: 10px 0 0; font-size: 30px; line-height: 1.05; letter-spacing: -.035em; }
@@ -6159,6 +6160,57 @@ function GlobalStyles() {
         }
       }
 
+
+      /* Sistema visual premium global: evita que cursos pequeños o de prueba rompan el layout */
+      .lesson-row {
+        grid-template-columns: minmax(0, 1fr) !important;
+        align-items: stretch !important;
+        padding: 10px !important;
+        gap: 10px !important;
+      }
+
+      .lesson-main-link {
+        grid-template-columns: minmax(0,1fr) 104px 120px !important;
+      }
+
+      .student-asset-actions {
+        justify-content: flex-start !important;
+        padding-left: 0 !important;
+        padding-top: 2px !important;
+      }
+
+      .lesson-name-cell strong,
+      .roadmap-body h3,
+      .premium-course-body h3 {
+        overflow-wrap: anywhere;
+      }
+
+      .lesson-name-cell p {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .roadmap-current-card {
+        grid-template-columns: 10px minmax(0,1fr) minmax(132px, 24%) !important;
+      }
+
+      .roadmap-current-card.selected,
+      .roadmap-current-card:hover,
+      .roadmap-row.selected {
+        border-color: rgba(var(--green-rgb), .52) !important;
+        box-shadow: 0 0 34px rgba(var(--green-rgb), .08) !important;
+      }
+
+      .premium-course-card,
+      .premium-course-card-list,
+      .roadmap-current-card,
+      .roadmap-panel,
+      .lesson-panel {
+        backdrop-filter: blur(16px);
+      }
+
     `}</style>
   );
 }
@@ -6351,6 +6403,61 @@ function getCourseSlug(course: AnyRecord) {
   return String(course?.slug || course?.id || '');
 }
 
+function getCoursePriorityScore(card: PanelCard) {
+  const title = String(card.course?.title || '').toLowerCase();
+  const slug = String(card.course?.slug || '').toLowerCase();
+  const text = `${title} ${slug}`;
+
+  let score = 0;
+
+  if (card.certificate) score += 9000;
+  if (card.completion) score += 7000;
+
+  score += card.progressPercent * 40;
+  score += card.completadodModuleCount * 160;
+  score += card.completadodLessonCount * 24;
+  score += card.courseModules.length * 40;
+  score += card.courseLessons.length * 8;
+
+  if (text.includes('entrenador personal nivel 1')) score += 1200;
+  if (text.includes('prueba') || text.includes('test') || text.includes('demo')) score -= 650;
+
+  const lastActivity = new Date(
+    card.certificate?.issued_at ||
+      card.completion?.completed_at ||
+      card.completion?.created_at ||
+      card.course?.updated_at ||
+      card.course?.created_at ||
+      0
+  ).getTime();
+
+  if (Number.isFinite(lastActivity)) score += Math.min(300, Math.floor(lastActivity / 100000000000));
+
+  return score;
+}
+
+function getLessonSummary(lesson: AnyRecord) {
+  const raw =
+    lesson?.description ||
+    lesson?.subtitle ||
+    lesson?.summary ||
+    lesson?.content ||
+    'Contenido académico del módulo';
+
+  return stripHtml(String(raw)).replace(/\s+/g, ' ').trim().slice(0, 170) || 'Contenido académico del módulo';
+}
+
+function stripHtml(value: string) {
+  return value
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 function getCurrentPageLabel(tab: Tab) {
   if (tab === 'dashboard') return 'Panel';
   if (tab === 'cursos') return 'Mis cursos';
@@ -6373,22 +6480,69 @@ function getCourseImage(course: AnyRecord) {
 }
 
 function getPremiumCourseBackground(course: AnyRecord, index: number) {
-  const realImage = getCourseImage(course);
-
-  const fallbacks = [
-    'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
-  ];
-
-  const selected = realImage || fallbacks[index % fallbacks.length];
+  const selected = getPremiumCourseImageUrl(course, index);
 
   return `linear-gradient(180deg, rgba(5,7,6,0.02), rgba(5,7,6,0.88)), url(${selected})`;
+}
+
+function getPremiumCourseImageUrl(course: AnyRecord, index = 0) {
+  const realImage = getCourseImage(course);
+
+  if (realImage) return realImage;
+
+  const key = getCourseVisualKey(course);
+  const fallbackMap: Record<string, string[]> = {
+    training: [
+      'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1400&q=80',
+    ],
+    nutrition: [
+      'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1505576399279-565b52d4ac71?auto=format&fit=crop&w=1400&q=80',
+    ],
+    science: [
+      'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1582719471384-894fbb16e074?auto=format&fit=crop&w=1400&q=80',
+    ],
+    performance: [
+      'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=1400&q=80',
+    ],
+    default: [
+      'https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1400&q=80',
+      'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1400&q=80',
+    ],
+  };
+
+  const pool = fallbackMap[key] || fallbackMap.default;
+
+  return pool[index % pool.length];
+}
+
+function getCourseVisualKey(course: AnyRecord) {
+  const raw = [
+    course?.title,
+    course?.subtitle,
+    course?.description,
+    course?.category,
+    course?.level,
+    course?.tags,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (raw.includes('nutric') || raw.includes('dieta') || raw.includes('suplement')) return 'nutrition';
+  if (raw.includes('salud') || raw.includes('ciencia') || raw.includes('science') || raw.includes('fisiolog')) return 'science';
+  if (raw.includes('rendimiento') || raw.includes('performance') || raw.includes('atleta')) return 'performance';
+  if (raw.includes('entren') || raw.includes('fitness') || raw.includes('fuerza') || raw.includes('personal')) return 'training';
+
+  return 'default';
 }
 
 function getLessonTipo(lesson: AnyRecord) {
