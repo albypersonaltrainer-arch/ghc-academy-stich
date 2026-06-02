@@ -657,7 +657,16 @@ export default function CourseDetailPage() {
         return;
       }
 
-      setCourseCompletion(data || payload);
+      const savedCompletion = data || payload;
+      setCourseCompletion(savedCompletion);
+      const issuedCertificate = await ensureCertificateForCompletion(savedCompletion);
+
+      if (issuedCertificate) {
+        setFinalExamState((previous) => ({
+          ...previous,
+          message: `${previous.message} Certificado emitido automáticamente.`,
+        }));
+      }
       return;
     }
 
@@ -679,7 +688,101 @@ export default function CourseDetailPage() {
       return;
     }
 
-    setCourseCompletion(data || payload);
+    const savedCompletion = data || payload;
+    setCourseCompletion(savedCompletion);
+    const issuedCertificate = await ensureCertificateForCompletion(savedCompletion);
+
+    if (issuedCertificate) {
+      setFinalExamState((previous) => ({
+        ...previous,
+        message: `${previous.message} Certificado emitido automáticamente.`,
+      }));
+    }
+  }
+
+  async function ensureCertificateForCompletion(completionRecord: AnyRecord | null) {
+    if (!user?.id || !course?.id || !completionRecord?.completed) return null;
+
+    const { data: existingCertificate, error: existingError } = await supabase
+      .from('certificates')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('course_id', course.id)
+      .eq('status', 'valid')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error('Error comprobando certificado existente:', existingError);
+      return null;
+    }
+
+    if (existingCertificate) {
+      setRealCertificate(existingCertificate);
+      return existingCertificate;
+    }
+
+    const studentName = await getCertificateStudentName();
+    const identifiers = generateCertificateIdentifiers();
+    const now = new Date().toISOString();
+
+    const { data: insertedCertificate, error: insertError } = await supabase
+      .from('certificates')
+      .insert({
+        user_id: user.id,
+        course_id: course.id,
+        course_completion_id: completionRecord.id || courseCompletion?.id || null,
+        student_name: studentName,
+        course_title: String(course.title || 'Curso GHC Academy'),
+        final_score: Number(completionRecord.final_score || 100),
+        certificate_code: identifiers.code,
+        verification_slug: identifiers.slug,
+        status: 'valid',
+        issued_at: now,
+        created_at: now,
+        updated_at: now,
+      })
+      .select('*')
+      .maybeSingle();
+
+    if (insertError) {
+      console.error('Error emitiendo certificado automático:', insertError);
+      setFinalExamState((previous) => ({
+        ...previous,
+        message: `${previous.message} El curso quedó completado, pero no se pudo emitir el certificado automáticamente.`,
+      }));
+      return null;
+    }
+
+    if (insertedCertificate) {
+      setRealCertificate(insertedCertificate);
+    }
+
+    return insertedCertificate || null;
+  }
+
+  async function getCertificateStudentName() {
+    if (!user?.id) return 'Alumno GHC Academy';
+
+    const metadataName = String(user?.user_metadata?.full_name || '').trim();
+    if (metadataName) return metadataName;
+
+    const { data: profileData, error } = await supabase
+      .from('profiles')
+      .select('full_name,email')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error cargando nombre para certificado:', error);
+    }
+
+    const profileName = String(profileData?.full_name || '').trim();
+    const profileEmail = String(profileData?.email || '').trim();
+    const userEmail = String(user?.email || '').trim();
+
+    return profileName || profileEmail || userEmail || 'Alumno GHC Academy';
   }
 
   async function issueCertificate() {
@@ -690,38 +793,11 @@ export default function CourseDetailPage() {
       return;
     }
 
-    const existing = realCertificate;
+    const issuedCertificate = await ensureCertificateForCompletion(effectiveCourseCompletion);
 
-    if (existing) return;
-
-    const code = generateCertificateCode(course.title);
-    const certificateId = crypto.randomUUID();
-    const verificationSlug = `${code.toLowerCase()}-${certificateId.slice(0, 8)}`;
-
-    const { data, error } = await supabase
-      .from('certificates')
-      .insert({
-        user_id: user.id,
-        course_id: course.id,
-        course_completion_id: courseCompletion?.id || null,
-        student_name:
-          user?.user_metadata?.full_name || user?.email || 'Alumno GHC Academy',
-        course_title: String(course.title || 'Curso GHC Academy'),
-        final_score: Number(effectiveCourseCompletion.final_score || 100),
-        certificate_code: code,
-        verification_slug: verificationSlug,
-        status: 'valid',
-      })
-      .select('*')
-      .single();
-
-    if (error) {
-      console.error('Error emitiendo certificado real:', error);
+    if (!issuedCertificate) {
       alert('No se pudo emitir el certificado real. Revisa Supabase.');
-      return;
     }
-
-    setRealCertificate(data);
   }
 
   function issuePreviewCertificate() {
@@ -729,8 +805,9 @@ export default function CourseDetailPage() {
 
     const now = new Date();
     const certificateId = crypto.randomUUID();
-    const code = generateCertificateCode(course.title);
-    const verificationSlug = `${code.toLowerCase()}-${certificateId.slice(0, 8)}`;
+    const identifiers = generateCertificateIdentifiers();
+    const code = identifiers.code;
+    const verificationSlug = identifiers.slug;
 
     const certificate: PreviewCertificate = {
       certificate_id: certificateId,
@@ -1344,18 +1421,20 @@ function normalizeOption(value: unknown) {
   return String(value || '').trim().toUpperCase();
 }
 
+function generateCertificateIdentifiers() {
+  const year = new Date().getFullYear();
+  const serial = 320000 + Math.floor(Math.random() * 680000);
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, 'X');
+  const slugSuffix = Math.random().toString(36).slice(2, 10).toLowerCase().padEnd(8, 'x');
+
+  return {
+    code: `GHC-${year}-${serial}-${suffix}`,
+    slug: `ghc-${year}-${serial}-${slugSuffix}`,
+  };
+}
+
 function generateCertificateCode(courseTitle: string) {
-  const prefix = String(courseTitle || 'GHC')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .slice(0, 6)
-    .toUpperCase()
-    .padEnd(6, 'G');
-
-  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
-
-  return `GHC-${prefix}-${random}`;
+  return generateCertificateIdentifiers().code;
 }
 
 function getOrder(item: AnyRecord, fallback: number) {
