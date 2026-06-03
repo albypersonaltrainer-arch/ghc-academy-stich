@@ -40,7 +40,7 @@ type DashboardData = {
 };
 
 const GREEN = "#63E546";
-const BUILD_ID = "GHC-EXAM-BLUEPRINT-V1 · 2026-06-03";
+const BUILD_ID = "GHC-EXAM-BLUEPRINT-V3 · CLICK-DIAG · 2026-06-03";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -230,7 +230,7 @@ export default function Page() {
   }
 
   async function createBlueprintFromForm() {
-    setSystemMessage("");
+    setSystemMessage("Botón recibido. Validando configuración del borrador IA...");
     setCreatedBlueprint(null);
 
     const validation = validateBlueprintForm(form);
@@ -240,6 +240,7 @@ export default function Page() {
     }
 
     setBusy(true);
+    setSystemMessage("Validación correcta. Creando blueprint en Supabase...");
 
     try {
       const evaluationType = getEvaluationType(form.sourceScope);
@@ -370,7 +371,7 @@ export default function Page() {
 
         {systemMessage ? <div className="system-message">{systemMessage}</div> : null}
 
-        <form className="blueprint-layout" onSubmit={handleSubmit}>
+        <form className="blueprint-layout" onSubmit={handleSubmit} noValidate>
           <section className="builder-card source-card">
             <CardHead eyebrow="01" title="Fuente del examen" text="Elige de dónde leerá contenido el agente cuando activemos la generación IA." />
 
@@ -625,7 +626,7 @@ async function withTimeout<T>(promiseLike: PromiseLike<T>, milliseconds: number,
 
 function validateBlueprintForm(form: BlueprintForm) {
   if (!form.courseId) return "Selecciona un curso antes de crear el blueprint.";
-  if (!form.title.trim()) return "Añade un título claro para identificar el borrador.";
+  // El título no es obligatorio: si el admin lo deja vacío, el sistema usa un título GHC por defecto.
 
   if (form.sourceScope === "module" && !form.moduleId) return "Selecciona un módulo para crear un examen de módulo.";
   if (form.sourceScope === "lesson" && !form.lessonId) return "Selecciona una lección para crear una evaluación de lección.";
