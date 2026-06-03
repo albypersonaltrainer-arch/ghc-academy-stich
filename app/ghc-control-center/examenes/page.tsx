@@ -1,52 +1,54 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import GHCLogo from "../../components/GHCLogo";
 
 type AnyRecord = Record<string, any>;
 type GuardState = "checking" | "allowed" | "denied";
-type ExamScope = "lesson" | "module" | "course";
-type ExamStatus = "draft" | "published" | "hidden";
-type CorrectOption = "A" | "B" | "C" | "D";
+type BlueprintStatus = "draft_ai" | "in_review" | "approved" | "published" | "archived" | "rejected";
 
 type DashboardData = {
+  blueprints: AnyRecord[];
   courses: AnyRecord[];
   modules: AnyRecord[];
   lessons: AnyRecord[];
   exams: AnyRecord[];
-  examQuestions: AnyRecord[];
-  examAttempts: AnyRecord[];
+  questions: AnyRecord[];
+  generations: AnyRecord[];
 };
 
-type ExamFormState = {
+type BlueprintView = {
+  raw: AnyRecord;
   id: string;
   title: string;
   description: string;
-  scope: ExamScope;
-  status: ExamStatus;
-  passingScore: string;
+  status: BlueprintStatus;
+  statusLabel: string;
+  statusTone: string;
+  courseTitle: string;
+  moduleTitle: string;
+  lessonTitle: string;
+  scopeLabel: string;
+  evaluationLabel: string;
+  requestedQuestionCount: number;
+  approvedQuestions: number;
+  rejectedQuestions: number;
+  reviewQuestions: number;
+  generatedQuestions: number;
+  difficulty: string;
+  passPercentage: number;
+  attemptsLabel: string;
+  answerCount: number;
+  showExplanation: boolean;
+  blockAdvance: boolean;
+  createdAt: string;
+  updatedAt: string;
+  generatedAt: string;
+  aiInstructions: string;
+  reviewNotes: string;
 };
-
-type QuestionFormState = {
-  id: string;
-  examId: string;
-  question: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctOption: CorrectOption;
-  sortOrder: string;
-  explanation: string;
-};
-
-type UiMode = "createExam" | "editExam";
-type QuestionMode = "createQuestion" | "editQuestion";
-
-const GREEN = "#63E546";
-const BUILD_ID = "EXAMS-EDITOR-FIX-02 · 2026-06-02";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -54,472 +56,157 @@ const supabase = createClient(
 );
 
 const emptyData: DashboardData = {
+  blueprints: [],
   courses: [],
   modules: [],
   lessons: [],
   exams: [],
-  examQuestions: [],
-  examAttempts: [],
+  questions: [],
+  generations: [],
 };
 
-const emptyExamForm: ExamFormState = {
-  id: "",
-  title: "",
-  description: "",
-  scope: "lesson",
-  status: "draft",
-  passingScore: "70",
-};
+const GREEN = "#63E546";
+const BUILD_ID = "GHC-EXAMS-BLUEPRINTS-V1";
 
-const emptyQuestionForm: QuestionFormState = {
-  id: "",
-  examId: "",
-  question: "",
-  optionA: "",
-  optionB: "",
-  optionC: "",
-  optionD: "",
-  correctOption: "A",
-  sortOrder: "1",
-  explanation: "",
-};
-
-export default function ExamsControlCenterPage() {
+export default function Page() {
   const router = useRouter();
 
   const [guardState, setGuardState] = useState<GuardState>("checking");
-  const [adminName, setAdminName] = useState("Admin GHC");
+  const [profile, setProfile] = useState<AnyRecord | null>(null);
   const [data, setData] = useState<DashboardData>(emptyData);
+  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
-
-  const [selectedCourseId, setSelectedCourseId] = useState("");
-  const [selectedModuleId, setSelectedModuleId] = useState("");
-  const [selectedLessonId, setSelectedLessonId] = useState("");
-  const [selectedScope, setSelectedScope] = useState<ExamScope>("lesson");
-  const [selectedExamId, setSelectedExamId] = useState("");
-
-  const [examMode, setExamMode] = useState<UiMode>("createExam");
-  const [examForm, setExamForm] = useState<ExamFormState>(emptyExamForm);
-  const [questionMode, setQuestionMode] = useState<QuestionMode>("createQuestion");
-  const [questionForm, setQuestionForm] = useState<QuestionFormState>(emptyQuestionForm);
-  const examEditorRef = useRef<HTMLElement | null>(null);
-  const questionEditorRef = useRef<HTMLFormElement | null>(null);
+  const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | BlueprintStatus>("all");
+  const [selectedBlueprintId, setSelectedBlueprintId] = useState("");
 
   useEffect(() => {
     async function protectAndLoad() {
       try {
         const { data: userData, error: userError } = await supabase.auth.getUser();
+
         if (userError || !userData.user) {
           router.replace("/acceso");
           return;
         }
 
-        const user = userData.user as AnyRecord;
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", user.id)
+          .eq("id", userData.user.id)
           .maybeSingle();
 
         if (profileError) {
           console.error(profileError);
+          setGuardState("denied");
           router.replace("/alumno");
           return;
         }
 
-        const role = String(profile?.role || "").toLowerCase();
+        const role = String(profileData?.role || "").toLowerCase();
         if (!["admin", "superadmin", "owner"].includes(role)) {
+          setGuardState("denied");
           router.replace("/alumno");
           return;
         }
 
-        setAdminName(profile?.full_name || user.user_metadata?.full_name || user.email || "Admin GHC");
+        setProfile(profileData || null);
         setGuardState("allowed");
         const loaded = await loadDashboardData();
         setData(loaded);
-        hydrateInitialSelection(loaded);
+        const firstBlueprintId = String(loaded.blueprints[0]?.id || "");
+        setSelectedBlueprintId(firstBlueprintId);
       } catch (error) {
         console.error(error);
+        setGuardState("denied");
         router.replace("/alumno");
+      } finally {
+        setIsLoading(false);
       }
     }
 
     protectAndLoad();
   }, [router]);
 
-  function hydrateInitialSelection(loaded: DashboardData) {
-    const firstCourse = loaded.courses[0];
-    const courseId = String(firstCourse?.id || "");
-    const courseModules = loaded.modules.filter((module) => String(module.course_id) === courseId);
-    const moduleId = String(courseModules[0]?.id || "");
-    const moduleLessons = loaded.lessons.filter((lesson) => String(lesson.module_id) === moduleId);
-    const lessonId = String(moduleLessons[0]?.id || "");
+  const views = useMemo(() => buildBlueprintViews(data), [data]);
 
-    setSelectedCourseId(courseId);
-    setSelectedModuleId(moduleId);
-    setSelectedLessonId(lessonId);
-    setSelectedScope("lesson");
+  const filteredViews = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-    const firstMatchingExam = findExamForContext(loaded.exams, "lesson", courseId, moduleId, lessonId) || loaded.exams[0];
-    if (firstMatchingExam) {
-      loadExamIntoEditor(firstMatchingExam);
-    } else {
-      prepareNewExam("lesson", courseId, moduleId, lessonId);
-    }
-  }
+    return views.filter((item) => {
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      const matchesSearch =
+        !query ||
+        [
+          item.title,
+          item.description,
+          item.courseTitle,
+          item.moduleTitle,
+          item.lessonTitle,
+          item.statusLabel,
+          item.scopeLabel,
+          item.evaluationLabel,
+          item.difficulty,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
 
-  const courses = useMemo(() => data.courses.slice().sort(sortByTitle), [data.courses]);
+      return matchesStatus && matchesSearch;
+    });
+  }, [views, search, statusFilter]);
 
-  const selectedCourse = useMemo(
-    () => courses.find((course) => String(course.id) === selectedCourseId) || courses[0] || null,
-    [courses, selectedCourseId]
-  );
+  const selectedBlueprint =
+    filteredViews.find((item) => item.id === selectedBlueprintId) ||
+    views.find((item) => item.id === selectedBlueprintId) ||
+    filteredViews[0] ||
+    views[0] ||
+    null;
 
-  const modulesForCourse = useMemo(() => {
-    if (!selectedCourse) return [];
-    return data.modules
-      .filter((module) => String(module.course_id) === String(selectedCourse.id))
-      .slice()
-      .sort(sortBySortOrder);
-  }, [data.modules, selectedCourse]);
+  const stats = useMemo(() => buildStats(views), [views]);
+  const adminName = profile?.full_name || profile?.email || "Admin GHC";
 
-  const selectedModule = useMemo(
-    () => modulesForCourse.find((module) => String(module.id) === selectedModuleId) || modulesForCourse[0] || null,
-    [modulesForCourse, selectedModuleId]
-  );
-
-  const lessonsForModule = useMemo(() => {
-    if (!selectedModule) return [];
-    return data.lessons
-      .filter((lesson) => String(lesson.module_id) === String(selectedModule.id))
-      .slice()
-      .sort(sortBySortOrder);
-  }, [data.lessons, selectedModule]);
-
-  const selectedLesson = useMemo(
-    () => lessonsForModule.find((lesson) => String(lesson.id) === selectedLessonId) || lessonsForModule[0] || null,
-    [lessonsForModule, selectedLessonId]
-  );
-
-  const examsForCourse = useMemo(() => {
-    if (!selectedCourse) return [];
-    return data.exams
-      .filter((exam) => String(exam.course_id) === String(selectedCourse.id))
-      .slice()
-      .sort((a, b) => scopeWeight(a) - scopeWeight(b) || String(a.title || "").localeCompare(String(b.title || "")));
-  }, [data.exams, selectedCourse]);
-
-  const activeExam = useMemo(
-    () => data.exams.find((exam) => String(exam.id) === selectedExamId) || null,
-    [data.exams, selectedExamId]
-  );
-
-  const activeQuestions = useMemo(() => {
-    if (!selectedExamId) return [];
-    return data.examQuestions
-      .filter((question) => String(question.exam_id) === selectedExamId)
-      .slice()
-      .sort(sortBySortOrder);
-  }, [data.examQuestions, selectedExamId]);
-
-  const selectedExamAttempts = useMemo(() => {
-    if (!selectedExamId) return [];
-    return data.examAttempts.filter((attempt) => String(attempt.exam_id) === selectedExamId);
-  }, [data.examAttempts, selectedExamId]);
-
-  const stats = useMemo(() => {
-    const withoutQuestions = data.exams.filter((exam) => !data.examQuestions.some((question) => String(question.exam_id) === String(exam.id))).length;
-    const published = data.exams.filter((exam) => normalizeStatus(exam.status) === "published").length;
-    const draft = data.exams.filter((exam) => normalizeStatus(exam.status) === "draft").length;
-    return {
-      exams: data.exams.length,
-      questions: data.examQuestions.length,
-      attempts: data.examAttempts.length,
-      published,
-      draft,
-      withoutQuestions,
-    };
-  }, [data]);
-
-  async function refresh(message?: string) {
+  async function refreshData() {
     setIsRefreshing(true);
+    setMessage("Actualizando borradores desde Supabase...");
     try {
       const loaded = await loadDashboardData();
       setData(loaded);
-      if (message) setNotice(message);
+      setSelectedBlueprintId((current) => current || String(loaded.blueprints[0]?.id || ""));
+      setMessage("Listado actualizado desde Supabase.");
+    } catch (error) {
+      console.error(error);
+      setMessage(getErrorMessage(error, "No se pudo actualizar el listado."));
     } finally {
       setIsRefreshing(false);
     }
   }
 
-  function handleCourseChange(courseId: string) {
-    const nextModules = data.modules.filter((module) => String(module.course_id) === courseId).slice().sort(sortBySortOrder);
-    const moduleId = String(nextModules[0]?.id || "");
-    const nextLessons = data.lessons.filter((lesson) => String(lesson.module_id) === moduleId).slice().sort(sortBySortOrder);
-    const lessonId = String(nextLessons[0]?.id || "");
-
-    setSelectedCourseId(courseId);
-    setSelectedModuleId(moduleId);
-    setSelectedLessonId(lessonId);
-    selectContextExam(selectedScope, courseId, moduleId, lessonId);
+  function goCreateBlueprint() {
+    router.push("/ghc-control-center/examenes/crear");
   }
 
-  function handleModuleChange(moduleId: string) {
-    const nextLessons = data.lessons.filter((lesson) => String(lesson.module_id) === moduleId).slice().sort(sortBySortOrder);
-    const lessonId = String(nextLessons[0]?.id || "");
-    setSelectedModuleId(moduleId);
-    setSelectedLessonId(lessonId);
-    selectContextExam(selectedScope, selectedCourseId, moduleId, lessonId);
+  function goControlCenter() {
+    router.push("/ghc-control-center");
   }
 
-  function handleLessonChange(lessonId: string) {
-    setSelectedLessonId(lessonId);
-    selectContextExam(selectedScope, selectedCourseId, selectedModuleId, lessonId);
+  function openReview(blueprint: BlueprintView) {
+    setSelectedBlueprintId(blueprint.id);
+    setMessage(
+      "Borrador abierto en vista de control. La pantalla de revisión profunda será el siguiente bloque: /ghc-control-center/examenes/[blueprintId]."
+    );
   }
 
-  function handleScopeChange(scope: ExamScope) {
-    setSelectedScope(scope);
-    selectContextExam(scope, selectedCourseId, selectedModuleId, selectedLessonId);
-  }
-
-  function selectContextExam(scope: ExamScope, courseId: string, moduleId: string, lessonId: string) {
-    const match = findExamForContext(data.exams, scope, courseId, moduleId, lessonId);
-    if (match) {
-      loadExamIntoEditor(match);
-    } else {
-      prepareNewExam(scope, courseId, moduleId, lessonId);
-    }
-  }
-
-  function prepareNewExam(scope: ExamScope, courseId = selectedCourseId, moduleId = selectedModuleId, lessonId = selectedLessonId) {
-    const title = buildDefaultExamTitle(scope, selectedCourse, selectedModule, selectedLesson);
-    setSelectedExamId("");
-    setExamMode("createExam");
-    setExamForm({
-      ...emptyExamForm,
-      title,
-      scope,
-      status: "draft",
-      passingScore: "70",
-    });
-    setQuestionMode("createQuestion");
-    setQuestionForm(emptyQuestionForm);
-    setNotice(`Preparado nuevo ${getScopeLabel(scope).toLowerCase()} para el contexto seleccionado.`);
-  }
-
-  function scrollToExamEditor() {
-    window.setTimeout(() => {
-      examEditorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
-  }
-
-  function scrollToQuestionEditor() {
-    window.setTimeout(() => {
-      questionEditorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 80);
-  }
-
-  function loadExamIntoEditor(exam: AnyRecord) {
-    const scope = normalizeScope(exam.exam_scope);
-    setSelectedExamId(String(exam.id || ""));
-    setExamMode("editExam");
-    setExamForm({
-      id: String(exam.id || ""),
-      title: String(exam.title || ""),
-      description: String(exam.description || ""),
-      scope,
-      status: normalizeStatus(exam.status),
-      passingScore: String(exam.passing_score ?? exam.pass_score ?? 70),
-    });
-
-    setSelectedScope(scope);
-    if (exam.course_id) setSelectedCourseId(String(exam.course_id));
-    if (exam.module_id) setSelectedModuleId(String(exam.module_id));
-    if (exam.lesson_id) setSelectedLessonId(String(exam.lesson_id));
-
-    setQuestionMode("createQuestion");
-    setQuestionForm({ ...emptyQuestionForm, examId: String(exam.id || ""), sortOrder: String(activeQuestions.length + 1) });
-    setNotice(`Modo edición abierto: ${String(exam.title || "Examen GHC")}. Modifica los campos del editor y pulsa Guardar examen.`);
-    scrollToExamEditor();
-  }
-
-  async function handleExamSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedCourseId) {
-      setNotice("Selecciona un curso antes de guardar el examen.");
-      return;
-    }
-    if (examForm.scope === "module" && !selectedModuleId) {
-      setNotice("Selecciona un módulo para crear un examen de módulo.");
-      return;
-    }
-    if (examForm.scope === "lesson" && !selectedLessonId) {
-      setNotice("Selecciona una lección para crear una evaluación de lección.");
-      return;
-    }
-    if (!examForm.title.trim()) {
-      setNotice("El examen necesita un título.");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const payload = {
-        p_course_id: selectedCourseId,
-        p_module_id: examForm.scope === "course" ? null : selectedModuleId || null,
-        p_lesson_id: examForm.scope === "lesson" ? selectedLessonId || null : null,
-        p_title: examForm.title.trim(),
-        p_description: examForm.description.trim() || null,
-        p_exam_scope: examForm.scope,
-        p_passing_score: clampScore(examForm.passingScore),
-        p_status: examForm.status,
-      };
-
-      let response;
-      if (examMode === "editExam" && examForm.id) {
-        response = await withTimeout(
-          supabase.rpc("ghc_admin_update_exam", {
-            p_exam_id: examForm.id,
-            ...payload,
-          }),
-          12000,
-          "Supabase no respondió al actualizar el examen."
-        );
-      } else {
-        response = await withTimeout(
-          supabase.rpc("ghc_admin_create_exam", payload),
-          12000,
-          "Supabase no respondió al crear el examen."
-        );
-      }
-
-      if (response.error) throw response.error;
-
-      const savedExam = response.data as AnyRecord;
-      await refresh(examMode === "editExam" ? "Examen actualizado correctamente." : "Examen creado correctamente.");
-      if (savedExam?.id) {
-        setSelectedExamId(String(savedExam.id));
-        setExamMode("editExam");
-        setExamForm((current) => ({ ...current, id: String(savedExam.id) }));
-        setQuestionForm((current) => ({ ...current, examId: String(savedExam.id) }));
-      }
-    } catch (error) {
-      console.error(error);
-      setNotice(getErrorMessage(error, "No se pudo guardar el examen."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleQuestionSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const examId = questionForm.examId || selectedExamId;
-    if (!examId) {
-      setNotice("Primero guarda o selecciona un examen antes de crear preguntas.");
-      return;
-    }
-    if (!questionForm.question.trim()) {
-      setNotice("La pregunta es obligatoria.");
-      return;
-    }
-    if (!questionForm.optionA.trim() || !questionForm.optionB.trim() || !questionForm.optionC.trim() || !questionForm.optionD.trim()) {
-      setNotice("Las opciones A, B, C y D son obligatorias.");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const payload = {
-        p_exam_id: examId,
-        p_question: questionForm.question.trim(),
-        p_option_a: questionForm.optionA.trim(),
-        p_option_b: questionForm.optionB.trim(),
-        p_option_c: questionForm.optionC.trim(),
-        p_option_d: questionForm.optionD.trim(),
-        p_correct_option: questionForm.correctOption,
-        p_sort_order: parseInteger(questionForm.sortOrder, activeQuestions.length + 1),
-        p_explanation: questionForm.explanation.trim() || null,
-      };
-
-      const response = questionMode === "editQuestion" && questionForm.id
-        ? await withTimeout(
-            supabase.rpc("ghc_admin_update_exam_question", {
-              p_question_id: questionForm.id,
-              ...payload,
-            }),
-            12000,
-            "Supabase no respondió al actualizar la pregunta."
-          )
-        : await withTimeout(
-            supabase.rpc("ghc_admin_create_exam_question", payload),
-            12000,
-            "Supabase no respondió al crear la pregunta."
-          );
-
-      if (response.error) throw response.error;
-
-      await refresh(questionMode === "editQuestion" ? "Pregunta actualizada." : "Pregunta añadida al banco del examen.");
-      setQuestionMode("createQuestion");
-      setQuestionForm({ ...emptyQuestionForm, examId, sortOrder: String(activeQuestions.length + 2) });
-    } catch (error) {
-      console.error(error);
-      setNotice(getErrorMessage(error, "No se pudo guardar la pregunta."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function deleteQuestion(questionId: string) {
-    if (!questionId) return;
-    const confirmed = window.confirm("¿Eliminar esta pregunta del examen? Esta acción no elimina el examen.");
-    if (!confirmed) return;
-
-    setBusy(true);
-    try {
-      const { error } = await withTimeout(
-        supabase.rpc("ghc_admin_delete_exam_question", { p_question_id: questionId }),
-        12000,
-        "Supabase no respondió al eliminar la pregunta."
-      );
-      if (error) throw error;
-      await refresh("Pregunta eliminada.");
-      setQuestionMode("createQuestion");
-      setQuestionForm({ ...emptyQuestionForm, examId: selectedExamId, sortOrder: String(Math.max(1, activeQuestions.length)) });
-    } catch (error) {
-      console.error(error);
-      setNotice(getErrorMessage(error, "No se pudo eliminar la pregunta."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function editQuestion(question: AnyRecord) {
-    setQuestionMode("editQuestion");
-    setQuestionForm({
-      id: String(question.id || ""),
-      examId: String(question.exam_id || selectedExamId || ""),
-      question: String(question.question || ""),
-      optionA: String(question.option_a || ""),
-      optionB: String(question.option_b || ""),
-      optionC: String(question.option_c || ""),
-      optionD: String(question.option_d || ""),
-      correctOption: normalizeCorrectOption(question.correct_option),
-      sortOrder: String(question.sort_order || 1),
-      explanation: String(question.explanation || ""),
-    });
-  }
-
-  if (guardState === "checking") {
+  if (guardState === "checking" || isLoading) {
     return (
-      <main className="exam-admin-loading">
-        <ExamGlobalStyles />
-        <ExamBackground />
-        <section className="exam-loading-card">
+      <main className="evaluation-loading">
+        <GlobalStyles />
+        <Background />
+        <section className="loading-card">
           <GHCLogo size="md" showText tagline={false} />
-          <h1>Centro de evaluación</h1>
-          <p>Verificando acceso administrativo y cargando banco de exámenes...</p>
+          <h1>Centro de Evaluación GHC</h1>
+          <p>Verificando acceso administrativo y cargando blueprints...</p>
         </section>
       </main>
     );
@@ -528,323 +215,182 @@ export default function ExamsControlCenterPage() {
   if (guardState !== "allowed") return null;
 
   return (
-    <main className="exam-admin-page exam-command-room">
-      <ExamGlobalStyles />
-      <ExamBackground />
+    <main className="evaluation-page">
+      <GlobalStyles />
+      <Background />
 
-      <aside className="ghc-eval-sidebar">
-        <div className="ghc-eval-brand">
-          <GHCLogo size="md" showText tagline={false} />
-        </div>
-
-        <div className="sidebar-command-card">
-          <span>Control Center</span>
-          <strong>Evaluation Room</strong>
-          <p>Gestión real de evaluaciones, exámenes finales y banco de preguntas.</p>
-        </div>
-
-        <nav className="sidebar-actions" aria-label="Navegación evaluación GHC">
-          <button type="button" onClick={() => router.push("/ghc-control-center")}>← Panel principal</button>
-          <button type="button" onClick={() => prepareNewExam(selectedScope)}>+ Nuevo examen</button>
-          <button type="button" onClick={() => refresh("Datos refrescados desde Supabase.")}>{isRefreshing ? "Refrescando..." : "Refrescar datos"}</button>
-        </nav>
-
-        <div className="workflow-card">
-          <span>Flujo seguro</span>
-          <ol>
-            <li className={selectedCourse ? "done" : ""}>Curso seleccionado</li>
-            <li className={selectedScope === "course" || selectedModule ? "done" : ""}>Contexto académico</li>
-            <li className={selectedExamId ? "done" : ""}>Examen guardado</li>
-            <li className={activeQuestions.length ? "done" : ""}>Preguntas A/B/C/D</li>
-          </ol>
-        </div>
-
-        <div className="sidebar-user-card">
-          <span>{getInitials(adminName)}</span>
-          <div>
-            <strong>{shortName(adminName)}</strong>
-            <p>Administrador</p>
+      <aside className="evaluation-sidebar">
+        <div>
+          <div className="sidebar-logo">
+            <GHCLogo size="md" showText tagline={false} />
           </div>
+
+          <nav className="sidebar-nav" aria-label="Centro de evaluación">
+            <button type="button" className="active">
+              <span>◈</span>
+              <div>
+                <strong>Blueprints</strong>
+                <small>Borradores IA</small>
+              </div>
+            </button>
+            <button type="button" onClick={goCreateBlueprint}>
+              <span>＋</span>
+              <div>
+                <strong>Crear evaluación</strong>
+                <small>Configurar IA</small>
+              </div>
+            </button>
+            <button type="button" onClick={() => setMessage("La revisión profunda de preguntas se construye en el siguiente bloque.")}> 
+              <span>▣</span>
+              <div>
+                <strong>Revisión</strong>
+                <small>Próximo bloque</small>
+              </div>
+            </button>
+            <button type="button" onClick={goControlCenter}>
+              <span>⌂</span>
+              <div>
+                <strong>Control Center</strong>
+                <small>Volver al admin</small>
+              </div>
+            </button>
+          </nav>
+        </div>
+
+        <div className="sidebar-status">
+          <span>Build</span>
+          <strong>{BUILD_ID}</strong>
+          <p>Listado real conectado a Supabase. No genera ni publica preguntas automáticamente.</p>
         </div>
       </aside>
 
-      <section className="evaluation-stage">
+      <section className="evaluation-shell">
         <header className="evaluation-topbar">
-          <div className="evaluation-breadcrumb">
-            <span>GHC Academy</span>
-            <em>›</em>
-            <strong>Centro de Evaluación</strong>
+          <div className="breadcrumb">
+            <button type="button" onClick={goControlCenter}>GHC Control Center</button>
+            <span>/</span>
+            <strong>Exámenes</strong>
           </div>
-          <div className="evaluation-top-actions">
-            <span>{BUILD_ID}</span>
-            <button type="button" onClick={() => router.push("/ghc-control-center")}>Volver al admin</button>
+
+          <div className="topbar-actions">
+            <button type="button" className="ghost-button" onClick={refreshData} disabled={isRefreshing}>
+              {isRefreshing ? "Actualizando..." : "Actualizar"}
+            </button>
+            <button type="button" className="primary-button" onClick={goCreateBlueprint}>
+              + Crear evaluación IA
+            </button>
+            <div className="admin-pill">
+              <span>{getInitials(adminName)}</span>
+              <strong>{shortName(adminName)}</strong>
+            </div>
           </div>
         </header>
 
-        {notice ? <div className="exam-notice"><strong>Estado</strong><span>{notice}</span></div> : null}
+        {message ? <div className="system-message">{message}</div> : null}
 
-        <section className="evaluation-hero">
-          <div className="hero-copy-block">
-            <p className="exam-kicker">Evaluación · certificación · ciencia aplicada</p>
-            <h1>Centro de Evaluación GHC</h1>
+        <section className="hero-card">
+          <div className="hero-copy">
+            <p className="eyebrow">Agente de Exámenes GHC v1</p>
+            <h1>Blueprints y borradores de evaluación</h1>
             <p>
-              Una cabina premium para crear evaluaciones de lección, exámenes de módulo y examen final,
-              con preguntas A/B/C/D, publicación controlada y edición real mediante Supabase RPC.
+              Aquí se listan las configuraciones reales creadas por el admin antes de generar preguntas con IA. La IA no publica nada: todo queda en borrador, revisión y aprobación humana.
             </p>
-            <div className="hero-cta-row">
-              <button type="button" onClick={() => prepareNewExam("lesson")}>Evaluación de lección</button>
-              <button type="button" onClick={() => prepareNewExam("module")}>Examen de módulo</button>
-              <button type="button" onClick={() => prepareNewExam("course")}>Examen final</button>
-            </div>
           </div>
 
-          <div className="hero-system-visual" aria-hidden="true">
-            <div className="system-core">
-              <span>{stats.published}</span>
-              <strong>publicados</strong>
-            </div>
-            <div className="system-line one" />
-            <div className="system-line two" />
-            <div className="system-node a">Curso</div>
-            <div className="system-node b">Módulo</div>
-            <div className="system-node c">Lección</div>
-            <div className="system-node d">Certificación</div>
+          <div className="hero-panel">
+            <span>Flujo oficial</span>
+            <strong>Configurar → generar → revisar → aprobar → publicar</strong>
+            <p>Cero rastro de IA para el alumno. Solo se mostrarán exámenes publicados.</p>
+            <button type="button" onClick={goCreateBlueprint}>Crear nuevo blueprint</button>
           </div>
         </section>
 
-        <section className="exam-metric-grid command-metrics">
-          <MetricCard label="Exámenes" value={stats.exams} helper="Total Supabase" />
-          <MetricCard label="Preguntas" value={stats.questions} helper="Banco real" />
-          <MetricCard label="Publicados" value={stats.published} helper={`${stats.draft} borradores`} />
-          <MetricCard label="Intentos" value={stats.attempts} helper="exam_attempts" />
-          <MetricCard label="Sin preguntas" value={stats.withoutQuestions} helper="Revisar antes de publicar" warning={stats.withoutQuestions > 0} />
+        <section className="stats-grid">
+          <StatCard label="Blueprints" value={stats.total} helper="Configuraciones creadas" />
+          <StatCard label="Borradores IA" value={stats.draft} helper="Pendientes de generación/revisión" />
+          <StatCard label="En revisión" value={stats.review} helper="Control humano" />
+          <StatCard label="Publicados" value={stats.published} helper="Visibles para alumno" />
         </section>
 
-        <section className="evaluation-grid">
-          <aside className="academic-command-panel">
-            <div className="panel-heading">
-              <span>01</span>
+        <section className="workspace-grid">
+          <article className="list-card">
+            <div className="list-head">
               <div>
-                <h2>Mapa académico</h2>
-                <p>El examen nace ligado a un curso, módulo o lección concreta.</p>
+                <p className="eyebrow">Listado real</p>
+                <h2>Borradores y exámenes</h2>
+                <span>{filteredViews.length} resultado(s)</span>
               </div>
+              <button type="button" onClick={goCreateBlueprint}>+ Nuevo</button>
             </div>
 
-            <label className="premium-field course-field">
-              <span>Curso activo</span>
-              <select value={selectedCourseId} onChange={(event) => handleCourseChange(event.target.value)}>
-                {courses.length ? courses.map((course) => (
-                  <option key={String(course.id)} value={String(course.id)}>{course.title || "Curso GHC"}</option>
-                )) : <option value="">Sin cursos</option>}
+            <div className="filters-row">
+              <label className="search-field">
+                <span>⌕</span>
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por curso, estado, módulo o título..." />
+              </label>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | BlueprintStatus)}>
+                <option value="all">Todos los estados</option>
+                <option value="draft_ai">Draft IA</option>
+                <option value="in_review">En revisión</option>
+                <option value="approved">Aprobado</option>
+                <option value="published">Publicado</option>
+                <option value="archived">Archivado</option>
+                <option value="rejected">Rechazado</option>
               </select>
-            </label>
-
-            <div className="scope-orbit" aria-label="Tipo de evaluación">
-              <button type="button" className={selectedScope === "lesson" ? "active" : ""} onClick={() => handleScopeChange("lesson")}>
-                <span>01</span><strong>Lección</strong><small>Evaluación corta</small>
-              </button>
-              <button type="button" className={selectedScope === "module" ? "active" : ""} onClick={() => handleScopeChange("module")}>
-                <span>02</span><strong>Módulo</strong><small>Bloque académico</small>
-              </button>
-              <button type="button" className={selectedScope === "course" ? "active" : ""} onClick={() => handleScopeChange("course")}>
-                <span>03</span><strong>Final</strong><small>Certificación</small>
-              </button>
             </div>
 
-            <div className="module-timeline">
-              <div className="mini-section-title">
-                <strong>Módulos</strong>
-                <span>{modulesForCourse.length}</span>
-              </div>
-              {modulesForCourse.length ? modulesForCourse.map((module, index) => {
-                const active = String(module.id) === String(selectedModule?.id || "");
-                return (
-                  <button key={String(module.id || index)} type="button" className={active ? "timeline-item active" : "timeline-item"} onClick={() => handleModuleChange(String(module.id || ""))}>
-                    <span>M{index + 1}</span>
-                    <strong>{module.title || `Módulo ${index + 1}`}</strong>
+            <div className="blueprint-list">
+              {filteredViews.length ? (
+                filteredViews.map((blueprint) => (
+                  <button
+                    key={blueprint.id}
+                    type="button"
+                    className={selectedBlueprint?.id === blueprint.id ? "blueprint-row active" : "blueprint-row"}
+                    onClick={() => setSelectedBlueprintId(blueprint.id)}
+                  >
+                    <span className={`status-pill ${blueprint.statusTone}`}>{blueprint.statusLabel}</span>
+                    <div className="blueprint-main">
+                      <strong>{blueprint.title}</strong>
+                      <p>{blueprint.courseTitle}</p>
+                      <small>{blueprint.scopeLabel} · {blueprint.evaluationLabel} · {blueprint.difficulty}</small>
+                    </div>
+                    <div className="blueprint-metric">
+                      <strong>{blueprint.requestedQuestionCount}</strong>
+                      <span>pedidas</span>
+                    </div>
+                    <div className="blueprint-metric">
+                      <strong>{blueprint.generatedQuestions}</strong>
+                      <span>generadas</span>
+                    </div>
+                    <div className="blueprint-metric hide-mobile">
+                      <strong>{blueprint.passPercentage}%</strong>
+                      <span>mínimo</span>
+                    </div>
+                    <em>{blueprint.createdAt}</em>
                   </button>
-                );
-              }) : <div className="empty-mini">Este curso aún no tiene módulos.</div>}
-            </div>
-
-            <div className="lesson-rail">
-              <div className="mini-section-title">
-                <strong>Lecciones</strong>
-                <span>{lessonsForModule.length}</span>
-              </div>
-              {lessonsForModule.length ? lessonsForModule.map((lesson, index) => {
-                const active = String(lesson.id) === String(selectedLesson?.id || "");
-                return (
-                  <button key={String(lesson.id || index)} type="button" className={active ? "lesson-chip active" : "lesson-chip"} onClick={() => handleLessonChange(String(lesson.id || ""))}>
-                    <span>L{index + 1}</span>
-                    <strong>{lesson.title || `Lección ${index + 1}`}</strong>
-                  </button>
-                );
-              }) : <div className="empty-mini">Este módulo aún no tiene lecciones.</div>}
-            </div>
-          </aside>
-
-          <section className="exam-console-column">
-            <article className={examMode === "editExam" ? "exam-editor-console editing" : "exam-editor-console"} ref={examEditorRef}>
-              <div className="console-header">
-                <div>
-                  <p className="exam-kicker">{examMode === "editExam" ? "Modo edición activo" : "Nueva estructura"}</p>
-                  <h2>{examMode === "editExam" ? "Editor de examen" : "Crear examen"}</h2>
-                  <p>{examMode === "editExam" ? "El examen está cargado. Cambia los campos y pulsa Guardar examen." : "Define el examen dentro del contexto seleccionado."}</p>
-                </div>
-                <div className="console-status">
-                  <span>{examMode === "editExam" ? "EDITANDO" : "BORRADOR"}</span>
-                  <strong>{activeQuestions.length}</strong>
-                  <small>preguntas</small>
-                </div>
-              </div>
-
-              <form className="console-form" onSubmit={handleExamSubmit}>
-                <label className="premium-field title-field">
-                  <span>Título del examen</span>
-                  <input value={examForm.title} onChange={(event) => setExamForm({ ...examForm, title: event.target.value })} placeholder="Evaluación de lección" />
-                </label>
-
-                <div className="form-row-three">
-                  <label className="premium-field">
-                    <span>Tipo</span>
-                    <select value={examForm.scope} onChange={(event) => { const scope = event.target.value as ExamScope; setExamForm({ ...examForm, scope }); setSelectedScope(scope); }}>
-                      <option value="lesson">Evaluación de lección</option>
-                      <option value="module">Examen de módulo</option>
-                      <option value="course">Examen final</option>
-                    </select>
-                  </label>
-
-                  <label className="premium-field">
-                    <span>Estado</span>
-                    <select value={examForm.status} onChange={(event) => setExamForm({ ...examForm, status: event.target.value as ExamStatus })}>
-                      <option value="draft">Borrador</option>
-                      <option value="published">Publicado</option>
-                      <option value="hidden">Oculto</option>
-                    </select>
-                  </label>
-
-                  <label className="premium-field">
-                    <span>Nota mínima</span>
-                    <input value={examForm.passingScore} onChange={(event) => setExamForm({ ...examForm, passingScore: event.target.value })} inputMode="numeric" />
-                  </label>
-                </div>
-
-                <label className="premium-field">
-                  <span>Instrucciones / descripción</span>
-                  <textarea value={examForm.description} onChange={(event) => setExamForm({ ...examForm, description: event.target.value })} placeholder="Texto de contexto para el alumno o notas internas de evaluación..." />
-                </label>
-
-                <div className="exam-submit-row console-actions">
-                  <div>
-                    <strong>{selectedExamId ? "Examen guardado en Supabase" : "Pendiente de guardar"}</strong>
-                    <p>{selectedExamAttempts.length} intentos registrados · {getScopeLabel(examForm.scope)}</p>
-                  </div>
-                  <div>
-                    <button type="button" className="ghost-action" onClick={() => prepareNewExam(selectedScope)}>Limpiar</button>
-                    <button type="submit" disabled={busy}>{busy ? "Guardando..." : examMode === "editExam" ? "Guardar examen" : "Crear examen"}</button>
-                  </div>
-                </div>
-              </form>
-            </article>
-
-            <article className="exam-catalog-console">
-              <div className="panel-heading compact">
-                <span>03</span>
-                <div>
-                  <h2>Exámenes del curso</h2>
-                  <p>Listado real del curso seleccionado. Editar carga el examen en la consola superior.</p>
-                </div>
-              </div>
-
-              <div className="exam-catalog-list">
-                {examsForCourse.length ? examsForCourse.map((exam) => {
-                  const examId = String(exam.id || "");
-                  const questionCount = data.examQuestions.filter((question) => String(question.exam_id) === examId).length;
-                  const isActive = selectedExamId === examId;
-                  return (
-                    <article key={examId} className={isActive ? "exam-catalog-row active" : "exam-catalog-row"}>
-                      <div className="catalog-scope">
-                        <span className={`scope-badge ${normalizeScope(exam.exam_scope)}`}>{getScopeLabel(normalizeScope(exam.exam_scope))}</span>
-                      </div>
-                      <div>
-                        <strong>{exam.title || "Examen GHC"}</strong>
-                        <p>{questionCount} preguntas · {getStatusLabel(normalizeStatus(exam.status))} · Nota {exam.passing_score ?? exam.pass_score ?? 70}%</p>
-                      </div>
-                      <button type="button" className="row-edit-button" onClick={() => loadExamIntoEditor(exam)}>{isActive ? "Editando" : "Editar"}</button>
-                    </article>
-                  );
-                }) : (
-                  <div className="empty-exams-state">
-                    <strong>Este curso aún no tiene exámenes</strong>
-                    <p>Crea una evaluación de lección, un examen de módulo o un examen final desde la consola superior.</p>
-                  </div>
-                )}
-              </div>
-            </article>
-          </section>
-
-          <aside className="question-forge-panel">
-            <div className="panel-heading">
-              <span>04</span>
-              <div>
-                <h2>Banco de preguntas</h2>
-                <p>Preguntas A/B/C/D asociadas al examen activo.</p>
-              </div>
-            </div>
-
-            <div className="question-stack">
-              {activeQuestions.length ? activeQuestions.map((question, index) => (
-                <div key={String(question.id || index)} className="question-card-mini">
-                  <button type="button" onClick={() => { editQuestion(question); scrollToQuestionEditor(); }}>
-                    <span>Q{index + 1}</span>
-                    <strong>{question.question}</strong>
-                    <small>Correcta: {question.correct_option || "—"}</small>
-                  </button>
-                  <button type="button" className="delete-question" onClick={() => deleteQuestion(String(question.id || ""))}>×</button>
-                </div>
-              )) : (
-                <div className="question-empty">
-                  <strong>Sin preguntas todavía</strong>
-                  <p>Guarda el examen y crea la primera pregunta.</p>
+                ))
+              ) : (
+                <div className="empty-state">
+                  <span>◈</span>
+                  <h3>No hay blueprints con estos filtros</h3>
+                  <p>Crea un borrador IA o cambia la búsqueda para ver configuraciones existentes.</p>
+                  <button type="button" onClick={goCreateBlueprint}>Crear primer blueprint</button>
                 </div>
               )}
             </div>
+          </article>
 
-            <form className={questionMode === "editQuestion" ? "question-forge-form editing" : "question-forge-form"} ref={questionEditorRef} onSubmit={handleQuestionSubmit}>
-              <div className="question-editor-head">
-                <div>
-                  <strong>{questionMode === "editQuestion" ? "Editar pregunta" : "Nueva pregunta"}</strong>
-                  <p>{selectedExamId ? "Vinculada al examen activo" : "Primero guarda un examen"}</p>
-                </div>
-                <button type="button" onClick={() => { setQuestionMode("createQuestion"); setQuestionForm({ ...emptyQuestionForm, examId: selectedExamId, sortOrder: String(activeQuestions.length + 1) }); }}>Limpiar</button>
+          <aside className="detail-card">
+            {selectedBlueprint ? (
+              <BlueprintDetail blueprint={selectedBlueprint} onReview={() => openReview(selectedBlueprint)} onCreate={goCreateBlueprint} />
+            ) : (
+              <div className="empty-detail">
+                <span>▣</span>
+                <h2>Sin borrador seleccionado</h2>
+                <p>Selecciona un blueprint del listado o crea una nueva evaluación IA.</p>
+                <button type="button" onClick={goCreateBlueprint}>Crear evaluación</button>
               </div>
-
-              <label className="premium-field">
-                <span>Pregunta</span>
-                <textarea value={questionForm.question} onChange={(event) => setQuestionForm({ ...questionForm, question: event.target.value })} placeholder="Escribe la pregunta..." />
-              </label>
-
-              <div className="answer-grid">
-                <AnswerInput label="A" value={questionForm.optionA} onChange={(value) => setQuestionForm({ ...questionForm, optionA: value })} active={questionForm.correctOption === "A"} onSelect={() => setQuestionForm({ ...questionForm, correctOption: "A" })} />
-                <AnswerInput label="B" value={questionForm.optionB} onChange={(value) => setQuestionForm({ ...questionForm, optionB: value })} active={questionForm.correctOption === "B"} onSelect={() => setQuestionForm({ ...questionForm, correctOption: "B" })} />
-                <AnswerInput label="C" value={questionForm.optionC} onChange={(value) => setQuestionForm({ ...questionForm, optionC: value })} active={questionForm.correctOption === "C"} onSelect={() => setQuestionForm({ ...questionForm, correctOption: "C" })} />
-                <AnswerInput label="D" value={questionForm.optionD} onChange={(value) => setQuestionForm({ ...questionForm, optionD: value })} active={questionForm.correctOption === "D"} onSelect={() => setQuestionForm({ ...questionForm, correctOption: "D" })} />
-              </div>
-
-              <label className="premium-field">
-                <span>Explicación</span>
-                <textarea value={questionForm.explanation} onChange={(event) => setQuestionForm({ ...questionForm, explanation: event.target.value })} placeholder="Explica por qué la respuesta correcta es válida..." />
-              </label>
-
-              <div className="question-submit-row">
-                <label>
-                  <span>Orden</span>
-                  <input value={questionForm.sortOrder} onChange={(event) => setQuestionForm({ ...questionForm, sortOrder: event.target.value })} />
-                </label>
-                <button type="submit" disabled={busy || !selectedExamId}>{busy ? "Guardando..." : questionMode === "editQuestion" ? "Guardar pregunta" : "Añadir pregunta"}</button>
-              </div>
-            </form>
+            )}
           </aside>
         </section>
       </section>
@@ -852,137 +398,207 @@ export default function ExamsControlCenterPage() {
   );
 }
 
-function AnswerInput({ label, value, active, onChange, onSelect }: { label: CorrectOption; value: string; active: boolean; onChange: (value: string) => void; onSelect: () => void; }) {
+function BlueprintDetail({ blueprint, onReview, onCreate }: { blueprint: BlueprintView; onReview: () => void; onCreate: () => void }) {
   return (
-    <label className={active ? "answer-input active" : "answer-input"}>
-      <button type="button" onClick={onSelect}>{label}</button>
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={`Opción ${label}`} />
-    </label>
-  );
-}
+    <div className="detail-inner">
+      <div className="detail-top">
+        <span className={`status-pill ${blueprint.statusTone}`}>{blueprint.statusLabel}</span>
+        <h2>{blueprint.title}</h2>
+        <p>{blueprint.description || "Sin descripción añadida."}</p>
+      </div>
 
-function MetricCard({ label, value, helper, warning = false }: { label: string; value: number; helper: string; warning?: boolean }) {
-  return (
-    <article className={warning ? "metric-card warning" : "metric-card"}>
-      <span>{label}</span>
-      <strong>{new Intl.NumberFormat("es-ES").format(value || 0)}</strong>
-      <p>{helper}</p>
-    </article>
+      <div className="detail-section">
+        <h3>Configuración</h3>
+        <div className="detail-grid">
+          <DetailMetric label="Curso" value={blueprint.courseTitle} />
+          <DetailMetric label="Módulo" value={blueprint.moduleTitle} />
+          <DetailMetric label="Lección" value={blueprint.lessonTitle} />
+          <DetailMetric label="Alcance" value={blueprint.scopeLabel} />
+          <DetailMetric label="Evaluación" value={blueprint.evaluationLabel} />
+          <DetailMetric label="Dificultad" value={blueprint.difficulty} />
+          <DetailMetric label="Preguntas" value={blueprint.requestedQuestionCount} />
+          <DetailMetric label="Respuestas" value={blueprint.answerCount} />
+          <DetailMetric label="Nota mínima" value={`${blueprint.passPercentage}%`} />
+          <DetailMetric label="Intentos" value={blueprint.attemptsLabel} />
+        </div>
+      </div>
+
+      <div className="detail-section">
+        <h3>Revisión de preguntas</h3>
+        <div className="review-grid">
+          <ReviewBox label="Generadas" value={blueprint.generatedQuestions} />
+          <ReviewBox label="Aprobadas" value={blueprint.approvedQuestions} tone="green" />
+          <ReviewBox label="En revisión" value={blueprint.reviewQuestions} tone="yellow" />
+          <ReviewBox label="Rechazadas" value={blueprint.rejectedQuestions} tone="red" />
+        </div>
+      </div>
+
+      <div className="detail-section flags">
+        <div>
+          <span>{blueprint.showExplanation ? "✓" : "—"}</span>
+          <p>Mostrar explicación al alumno</p>
+        </div>
+        <div>
+          <span>{blueprint.blockAdvance ? "✓" : "—"}</span>
+          <p>Bloquear avance hasta aprobar</p>
+        </div>
+      </div>
+
+      <div className="detail-section">
+        <h3>Instrucciones internas IA</h3>
+        <p className="instruction-box">{blueprint.aiInstructions || "Sin instrucciones adicionales."}</p>
+      </div>
+
+      <div className="detail-actions">
+        <button type="button" className="primary-button" onClick={onReview}>Revisar borrador</button>
+        <button type="button" className="ghost-button" onClick={onCreate}>Crear otro</button>
+      </div>
+    </div>
   );
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
-  const [courses, modules, lessons, exams, examQuestions, examAttempts] = await Promise.all([
+  const [blueprints, courses, modules, lessons, exams, questions, generations] = await Promise.all([
+    safeSelect("exam_blueprints", "*"),
     safeSelect("courses", "*"),
     safeSelect("modules", "*"),
     safeSelect("lessons", "*"),
     safeSelect("exams", "*"),
     safeSelect("exam_questions", "*"),
-    safeSelect("exam_attempts", "*"),
+    safeSelect("exam_ai_generations", "*"),
   ]);
 
-  return { courses, modules, lessons, exams, examQuestions, examAttempts };
+  return {
+    blueprints: sortByDate(blueprints),
+    courses,
+    modules,
+    lessons,
+    exams,
+    questions,
+    generations,
+  };
 }
 
 async function safeSelect(table: string, columns: string): Promise<AnyRecord[]> {
   try {
     const { data, error } = await supabase.from(table).select(columns);
     if (error) {
-      console.warn(`[GHC Exams Admin] No se pudo cargar ${table}:`, error.message);
+      console.warn(`[GHC Exams] No se pudo cargar ${table}:`, error.message);
       return [];
     }
-    return Array.isArray(data) ? data as AnyRecord[] : [];
+    return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.warn(`[GHC Exams Admin] Error leyendo ${table}:`, error);
+    console.warn(`[GHC Exams] Error leyendo ${table}:`, error);
     return [];
   }
 }
 
-async function withTimeout<T>(promiseLike: PromiseLike<T>, milliseconds: number, message: string): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(message)), milliseconds);
+function buildBlueprintViews(data: DashboardData): BlueprintView[] {
+  return data.blueprints.map((blueprint, index) => {
+    const id = String(blueprint.id || `blueprint-${index}`);
+    const course = data.courses.find((item) => String(item.id) === String(blueprint.course_id));
+    const module = data.modules.find((item) => String(item.id) === String(blueprint.module_id));
+    const lesson = data.lessons.find((item) => String(item.id) === String(blueprint.lesson_id));
+    const generatedExam = data.exams.find((item) => String(item.id) === String(blueprint.generated_exam_id) || String(item.blueprint_id) === id);
+    const questions = data.questions.filter((item) => String(item.blueprint_id) === id || (generatedExam?.id && String(item.exam_id) === String(generatedExam.id)));
+    const status = normalizeBlueprintStatus(blueprint.status);
+
+    return {
+      raw: blueprint,
+      id,
+      title: String(blueprint.title || `Blueprint ${index + 1}`),
+      description: String(blueprint.description || ""),
+      status,
+      statusLabel: getStatusLabel(status),
+      statusTone: getStatusTone(status),
+      courseTitle: String(course?.title || course?.name || "Curso no encontrado"),
+      moduleTitle: String(module?.title || module?.name || (blueprint.module_id ? "Módulo no encontrado" : "No aplica")),
+      lessonTitle: String(lesson?.title || lesson?.name || (blueprint.lesson_id ? "Lección no encontrada" : "No aplica")),
+      scopeLabel: getScopeLabel(blueprint.source_scope),
+      evaluationLabel: getEvaluationLabel(blueprint.evaluation_type),
+      requestedQuestionCount: Number(blueprint.requested_question_count || 0),
+      approvedQuestions: questions.filter((item) => String(item.question_status || "").toLowerCase() === "approved").length,
+      rejectedQuestions: questions.filter((item) => String(item.question_status || "").toLowerCase() === "rejected").length,
+      reviewQuestions: questions.filter((item) => ["draft_ai", "needs_review", "edited"].includes(String(item.question_status || "needs_review").toLowerCase())).length,
+      generatedQuestions: questions.length,
+      difficulty: getDifficultyLabel(blueprint.difficulty),
+      passPercentage: Number(blueprint.pass_percentage || blueprint.passing_score || 70),
+      attemptsLabel: getAttemptsLabel(blueprint.attempts_mode, blueprint.max_attempts),
+      answerCount: Number(blueprint.answer_count || 4),
+      showExplanation: blueprint.show_explanation !== false,
+      blockAdvance: blueprint.block_advance !== false,
+      createdAt: formatShortDate(blueprint.created_at),
+      updatedAt: formatShortDate(blueprint.updated_at),
+      generatedAt: formatShortDate(blueprint.generated_at),
+      aiInstructions: String(blueprint.ai_instructions || ""),
+      reviewNotes: String(blueprint.human_review_notes || ""),
+    };
   });
-
-  try {
-    return await Promise.race([Promise.resolve(promiseLike), timeout]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
 }
 
-function findExamForContext(exams: AnyRecord[], scope: ExamScope, courseId: string, moduleId: string, lessonId: string) {
-  return exams.find((exam) => {
-    const examScope = normalizeScope(exam.exam_scope);
-    if (examScope !== scope) return false;
-    if (String(exam.course_id || "") !== String(courseId || "")) return false;
-    if (scope === "course") return true;
-    if (scope === "module") return String(exam.module_id || "") === String(moduleId || "");
-    return String(exam.lesson_id || "") === String(lessonId || "");
-  });
+function buildStats(views: BlueprintView[]) {
+  return {
+    total: views.length,
+    draft: views.filter((item) => item.status === "draft_ai").length,
+    review: views.filter((item) => item.status === "in_review").length,
+    published: views.filter((item) => item.status === "published").length,
+  };
 }
 
-function buildDefaultExamTitle(scope: ExamScope, course: AnyRecord | null, module: AnyRecord | null, lesson: AnyRecord | null) {
-  if (scope === "lesson") return `Evaluación de lección · ${lesson?.title || "Nueva lección"}`;
-  if (scope === "module") return `Examen de módulo · ${module?.title || "Nuevo módulo"}`;
-  return `Examen final · ${course?.title || "Curso GHC"}`;
+function sortByDate(rows: AnyRecord[]) {
+  return rows.slice().sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 }
 
-function normalizeScope(value: unknown): ExamScope {
-  const scope = String(value || "course").toLowerCase();
-  if (scope === "lesson") return "lesson";
-  if (scope === "module") return "module";
-  return "course";
+function normalizeBlueprintStatus(value: unknown): BlueprintStatus {
+  const status = String(value || "draft_ai").toLowerCase();
+  if (["in_review", "approved", "published", "archived", "rejected"].includes(status)) return status as BlueprintStatus;
+  return "draft_ai";
 }
 
-function normalizeStatus(value: unknown): ExamStatus {
-  const status = String(value || "draft").toLowerCase();
-  if (status === "published") return "published";
-  if (status === "hidden") return "hidden";
-  return "draft";
-}
-
-function normalizeCorrectOption(value: unknown): CorrectOption {
-  const option = String(value || "A").toUpperCase();
-  if (["A", "B", "C", "D"].includes(option)) return option as CorrectOption;
-  return "A";
-}
-
-function getScopeLabel(scope: ExamScope) {
-  if (scope === "lesson") return "Evaluación de lección";
-  if (scope === "module") return "Examen de módulo";
-  return "Examen final";
-}
-
-function getStatusLabel(status: ExamStatus) {
+function getStatusLabel(status: BlueprintStatus) {
+  if (status === "draft_ai") return "Draft IA";
+  if (status === "in_review") return "En revisión";
+  if (status === "approved") return "Aprobado";
   if (status === "published") return "Publicado";
-  if (status === "hidden") return "Oculto";
-  return "Borrador";
+  if (status === "archived") return "Archivado";
+  return "Rechazado";
 }
 
-function scopeWeight(exam: AnyRecord) {
-  const scope = normalizeScope(exam.exam_scope);
-  if (scope === "lesson") return 1;
-  if (scope === "module") return 2;
-  return 3;
+function getStatusTone(status: BlueprintStatus) {
+  if (status === "published" || status === "approved") return "green";
+  if (status === "in_review" || status === "draft_ai") return "yellow";
+  if (status === "rejected") return "red";
+  return "muted";
 }
 
-function sortByTitle(a: AnyRecord, b: AnyRecord) {
-  return String(a.title || a.name || "").localeCompare(String(b.title || b.name || ""));
+function getScopeLabel(value: unknown) {
+  const scope = String(value || "course").toLowerCase();
+  if (scope === "module") return "Todo un módulo";
+  if (scope === "lesson") return "Una lección";
+  if (scope === "multi_lesson") return "Varias lecciones";
+  return "Todo el curso";
 }
 
-function sortBySortOrder(a: AnyRecord, b: AnyRecord) {
-  return Number(a.sort_order ?? a.position ?? 0) - Number(b.sort_order ?? b.position ?? 0) || sortByTitle(a, b);
+function getEvaluationLabel(value: unknown) {
+  const type = String(value || "course").toLowerCase();
+  if (type === "module") return "Examen de módulo";
+  if (type === "lesson") return "Evaluación de lección";
+  if (type === "multi_lesson") return "Evaluación multi-lección";
+  return "Examen final de curso";
 }
 
-function clampScore(value: unknown) {
-  const numeric = parseInteger(value, 70);
-  return Math.max(0, Math.min(100, numeric));
+function getDifficultyLabel(value: unknown) {
+  const difficulty = String(value || "mixed").toLowerCase();
+  if (difficulty === "basic") return "Básica";
+  if (difficulty === "medium") return "Media";
+  if (difficulty === "advanced") return "Avanzada";
+  return "Mixta";
 }
 
-function parseInteger(value: unknown, fallback: number) {
-  const numeric = Number(String(value ?? "").replace(/[^0-9]/g, ""));
-  return Number.isFinite(numeric) ? Math.round(numeric) : fallback;
+function getAttemptsLabel(mode: unknown, maxAttempts: unknown) {
+  if (String(mode || "limited").toLowerCase() === "unlimited") return "Ilimitados";
+  const value = Number(maxAttempts || 3);
+  return `${Number.isFinite(value) ? value : 3} intento(s)`;
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -995,8 +611,8 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-function getInitials(name: string) {
-  return String(name || "A")
+function getInitials(value: string) {
+  return String(value || "Admin")
     .split(" ")
     .filter(Boolean)
     .map((part) => part[0])
@@ -1005,31 +621,70 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function shortName(name: string) {
-  return String(name || "Admin").split("@")[0].split(" ")[0] || "Admin";
+function shortName(value: string) {
+  return String(value || "Admin").split("@")[0].split(" ")[0] || "Admin";
 }
 
-function ExamBackground() {
+function formatShortDate(value?: string | null) {
+  if (!value) return "Sin fecha";
+  try {
+    return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+  } catch {
+    return "Sin fecha";
+  }
+}
+
+function StatCard({ label, value, helper }: { label: string; value: number; helper: string }) {
   return (
-    <div className="exam-bg" aria-hidden="true">
-      <div className="exam-orb one" />
-      <div className="exam-orb two" />
-      <div className="exam-grid" />
+    <article className="stat-card">
+      <span>{label}</span>
+      <strong>{new Intl.NumberFormat("es-ES").format(value || 0)}</strong>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="detail-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
 
-function ExamGlobalStyles() {
-  return <style>{`
-    :root{--green:${GREEN};--bg:#050706;--ink:#f4f6f2;--muted:rgba(244,246,242,.66);--soft:rgba(244,246,242,.42);--line:rgba(255,255,255,.09);--panel:rgba(10,14,12,.88);--panel2:rgba(14,20,16,.94);--danger:#ff5757;--warning:#f7c948;--gold:#d7b56d}*{box-sizing:border-box}html,body{margin:0;background:var(--bg)}body{color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select,textarea{font:inherit}button{transition:.18s ease}button:hover{transform:translateY(-1px)}
-    .exam-admin-loading{min-height:100vh;display:grid;place-items:center;background:#050706;color:var(--ink);position:relative}.exam-loading-card{position:relative;z-index:2;width:min(560px,calc(100vw - 40px));border:1px solid rgba(99,229,70,.22);border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025));padding:34px;box-shadow:0 30px 90px rgba(0,0,0,.45)}.exam-loading-card h1{margin:18px 0 0;font-size:42px;letter-spacing:-.06em;line-height:.95}.exam-loading-card p{color:var(--muted);line-height:1.55}.exam-bg{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}.exam-orb{position:absolute;width:680px;height:680px;border-radius:999px;filter:blur(130px)}.exam-orb.one{left:-320px;top:-300px;background:rgba(99,229,70,.12)}.exam-orb.two{right:-340px;top:10vh;background:rgba(255,255,255,.06)}.exam-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px;opacity:.43;mask-image:radial-gradient(circle at center,black 0%,transparent 86%)}
-    .exam-admin-page{min-height:100vh;display:grid;grid-template-columns:304px minmax(0,1fr);background:var(--bg);color:var(--ink);position:relative}.ghc-eval-sidebar{position:sticky;top:0;height:100vh;z-index:2;border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(5,8,7,.985),rgba(3,5,4,.94));padding:24px;display:flex;flex-direction:column}.ghc-eval-brand{min-height:64px;display:flex;align-items:center}.sidebar-command-card{margin-top:28px;border:1px solid rgba(99,229,70,.18);border-radius:24px;background:radial-gradient(circle at 90% 0%,rgba(99,229,70,.20),transparent 42%),linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.024));padding:20px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 24px 70px rgba(0,0,0,.20)}.sidebar-command-card span,.exam-kicker{display:block;color:var(--green);text-transform:uppercase;letter-spacing:.18em;font-size:10px;font-weight:950}.sidebar-command-card strong{display:block;margin-top:10px;font-size:29px;line-height:.92;letter-spacing:-.06em}.sidebar-command-card p{margin:12px 0 0;color:var(--muted);font-size:13px;line-height:1.55}.sidebar-actions{display:grid;gap:9px;margin-top:22px}.sidebar-actions button{min-height:45px;border-radius:14px;border:1px solid rgba(255,255,255,.085);background:rgba(255,255,255,.035);color:var(--ink);font-weight:900;text-align:left;padding:0 14px;cursor:pointer}.sidebar-actions button:first-child{background:linear-gradient(135deg,#7cff55,var(--green));border-color:transparent;color:#061008}.workflow-card{margin-top:18px;border:1px solid var(--line);border-radius:22px;background:rgba(255,255,255,.028);padding:16px}.workflow-card>span{display:block;color:var(--soft);text-transform:uppercase;letter-spacing:.14em;font-size:10px;font-weight:950}.workflow-card ol{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:10px}.workflow-card li{position:relative;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;font-weight:800}.workflow-card li:before{content:"";width:22px;height:22px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.025)}.workflow-card li.done{color:var(--ink)}.workflow-card li.done:before{background:var(--green);border-color:var(--green);box-shadow:0 0 18px rgba(99,229,70,.32)}.sidebar-user-card{margin-top:auto;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.035);padding:14px;display:grid;grid-template-columns:42px 1fr;gap:11px;align-items:center}.sidebar-user-card>span{width:42px;height:42px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.2);color:var(--green);font-weight:950}.sidebar-user-card p{margin:3px 0 0;color:var(--muted);font-size:12px}
-    .evaluation-stage{position:relative;z-index:1;min-width:0;padding:20px 24px 38px}.evaluation-topbar{min-height:60px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}.evaluation-breadcrumb{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:13px;font-weight:850}.evaluation-breadcrumb strong{color:var(--ink)}.evaluation-breadcrumb em{font-style:normal;color:var(--soft)}.evaluation-top-actions{display:flex;align-items:center;gap:10px}.evaluation-top-actions span{border:1px solid rgba(99,229,70,.18);border-radius:999px;background:rgba(99,229,70,.06);color:var(--green);font-size:11px;font-weight:950;padding:8px 12px}.evaluation-top-actions button{min-height:40px;border:1px solid rgba(255,255,255,.11);border-radius:999px;background:rgba(255,255,255,.04);color:var(--ink);font-weight:900;padding:0 14px;cursor:pointer}.exam-notice{margin-bottom:14px;border:1px solid rgba(99,229,70,.20);border-radius:16px;background:linear-gradient(90deg,rgba(99,229,70,.08),rgba(255,255,255,.025));color:var(--muted);padding:13px 15px;display:flex;gap:10px;align-items:flex-start}.exam-notice strong{color:var(--green);text-transform:uppercase;letter-spacing:.12em;font-size:11px}.exam-notice span{line-height:1.45}
-    .evaluation-hero{min-height:252px;border:1px solid var(--line);border-radius:32px;background:radial-gradient(circle at 82% 20%,rgba(99,229,70,.18),transparent 30%),linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));box-shadow:0 34px 120px rgba(0,0,0,.30);display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:24px;align-items:center;padding:32px;overflow:hidden}.hero-copy-block h1{margin:0;font-size:clamp(52px,5.4vw,88px);line-height:.84;letter-spacing:-.085em}.hero-copy-block p:not(.exam-kicker){max-width:850px;color:var(--muted);font-size:16px;line-height:1.65}.hero-cta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.hero-cta-row button{min-height:42px;border-radius:999px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.07);color:var(--green);font-weight:950;padding:0 15px;cursor:pointer}.hero-cta-row button:first-child{background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;border-color:transparent}.hero-system-visual{position:relative;min-height:210px;border:1px solid rgba(99,229,70,.18);border-radius:26px;background:linear-gradient(145deg,rgba(5,8,7,.52),rgba(255,255,255,.03));overflow:hidden}.system-core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:118px;height:118px;border-radius:999px;display:grid;place-items:center;align-content:center;background:radial-gradient(circle,rgba(99,229,70,.22),rgba(99,229,70,.05));border:1px solid rgba(99,229,70,.28);box-shadow:0 0 50px rgba(99,229,70,.16)}.system-core span{font-size:34px;font-weight:950;line-height:1}.system-core strong{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.13em}.system-line{position:absolute;left:20%;right:20%;top:50%;height:1px;background:linear-gradient(90deg,transparent,rgba(99,229,70,.42),transparent)}.system-line.two{transform:rotate(90deg)}.system-node{position:absolute;border-radius:999px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.045);padding:8px 10px;font-size:11px;font-weight:950;color:var(--muted)}.system-node.a{left:28px;top:28px}.system-node.b{right:28px;top:28px}.system-node.c{left:28px;bottom:28px}.system-node.d{right:28px;bottom:28px;color:var(--green);border-color:rgba(99,229,70,.22);background:rgba(99,229,70,.07)}
-    .exam-metric-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:14px}.metric-card{min-height:116px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.022));padding:16px;box-shadow:0 20px 64px rgba(0,0,0,.18)}.metric-card span{color:var(--muted);font-size:12px;font-weight:850}.metric-card strong{display:block;margin-top:10px;font-size:34px;line-height:1;letter-spacing:-.05em}.metric-card p{margin:7px 0 0;color:var(--muted);font-size:12px}.metric-card.warning strong{color:var(--warning)}
-    .evaluation-grid{display:grid;grid-template-columns:350px minmax(0,1fr) 440px;gap:14px;align-items:start;margin-top:14px}.academic-command-panel,.exam-editor-console,.exam-catalog-console,.question-forge-panel{border:1px solid var(--line);border-radius:26px;background:linear-gradient(180deg,rgba(11,16,13,.92),rgba(7,10,8,.88));box-shadow:0 28px 90px rgba(0,0,0,.24);padding:18px}.academic-command-panel,.question-forge-panel{position:sticky;top:20px}.exam-console-column{display:grid;gap:14px}.panel-heading{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;align-items:start;margin-bottom:16px}.panel-heading.compact{margin-bottom:12px}.panel-heading>span{width:44px;height:44px;border-radius:15px;display:grid;place-items:center;background:rgba(99,229,70,.1);border:1px solid rgba(99,229,70,.2);color:var(--green);font-weight:950}.panel-heading h2{margin:0;font-size:25px;line-height:1;letter-spacing:-.045em}.panel-heading p{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.premium-field{display:grid;gap:7px;margin-bottom:12px}.premium-field span,.question-submit-row span{color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}.premium-field input,.premium-field select,.premium-field textarea,.question-submit-row input{width:100%;border:1px solid rgba(255,255,255,.095);border-radius:14px;background:rgba(255,255,255,.035);color:var(--ink);outline:0;padding:12px 13px}.premium-field select option{background:#080b0a;color:var(--ink)}.premium-field textarea{min-height:106px;resize:vertical;line-height:1.55}.course-field select{min-height:50px;border-color:rgba(99,229,70,.18);background:rgba(99,229,70,.055)}.scope-orbit{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}.scope-orbit button{min-height:86px;border-radius:18px;border:1px solid rgba(255,255,255,.085);background:rgba(255,255,255,.03);color:var(--ink);cursor:pointer;text-align:left;padding:12px;font-weight:900}.scope-orbit button span{display:block;color:var(--soft);font-size:10px}.scope-orbit button strong{display:block;margin-top:6px;color:var(--ink);font-size:14px}.scope-orbit button small{display:block;margin-top:4px;color:var(--muted);font-size:11px;line-height:1.2}.scope-orbit button.active{border-color:rgba(99,229,70,.36);background:rgba(99,229,70,.105);box-shadow:inset 0 0 0 1px rgba(99,229,70,.12)}.scope-orbit button.active strong,.scope-orbit button.active span{color:var(--green)}.mini-section-title{display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px;color:var(--muted)}.mini-section-title strong{color:var(--ink);font-size:13px}.mini-section-title span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.08);color:var(--green);font-weight:950;font-size:11px}.module-timeline,.lesson-rail{display:grid;gap:8px}.timeline-item,.lesson-chip{width:100%;border:1px solid rgba(255,255,255,.075);border-radius:15px;background:rgba(255,255,255,.026);color:var(--ink);text-align:left;display:grid;grid-template-columns:38px minmax(0,1fr);gap:9px;align-items:center;padding:10px;cursor:pointer}.timeline-item span,.lesson-chip span{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.055);color:var(--soft);font-size:11px;font-weight:950}.timeline-item strong,.lesson-chip strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.timeline-item.active,.lesson-chip.active{border-color:rgba(99,229,70,.30);background:rgba(99,229,70,.07)}.timeline-item.active span,.lesson-chip.active span{background:var(--green);color:#061008}.empty-mini{border:1px dashed rgba(255,255,255,.12);border-radius:15px;padding:12px;color:var(--muted);font-size:13px}
-    .console-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}.console-header h2{margin:0;font-size:34px;line-height:.95;letter-spacing:-.06em}.console-header p:not(.exam-kicker){margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.console-status{width:118px;min-height:118px;border-radius:26px;border:1px solid rgba(99,229,70,.24);background:radial-gradient(circle at center,rgba(99,229,70,.17),rgba(99,229,70,.045));display:grid;place-items:center;align-content:center}.console-status span{color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}.console-status strong{font-size:36px;line-height:1}.console-status small{color:var(--muted);font-size:12px}.exam-editor-console.editing{border-color:rgba(99,229,70,.34);box-shadow:0 30px 100px rgba(0,0,0,.28),inset 0 0 0 1px rgba(99,229,70,.12)}.console-form{display:grid;gap:12px}.title-field input{min-height:54px;font-size:18px;font-weight:850}.form-row-three{display:grid;grid-template-columns:1fr 1fr 130px;gap:12px}.exam-submit-row{border:1px solid rgba(99,229,70,.18);border-radius:20px;background:rgba(99,229,70,.055);padding:14px;display:flex;align-items:center;justify-content:space-between;gap:14px}.exam-submit-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.console-actions>div:last-child{display:flex;gap:8px}.exam-submit-row button,.question-submit-row button{min-height:44px;border:0;border-radius:999px;background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;font-weight:950;padding:0 18px;cursor:pointer}.exam-submit-row .ghost-action{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--ink)}.exam-submit-row button:disabled,.question-submit-row button:disabled{opacity:.45;cursor:not-allowed}.exam-catalog-list{display:grid;gap:10px}.exam-catalog-row{min-height:86px;border-radius:18px;border:1px solid rgba(255,255,255,.085);background:linear-gradient(145deg,rgba(255,255,255,.052),rgba(255,255,255,.018));display:grid;grid-template-columns:160px minmax(0,1fr) 104px;gap:12px;align-items:center;padding:13px}.exam-catalog-row:hover,.exam-catalog-row.active{border-color:rgba(99,229,70,.30);background:rgba(99,229,70,.075)}.exam-catalog-row.active{box-shadow:inset 4px 0 0 var(--green),0 18px 44px rgba(0,0,0,.20)}.exam-catalog-row p{margin:5px 0 0;color:var(--muted);font-size:12px}.row-edit-button{min-height:40px;border-radius:999px;border:1px solid rgba(99,229,70,.28);background:rgba(99,229,70,.08);color:var(--green);font-weight:950;cursor:pointer}.exam-catalog-row.active .row-edit-button{background:linear-gradient(135deg,#7cff55,var(--green));border-color:transparent;color:#061008}.scope-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.09);color:var(--green);padding:7px 9px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:950}.scope-badge.module{border-color:rgba(247,201,72,.25);background:rgba(247,201,72,.09);color:var(--warning)}.scope-badge.course{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:var(--ink)}.empty-exams-state,.question-empty{border:1px dashed rgba(255,255,255,.15);border-radius:18px;padding:18px;color:var(--muted)}.empty-exams-state strong,.question-empty strong{color:var(--ink)}
-    .question-stack{display:grid;gap:8px;max-height:282px;overflow:auto;padding-right:3px}.question-card-mini{display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:7px}.question-card-mini button:first-child{min-height:66px;border-radius:15px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--ink);text-align:left;padding:10px;cursor:pointer;display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:center}.question-card-mini button:first-child span{grid-row:1/3;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:rgba(99,229,70,.08);color:var(--green);font-size:11px;font-weight:950}.question-card-mini strong{display:block;font-size:12px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.question-card-mini small{display:block;color:var(--green);font-size:11px;font-weight:850}.delete-question{border:1px solid rgba(255,87,87,.25);border-radius:12px;background:rgba(255,87,87,.08);color:var(--danger);font-size:20px;cursor:pointer}.question-forge-form{margin-top:16px;border-top:1px solid var(--line);padding-top:16px}.question-forge-form.editing{border:1px solid rgba(99,229,70,.28);border-radius:20px;background:rgba(99,229,70,.045);padding:16px;margin-top:16px}.question-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}.question-editor-head strong{display:block;font-size:17px}.question-editor-head p{margin:4px 0 0;color:var(--muted);font-size:12px}.question-editor-head button{border:1px solid rgba(255,255,255,.1);border-radius:999px;background:rgba(255,255,255,.035);color:var(--ink);font-size:12px;font-weight:900;padding:7px 11px;cursor:pointer}.answer-grid{display:grid;gap:8px;margin:10px 0 12px}.answer-input{display:grid;grid-template-columns:42px minmax(0,1fr);gap:8px;align-items:center;border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(255,255,255,.025);padding:8px}.answer-input.active{border-color:rgba(99,229,70,.32);background:rgba(99,229,70,.07)}.answer-input button{width:34px;height:34px;border-radius:10px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.08);color:var(--green);font-weight:950;cursor:pointer}.answer-input input{width:100%;border:0;outline:0;background:transparent;color:var(--ink)}.question-submit-row{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:end}.question-submit-row label{display:grid;gap:7px}
-    @media(max-width:1580px){.evaluation-grid{grid-template-columns:330px minmax(0,1fr)}.question-forge-panel{grid-column:1/-1;position:static}.exam-metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1160px){.exam-admin-page{grid-template-columns:1fr}.ghc-eval-sidebar{position:relative;height:auto}.evaluation-grid,.evaluation-hero,.form-row-three{grid-template-columns:1fr}.academic-command-panel{position:static}.exam-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.evaluation-topbar{align-items:flex-start;flex-direction:column}.exam-catalog-row{grid-template-columns:1fr}.exam-submit-row{align-items:stretch;flex-direction:column}.scope-orbit{grid-template-columns:1fr}.sidebar-actions{grid-template-columns:1fr 1fr 1fr}.hero-system-visual{display:none}}@media(max-width:760px){.evaluation-stage{padding:14px}.evaluation-hero{padding:20px;border-radius:22px}.hero-copy-block h1{font-size:42px}.exam-metric-grid{grid-template-columns:1fr}.sidebar-actions{grid-template-columns:1fr}.question-submit-row{grid-template-columns:1fr}.console-header{flex-direction:column}.console-status{width:100%;min-height:94px}.console-actions>div:last-child{flex-direction:column}.exam-submit-row button{width:100%}}
-  `}</style>;
+function ReviewBox({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "green" | "yellow" | "red" | "neutral" }) {
+  return (
+    <div className={`review-box ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Background() {
+  return (
+    <div className="background" aria-hidden="true">
+      <div className="orb one" />
+      <div className="orb two" />
+      <div className="grid-texture" />
+    </div>
+  );
+}
+
+function GlobalStyles() {
+  return (
+    <style>{`
+      :root{--bg:#050706;--panel:rgba(10,14,12,.88);--panel2:rgba(15,20,17,.72);--line:rgba(255,255,255,.085);--line2:rgba(99,229,70,.22);--white:#f4f6f2;--muted:rgba(244,246,242,.66);--soft:rgba(244,246,242,.42);--green:${GREEN};--yellow:#f7c948;--red:#ff6464}*{box-sizing:border-box}html,body{margin:0;background:var(--bg)}body{color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}button{transition:.18s ease}button:hover{transform:translateY(-1px)}
+      .evaluation-page{min-height:100vh;display:grid;grid-template-columns:292px minmax(0,1fr);background:var(--bg);color:var(--white);position:relative}.evaluation-loading{min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--white);position:relative}.loading-card{position:relative;z-index:2;width:min(560px,calc(100vw - 40px));border:1px solid var(--line);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025));padding:34px;box-shadow:0 30px 90px rgba(0,0,0,.45)}.loading-card h1{margin:18px 0 0;font-size:38px;line-height:.95;letter-spacing:-.055em}.loading-card p{margin:16px 0 0;color:var(--muted)}
+      .background{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}.orb{position:absolute;width:560px;height:560px;border-radius:999px;filter:blur(120px)}.orb.one{left:-220px;top:-170px;background:rgba(99,229,70,.105)}.orb.two{right:-250px;top:190px;background:rgba(255,255,255,.055)}.grid-texture{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);background-size:44px 44px;opacity:.48;mask-image:radial-gradient(circle at center,black 0%,transparent 84%)}
+      .evaluation-sidebar{position:sticky;top:0;height:100vh;z-index:2;border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(5,8,7,.98),rgba(3,5,4,.94));padding:22px;display:flex;flex-direction:column;justify-content:space-between}.sidebar-logo{min-height:60px;display:flex;align-items:center;margin-bottom:24px}.sidebar-nav{display:grid;gap:8px}.sidebar-nav button{width:100%;min-height:58px;border-radius:16px;border:1px solid transparent;background:transparent;color:rgba(244,246,242,.66);display:grid;grid-template-columns:38px minmax(0,1fr);gap:12px;align-items:center;padding:10px 12px;text-align:left;cursor:pointer}.sidebar-nav button:hover{background:rgba(255,255,255,.035);color:var(--white)}.sidebar-nav button.active{background:linear-gradient(90deg,rgba(99,229,70,.15),rgba(99,229,70,.035));border-color:rgba(99,229,70,.16);color:var(--green);box-shadow:inset 3px 0 0 var(--green)}.sidebar-nav button>span{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);font-weight:950}.sidebar-nav strong{display:block;font-size:14px;line-height:1.05}.sidebar-nav small{display:block;margin-top:4px;color:var(--soft);font-size:11px}.sidebar-status{border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.035);padding:16px}.sidebar-status span{color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.sidebar-status strong{display:block;margin-top:7px;font-size:13px}.sidebar-status p{margin:8px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+      .evaluation-shell{position:relative;z-index:1;min-width:0;padding:18px 20px 32px;display:grid;gap:16px}.evaluation-topbar{min-height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:18px}.breadcrumb{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;font-weight:850}.breadcrumb button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-weight:900;padding:0}.breadcrumb button:hover{color:var(--green);transform:none}.breadcrumb strong{color:var(--white)}.topbar-actions{display:flex;align-items:center;gap:10px;min-width:0}.admin-pill{height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 12px}.admin-pill span{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.11);color:var(--green);font-size:11px;font-weight:950}.admin-pill strong{font-size:13px}.primary-button,.ghost-button{min-height:42px;border-radius:999px;padding:0 16px;font-weight:950;cursor:pointer}.primary-button{border:0;background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;box-shadow:0 14px 34px rgba(99,229,70,.18)}.ghost-button{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--white)}.ghost-button:disabled{opacity:.6;cursor:not-allowed}.system-message{border-radius:15px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.06);padding:14px 16px;color:rgba(244,246,242,.78);font-size:14px;line-height:1.5}
+      .hero-card{min-height:170px;border:1px solid var(--line);border-radius:24px;background:radial-gradient(circle at 80% 18%,rgba(99,229,70,.16),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.022));box-shadow:0 28px 90px rgba(0,0,0,.25);display:grid;grid-template-columns:minmax(0,1fr) 410px;gap:24px;align-items:center;padding:28px;overflow:hidden}.eyebrow{margin:0 0 10px;color:var(--green);text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:950}.hero-copy h1{margin:0;font-size:clamp(38px,4vw,58px);line-height:.92;letter-spacing:-.065em}.hero-copy p:not(.eyebrow){margin:14px 0 0;color:var(--muted);line-height:1.62;max-width:760px}.hero-panel{border:1px solid rgba(99,229,70,.22);border-radius:20px;background:linear-gradient(145deg,rgba(99,229,70,.085),rgba(255,255,255,.025));padding:18px;display:grid;gap:10px}.hero-panel span{color:var(--green);text-transform:uppercase;letter-spacing:.16em;font-size:10px;font-weight:950}.hero-panel strong{font-size:21px;line-height:1.1;letter-spacing:-.035em}.hero-panel p{margin:0;color:var(--muted);line-height:1.5;font-size:13px}.hero-panel button{justify-self:start;min-height:40px;border-radius:999px;border:0;background:var(--green);color:#061008;padding:0 16px;font-weight:950;cursor:pointer}
+      .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat-card{min-height:120px;border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:16px;box-shadow:0 22px 70px rgba(0,0,0,.18)}.stat-card span{color:var(--muted);font-size:12px;font-weight:850}.stat-card strong{display:block;margin-top:9px;font-size:34px;letter-spacing:-.05em}.stat-card p{margin:6px 0 0;color:var(--muted);font-size:12px}.workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:14px;align-items:start}.list-card,.detail-card{border:1px solid var(--line);border-radius:22px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.19);padding:18px}.detail-card{position:sticky;top:18px}.list-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.list-head h2{margin:0;font-size:27px;line-height:1;letter-spacing:-.045em}.list-head span{display:block;margin-top:8px;color:var(--muted);font-size:13px}.list-head button{min-height:38px;border-radius:999px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.08);color:var(--green);font-weight:950;padding:0 14px;cursor:pointer}.filters-row{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:10px;margin-bottom:14px}.search-field{height:44px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.search-field input{flex:1;min-width:0;height:42px;border:0;outline:0;background:transparent;color:var(--white)}.filters-row select{height:44px;border-radius:999px;border:1px solid var(--line);background:#0a0e0c;color:var(--white);padding:0 14px;outline:0}.blueprint-list{display:grid;gap:10px}.blueprint-row{width:100%;min-height:92px;border-radius:18px;border:1px solid rgba(255,255,255,.075);background:linear-gradient(135deg,rgba(255,255,255,.038),rgba(255,255,255,.016));color:var(--white);display:grid;grid-template-columns:118px minmax(0,1fr) 84px 92px 96px 92px;gap:12px;align-items:center;text-align:left;padding:13px;cursor:pointer}.blueprint-row:hover{border-color:rgba(99,229,70,.24);background:linear-gradient(135deg,rgba(99,229,70,.06),rgba(255,255,255,.018))}.blueprint-row.active{border-color:rgba(99,229,70,.38);background:linear-gradient(135deg,rgba(99,229,70,.12),rgba(255,255,255,.022));box-shadow:0 14px 40px rgba(0,0,0,.22)}.status-pill{display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:30px;border-radius:999px;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);color:var(--muted);white-space:nowrap}.status-pill.green{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.status-pill.yellow{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.095);color:var(--yellow)}.status-pill.red{border-color:rgba(255,100,100,.28);background:rgba(255,100,100,.095);color:var(--red)}.status-pill.muted{color:var(--soft)}.blueprint-main strong{display:block;font-size:17px;letter-spacing:-.02em;line-height:1.12}.blueprint-main p{margin:5px 0 0;color:var(--muted);font-size:13px}.blueprint-main small{display:block;margin-top:5px;color:var(--soft);font-size:11px}.blueprint-metric strong{display:block;font-size:22px;line-height:1;color:var(--white)}.blueprint-metric span{display:block;margin-top:4px;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900}.blueprint-row em{font-style:normal;color:var(--muted);font-size:12px}.empty-state,.empty-detail{text-align:center;padding:36px 22px;color:var(--muted)}.empty-state span,.empty-detail span{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;margin:0 auto 16px;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.18);color:var(--green);font-size:28px}.empty-state h3,.empty-detail h2{margin:0;color:var(--white);letter-spacing:-.035em}.empty-state p,.empty-detail p{line-height:1.55}.empty-state button,.empty-detail button{min-height:42px;border-radius:999px;border:0;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}
+      .detail-inner{display:grid;gap:18px}.detail-top h2{margin:12px 0 8px;font-size:30px;line-height:1;letter-spacing:-.055em}.detail-top p{margin:0;color:var(--muted);line-height:1.55}.detail-section{border-top:1px solid rgba(255,255,255,.075);padding-top:16px}.detail-section h3{margin:0 0 12px;font-size:16px;letter-spacing:-.02em}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.detail-metric{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(0,0,0,.17);padding:11px;min-width:0}.detail-metric span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.detail-metric strong{display:block;margin-top:6px;font-size:13px;line-height:1.25;color:var(--white);word-break:break-word}.review-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.review-box{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(255,255,255,.026);padding:12px}.review-box span{color:var(--muted);font-size:12px}.review-box strong{display:block;margin-top:5px;font-size:25px}.review-box.green strong{color:var(--green)}.review-box.yellow strong{color:var(--yellow)}.review-box.red strong{color:var(--red)}.flags{display:grid;gap:8px}.flags div{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(255,255,255,.026);padding:12px;display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:center}.flags span{width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.2);color:var(--green);font-weight:950}.flags p{margin:0;color:var(--muted);font-size:13px}.instruction-box{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(0,0,0,.17);padding:13px;color:var(--muted);line-height:1.55;white-space:pre-wrap}.detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      @media(max-width:1380px){.hero-card,.workspace-grid{grid-template-columns:1fr}.detail-card{position:static}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.blueprint-row{grid-template-columns:112px minmax(0,1fr) 84px 92px 92px}.hide-mobile{display:none}}
+      @media(max-width:980px){.evaluation-page{grid-template-columns:1fr}.evaluation-sidebar{position:relative;height:auto}.evaluation-topbar{align-items:flex-start;flex-direction:column}.topbar-actions{width:100%;flex-wrap:wrap}.hero-card{padding:22px}.filters-row,.stats-grid,.detail-grid,.review-grid,.detail-actions{grid-template-columns:1fr}.blueprint-row{grid-template-columns:1fr}.evaluation-shell{padding:14px}.hero-copy h1{font-size:38px}}
+    `}</style>
+  );
 }
