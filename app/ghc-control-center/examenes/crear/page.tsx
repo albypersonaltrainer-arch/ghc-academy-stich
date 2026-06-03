@@ -226,6 +226,10 @@ export default function Page() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await createBlueprintFromForm();
+  }
+
+  async function createBlueprintFromForm() {
     setSystemMessage("");
     setCreatedBlueprint(null);
 
@@ -541,7 +545,12 @@ export default function Page() {
                 <SummaryRow label="Respuestas" value={`${form.answerCount || "4"} por pregunta`} />
                 <SummaryRow label="Lecciones" value={form.sourceScope === "multi_lesson" ? String(selectedLessons.length) : form.sourceScope === "lesson" ? "1" : "Según alcance"} />
               </div>
-              <button type="submit" disabled={busy} className="primary-action">
+              <button
+                type="button"
+                disabled={busy}
+                className="primary-action"
+                onClick={() => void createBlueprintFromForm()}
+              >
                 {busy ? "Creando blueprint..." : "Crear borrador IA"}
               </button>
               <button type="button" className="secondary-action" onClick={() => router.push("/ghc-control-center/examenes")}>
