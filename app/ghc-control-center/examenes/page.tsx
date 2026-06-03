@@ -193,9 +193,11 @@ export default function Page() {
 
   function openReview(blueprint: BlueprintView) {
     setSelectedBlueprintId(blueprint.id);
-    setMessage(
-      "Borrador abierto en vista de control. La pantalla de revisión profunda será el siguiente bloque: /ghc-control-center/examenes/[blueprintId]."
-    );
+    if (!blueprint.id || blueprint.id.startsWith("blueprint-")) {
+      setMessage("No se puede abrir este borrador porque no tiene un ID real de Supabase.");
+      return;
+    }
+    router.push(`/ghc-control-center/examenes/${blueprint.id}`);
   }
 
   if (guardState === "checking" || isLoading) {
