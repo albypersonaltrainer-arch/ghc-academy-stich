@@ -1,271 +1,461 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import GHCLogo from "../../../components/GHCLogo";
 
 type AnyRecord = Record<string, any>;
 type GuardState = "checking" | "allowed" | "denied";
-type UiState = "idle" | "loading" | "success" | "error";
 
-type BlueprintBundle = {
-  blueprint: AnyRecord | null;
-  course: AnyRecord | null;
-  module: AnyRecord | null;
-  lesson: AnyRecord | null;
-  blueprintLessons: AnyRecord[];
-  exam: AnyRecord | null;
-  questions: AnyRecord[];
-  options: AnyRecord[];
-  generations: AnyRecord[];
+type PageProps = {
+  params: { blueprintId: string };
 };
+
+type ImportedOption = {
+  label?: string;
+  text?: string;
+  option_text?: string;
+  is_correct?: boolean;
+};
+
+type ImportedQuestion = {
+  question?: string;
+  question_type?: string;
+  type?: string;
+  options?: ImportedOption[];
+  correct_label?: string;
+  correct_option?: string;
+  explanation?: string;
+  difficulty?: string;
+  evaluated_objective?: string;
+  objective?: string;
+};
+
+const BUILD_ID = "GHC-EXAM-MANUAL-BRIDGE-V1 · sin API de pago";
+const GREEN = "#63E546";
+const MAX_CONTEXT_CHARS = 52000;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
 
-const emptyBundle: BlueprintBundle = {
-  blueprint: null,
-  course: null,
-  module: null,
-  lesson: null,
-  blueprintLessons: [],
-  exam: null,
-  questions: [],
-  options: [],
-  generations: [],
-};
-
-const statusLabels: Record<string, string> = {
-  draft_ai: "Borrador IA",
-  in_review: "En revisión",
-  approved: "Aprobado",
-  published: "Publicado",
-  archived: "Archivado",
-  rejected: "Rechazado",
-};
-
-const difficultyLabels: Record<string, string> = {
-  basic: "Básica",
-  medium: "Media",
-  advanced: "Avanzada",
-  mixed: "Mixta",
-};
-
-const scopeLabels: Record<string, string> = {
-  course: "Todo el curso",
-  module: "Todo el módulo",
-  lesson: "Lección concreta",
-  multi_lesson: "Varias lecciones",
-};
-
-const DETAIL_BUILD_ID = "GHC-EXAM-DETAIL-GENERATE-V3 · botón IA activo";
-
-export default function BlueprintReviewPage() {
+export default function BlueprintDetailPage({ params }: PageProps) {
   const router = useRouter();
-  const params = useParams<{ blueprintId: string }>();
-  const blueprintId = String(params?.blueprintId || "");
+  const blueprintId = params.blueprintId;
 
   const [guardState, setGuardState] = useState<GuardState>("checking");
-  const [bundle, setBundle] = useState<BlueprintBundle>(emptyBundle);
   const [message, setMessage] = useState("");
-  const [uiState, setUiState] = useState<UiState>("idle");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const blueprint = bundle.blueprint;
-  const activeQuestions = useMemo(
-    () => bundle.questions.filter((question) => question.is_active !== false),
-    [bundle.questions]
-  );
+  const [blueprint, setBlueprint] = useState<AnyRecord | null>(null);
+  const [course, setCourse] = useState<AnyRecord | null>(null);
+  const [modules, setModules] = useState<AnyRecord[]>([]);
+  const [lessons, setLessons] = useState<AnyRecord[]>([]);
+  const [questions, setQuestions] = useState<AnyRecord[]>([]);
+  const [options, setOptions] = useState<AnyRecord[]>([]);
+  const [generations, setGenerations] = useState<AnyRecord[]>([]);
 
-  const approvedQuestions = useMemo(
-    () => activeQuestions.filter((question) => ["approved", "edited"].includes(String(question.question_status || ""))).length,
-    [activeQuestions]
-  );
-
-  const rejectedQuestions = useMemo(
-    () => activeQuestions.filter((question) => String(question.question_status || "") === "rejected").length,
-    [activeQuestions]
-  );
-
-  const canGenerate = Boolean(
-    blueprint &&
-      ["draft_ai", "in_review", "rejected"].includes(String(blueprint.status || "")) &&
-      !isGenerating
-  );
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
+  const [jsonInput, setJsonInput] = useState("");
 
   useEffect(() => {
-    async function protectAndLoad() {
-      if (!blueprintId) {
-        setGuardState("denied");
-        setMessage("No se recibió ID de borrador.");
+    protectAndLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blueprintId]);
+
+  async function protectAndLoad() {
+    try {
+      setGuardState("checking");
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !userData.user) {
+        router.replace("/acceso");
         return;
       }
 
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id,role,email,full_name")
+        .eq("id", userData.user.id)
+        .maybeSingle();
 
-        if (userError || !userData.user) {
-          router.replace("/acceso");
-          return;
-        }
-
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("id,role,full_name,email")
-          .eq("id", userData.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          setGuardState("denied");
-          setMessage(profileError.message);
-          return;
-        }
-
-        const role = String(profileData?.role || "").toLowerCase();
-        if (!["admin", "superadmin", "owner"].includes(role)) {
-          router.replace("/alumno");
-          return;
-        }
-
-        setGuardState("allowed");
-        await loadBundle();
-      } catch (error) {
+      if (profileError) {
+        console.error(profileError);
         setGuardState("denied");
-        setMessage(getErrorMessage(error));
+        router.replace("/alumno");
+        return;
       }
-    }
 
-    protectAndLoad();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blueprintId, router]);
-
-  async function loadBundle() {
-    setIsRefreshing(true);
-    try {
-      const nextBundle = await fetchBlueprintBundle(blueprintId);
-      setBundle(nextBundle);
-      if (!nextBundle.blueprint) {
-        setUiState("error");
-        setMessage("Borrador no encontrado en exam_blueprints.");
+      const role = String(profile?.role || "").toLowerCase();
+      if (!["admin", "superadmin", "owner"].includes(role)) {
+        setGuardState("denied");
+        router.replace("/alumno");
+        return;
       }
+
+      setGuardState("allowed");
+      await loadBlueprint();
     } catch (error) {
-      setUiState("error");
-      setMessage(getErrorMessage(error));
-    } finally {
-      setIsRefreshing(false);
+      console.error(error);
+      setGuardState("denied");
+      router.replace("/alumno");
     }
   }
 
-  async function handleGenerateQuestions() {
-    if (!blueprint?.id) {
-      setUiState("error");
+  async function loadBlueprint() {
+    setMessage("Cargando borrador del Agente de Exámenes GHC...");
+
+    const { data: blueprintData, error: blueprintError } = await supabase
+      .from("exam_blueprints")
+      .select("*")
+      .eq("id", blueprintId)
+      .maybeSingle();
+
+    if (blueprintError || !blueprintData) {
+      console.error(blueprintError);
+      setBlueprint(null);
+      setMessage("Borrador no encontrado. Revisa que el ID pertenezca a exam_blueprints.");
+      return;
+    }
+
+    setBlueprint(blueprintData);
+
+    const [courseData, moduleData, lessonData, questionData, generationData] = await Promise.all([
+      fetchCourse(blueprintData.course_id),
+      fetchRelatedModules(blueprintData),
+      fetchRelatedLessons(blueprintData),
+      fetchQuestions(blueprintData.id),
+      fetchGenerations(blueprintData.id),
+    ]);
+
+    setCourse(courseData);
+    setModules(moduleData);
+    setLessons(lessonData);
+    setQuestions(questionData);
+    setGenerations(generationData);
+
+    const questionIds = questionData.map((item) => String(item.id)).filter(Boolean);
+    setOptions(questionIds.length ? await fetchOptions(questionIds) : []);
+
+    setMessage("");
+  }
+
+  async function fetchCourse(courseId: string) {
+    if (!courseId) return null;
+    const { data } = await supabase.from("courses").select("*").eq("id", courseId).maybeSingle();
+    return data || null;
+  }
+
+  async function fetchRelatedModules(currentBlueprint: AnyRecord) {
+    if (!currentBlueprint?.course_id) return [];
+
+    if (currentBlueprint.source_scope === "module" && currentBlueprint.module_id) {
+      const { data } = await supabase.from("modules").select("*").eq("id", currentBlueprint.module_id);
+      return Array.isArray(data) ? data as AnyRecord[] : [];
+    }
+
+    if (currentBlueprint.source_scope === "multi_lesson") {
+      const { data: rows } = await supabase
+        .from("exam_blueprint_lessons")
+        .select("module_id")
+        .eq("blueprint_id", currentBlueprint.id);
+
+      const ids = Array.from(new Set((rows || []).map((row: AnyRecord) => row.module_id).filter(Boolean)));
+      if (!ids.length) return [];
+
+      const { data } = await supabase.from("modules").select("*").in("id", ids);
+      return Array.isArray(data) ? data as AnyRecord[] : [];
+    }
+
+    const { data } = await supabase
+      .from("modules")
+      .select("*")
+      .eq("course_id", currentBlueprint.course_id)
+      .order("sort_order", { ascending: true });
+
+    return Array.isArray(data) ? data as AnyRecord[] : [];
+  }
+
+  async function fetchRelatedLessons(currentBlueprint: AnyRecord) {
+    if (!currentBlueprint) return [];
+
+    if (currentBlueprint.source_scope === "lesson" && currentBlueprint.lesson_id) {
+      const { data } = await supabase.from("lessons").select("*").eq("id", currentBlueprint.lesson_id);
+      return Array.isArray(data) ? data as AnyRecord[] : [];
+    }
+
+    if (currentBlueprint.source_scope === "multi_lesson") {
+      const { data: rows } = await supabase
+        .from("exam_blueprint_lessons")
+        .select("lesson_id,sort_order")
+        .eq("blueprint_id", currentBlueprint.id)
+        .order("sort_order", { ascending: true });
+
+      const ids = Array.from(new Set((rows || []).map((row: AnyRecord) => row.lesson_id).filter(Boolean)));
+      if (!ids.length) return [];
+
+      const { data } = await supabase
+        .from("lessons")
+        .select("*")
+        .in("id", ids)
+        .order("sort_order", { ascending: true });
+
+      return Array.isArray(data) ? data as AnyRecord[] : [];
+    }
+
+    if (currentBlueprint.source_scope === "module" && currentBlueprint.module_id) {
+      const { data } = await supabase
+        .from("lessons")
+        .select("*")
+        .eq("module_id", currentBlueprint.module_id)
+        .order("sort_order", { ascending: true });
+
+      return Array.isArray(data) ? data as AnyRecord[] : [];
+    }
+
+    const { data: moduleRows } = await supabase
+      .from("modules")
+      .select("id")
+      .eq("course_id", currentBlueprint.course_id);
+
+    const moduleIds = Array.isArray(moduleRows) ? moduleRows.map((item) => item.id).filter(Boolean) : [];
+    if (!moduleIds.length) return [];
+
+    const { data } = await supabase
+      .from("lessons")
+      .select("*")
+      .in("module_id", moduleIds)
+      .order("sort_order", { ascending: true });
+
+    return Array.isArray(data) ? data as AnyRecord[] : [];
+  }
+
+  async function fetchQuestions(currentBlueprintId: string) {
+    const { data } = await supabase
+      .from("exam_questions")
+      .select("*")
+      .eq("blueprint_id", currentBlueprintId)
+      .order("sort_order", { ascending: true });
+
+    return Array.isArray(data) ? data as AnyRecord[] : [];
+  }
+
+  async function fetchOptions(questionIds: string[]) {
+    const { data } = await supabase
+      .from("exam_question_options")
+      .select("*")
+      .in("question_id", questionIds)
+      .order("sort_order", { ascending: true });
+
+    return Array.isArray(data) ? data as AnyRecord[] : [];
+  }
+
+  async function fetchGenerations(currentBlueprintId: string) {
+    const { data } = await supabase
+      .from("exam_ai_generations")
+      .select("*")
+      .eq("blueprint_id", currentBlueprintId)
+      .order("created_at", { ascending: false });
+
+    return Array.isArray(data) ? data as AnyRecord[] : [];
+  }
+
+  const promptText = useMemo(() => {
+    if (!blueprint) return "";
+    return buildManualPrompt({ blueprint, course, modules, lessons });
+  }, [blueprint, course, modules, lessons]);
+
+  const groupedOptions = useMemo(() => {
+    const map = new Map<string, AnyRecord[]>();
+    for (const option of options) {
+      const key = String(option.question_id || "");
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)?.push(option);
+    }
+    return map;
+  }, [options]);
+
+  const stats = useMemo(() => {
+    const approved = questions.filter((question) => question.question_status === "approved").length;
+    const rejected = questions.filter((question) => question.question_status === "rejected").length;
+    const needsReview = questions.filter((question) => ["draft_ai", "needs_review", "edited"].includes(String(question.question_status || ""))).length;
+
+    return {
+      requested: Number(blueprint?.requested_question_count || 0),
+      imported: questions.length,
+      needsReview,
+      approved,
+      rejected,
+    };
+  }, [questions, blueprint]);
+
+  async function copyPrompt() {
+    if (!promptText.trim()) {
+      setMessage("No se pudo preparar el prompt. Revisa que el blueprint exista.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(promptText);
+      setMessage("Prompt copiado. Pégalo en ChatGPT o Claude y pide que devuelva SOLO el JSON.");
+      setShowPrompt(true);
+    } catch {
+      setShowPrompt(true);
+      setMessage("No pude copiar automáticamente. Te dejo el prompt abierto para copiarlo manualmente.");
+    }
+  }
+
+  async function importJson() {
+    if (!blueprint) {
       setMessage("No hay blueprint cargado.");
       return;
     }
 
-    setIsGenerating(true);
-    setUiState("loading");
-    setMessage(`Botón recibido · ${DETAIL_BUILD_ID}. Generando preguntas IA sobre el contenido seleccionado. No cierres esta pantalla.`);
+    setBusy(true);
+    setMessage("Validando JSON de preguntas...");
 
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const parsed = parseQuestionJson(jsonInput);
+      const normalizedQuestions = normalizeImportedQuestions(parsed, Number(blueprint.answer_count || 4));
 
-      if (sessionError || !token) {
-        throw new Error("Sesión admin no disponible. Vuelve a iniciar sesión.");
+      if (!normalizedQuestions.length) {
+        throw new Error("El JSON no contiene preguntas válidas.");
       }
 
-      const response = await fetch("/api/ghc/exams/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ blueprintId: blueprint.id }),
+      setMessage("JSON válido. Creando examen borrador y guardando preguntas...");
+
+      const { data: exam, error: examError } = await supabase.rpc("ghc_admin_create_exam_from_blueprint", {
+        p_blueprint_id: blueprint.id,
       });
 
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok || !result?.ok) {
-        throw new Error(result?.error || `No se pudo generar preguntas. HTTP ${response.status}`);
+      if (examError || !exam?.id) {
+        throw new Error(examError?.message || "No se pudo crear o recuperar el examen borrador desde el blueprint.");
       }
 
-      setUiState("success");
-      setMessage(result.message || `Generadas ${result.generatedQuestionCount || 0} preguntas como borrador.`);
-      await loadBundle();
+      const { data: generation, error: generationError } = await supabase.rpc("ghc_admin_start_ai_generation", {
+        p_blueprint_id: blueprint.id,
+        p_exam_id: exam.id,
+        p_generation_type: "initial",
+        p_model_provider: "manual",
+        p_model_name: "ChatGPT/Claude manual import",
+        p_prompt_hash: "manual-import",
+        p_input_summary: `Importación manual desde JSON · ${normalizedQuestions.length} preguntas`,
+        p_requested_question_count: Number(blueprint.requested_question_count || normalizedQuestions.length),
+        p_regenerated_question_ids: [],
+      });
+
+      if (generationError || !generation?.id) {
+        throw new Error(generationError?.message || "No se pudo registrar la importación manual.");
+      }
+
+      for (let index = 0; index < normalizedQuestions.length; index += 1) {
+        const item = normalizedQuestions[index];
+
+        const { error: questionError } = await supabase.rpc("ghc_admin_create_ai_question_with_options", {
+          p_blueprint_id: blueprint.id,
+          p_exam_id: exam.id,
+          p_ai_generation_id: generation.id,
+          p_question: item.question,
+          p_question_type: item.question_type,
+          p_options: item.options.map((option, optionIndex) => ({
+            label: option.label,
+            option_text: option.text,
+            is_correct: option.is_correct,
+            sort_order: optionIndex + 1,
+          })),
+          p_correct_label: item.correct_label,
+          p_sort_order: index + 1,
+          p_explanation: item.explanation,
+          p_difficulty: item.difficulty,
+          p_evaluated_objective: item.evaluated_objective,
+          p_source_course_id: blueprint.course_id,
+          p_source_module_id: blueprint.module_id,
+          p_source_lesson_id: blueprint.lesson_id,
+          p_regenerated_from_question_id: null,
+        });
+
+        if (questionError) {
+          throw new Error(questionError.message || `No se pudo guardar la pregunta ${index + 1}.`);
+        }
+      }
+
+      const { error: finishError } = await supabase.rpc("ghc_admin_finish_ai_generation", {
+        p_generation_id: generation.id,
+        p_status: "created",
+        p_generated_question_count: normalizedQuestions.length,
+        p_output_summary: `Importadas manualmente ${normalizedQuestions.length} preguntas desde ChatGPT/Claude.`,
+        p_error_message: null,
+      });
+
+      if (finishError) {
+        throw new Error(finishError.message || "Las preguntas se guardaron, pero no se pudo finalizar la importación.");
+      }
+
+      setJsonInput("");
+      setShowImporter(false);
+      await loadBlueprint();
+      setMessage(`Importación completada: ${normalizedQuestions.length} preguntas guardadas como borrador para revisión humana.`);
     } catch (error) {
-      setUiState("error");
+      console.error(error);
       setMessage(getErrorMessage(error));
     } finally {
-      setIsGenerating(false);
+      setBusy(false);
     }
   }
 
-  async function handleUpdateStatus(nextStatus: "in_review" | "approved" | "archived" | "rejected") {
-    if (!blueprint?.id) return;
+  async function updateBlueprintStatus(nextStatus: string) {
+    if (!blueprint) return;
 
-    setUiState("loading");
+    setBusy(true);
     setMessage(`Actualizando estado a ${getStatusLabel(nextStatus)}...`);
 
-    const { error } = await supabase.rpc("ghc_admin_update_blueprint_status", {
-      p_blueprint_id: blueprint.id,
-      p_status: nextStatus,
-      p_notes: null,
-    });
+    try {
+      const { error } = await supabase.rpc("ghc_admin_update_blueprint_status", {
+        p_blueprint_id: blueprint.id,
+        p_status: nextStatus,
+        p_notes: null,
+      });
 
-    if (error) {
-      setUiState("error");
-      setMessage(error.message);
-      return;
+      if (error) {
+        throw new Error(error.message || "No se pudo actualizar el estado.");
+      }
+
+      await loadBlueprint();
+      setMessage(`Estado actualizado: ${getStatusLabel(nextStatus)}.`);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setBusy(false);
     }
-
-    setUiState("success");
-    setMessage(`Estado actualizado a ${getStatusLabel(nextStatus)}.`);
-    await loadBundle();
   }
 
   if (guardState === "checking") {
     return (
-      <main className="ghc-exam-review-page">
-        <ReviewStyles />
+      <main className="page">
+        <Styles />
         <Background />
         <section className="loading-card">
-          <GHCLogo size="md" showText tagline={false} />
-          <h1>Centro de evaluación GHC</h1>
-          <p>Verificando acceso administrativo y cargando borrador...</p>
+          <span>GHC</span>
+          <h1>Verificando acceso</h1>
+          <p>Cargando Agente de Exámenes GHC...</p>
         </section>
       </main>
     );
   }
 
-  if (guardState === "denied") {
-    return (
-      <main className="ghc-exam-review-page">
-        <ReviewStyles />
-        <Background />
-        <section className="loading-card error">
-          <GHCLogo size="md" showText tagline={false} />
-          <h1>Acceso no disponible</h1>
-          <p>{message || "No se pudo cargar este borrador."}</p>
-          <button type="button" onClick={() => router.push("/ghc-control-center/examenes")}>Volver al listado</button>
-        </section>
-      </main>
-    );
-  }
+  if (guardState !== "allowed") return null;
 
   if (!blueprint) {
     return (
-      <main className="ghc-exam-review-page">
-        <ReviewStyles />
+      <main className="page">
+        <Styles />
         <Background />
-        <section className="loading-card error">
-          <GHCLogo size="md" showText tagline={false} />
+        <section className="empty-state">
+          <p className="kicker">GHC Academy</p>
           <h1>Borrador no encontrado</h1>
-          <p>{message || "No existe un blueprint con este ID."}</p>
+          <p>{message || "No hemos encontrado este blueprint en Supabase."}</p>
           <button type="button" onClick={() => router.push("/ghc-control-center/examenes")}>Volver al listado</button>
         </section>
       </main>
@@ -273,413 +463,238 @@ export default function BlueprintReviewPage() {
   }
 
   return (
-    <main className="ghc-exam-review-page">
-      <ReviewStyles />
+    <main className="page">
+      <Styles />
       <Background />
 
-      <header className="review-topbar">
-        <button type="button" className="back-button" onClick={() => router.push("/ghc-control-center/examenes")}>
-          ← Exámenes
-        </button>
-        <GHCLogo size="sm" showText tagline={false} />
-        <div className="topbar-actions">
-          <button type="button" onClick={loadBundle} disabled={isRefreshing}>{isRefreshing ? "Actualizando..." : "Actualizar"}</button>
-          <button type="button" onClick={() => router.push("/ghc-control-center")}>Control Center</button>
-        </div>
-      </header>
+      <aside className="sidebar">
+        <button type="button" className="back-button" onClick={() => router.push("/ghc-control-center/examenes")}>← Exámenes</button>
+        <div className="brand-card"><span>GHC</span><div><strong>Agente de Exámenes</strong><p>Modo puente sin API de pago</p></div></div>
+        <nav className="side-nav"><a href="#configuracion">Configuración</a><a href="#prompt">Prompt</a><a href="#importar">Importar JSON</a><a href="#preguntas">Preguntas</a></nav>
+        <div className="side-status"><span>Estado</span><strong>{getStatusLabel(blueprint.status)}</strong><p>{BUILD_ID}</p></div>
+      </aside>
 
-      {message ? <div className={`review-message ${uiState}`}>{message}</div> : null}
+      <section className="shell">
+        <div className="build-strip"><strong>{BUILD_ID}</strong><span>Ahora no llama a OpenAI/Claude API. Prepara prompt e importa JSON.</span></div>
+        {message ? <div className="notice">{message}</div> : null}
 
-      <section className="review-hero">
-        <div>
-          <p className="kicker">Agente de Exámenes GHC v1 · Revisión humana obligatoria</p>
-          <h1>{blueprint.title || "Borrador de evaluación"}</h1>
-          <p>
-            Este borrador configura el examen, genera preguntas como revisión interna y mantiene la publicación bajo control humano.
-            El alumno no ve IA, prompts, borradores ni respuestas correctas antes de entregar.
-          </p>
-          <div className="hero-chips">
-            <span className={`status-chip ${String(blueprint.status || "draft_ai")}`}>{getStatusLabel(blueprint.status)}</span>
-            <span>{getScopeLabel(blueprint.source_scope)}</span>
-            <span>{getDifficultyLabel(blueprint.difficulty)}</span>
-          </div>
-        </div>
-
-        <aside className="hero-command-card">
-          <span>Acción principal</span>
-          <strong>Generar preguntas IA</strong>
-          <p>Lee solo el contenido seleccionado y guarda preguntas como borrador para revisión. No publica nada.</p>
-          <button type="button" onClick={handleGenerateQuestions} disabled={!canGenerate}>
-            {isGenerating ? "Generando..." : activeQuestions.length ? "Regenerar borrador IA" : "Generar preguntas IA"}
-          </button>
-          {!canGenerate ? <small>Disponible solo en draft_ai, in_review o rejected.</small> : null}
-        </aside>
-      </section>
-
-      <section className="stats-grid">
-        <MetricCard label="Solicitadas" value={Number(blueprint.requested_question_count || 0)} helper="Configuración admin" />
-        <MetricCard label="Generadas" value={activeQuestions.length} helper="Preguntas reales" />
-        <MetricCard label="Aprobadas" value={approvedQuestions} helper="Listas para publicar" />
-        <MetricCard label="Rechazadas" value={rejectedQuestions} helper="Regenerables" danger={rejectedQuestions > 0} />
-      </section>
-
-      <section className="review-layout">
-        <aside className="review-side">
-          <article className="panel-card">
-            <div className="panel-head">
-              <span>Contexto académico</span>
-              <h2>Contenido evaluado</h2>
-            </div>
-            <InfoBlock label="Curso" value={bundle.course?.title || blueprint.course_id || "Curso no encontrado"} />
-            <InfoBlock label="Módulo" value={bundle.module?.title || (blueprint.module_id ? blueprint.module_id : "No aplica")} />
-            <InfoBlock label="Lección" value={bundle.lesson?.title || (blueprint.lesson_id ? blueprint.lesson_id : "No aplica")} />
-            {bundle.blueprintLessons.length ? (
-              <div className="lesson-list">
-                <span>Lecciones múltiples</span>
-                {bundle.blueprintLessons.map((row, index) => (
-                  <p key={String(row.id || index)}>L{index + 1} · {row.lesson_title || row.lesson_id}</p>
-                ))}
-              </div>
-            ) : null}
-          </article>
-
-          <article className="panel-card">
-            <div className="panel-head">
-              <span>Configuración</span>
-              <h2>Reglas del examen</h2>
-            </div>
-            <InfoGrid
-              items={[
-                ["Tipo", getScopeLabel(blueprint.evaluation_type || blueprint.source_scope)],
-                ["Dificultad", getDifficultyLabel(blueprint.difficulty)],
-                ["Nota mínima", `${Number(blueprint.pass_percentage || 70)}%`],
-                ["Intentos", getAttemptsLabel(blueprint)],
-                ["Respuestas", String(blueprint.answer_count || 4)],
-                ["Explicación", blueprint.show_explanation ? "Sí" : "No"],
-                ["Bloqueo", blueprint.block_advance ? "Sí" : "No"],
-                ["Estado", getStatusLabel(blueprint.status)],
-              ]}
-            />
-          </article>
-        </aside>
-
-        <section className="review-main">
-          <article className="panel-card ai-instructions-card">
-            <div className="panel-head row">
-              <div>
-                <span>Instrucciones internas</span>
-                <h2>Brief para generación</h2>
-              </div>
-              <button type="button" onClick={() => router.push("/ghc-control-center/examenes/crear")}>Nuevo borrador</button>
-            </div>
-            <p>{blueprint.ai_instructions || "Sin instrucciones adicionales. La IA usará únicamente el contenido seleccionado y las reglas de configuración."}</p>
-          </article>
-
-          <article className="panel-card questions-card">
-            <div className="panel-head row">
-              <div>
-                <span>Banco de preguntas</span>
-                <h2>Preguntas generadas</h2>
-              </div>
-              <button type="button" onClick={handleGenerateQuestions} disabled={!canGenerate}>
-                {isGenerating ? "Generando..." : "Generar IA"}
-              </button>
-            </div>
-
-            {activeQuestions.length ? (
-              <div className="question-stack">
-                {activeQuestions.map((question, index) => (
-                  <QuestionCard
-                    key={String(question.id || index)}
-                    index={index}
-                    question={question}
-                    options={bundle.options.filter((option) => String(option.question_id) === String(question.id))}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="empty-questions">
-                <span>◈</span>
-                <h3>Aún no hay preguntas generadas</h3>
-                <p>Pulsa “Generar preguntas IA”. Se crearán como draft_ai y quedarán pendientes de revisión humana.</p>
-                <button type="button" onClick={handleGenerateQuestions} disabled={!canGenerate}>
-                  {isGenerating ? "Generando..." : "Generar preguntas IA"}
-                </button>
-              </div>
-            )}
-          </article>
+        <section className="hero">
+          <div><p className="kicker">GHC Academy · Content Factory</p><h1>{blueprint.title || "Borrador de evaluación"}</h1><p>Configuración real del examen. El agente prepara el prompt, tú generas fuera con ChatGPT/Claude mientras no activamos API, e importas el JSON para revisión humana.</p></div>
+          <div className="hero-actions"><button type="button" onClick={copyPrompt}>Copiar prompt para ChatGPT/Claude</button><button type="button" onClick={() => setShowImporter(true)}>Importar JSON de preguntas</button></div>
         </section>
 
-        <aside className="review-side">
-          <article className="panel-card command-panel">
-            <div className="panel-head">
-              <span>Control humano</span>
-              <h2>Estados</h2>
-            </div>
-            <button type="button" onClick={() => handleUpdateStatus("in_review")}>Pasar a revisión</button>
-            <button type="button" onClick={() => handleUpdateStatus("approved")} disabled={!activeQuestions.length}>Aprobar blueprint</button>
-            <button type="button" onClick={() => handleUpdateStatus("rejected")}>Rechazar</button>
-            <button type="button" onClick={() => handleUpdateStatus("archived")}>Archivar</button>
-            <small>Publicar examen irá en el siguiente bloque, solo cuando existan preguntas aprobadas.</small>
-          </article>
+        <section className="stats-grid">
+          <StatCard label="Preguntas solicitadas" value={stats.requested} helper="Blueprint" />
+          <StatCard label="Preguntas importadas" value={stats.imported} helper="Borradores reales" />
+          <StatCard label="Por revisar" value={stats.needsReview} helper="draft_ai / edited" />
+          <StatCard label="Aprobadas" value={stats.approved} helper="Revisión humana" />
+        </section>
 
-          <article className="panel-card generation-card">
-            <div className="panel-head">
-              <span>Historial IA</span>
-              <h2>Generaciones</h2>
-            </div>
-            {bundle.generations.length ? (
-              <div className="generation-list">
-                {bundle.generations.map((generation, index) => (
-                  <div key={String(generation.id || index)}>
-                    <strong>{generation.generation_type || "initial"}</strong>
-                    <span>{generation.status || "created"} · {generation.generated_question_count || 0} preguntas</span>
-                    <p>{generation.output_summary || generation.error_message || formatShortDate(generation.created_at)}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="muted">Aún no hay generaciones registradas.</p>
-            )}
-          </article>
-        </aside>
+        <section className="main-grid">
+          <div className="left-column">
+            <article className="card" id="configuracion">
+              <div className="card-head"><div><p className="kicker">Blueprint</p><h2>Configuración del borrador</h2></div><span className={`status-pill ${String(blueprint.status || "").replace("_", "-")}`}>{getStatusLabel(blueprint.status)}</span></div>
+              <div className="config-grid"><InfoBox label="Curso" value={course?.title || blueprint.course_id || "Sin curso"} /><InfoBox label="Alcance" value={getScopeLabel(blueprint.source_scope)} /><InfoBox label="Tipo evaluación" value={getEvaluationTypeLabel(blueprint.evaluation_type)} /><InfoBox label="Dificultad" value={getDifficultyLabel(blueprint.difficulty)} /><InfoBox label="Nota mínima" value={`${blueprint.pass_percentage || 70}%`} /><InfoBox label="Intentos" value={blueprint.attempts_mode === "unlimited" ? "Ilimitados" : String(blueprint.max_attempts || 1)} /><InfoBox label="Respuestas" value={`${blueprint.answer_count || 4} por pregunta`} /><InfoBox label="Explicación" value={blueprint.show_explanation ? "Sí" : "No"} /><InfoBox label="Bloqueo avance" value={blueprint.block_advance ? "Sí" : "No"} /></div>
+              {blueprint.ai_instructions ? <div className="instructions"><strong>Instrucciones internas</strong><p>{blueprint.ai_instructions}</p></div> : null}
+              <div className="state-actions"><button type="button" disabled={busy} onClick={() => updateBlueprintStatus("in_review")}>Pasar a revisión</button><button type="button" disabled={busy || stats.imported === 0} onClick={() => updateBlueprintStatus("approved")}>Marcar blueprint aprobado</button><button type="button" disabled={busy} onClick={() => updateBlueprintStatus("archived")}>Archivar</button></div>
+            </article>
+
+            <article className="card" id="prompt"><div className="card-head"><div><p className="kicker">Agente sin API</p><h2>Prompt preparado</h2></div><button type="button" onClick={copyPrompt}>Copiar prompt</button></div><p className="muted">Este prompt contiene la configuración del blueprint y el contenido seleccionado. Pégalo en ChatGPT o Claude. La respuesta debe ser solo JSON válido.</p>{showPrompt ? <textarea className="prompt-box" readOnly value={promptText} /> : <button type="button" className="primary-wide" onClick={() => setShowPrompt(true)}>Ver prompt completo</button>}</article>
+
+            <article className="card" id="importar"><div className="card-head"><div><p className="kicker">Importación</p><h2>Pegar JSON de preguntas</h2></div><button type="button" onClick={() => setShowImporter(!showImporter)}>{showImporter ? "Cerrar" : "Abrir importador"}</button></div><p className="muted">Pega aquí el JSON devuelto por ChatGPT/Claude. GHC Academy validará la estructura y guardará las preguntas como draft_ai, nunca publicadas.</p>{showImporter ? <div className="json-importer"><textarea value={jsonInput} onChange={(event) => setJsonInput(event.target.value)} placeholder='{"questions":[{"question":"...","question_type":"test","options":[{"label":"A","text":"...","is_correct":false}],"correct_label":"A","explanation":"...","difficulty":"medium","evaluated_objective":"..."}]}' /><div className="import-actions"><button type="button" disabled={busy || !jsonInput.trim()} onClick={importJson}>{busy ? "Importando..." : "Validar e importar JSON"}</button><button type="button" disabled={busy} onClick={() => setJsonInput(exampleJson(Number(blueprint.answer_count || 4)))}>Insertar ejemplo</button></div></div> : null}</article>
+          </div>
+
+          <aside className="right-column">
+            <article className="card"><p className="kicker">Contenido fuente</p><h2>Contexto seleccionado</h2><div className="context-list"><ContextItem label="Curso" title={course?.title || "Sin curso"} text={course?.description || course?.subtitle || "Sin descripción"} />{modules.slice(0, 6).map((module) => <ContextItem key={String(module.id)} label="Módulo" title={module.title || "Módulo sin título"} text={module.description || "Sin descripción"} />)}{lessons.slice(0, 8).map((lesson) => <ContextItem key={String(lesson.id)} label="Lección" title={lesson.title || "Lección sin título"} text={lesson.content ? `${String(lesson.content).slice(0, 170)}...` : "Sin contenido textual"} />)}</div></article>
+            <article className="card"><p className="kicker">Historial</p><h2>Generaciones / importaciones</h2><div className="generation-list">{generations.length ? generations.map((generation) => <div key={String(generation.id)} className="generation-item"><strong>{generation.model_provider || "manual"}</strong><p>{generation.output_summary || generation.input_summary || "Importación registrada"}</p><span>{formatShortDate(generation.created_at)}</span></div>) : <p className="muted">Todavía no hay importaciones registradas.</p>}</div></article>
+          </aside>
+        </section>
+
+        <section className="questions-section" id="preguntas"><div className="card-head"><div><p className="kicker">Revisión humana</p><h2>Preguntas importadas</h2></div><button type="button" onClick={loadBlueprint}>Refrescar</button></div>{questions.length ? <div className="question-grid">{questions.map((question, index) => <article key={String(question.id || index)} className="question-card"><div className="question-top"><span>Pregunta {index + 1}</span><em>{getQuestionStatusLabel(question.question_status)}</em></div><h3>{question.question}</h3>{question.evaluated_objective ? <p className="objective">{question.evaluated_objective}</p> : null}<div className="option-list">{(groupedOptions.get(String(question.id)) || fallbackOptionsFromQuestion(question)).map((option, optionIndex) => <div key={`${question.id}-${option.label || optionIndex}`} className={option.is_correct ? "option-row correct" : "option-row"}><strong>{option.label}</strong><p>{String(option.option_text || option.text || "")}</p>{option.is_correct ? <span>Correcta</span> : null}</div>)}</div>{question.explanation ? <div className="explanation"><strong>Explicación</strong><p>{question.explanation}</p></div> : null}</article>)}</div> : <article className="empty-questions"><span>◈</span><h3>Sin preguntas todavía</h3><p>Copia el prompt, genera el JSON en ChatGPT/Claude e impórtalo aquí para crear preguntas en borrador.</p></article>}</section>
       </section>
     </main>
   );
 }
 
-async function fetchBlueprintBundle(blueprintId: string): Promise<BlueprintBundle> {
-  const { data: blueprint, error: blueprintError } = await supabase
-    .from("exam_blueprints")
-    .select("*")
-    .eq("id", blueprintId)
-    .maybeSingle();
+function buildManualPrompt({ blueprint, course, modules, lessons }: { blueprint: AnyRecord; course: AnyRecord | null; modules: AnyRecord[]; lessons: AnyRecord[] }) {
+  const requestedCount = Number(blueprint.requested_question_count || 3);
+  const answerCount = Number(blueprint.answer_count || 4);
+  const parts: string[] = [];
 
-  if (blueprintError) throw blueprintError;
-  if (!blueprint) return emptyBundle;
-
-  const [course, module, lesson, blueprintLessons, exam, generations] = await Promise.all([
-    maybeSingle("courses", blueprint.course_id, "id,title,subtitle,description,level,course_type"),
-    blueprint.module_id ? maybeSingle("modules", blueprint.module_id, "id,title,description,course_id") : Promise.resolve(null),
-    blueprint.lesson_id ? maybeSingle("lessons", blueprint.lesson_id, "id,title,content_type,module_id") : Promise.resolve(null),
-    fetchBlueprintLessons(blueprint.id),
-    fetchGeneratedExam(blueprint),
-    fetchRows("exam_ai_generations", "*", "blueprint_id", blueprint.id, "created_at", false),
-  ]);
-
-  const examId = exam?.id || blueprint.generated_exam_id || null;
-  const questions = examId
-    ? await fetchRows("exam_questions", "*", "exam_id", examId, "sort_order", true)
-    : await fetchRows("exam_questions", "*", "blueprint_id", blueprint.id, "sort_order", true);
-
-  const questionIds = questions.map((question) => String(question.id)).filter(Boolean);
-  const options = questionIds.length ? await fetchOptions(questionIds) : [];
-
-  return {
-    blueprint,
-    course,
-    module,
-    lesson,
-    blueprintLessons,
-    exam,
-    questions,
-    options,
-    generations,
-  };
-}
-
-async function maybeSingle(table: string, id: string, columns: string): Promise<AnyRecord | null> {
-  const { data } = await supabase.from(table).select(columns).eq("id", id).maybeSingle();
-  return data ? (data as unknown as AnyRecord) : null;
-}
-
-async function fetchRows(table: string, columns: string, field: string, value: string, orderField: string, ascending: boolean): Promise<AnyRecord[]> {
-  const { data } = await supabase
-    .from(table)
-    .select(columns)
-    .eq(field, value)
-    .order(orderField, { ascending });
-
-  return Array.isArray(data) ? (data as unknown as AnyRecord[]) : [];
-}
-
-async function fetchGeneratedExam(blueprint: AnyRecord) {
-  if (blueprint.generated_exam_id) {
-    const exam = await maybeSingle("exams", blueprint.generated_exam_id, "*");
-    if (exam) return exam;
+  if (course) {
+    parts.push(`CURSO: ${course.title || "Sin título"}`);
+    if (course.subtitle) parts.push(`SUBTÍTULO: ${course.subtitle}`);
+    if (course.description) parts.push(`DESCRIPCIÓN DEL CURSO:\n${course.description}`);
+    if (course.level) parts.push(`NIVEL DEL CURSO: ${course.level}`);
   }
 
-  const { data } = await supabase
-    .from("exams")
-    .select("*")
-    .eq("blueprint_id", blueprint.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  modules.forEach((module) => {
+    parts.push(`MÓDULO: ${module.title || "Sin título"}`);
+    if (module.description) parts.push(`DESCRIPCIÓN DEL MÓDULO:\n${module.description}`);
+  });
 
-  return data || null;
-}
+  lessons.forEach((lesson) => {
+    parts.push([`LECCIÓN: ${lesson.title || "Sin título"}`, lesson.content_type ? `TIPO: ${lesson.content_type}` : "", lesson.content ? `CONTENIDO:\n${lesson.content}` : "CONTENIDO: Esta lección no tiene texto base; usa solo el contexto disponible."].filter(Boolean).join("\n"));
+  });
 
-async function fetchBlueprintLessons(blueprintId: string): Promise<AnyRecord[]> {
-  const { data } = await supabase
-    .from("exam_blueprint_lessons")
-    .select("id,lesson_id,module_id,sort_order,lessons(title)")
-    .eq("blueprint_id", blueprintId)
-    .order("sort_order", { ascending: true });
+  const selectedContent = parts.join("\n\n").slice(0, MAX_CONTEXT_CHARS);
 
-  if (!Array.isArray(data)) return [];
+  return `
+Eres el Agente de Exámenes GHC v1 para GHC Academy.
 
-  return (data as unknown as AnyRecord[]).map((row) => ({
-    ...row,
-    lesson_title: row.lessons?.title || "",
-  }));
-}
+MISIÓN:
+Generar preguntas de evaluación para un curso premium de GHC Academy, usando SOLO el contenido proporcionado.
 
-async function fetchOptions(questionIds: string[]): Promise<AnyRecord[]> {
-  const { data } = await supabase
-    .from("exam_question_options")
-    .select("*")
-    .in("question_id", questionIds)
-    .order("sort_order", { ascending: true });
+REGLAS INNEGOCIABLES:
+- No inventes información externa.
+- No menciones IA, ChatGPT, Claude, modelo, prompt ni automatización.
+- El resultado será revisado por un administrador antes de publicar.
+- Tono profesional, didáctico, claro y riguroso.
+- Preguntas orientadas a comprensión real y aplicación, no solo memoria superficial.
+- Devuelve SOLO JSON válido. No añadas explicación fuera del JSON. No uses markdown.
 
-  return Array.isArray(data) ? (data as unknown as AnyRecord[]) : [];
-}
+CONFIGURACIÓN DEL ADMIN:
+- Número exacto de preguntas: ${requestedCount}
+- Dificultad: ${blueprint.difficulty || "mixed"}
+- Tipo(s) de pregunta: ${Array.isArray(blueprint.question_kinds) ? blueprint.question_kinds.join(", ") : "test"}
+- Número exacto de respuestas por pregunta: ${answerCount}
+- Porcentaje mínimo para aprobar: ${blueprint.pass_percentage || 70}%
+- Mostrar explicación al alumno: ${blueprint.show_explanation ? "sí" : "no"}
+- Bloquear avance hasta aprobar: ${blueprint.block_advance ? "sí" : "no"}
+- Instrucciones internas del admin: ${blueprint.ai_instructions || "Sin instrucciones adicionales."}
 
-function QuestionCard({ question, options, index }: { question: AnyRecord; options: AnyRecord[]; index: number }) {
-  const normalizedOptions: AnyRecord[] = options.length ? options : legacyOptions(question);
-
-  return (
-    <article className="question-card">
-      <div className="question-topline">
-        <span>Pregunta {index + 1}</span>
-        <em className={`question-status ${String(question.question_status || "needs_review")}`}>{getQuestionStatusLabel(question.question_status)}</em>
-      </div>
-      <h3>{question.question}</h3>
-      <div className="option-list">
-        {normalizedOptions.map((option, optionIndex) => (
-          <div key={`${question.id}-${option.label || optionIndex}`} className={option.is_correct ? "option-row correct" : "option-row"}>
-            <strong>{option.label}</strong>
-            <p>{getOptionText(option)}</p>
-            {option.is_correct ? <span>Correcta</span> : null}
-          </div>
-        ))}
-      </div>
-      {question.explanation ? <p className="explanation"><strong>Explicación:</strong> {question.explanation}</p> : null}
-      {question.evaluated_objective ? <p className="objective"><strong>Objetivo evaluado:</strong> {question.evaluated_objective}</p> : null}
-    </article>
-  );
-}
-
-
-function getOptionText(option: AnyRecord) {
-  return String(option.option_text ?? option.text ?? "");
-}
-
-function legacyOptions(question: AnyRecord): AnyRecord[] {
-  const correct = String(question.correct_option || "").toUpperCase();
-  return [
-    ["A", question.option_a],
-    ["B", question.option_b],
-    ["C", question.option_c],
-    ["D", question.option_d],
+FORMATO JSON OBLIGATORIO:
+{
+  "questions": [
+    {
+      "question": "Texto de la pregunta",
+      "question_type": "test",
+      "options": [
+        { "label": "A", "text": "Respuesta A", "is_correct": false },
+        { "label": "B", "text": "Respuesta B", "is_correct": true },
+        { "label": "C", "text": "Respuesta C", "is_correct": false },
+        { "label": "D", "text": "Respuesta D", "is_correct": false }
+      ],
+      "correct_label": "B",
+      "explanation": "Explicación didáctica de por qué la respuesta correcta lo es.",
+      "difficulty": "medium",
+      "evaluated_objective": "Objetivo o competencia evaluada"
+    }
   ]
-    .filter(([, text]) => Boolean(text))
-    .map(([label, text]) => ({ label, option_text: text, is_correct: label === correct }));
 }
 
-function MetricCard({ label, value, helper, danger = false }: { label: string; value: string | number; helper: string; danger?: boolean }) {
-  return (
-    <article className={danger ? "metric-card danger" : "metric-card"}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <p>{helper}</p>
-    </article>
-  );
+REGLAS DE OPCIONES:
+- Cada pregunta debe tener exactamente ${answerCount} opciones.
+- Usa etiquetas consecutivas desde A.
+- Exactamente una opción debe tener "is_correct": true.
+- "correct_label" debe coincidir con la opción correcta.
+- Las opciones incorrectas deben ser plausibles, pero claramente incorrectas para quien domina el contenido.
+- question_type solo puede ser: "test", "true_false" o "case_option".
+- difficulty solo puede ser: "basic", "medium", "advanced" o "mixed".
+
+CONTENIDO SELECCIONADO:
+${selectedContent}
+`.trim();
 }
 
-function InfoBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="info-block">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
+function parseQuestionJson(value: string): ImportedQuestion[] {
+  const parsed = JSON.parse(value);
+  if (Array.isArray(parsed)) return parsed as ImportedQuestion[];
+  if (Array.isArray(parsed?.questions)) return parsed.questions as ImportedQuestion[];
+  throw new Error('El JSON debe ser un objeto con propiedad "questions" o un array de preguntas.');
 }
 
-function InfoGrid({ items }: { items: [string, string][] }) {
-  return (
-    <div className="info-grid">
-      {items.map(([label, value]) => (
-        <InfoBlock key={label} label={label} value={value} />
-      ))}
-    </div>
-  );
+function normalizeImportedQuestions(items: ImportedQuestion[], answerCount: number) {
+  const labels = ["A", "B", "C", "D", "E", "F"].slice(0, Math.max(2, Math.min(6, answerCount)));
+
+  return items.map((item, index) => {
+    const rawOptions = Array.isArray(item.options) ? item.options : [];
+    const options = rawOptions.map((option, optionIndex) => {
+      const label = String(option.label || labels[optionIndex] || "").toUpperCase();
+      const text = String(option.text || option.option_text || "").trim();
+      return { label, text, is_correct: option.is_correct === true };
+    }).filter((option) => labels.includes(option.label) && option.text).slice(0, labels.length);
+
+    const correctFromOptions = options.find((option) => option.is_correct)?.label || "";
+    const correctLabel = String(item.correct_label || item.correct_option || correctFromOptions || "A").toUpperCase();
+    const normalized = options.map((option) => ({ ...option, is_correct: option.label === correctLabel }));
+    const correctCount = normalized.filter((option) => option.is_correct).length;
+
+    if (!String(item.question || "").trim()) throw new Error(`La pregunta ${index + 1} no tiene texto.`);
+    if (normalized.length !== labels.length) throw new Error(`La pregunta ${index + 1} debe tener exactamente ${labels.length} opciones.`);
+    if (correctCount !== 1) throw new Error(`La pregunta ${index + 1} debe tener exactamente una respuesta correcta.`);
+
+    return {
+      question: String(item.question || "").trim(),
+      question_type: normalizeQuestionType(item.question_type || item.type),
+      options: normalized,
+      correct_label: correctLabel,
+      explanation: String(item.explanation || "").trim(),
+      difficulty: normalizeDifficulty(item.difficulty),
+      evaluated_objective: String(item.evaluated_objective || item.objective || "Comprensión del contenido evaluado").trim(),
+    };
+  });
 }
 
-function getStatusLabel(value: unknown) {
-  const key = String(value || "draft_ai");
-  return statusLabels[key] || key;
+function normalizeQuestionType(value: unknown) {
+  const clean = String(value || "test").toLowerCase();
+  if (["true_false", "verdadero_falso", "verdadero/falso"].includes(clean)) return "true_false";
+  if (["case_option", "caso_practico", "caso práctico"].includes(clean)) return "case_option";
+  return "test";
 }
 
-function getQuestionStatusLabel(value: unknown) {
-  const key = String(value || "needs_review");
-  const labels: Record<string, string> = {
-    draft_ai: "Borrador IA",
-    edited: "Editada",
-    approved: "Aprobada",
-    rejected: "Rechazada",
-    needs_review: "Revisión",
-  };
-  return labels[key] || key;
+function normalizeDifficulty(value: unknown) {
+  const clean = String(value || "mixed").toLowerCase();
+  if (["basic", "basica", "básica"].includes(clean)) return "basic";
+  if (["medium", "media"].includes(clean)) return "medium";
+  if (["advanced", "avanzada"].includes(clean)) return "advanced";
+  return "mixed";
 }
 
-function getDifficultyLabel(value: unknown) {
-  const key = String(value || "mixed");
-  return difficultyLabels[key] || key;
+function fallbackOptionsFromQuestion(question: AnyRecord) {
+  return [
+    { label: "A", text: question.option_a, is_correct: question.correct_option === "A" },
+    { label: "B", text: question.option_b, is_correct: question.correct_option === "B" },
+    { label: "C", text: question.option_c, is_correct: question.correct_option === "C" },
+    { label: "D", text: question.option_d, is_correct: question.correct_option === "D" },
+  ].filter((item) => item.text);
 }
 
-function getScopeLabel(value: unknown) {
-  const key = String(value || "course");
-  return scopeLabels[key] || key;
+function exampleJson(answerCount: number) {
+  const labels = ["A", "B", "C", "D", "E", "F"].slice(0, Math.max(2, Math.min(6, answerCount)));
+  return JSON.stringify({
+    questions: [
+      {
+        question: "¿Cuál es el objetivo principal evaluado en este bloque de contenido?",
+        question_type: "test",
+        options: labels.map((label, index) => ({
+          label,
+          text: index === 0 ? "Identificar el concepto central y su aplicación práctica." : `Distractor plausible ${label}.`,
+          is_correct: index === 0,
+        })),
+        correct_label: "A",
+        explanation: "La opción A es correcta porque recoge el objetivo central del contenido evaluado.",
+        difficulty: "medium",
+        evaluated_objective: "Comprensión y aplicación del contenido del curso.",
+      },
+    ],
+  }, null, 2);
 }
 
-function getAttemptsLabel(blueprint: AnyRecord) {
-  if (String(blueprint.attempts_mode || "limited") === "unlimited") return "Ilimitados";
-  return `${Number(blueprint.max_attempts || 1)} intento(s)`;
-}
+function StatCard({ label, value, helper }: { label: string; value: number; helper: string }) { return <article className="stat-card"><span>{label}</span><strong>{value}</strong><p>{helper}</p></article>; }
+function InfoBox({ label, value }: { label: string; value: string }) { return <div className="info-box"><span>{label}</span><strong>{value}</strong></div>; }
+function ContextItem({ label, title, text }: { label: string; title: string; text: string }) { return <div className="context-item"><span>{label}</span><strong>{title}</strong><p>{text}</p></div>; }
+function getScopeLabel(value: unknown) { const scope = String(value || "course"); if (scope === "module") return "Todo un módulo"; if (scope === "lesson") return "Una lección"; if (scope === "multi_lesson") return "Varias lecciones"; return "Todo el curso"; }
+function getEvaluationTypeLabel(value: unknown) { const type = String(value || "course"); if (type === "module") return "Examen de módulo"; if (type === "lesson") return "Evaluación de lección"; if (type === "multi_lesson") return "Evaluación multi-lección"; return "Examen final de curso"; }
+function getDifficultyLabel(value: unknown) { const difficulty = String(value || "mixed"); if (difficulty === "basic") return "Básica"; if (difficulty === "medium") return "Media"; if (difficulty === "advanced") return "Avanzada"; return "Mixta"; }
+function getStatusLabel(value: unknown) { const status = String(value || "draft_ai"); if (status === "draft_ai") return "Borrador IA"; if (status === "in_review") return "En revisión"; if (status === "approved") return "Aprobado"; if (status === "published") return "Publicado"; if (status === "archived") return "Archivado"; if (status === "rejected") return "Rechazado"; return status; }
+function getQuestionStatusLabel(value: unknown) { const status = String(value || "draft_ai"); if (status === "draft_ai") return "Borrador IA"; if (status === "needs_review") return "Necesita revisión"; if (status === "edited") return "Editada"; if (status === "approved") return "Aprobada"; if (status === "rejected") return "Rechazada"; return status; }
+function formatShortDate(value: unknown) { if (!value) return "Sin fecha"; try { return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(String(value))); } catch { return "Sin fecha"; } }
+function getErrorMessage(error: unknown) { if (!error) return "Error desconocido."; if (typeof error === "string") return error; if (typeof error === "object" && error !== null && "message" in error) return String((error as { message?: unknown }).message || "Error desconocido."); return "Error desconocido."; }
+function Background() { return <div className="background" aria-hidden="true"><div className="orb one" /><div className="orb two" /><div className="grid" /></div>; }
 
-function formatShortDate(value?: string | null) {
-  if (!value) return "Sin fecha";
-  try {
-    return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
-  } catch {
-    return "Sin fecha";
-  }
-}
-
-function getErrorMessage(error: unknown) {
-  if (!error) return "Error desconocido.";
-  if (typeof error === "string") return error;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    return String((error as { message?: unknown }).message || "Error desconocido.");
-  }
-  return "Error desconocido.";
-}
-
-function Background() {
-  return (
-    <div className="review-bg" aria-hidden="true">
-      <div className="orb one" />
-      <div className="orb two" />
-      <div className="grid" />
-    </div>
-  );
-}
-
-function ReviewStyles() {
-  return (
-    <style>{`
-      :root{--bg:#050706;--panel:rgba(10,14,12,.9);--panel2:rgba(14,19,16,.88);--line:rgba(255,255,255,.085);--line2:rgba(99,229,70,.22);--white:#f4f6f2;--muted:rgba(244,246,242,.68);--soft:rgba(244,246,242,.48);--green:#63e546;--danger:#ff6464;--warning:#f7c948}*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--white)}body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select,textarea{font:inherit}button{transition:.18s ease}button:hover:not(:disabled){transform:translateY(-1px)}button:disabled{opacity:.52;cursor:not-allowed}.ghc-exam-review-page{min-height:100vh;background:var(--bg);color:var(--white);position:relative;overflow:hidden;padding:22px}.review-bg{position:fixed;inset:0;pointer-events:none;z-index:0}.orb{position:absolute;width:520px;height:520px;border-radius:999px;filter:blur(120px)}.orb.one{left:-180px;top:-180px;background:rgba(99,229,70,.09)}.orb.two{right:-210px;top:120px;background:rgba(255,255,255,.055)}.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);background-size:44px 44px;opacity:.5;mask-image:radial-gradient(circle at center,black 0%,transparent 86%)}.review-topbar,.review-hero,.stats-grid,.review-layout,.review-message,.loading-card{position:relative;z-index:1}.review-topbar{min-height:62px;display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.028);padding:12px 14px;margin-bottom:14px;backdrop-filter:blur(12px)}.back-button,.topbar-actions button,.panel-head button{min-height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--white);padding:0 14px;font-weight:900;cursor:pointer}.topbar-actions{display:flex;gap:9px}.review-message{border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.04);padding:14px 16px;color:var(--muted);margin-bottom:14px}.review-message.success{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.07);color:var(--white)}.review-message.error{border-color:rgba(255,100,100,.32);background:rgba(255,100,100,.08);color:#ffd4d4}.review-message.loading{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.07);color:#ffe7a0}.review-hero{min-height:250px;border:1px solid var(--line);border-radius:28px;background:radial-gradient(circle at 82% 18%,rgba(99,229,70,.14),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.024));display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:22px;align-items:stretch;padding:28px;box-shadow:0 30px 100px rgba(0,0,0,.24);overflow:hidden}.kicker{margin:0 0 10px;color:var(--green);text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:950}.review-hero h1{margin:0;font-size:clamp(38px,5vw,72px);line-height:.9;letter-spacing:-.075em;font-weight:950;max-width:950px}.review-hero p{margin:18px 0 0;color:var(--muted);line-height:1.65;max-width:850px}.hero-chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}.hero-chips span,.status-chip{border-radius:999px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.075);color:var(--green);padding:8px 11px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.status-chip.rejected,.status-chip.archived{border-color:rgba(255,100,100,.25);background:rgba(255,100,100,.08);color:var(--danger)}.status-chip.in_review{border-color:rgba(247,201,72,.25);background:rgba(247,201,72,.08);color:var(--warning)}.hero-command-card{border:1px solid var(--line2);border-radius:22px;background:linear-gradient(145deg,rgba(99,229,70,.105),rgba(255,255,255,.028));padding:20px;display:flex;flex-direction:column;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}.hero-command-card span,.panel-head span{color:var(--green);text-transform:uppercase;letter-spacing:.16em;font-size:10px;font-weight:950}.hero-command-card strong{display:block;margin-top:9px;font-size:25px;line-height:1.04;letter-spacing:-.04em}.hero-command-card p{font-size:13px;margin:12px 0 18px}.hero-command-card button,.empty-questions button,.questions-card>.panel-head button,.command-panel button{min-height:46px;border:0;border-radius:999px;background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;font-weight:950;padding:0 17px;cursor:pointer}.hero-command-card small,.command-panel small{display:block;margin-top:12px;color:var(--soft);line-height:1.45}.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.metric-card,.panel-card{border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:0 22px 80px rgba(0,0,0,.18)}.metric-card{padding:18px;min-height:122px}.metric-card span{color:var(--muted);font-size:12px;font-weight:850}.metric-card strong{display:block;margin-top:10px;font-size:34px;letter-spacing:-.05em}.metric-card p{margin:7px 0 0;color:var(--soft);font-size:12px}.metric-card.danger strong{color:var(--danger)}.review-layout{display:grid;grid-template-columns:320px minmax(0,1fr) 320px;gap:14px;margin-top:14px;align-items:start}.review-side,.review-main{display:grid;gap:14px}.panel-card{padding:18px}.panel-head{margin-bottom:14px}.panel-head.row{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.panel-head h2{margin:7px 0 0;font-size:23px;line-height:1.05;letter-spacing:-.045em}.info-block{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(0,0,0,.18);padding:12px;margin-top:9px}.info-block span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.info-block strong{display:block;margin-top:6px;color:var(--white);line-height:1.28;font-size:13px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.info-grid .info-block{margin-top:0}.lesson-list{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}.lesson-list span{color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.lesson-list p{margin:8px 0 0;color:var(--muted);font-size:13px}.ai-instructions-card p{margin:0;color:var(--muted);line-height:1.7}.question-stack{display:grid;gap:12px}.question-card{border:1px solid rgba(255,255,255,.08);border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.02));padding:16px}.question-topline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.question-topline span{color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}.question-status{font-style:normal;border-radius:999px;border:1px solid rgba(247,201,72,.25);background:rgba(247,201,72,.08);color:var(--warning);padding:6px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:950}.question-status.approved,.question-status.edited{border-color:rgba(99,229,70,.25);background:rgba(99,229,70,.08);color:var(--green)}.question-status.rejected{border-color:rgba(255,100,100,.28);background:rgba(255,100,100,.08);color:var(--danger)}.question-card h3{margin:0;font-size:20px;line-height:1.25;letter-spacing:-.025em}.option-list{display:grid;gap:8px;margin-top:14px}.option-row{display:grid;grid-template-columns:34px minmax(0,1fr) 84px;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(0,0,0,.18);padding:10px}.option-row strong{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.06);color:var(--white)}.option-row p{margin:0;color:var(--muted);line-height:1.4}.option-row span{color:var(--green);font-size:11px;font-weight:950}.option-row.correct{border-color:rgba(99,229,70,.22);background:rgba(99,229,70,.065)}.explanation,.objective{margin:12px 0 0;color:var(--muted);line-height:1.58;font-size:13px}.empty-questions{text-align:center;border:1px dashed rgba(99,229,70,.28);border-radius:18px;background:rgba(99,229,70,.045);padding:34px}.empty-questions span{width:58px;height:58px;margin:0 auto 16px;border-radius:18px;display:grid;place-items:center;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.18);color:var(--green);font-size:26px}.empty-questions h3{margin:0;font-size:26px;letter-spacing:-.04em}.empty-questions p{margin:12px auto 18px;color:var(--muted);max-width:520px;line-height:1.6}.command-panel{display:grid;gap:9px}.command-panel .panel-head{margin-bottom:5px}.command-panel button{width:100%;background:rgba(255,255,255,.045);color:var(--white);border:1px solid var(--line)}.command-panel button:first-of-type,.command-panel button:nth-of-type(2){background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;border:0}.generation-list{display:grid;gap:10px}.generation-list div{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(0,0,0,.18);padding:12px}.generation-list strong{display:block;color:var(--white)}.generation-list span,.generation-list p,.muted{display:block;margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.45}.loading-card{width:min(620px,calc(100vw - 40px));margin:14vh auto 0;border:1px solid var(--line);border-radius:26px;background:var(--panel);padding:30px;box-shadow:0 30px 100px rgba(0,0,0,.28)}.loading-card h1{margin:20px 0 0;font-size:42px;line-height:.95;letter-spacing:-.06em}.loading-card p{margin:14px 0 0;color:var(--muted);line-height:1.6}.loading-card button{margin-top:18px;min-height:42px;border-radius:999px;border:0;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}@media(max-width:1320px){.review-hero,.review-layout{grid-template-columns:1fr}.hero-command-card{width:100%}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.ghc-exam-review-page{padding:12px}.review-topbar{align-items:flex-start;flex-direction:column}.topbar-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.review-hero{padding:20px;border-radius:22px}.review-hero h1{font-size:42px}.stats-grid,.info-grid{grid-template-columns:1fr}.option-row{grid-template-columns:34px minmax(0,1fr)}.option-row span{grid-column:2}.panel-head.row{flex-direction:column}}
-    `}</style>
-  );
+function Styles() {
+  return <style>{`
+    :root{--green:${GREEN};--bg:#050706;--panel:rgba(10,14,12,.88);--line:rgba(255,255,255,.09);--white:#f4f6f2;--muted:rgba(244,246,242,.68);--soft:rgba(244,246,242,.42);--warning:#f7c948;--danger:#ff5757}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{transition:.18s ease}button:not(:disabled):hover{transform:translateY(-1px)}button:disabled{opacity:.45;cursor:not-allowed}.page{min-height:100vh;background:var(--bg);color:var(--white);display:grid;grid-template-columns:292px minmax(0,1fr);position:relative}.background{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}.orb{position:absolute;width:520px;height:520px;border-radius:999px;filter:blur(110px)}.orb.one{left:-180px;top:-180px;background:rgba(99,229,70,.1)}.orb.two{right:-240px;top:110px;background:rgba(255,255,255,.05)}.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:42px 42px;opacity:.55;mask-image:radial-gradient(circle at center,black 0%,transparent 84%)}.sidebar{position:sticky;top:0;height:100vh;z-index:2;border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(5,8,7,.97),rgba(3,5,4,.94));padding:22px;display:flex;flex-direction:column;gap:18px}.back-button{height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--white);font-weight:900;cursor:pointer}.brand-card,.side-status{border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.035);padding:16px}.brand-card{display:grid;grid-template-columns:48px minmax(0,1fr);gap:12px;align-items:center}.brand-card>span{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.2);font-weight:950}.brand-card p,.side-status p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.45}.side-nav{display:grid;gap:8px}.side-nav a{text-decoration:none;color:var(--muted);border:1px solid rgba(255,255,255,.06);border-radius:14px;background:rgba(255,255,255,.025);padding:13px 14px;font-weight:850}.side-nav a:hover{color:var(--green);border-color:rgba(99,229,70,.22);background:rgba(99,229,70,.06)}.side-status span{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:950}.side-status strong{display:block;margin-top:8px;font-size:22px;letter-spacing:-.04em;color:var(--green)}.shell{position:relative;z-index:1;padding:18px 20px 36px;display:grid;gap:16px;min-width:0}.build-strip,.notice{border-radius:14px;border:1px solid rgba(99,229,70,.2);background:rgba(99,229,70,.055);padding:12px 14px;color:var(--muted);display:flex;gap:12px;align-items:center;flex-wrap:wrap}.build-strip strong{color:var(--green)}.notice{display:block;color:var(--white)}.hero{min-height:190px;border:1px solid var(--line);border-radius:26px;background:radial-gradient(circle at 82% 18%,rgba(99,229,70,.17),transparent 31%),linear-gradient(135deg,rgba(14,19,16,.96),rgba(7,10,8,.94));display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:26px;align-items:center;padding:28px;box-shadow:0 28px 100px rgba(0,0,0,.28)}.kicker{margin:0 0 10px;color:var(--green);font-size:11px;text-transform:uppercase;letter-spacing:.18em;font-weight:950}.hero h1,.empty-state h1,.loading-card h1{margin:0;font-size:clamp(38px,4.6vw,64px);line-height:.92;letter-spacing:-.065em}.hero p:not(.kicker),.muted{color:var(--muted);line-height:1.62;margin:14px 0 0}.hero-actions{border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.055);border-radius:22px;padding:18px;display:grid;gap:10px}.hero-actions button,.card-head button,.state-actions button,.import-actions button,.primary-wide,.empty-state button{min-height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--white);padding:0 16px;font-weight:950;cursor:pointer}.hero-actions button:first-child,.import-actions button:first-child,.primary-wide,.empty-state button{background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;border-color:transparent;box-shadow:0 14px 34px rgba(99,229,70,.18)}.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat-card,.card,.questions-section,.empty-state,.loading-card{border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:0 22px 80px rgba(0,0,0,.2)}.stat-card{padding:18px;min-height:122px}.stat-card span,.info-box span{display:block;color:var(--muted);font-size:12px;font-weight:850}.stat-card strong{display:block;margin-top:9px;font-size:34px;letter-spacing:-.055em}.stat-card p{margin:6px 0 0;color:var(--muted);font-size:12px}.main-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;align-items:start}.left-column,.right-column{display:grid;gap:14px}.right-column{position:sticky;top:18px}.card,.questions-section{padding:18px}.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px}.card-head h2{margin:0;font-size:25px;line-height:1.02;letter-spacing:-.045em}.status-pill{display:inline-flex;min-height:32px;align-items:center;border-radius:999px;padding:7px 11px;border:1px solid rgba(99,229,70,.26);background:rgba(99,229,70,.1);color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.status-pill.draft-ai{border-color:rgba(247,201,72,.26);background:rgba(247,201,72,.1);color:var(--warning)}.config-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.info-box{border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(0,0,0,.18);padding:12px;min-width:0}.info-box strong{display:block;margin-top:6px;line-height:1.25}.instructions{margin-top:12px;border:1px solid rgba(99,229,70,.18);background:rgba(99,229,70,.055);border-radius:14px;padding:13px}.instructions p{margin:8px 0 0;color:var(--muted);line-height:1.55}.state-actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}.prompt-box,.json-importer textarea{width:100%;min-height:330px;border-radius:16px;border:1px solid rgba(255,255,255,.09);background:rgba(0,0,0,.28);color:var(--white);padding:15px;line-height:1.55;outline:none;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-size:12px}.json-importer{display:grid;gap:12px}.import-actions{display:flex;gap:10px;flex-wrap:wrap}.context-list,.generation-list{display:grid;gap:10px}.context-item,.generation-item{border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.025);padding:12px}.context-item span,.generation-item span{color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.context-item strong,.generation-item strong{display:block;margin-top:6px;line-height:1.25}.context-item p,.generation-item p{margin:7px 0 0;color:var(--muted);font-size:12px;line-height:1.5}.question-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}.question-card{border:1px solid rgba(255,255,255,.08);border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018));padding:16px}.question-top{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.question-top em{font-style:normal;color:var(--green)}.question-card h3{margin:12px 0 10px;font-size:19px;line-height:1.25;letter-spacing:-.025em}.objective{color:var(--muted);font-size:13px;line-height:1.5}.option-list{display:grid;gap:8px;margin-top:12px}.option-row{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(0,0,0,.18);padding:9px}.option-row strong{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.06);color:var(--white)}.option-row p{margin:0;color:var(--muted);line-height:1.42}.option-row span{color:var(--green);font-size:11px;font-weight:950}.option-row.correct{border-color:rgba(99,229,70,.24);background:rgba(99,229,70,.055)}.option-row.correct strong{background:rgba(99,229,70,.12);color:var(--green)}.explanation{margin-top:12px;border-top:1px solid rgba(255,255,255,.07);padding-top:12px}.explanation p{margin:6px 0 0;color:var(--muted);line-height:1.55;font-size:13px}.empty-questions{text-align:center;padding:34px;border:1px dashed rgba(99,229,70,.24);border-radius:18px;background:rgba(99,229,70,.035)}.empty-questions span{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;margin:0 auto 14px;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.2);color:var(--green);font-size:28px}.empty-questions h3{margin:0;font-size:25px}.empty-questions p{color:var(--muted);line-height:1.55}.empty-state,.loading-card{position:relative;z-index:2;width:min(720px,calc(100vw - 40px));place-self:center;padding:32px;text-align:left}.loading-card span{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:rgba(99,229,70,.1);color:var(--green);border:1px solid rgba(99,229,70,.2);font-weight:950}.empty-state p,.loading-card p{color:var(--muted);line-height:1.55}@media(max-width:1200px){.page{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.hero,.main-grid{grid-template-columns:1fr}.right-column{position:static}.stats-grid,.config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.stats-grid,.config-grid,.question-grid{grid-template-columns:1fr}.shell{padding:14px}.hero{padding:20px}.hero h1{font-size:38px}}
+  `}</style>;
 }
