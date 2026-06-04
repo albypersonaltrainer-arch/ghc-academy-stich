@@ -546,7 +546,7 @@ async function fetchOptions(questionIds: string[]): Promise<AnyRecord[]> {
 }
 
 function QuestionCard({ question, options, index }: { question: AnyRecord; options: AnyRecord[]; index: number }) {
-  const normalizedOptions = options.length ? options : legacyOptions(question);
+  const normalizedOptions: AnyRecord[] = options.length ? options : legacyOptions(question);
 
   return (
     <article className="question-card">
@@ -559,7 +559,7 @@ function QuestionCard({ question, options, index }: { question: AnyRecord; optio
         {normalizedOptions.map((option, optionIndex) => (
           <div key={`${question.id}-${option.label || optionIndex}`} className={option.is_correct ? "option-row correct" : "option-row"}>
             <strong>{option.label}</strong>
-            <p>{option.option_text || option.text}</p>
+            <p>{getOptionText(option)}</p>
             {option.is_correct ? <span>Correcta</span> : null}
           </div>
         ))}
@@ -570,7 +570,12 @@ function QuestionCard({ question, options, index }: { question: AnyRecord; optio
   );
 }
 
-function legacyOptions(question: AnyRecord) {
+
+function getOptionText(option: AnyRecord) {
+  return String(option.option_text ?? option.text ?? "");
+}
+
+function legacyOptions(question: AnyRecord): AnyRecord[] {
   const correct = String(question.correct_option || "").toUpperCase();
   return [
     ["A", question.option_a],
