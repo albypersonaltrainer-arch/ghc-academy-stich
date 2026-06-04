@@ -488,19 +488,19 @@ async function fetchBlueprintBundle(blueprintId: string): Promise<BlueprintBundl
   };
 }
 
-async function maybeSingle(table: string, id: string, columns: string) {
+async function maybeSingle(table: string, id: string, columns: string): Promise<AnyRecord | null> {
   const { data } = await supabase.from(table).select(columns).eq("id", id).maybeSingle();
-  return data || null;
+  return data ? (data as unknown as AnyRecord) : null;
 }
 
-async function fetchRows(table: string, columns: string, field: string, value: string, orderField: string, ascending: boolean) {
+async function fetchRows(table: string, columns: string, field: string, value: string, orderField: string, ascending: boolean): Promise<AnyRecord[]> {
   const { data } = await supabase
     .from(table)
     .select(columns)
     .eq(field, value)
     .order(orderField, { ascending });
 
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? (data as unknown as AnyRecord[]) : [];
 }
 
 async function fetchGeneratedExam(blueprint: AnyRecord) {
@@ -520,7 +520,7 @@ async function fetchGeneratedExam(blueprint: AnyRecord) {
   return data || null;
 }
 
-async function fetchBlueprintLessons(blueprintId: string) {
+async function fetchBlueprintLessons(blueprintId: string): Promise<AnyRecord[]> {
   const { data } = await supabase
     .from("exam_blueprint_lessons")
     .select("id,lesson_id,module_id,sort_order,lessons(title)")
@@ -529,20 +529,20 @@ async function fetchBlueprintLessons(blueprintId: string) {
 
   if (!Array.isArray(data)) return [];
 
-  return data.map((row: AnyRecord) => ({
+  return (data as unknown as AnyRecord[]).map((row) => ({
     ...row,
     lesson_title: row.lessons?.title || "",
   }));
 }
 
-async function fetchOptions(questionIds: string[]) {
+async function fetchOptions(questionIds: string[]): Promise<AnyRecord[]> {
   const { data } = await supabase
     .from("exam_question_options")
     .select("*")
     .in("question_id", questionIds)
     .order("sort_order", { ascending: true });
 
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? (data as unknown as AnyRecord[]) : [];
 }
 
 function QuestionCard({ question, options, index }: { question: AnyRecord; options: AnyRecord[]; index: number }) {
