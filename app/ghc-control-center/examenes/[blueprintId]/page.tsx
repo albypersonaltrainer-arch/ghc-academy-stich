@@ -510,7 +510,7 @@ export default function BlueprintDetailPage({ params }: PageProps) {
           </aside>
         </section>
 
-        <section className="questions-section" id="preguntas"><div className="card-head"><div><p className="kicker">Revisión humana</p><h2>Preguntas importadas</h2></div><button type="button" onClick={loadBlueprint}>Refrescar</button></div>{questions.length ? <div className="question-grid">{questions.map((question, index) => <article key={String(question.id || index)} className="question-card"><div className="question-top"><span>Pregunta {index + 1}</span><em>{getQuestionStatusLabel(question.question_status)}</em></div><h3>{question.question}</h3>{question.evaluated_objective ? <p className="objective">{question.evaluated_objective}</p> : null}<div className="option-list">{(groupedOptions.get(String(question.id)) || fallbackOptionsFromQuestion(question)).map((option, optionIndex) => <div key={`${question.id}-${option.label || optionIndex}`} className={option.is_correct ? "option-row correct" : "option-row"}><strong>{option.label}</strong><p>{String(option.option_text || option.text || "")}</p>{option.is_correct ? <span>Correcta</span> : null}</div>)}</div>{question.explanation ? <div className="explanation"><strong>Explicación</strong><p>{question.explanation}</p></div> : null}</article>)}</div> : <article className="empty-questions"><span>◈</span><h3>Sin preguntas todavía</h3><p>Copia el prompt, genera el JSON en ChatGPT/Claude e impórtalo aquí para crear preguntas en borrador.</p></article>}</section>
+        <section className="questions-section" id="preguntas"><div className="card-head"><div><p className="kicker">Revisión humana</p><h2>Preguntas importadas</h2></div><button type="button" onClick={loadBlueprint}>Refrescar</button></div>{questions.length ? <div className="question-grid">{questions.map((question, index) => <article key={String(question.id || index)} className="question-card"><div className="question-top"><span>Pregunta {index + 1}</span><em>{getQuestionStatusLabel(question.question_status)}</em></div><h3>{question.question}</h3>{question.evaluated_objective ? <p className="objective">{question.evaluated_objective}</p> : null}<div className="option-list">{(groupedOptions.get(String(question.id)) || fallbackOptionsFromQuestion(question)).map((option, optionIndex) => <div key={`${question.id}-${option.label || optionIndex}`} className={option.is_correct ? "option-row correct" : "option-row"}><strong>{option.label}</strong><p>{getOptionText(option)}</p>{option.is_correct ? <span>Correcta</span> : null}</div>)}</div>{question.explanation ? <div className="explanation"><strong>Explicación</strong><p>{question.explanation}</p></div> : null}</article>)}</div> : <article className="empty-questions"><span>◈</span><h3>Sin preguntas todavía</h3><p>Copia el prompt, genera el JSON en ChatGPT/Claude e impórtalo aquí para crear preguntas en borrador.</p></article>}</section>
       </section>
     </main>
   );
@@ -658,6 +658,12 @@ function fallbackOptionsFromQuestion(question: AnyRecord) {
     { label: "C", text: question.option_c, is_correct: question.correct_option === "C" },
     { label: "D", text: question.option_d, is_correct: question.correct_option === "D" },
   ].filter((item) => item.text);
+}
+
+
+function getOptionText(option: AnyRecord | { label: string; text?: unknown; option_text?: unknown; is_correct?: boolean }) {
+  const record = option as AnyRecord;
+  return String(record.option_text ?? record.text ?? "");
 }
 
 function exampleJson(answerCount: number) {
