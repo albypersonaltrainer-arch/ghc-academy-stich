@@ -61,6 +61,8 @@ const scopeLabels: Record<string, string> = {
   multi_lesson: "Varias lecciones",
 };
 
+const DETAIL_BUILD_ID = "GHC-EXAM-DETAIL-GENERATE-V3 · botón IA activo";
+
 export default function BlueprintReviewPage() {
   const router = useRouter();
   const params = useParams<{ blueprintId: string }>();
@@ -167,7 +169,7 @@ export default function BlueprintReviewPage() {
 
     setIsGenerating(true);
     setUiState("loading");
-    setMessage("Generando preguntas IA sobre el contenido seleccionado. No cierres esta pantalla.");
+    setMessage(`Botón recibido · ${DETAIL_BUILD_ID}. Generando preguntas IA sobre el contenido seleccionado. No cierres esta pantalla.`);
 
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
