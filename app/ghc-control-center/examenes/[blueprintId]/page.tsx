@@ -48,7 +48,7 @@ type ReviewQuestionForm = {
   evaluated_objective: string;
 };
 
-const BUILD_MARK = "GHC-EXAM-REVIEW-V6 · revisión humana activa · importación controlada";
+const BUILD_MARK = "GHC-EXAM-REVIEW-V7 · revisión humana estable · sin saltos de pantalla";
 const VALID_QUESTION_TYPES = new Set(["test", "true_false", "case_option"]);
 const VALID_DIFFICULTIES = new Set(["basic", "medium", "advanced", "mixed"]);
 const LABELS = ["A", "B", "C", "D", "E", "F"] as const;
@@ -121,23 +121,23 @@ export default function BlueprintDetailPage() {
     return map;
   }, [options]);
 
-  const loadDetail = useCallback(async () => {
+  const loadDetail = useCallback(async (silent = false) => {
     if (!supabase) {
       setAlert({
         type: "error",
         message: "Faltan variables de Supabase en Vercel. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
       });
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
 
     if (!blueprintId) {
       setAlert({ type: "error", message: "No se recibió blueprintId en la URL." });
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (!silent) setLoading(true);
 
     const { data, error } = await supabase.rpc("ghc_admin_get_exam_blueprint_detail", {
       p_blueprint_id: blueprintId,
@@ -149,7 +149,7 @@ export default function BlueprintDetailPage() {
         type: "error",
         message: `No se pudo cargar el borrador: ${error.message}`,
       });
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
 
@@ -159,7 +159,7 @@ export default function BlueprintDetailPage() {
         ? current
         : { type: "idle", message: "" }
     );
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [blueprintId]);
 
   useEffect(() => {
@@ -307,7 +307,7 @@ export default function BlueprintDetailPage() {
       setJsonInput("");
       setValidatedPayload(null);
       setAllowAdditionalImport(false);
-      await loadDetail();
+      await loadDetail(true);
 
       setAlert({
         type: "success",
@@ -420,7 +420,7 @@ export default function BlueprintDetailPage() {
       if (error) throw new Error(error.message || "No se pudo guardar la pregunta editada.");
 
       cancelQuestionEditor();
-      await loadDetail();
+      await loadDetail(true);
       setAlert({ type: "success", message: "Pregunta actualizada correctamente. Queda marcada como editada y lista para aprobación." });
     } catch (error) {
       setAlert({ type: "error", message: getErrorMessage(error) });
@@ -435,7 +435,7 @@ export default function BlueprintDetailPage() {
     try {
       const { error } = await supabase.rpc("ghc_admin_approve_exam_question", { p_question_id: questionId });
       if (error) throw new Error(error.message || "No se pudo aprobar la pregunta.");
-      await loadDetail();
+      await loadDetail(true);
       setAlert({ type: "success", message: "Pregunta aprobada. Se mantiene en borrador interno hasta publicar el examen completo." });
     } catch (error) {
       setAlert({ type: "error", message: getErrorMessage(error) });
@@ -455,7 +455,7 @@ export default function BlueprintDetailPage() {
         p_rejected_reason: reason,
       });
       if (error) throw new Error(error.message || "No se pudo rechazar la pregunta.");
-      await loadDetail();
+      await loadDetail(true);
       setAlert({ type: "warning", message: "Pregunta rechazada. Queda inactiva y pendiente de regeneración/revisión antes de publicar." });
     } catch (error) {
       setAlert({ type: "error", message: getErrorMessage(error) });
@@ -473,8 +473,8 @@ export default function BlueprintDetailPage() {
         p_note: "Marcada para revisión manual desde el panel admin.",
       });
       if (error) throw new Error(error.message || "No se pudo marcar para revisión.");
-      await loadDetail();
-      setAlert({ type: "info", message: "Pregunta marcada como necesita revisión." });
+      await loadDetail(true);
+      setAlert({ type: "info", message: "Pregunta marcada como pendiente de revisión. Es una marca interna para dejarla aparcada y volver a ella después." });
     } catch (error) {
       setAlert({ type: "error", message: getErrorMessage(error) });
     } finally {
@@ -712,7 +712,7 @@ export default function BlueprintDetailPage() {
             <span className={reviewSummary.ready ? "ready-pill ok" : "ready-pill pending"}>
               {reviewSummary.ready ? "Listo para publicar" : "Revisión pendiente"}
             </span>
-            <button type="button" onClick={loadDetail} disabled={working}>
+            <button type="button" onClick={() => loadDetail()} disabled={working}>
               Refrescar
             </button>
           </div>
@@ -841,7 +841,7 @@ export default function BlueprintDetailPage() {
                       <div className="question-actions">
                         <button type="button" onClick={() => approveQuestion(String(question.id))} disabled={working || question.question_status === "approved"}>Aprobar</button>
                         <button type="button" className="secondary" onClick={() => openQuestionEditor(question)} disabled={working}>Editar</button>
-                        <button type="button" className="ghost" onClick={() => markNeedsReview(String(question.id))} disabled={working}>Revisar</button>
+                        <button type="button" className="ghost" onClick={() => markNeedsReview(String(question.id))} disabled={working || question.question_status === "needs_review"}>Marcar para revisar</button>
                         <button type="button" className="danger" onClick={() => rejectQuestion(String(question.id))} disabled={working || question.question_status === "rejected"}>Rechazar</button>
                       </div>
                     </>
