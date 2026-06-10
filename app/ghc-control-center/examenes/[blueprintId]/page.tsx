@@ -32,7 +32,23 @@ type AlertState = {
   message: string;
 };
 
-const BUILD_MARK = "GHC-EXAM-MANUAL-BRIDGE-V5 · lectura RPC · importación controlada";
+type ReviewOptionForm = {
+  label: "A" | "B" | "C" | "D" | "E" | "F";
+  option_text: string;
+  is_correct: boolean;
+};
+
+type ReviewQuestionForm = {
+  question: string;
+  question_type: "test" | "true_false" | "case_option";
+  options: ReviewOptionForm[];
+  correct_label: "A" | "B" | "C" | "D" | "E" | "F";
+  explanation: string;
+  difficulty: "basic" | "medium" | "advanced" | "mixed";
+  evaluated_objective: string;
+};
+
+const BUILD_MARK = "GHC-EXAM-REVIEW-V6 · revisión humana activa · importación controlada";
 const VALID_QUESTION_TYPES = new Set(["test", "true_false", "case_option"]);
 const VALID_DIFFICULTIES = new Set(["basic", "medium", "advanced", "mixed"]);
 const LABELS = ["A", "B", "C", "D", "E", "F"] as const;
@@ -57,6 +73,8 @@ export default function BlueprintDetailPage() {
   const [allowAdditionalImport, setAllowAdditionalImport] = useState(false);
   const [validatedPayload, setValidatedPayload] = useState<ImportPayload | null>(null);
   const [alert, setAlert] = useState<AlertState>({ type: "idle", message: "" });
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<ReviewQuestionForm | null>(null);
 
   const importerRef = useRef<HTMLTextAreaElement | null>(null);
   const questionsRef = useRef<HTMLDivElement | null>(null);
@@ -69,6 +87,24 @@ export default function BlueprintDetailPage() {
   const optionCount = Number(detail?.option_count || options.length || 0);
   const requestedQuestionCount = Number(blueprint?.requested_question_count || 0);
   const answerCount = Number(blueprint?.answer_count || 4);
+
+  const reviewSummary = useMemo(() => {
+    const total = questions.length;
+    const approved = questions.filter((question) => question.question_status === "approved").length;
+    const edited = questions.filter((question) => question.question_status === "edited").length;
+    const rejected = questions.filter((question) => question.question_status === "rejected").length;
+    const draft = questions.filter((question) => question.question_status === "draft_ai").length;
+    const needsReview = questions.filter((question) => question.question_status === "needs_review").length;
+    return {
+      total,
+      approved,
+      edited,
+      rejected,
+      draft,
+      needsReview,
+      ready: total > 0 && rejected === 0 && approved + edited === total,
+    };
+  }, [questions]);
 
   const groupedOptions = useMemo(() => {
     const map = new Map<string, AnyRecord[]>();
@@ -304,6 +340,148 @@ export default function BlueprintDetailPage() {
     }
   };
 
+  const openQuestionEditor = (question: AnyRecord) => {
+    const currentOptions = groupedOptions.get(String(question.id)) || fallbackOptionsFromQuestion(question);
+    const normalizedOptions = buildReviewOptions(currentOptions, answerCount);
+    const correct = normalizedOptions.find((option) => option.is_correct)?.label || String(question.correct_option || "A");
+
+    setEditingQuestionId(String(question.id));
+    setEditForm({
+      question: String(question.question || ""),
+      question_type: normalizeQuestionType(question.question_type) as ReviewQuestionForm["question_type"],
+      options: normalizedOptions,
+      correct_label: LABELS.includes(correct as any) ? (correct as ReviewQuestionForm["correct_label"]) : "A",
+      explanation: String(question.explanation || ""),
+      difficulty: normalizeDifficulty(question.difficulty) as ReviewQuestionForm["difficulty"],
+      evaluated_objective: String(question.evaluated_objective || ""),
+    });
+    setAlert({ type: "info", message: "Modo edición activado. Revisa la pregunta y guarda los cambios antes de aprobar." });
+  };
+
+  const cancelQuestionEditor = () => {
+    setEditingQuestionId(null);
+    setEditForm(null);
+  };
+
+  const setEditOptionText = (label: ReviewOptionForm["label"], value: string) => {
+    setEditForm((current) => current ? {
+      ...current,
+      options: current.options.map((option) => option.label === label ? { ...option, option_text: value } : option),
+    } : current);
+  };
+
+  const setEditCorrectOption = (label: ReviewOptionForm["label"]) => {
+    setEditForm((current) => current ? {
+      ...current,
+      correct_label: label,
+      options: current.options.map((option) => ({ ...option, is_correct: option.label === label })),
+    } : current);
+  };
+
+  const saveQuestionEdit = async () => {
+    if (!supabase || !editingQuestionId || !editForm) return;
+
+    const cleanOptions = editForm.options
+      .map((option) => ({
+        label: option.label,
+        option_text: option.option_text.trim(),
+        is_correct: option.label === editForm.correct_label,
+      }))
+      .filter((option) => option.option_text);
+
+    if (!editForm.question.trim()) {
+      setAlert({ type: "error", message: "La pregunta no puede estar vacía." });
+      return;
+    }
+
+    if (cleanOptions.length < 2) {
+      setAlert({ type: "error", message: "La pregunta debe tener al menos dos opciones." });
+      return;
+    }
+
+    if (!cleanOptions.some((option) => option.is_correct)) {
+      setAlert({ type: "error", message: "Debes marcar una respuesta correcta." });
+      return;
+    }
+
+    setWorking(true);
+    try {
+      const { error } = await supabase.rpc("ghc_admin_update_review_question", {
+        p_question_id: editingQuestionId,
+        p_question: editForm.question.trim(),
+        p_question_type: editForm.question_type,
+        p_options: cleanOptions,
+        p_correct_label: editForm.correct_label,
+        p_explanation: editForm.explanation.trim(),
+        p_difficulty: editForm.difficulty,
+        p_evaluated_objective: editForm.evaluated_objective.trim(),
+      });
+
+      if (error) throw new Error(error.message || "No se pudo guardar la pregunta editada.");
+
+      cancelQuestionEditor();
+      await loadDetail();
+      setAlert({ type: "success", message: "Pregunta actualizada correctamente. Queda marcada como editada y lista para aprobación." });
+    } catch (error) {
+      setAlert({ type: "error", message: getErrorMessage(error) });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const approveQuestion = async (questionId: string) => {
+    if (!supabase || !questionId) return;
+    setWorking(true);
+    try {
+      const { error } = await supabase.rpc("ghc_admin_approve_exam_question", { p_question_id: questionId });
+      if (error) throw new Error(error.message || "No se pudo aprobar la pregunta.");
+      await loadDetail();
+      setAlert({ type: "success", message: "Pregunta aprobada. Se mantiene en borrador interno hasta publicar el examen completo." });
+    } catch (error) {
+      setAlert({ type: "error", message: getErrorMessage(error) });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const rejectQuestion = async (questionId: string) => {
+    if (!supabase || !questionId) return;
+    const reason = window.prompt("Motivo del rechazo para esta pregunta:", "Necesita ser regenerada o revisada.");
+    if (reason === null) return;
+    setWorking(true);
+    try {
+      const { error } = await supabase.rpc("ghc_admin_reject_exam_question", {
+        p_question_id: questionId,
+        p_rejected_reason: reason,
+      });
+      if (error) throw new Error(error.message || "No se pudo rechazar la pregunta.");
+      await loadDetail();
+      setAlert({ type: "warning", message: "Pregunta rechazada. Queda inactiva y pendiente de regeneración/revisión antes de publicar." });
+    } catch (error) {
+      setAlert({ type: "error", message: getErrorMessage(error) });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const markNeedsReview = async (questionId: string) => {
+    if (!supabase || !questionId) return;
+    setWorking(true);
+    try {
+      const { error } = await supabase.rpc("ghc_admin_mark_exam_question_needs_review", {
+        p_question_id: questionId,
+        p_note: "Marcada para revisión manual desde el panel admin.",
+      });
+      if (error) throw new Error(error.message || "No se pudo marcar para revisión.");
+      await loadDetail();
+      setAlert({ type: "info", message: "Pregunta marcada como necesita revisión." });
+    } catch (error) {
+      setAlert({ type: "error", message: getErrorMessage(error) });
+    } finally {
+      setWorking(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="page-shell">
@@ -522,14 +700,22 @@ export default function BlueprintDetailPage() {
       </section>
 
       <section className="questions-section" ref={questionsRef}>
-        <div className="panel-head">
+        <div className="panel-head review-head">
           <div>
             <p className="eyebrow">Revisión humana</p>
             <h2>Preguntas importadas</h2>
+            <p className="review-summary">
+              {reviewSummary.approved} aprobadas · {reviewSummary.edited} editadas · {reviewSummary.draft} borradores · {reviewSummary.rejected} rechazadas · {reviewSummary.needsReview} en revisión
+            </p>
           </div>
-          <button type="button" onClick={loadDetail} disabled={working}>
-            Refrescar
-          </button>
+          <div className="review-head-actions">
+            <span className={reviewSummary.ready ? "ready-pill ok" : "ready-pill pending"}>
+              {reviewSummary.ready ? "Listo para publicar" : "Revisión pendiente"}
+            </span>
+            <button type="button" onClick={loadDetail} disabled={working}>
+              Refrescar
+            </button>
+          </div>
         </div>
 
         {questions.length ? (
@@ -537,35 +723,129 @@ export default function BlueprintDetailPage() {
             {questions.map((question, index) => {
               const optionRows = groupedOptions.get(String(question.id)) || fallbackOptionsFromQuestion(question);
               return (
-                <article key={String(question.id || index)} className="question-card">
+                <article key={String(question.id || index)} className={`question-card status-${String(question.question_status || "draft_ai")}`}>
                   <div className="question-top">
                     <span>Pregunta {index + 1}</span>
                     <em>{getQuestionStatusLabel(question.question_status)}</em>
                   </div>
-                  <h3>{question.question}</h3>
-                  {question.evaluated_objective ? (
-                    <p className="objective">{question.evaluated_objective}</p>
-                  ) : null}
 
-                  <div className="option-list">
-                    {optionRows.map((option, optionIndex) => (
-                      <div
-                        key={`${String(question.id)}-${String(option.label || optionIndex)}`}
-                        className={option.is_correct ? "option-row correct" : "option-row"}
-                      >
-                        <strong>{String(option.label || LABELS[optionIndex] || "?")}</strong>
-                        <p>{getOptionText(option)}</p>
-                        {option.is_correct ? <span>Correcta</span> : null}
+                  {editingQuestionId === String(question.id) && editForm ? (
+                    <div className="edit-box">
+                      <label>
+                        <span>Pregunta</span>
+                        <textarea
+                          value={editForm.question}
+                          onChange={(event) => setEditForm({ ...editForm, question: event.target.value })}
+                        />
+                      </label>
+
+                      <div className="edit-meta-grid">
+                        <label>
+                          <span>Tipo</span>
+                          <select
+                            value={editForm.question_type}
+                            onChange={(event) => setEditForm({ ...editForm, question_type: event.target.value as ReviewQuestionForm["question_type"] })}
+                          >
+                            <option value="test">Test</option>
+                            <option value="true_false">Verdadero/Falso</option>
+                            <option value="case_option">Caso práctico</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>Dificultad</span>
+                          <select
+                            value={editForm.difficulty}
+                            onChange={(event) => setEditForm({ ...editForm, difficulty: event.target.value as ReviewQuestionForm["difficulty"] })}
+                          >
+                            <option value="basic">Básica</option>
+                            <option value="medium">Media</option>
+                            <option value="advanced">Avanzada</option>
+                            <option value="mixed">Mixta</option>
+                          </select>
+                        </label>
                       </div>
-                    ))}
-                  </div>
 
-                  {question.explanation ? (
-                    <div className="explanation">
-                      <strong>Explicación</strong>
-                      <p>{question.explanation}</p>
+                      <label>
+                        <span>Objetivo evaluado</span>
+                        <input
+                          value={editForm.evaluated_objective}
+                          onChange={(event) => setEditForm({ ...editForm, evaluated_objective: event.target.value })}
+                        />
+                      </label>
+
+                      <div className="edit-options">
+                        {editForm.options.map((option) => (
+                          <div key={option.label} className="edit-option-row">
+                            <button
+                              type="button"
+                              className={editForm.correct_label === option.label ? "correct-selector active" : "correct-selector"}
+                              onClick={() => setEditCorrectOption(option.label)}
+                            >
+                              {option.label}
+                            </button>
+                            <input
+                              value={option.option_text}
+                              onChange={(event) => setEditOptionText(option.label, event.target.value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <label>
+                        <span>Explicación didáctica</span>
+                        <textarea
+                          value={editForm.explanation}
+                          onChange={(event) => setEditForm({ ...editForm, explanation: event.target.value })}
+                        />
+                      </label>
+
+                      <div className="question-actions edit-actions">
+                        <button type="button" onClick={saveQuestionEdit} disabled={working}>Guardar cambios</button>
+                        <button type="button" className="ghost" onClick={cancelQuestionEditor} disabled={working}>Cancelar</button>
+                      </div>
                     </div>
-                  ) : null}
+                  ) : (
+                    <>
+                      <h3>{question.question}</h3>
+                      {question.evaluated_objective ? (
+                        <p className="objective">{question.evaluated_objective}</p>
+                      ) : null}
+
+                      <div className="option-list">
+                        {optionRows.map((option, optionIndex) => (
+                          <div
+                            key={`${String(question.id)}-${String(option.label || optionIndex)}`}
+                            className={option.is_correct ? "option-row correct" : "option-row"}
+                          >
+                            <strong>{String(option.label || LABELS[optionIndex] || "?")}</strong>
+                            <p>{getOptionText(option)}</p>
+                            {option.is_correct ? <span>Correcta</span> : null}
+                          </div>
+                        ))}
+                      </div>
+
+                      {question.explanation ? (
+                        <div className="explanation">
+                          <strong>Explicación</strong>
+                          <p>{question.explanation}</p>
+                        </div>
+                      ) : null}
+
+                      {question.rejected_reason ? (
+                        <div className="rejected-note">
+                          <strong>Motivo de rechazo</strong>
+                          <p>{question.rejected_reason}</p>
+                        </div>
+                      ) : null}
+
+                      <div className="question-actions">
+                        <button type="button" onClick={() => approveQuestion(String(question.id))} disabled={working || question.question_status === "approved"}>Aprobar</button>
+                        <button type="button" className="secondary" onClick={() => openQuestionEditor(question)} disabled={working}>Editar</button>
+                        <button type="button" className="ghost" onClick={() => markNeedsReview(String(question.id))} disabled={working}>Revisar</button>
+                        <button type="button" className="danger" onClick={() => rejectQuestion(String(question.id))} disabled={working || question.question_status === "rejected"}>Rechazar</button>
+                      </div>
+                    </>
+                  )}
                 </article>
               );
             })}
@@ -837,6 +1117,32 @@ function appendPromptContent(parts: string[], modules: AnyRecord[], lessons: Any
         .join("\n")
     );
   }
+}
+
+function buildReviewOptions(optionRows: AnyRecord[], answerCount: number): ReviewOptionForm[] {
+  const expected = Math.max(2, Math.min(6, Number(answerCount || 4)));
+  const rowsByLabel = new Map<string, AnyRecord>();
+
+  for (const row of optionRows) {
+    const label = String(row.label || "").toUpperCase();
+    if (LABELS.includes(label as any)) rowsByLabel.set(label, row);
+  }
+
+  const labels = LABELS.slice(0, expected);
+  const options = labels.map((label) => {
+    const row = rowsByLabel.get(label);
+    return {
+      label,
+      option_text: getOptionText(row || {}),
+      is_correct: Boolean(row?.is_correct),
+    };
+  });
+
+  if (!options.some((option) => option.is_correct) && options[0]) {
+    options[0].is_correct = true;
+  }
+
+  return options;
 }
 
 function fallbackOptionsFromQuestion(question: AnyRecord): AnyRecord[] {
@@ -1447,4 +1753,38 @@ const styles = `
       grid-column: 2;
     }
   }
+  .review-head { align-items: flex-start; }
+  .review-summary { margin: 8px 0 0; color: rgba(244,242,234,0.62); font-size: 13px; }
+  .review-head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .ready-pill { border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+  .ready-pill.ok { border-color: rgba(34,214,91,0.38); color: #22d65b; background: rgba(34,214,91,0.08); }
+  .ready-pill.pending { border-color: rgba(245,158,11,0.35); color: #fbbf24; background: rgba(245,158,11,0.08); }
+  .question-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .question-actions button { border: 1px solid rgba(34,214,91,0.32); background: rgba(34,214,91,0.12); color: #f4f2ea; border-radius: 14px; padding: 10px 14px; font-weight: 800; cursor: pointer; }
+  .question-actions button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .question-actions .secondary { border-color: rgba(148,163,184,0.3); background: rgba(148,163,184,0.1); }
+  .question-actions .ghost { border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); }
+  .question-actions .danger { border-color: rgba(248,113,113,0.34); background: rgba(248,113,113,0.1); color: #fecaca; }
+  .status-approved { border-color: rgba(34,214,91,0.34) !important; }
+  .status-rejected { border-color: rgba(248,113,113,0.34) !important; opacity: 0.82; }
+  .status-edited { border-color: rgba(56,189,248,0.30) !important; }
+  .edit-box { display: grid; gap: 14px; }
+  .edit-box label { display: grid; gap: 7px; color: rgba(244,242,234,0.78); font-size: 13px; font-weight: 700; }
+  .edit-box textarea, .edit-box input, .edit-box select { width: 100%; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.32); color: #f4f2ea; border-radius: 14px; padding: 12px 13px; outline: none; }
+  .edit-box textarea { min-height: 92px; resize: vertical; }
+  .edit-meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+  .edit-options { display: grid; gap: 10px; }
+  .edit-option-row { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center; }
+  .correct-selector { border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); color: #f4f2ea; border-radius: 12px; padding: 12px 0; font-weight: 900; cursor: pointer; }
+  .correct-selector.active { border-color: rgba(34,214,91,0.5); background: rgba(34,214,91,0.18); color: #22d65b; }
+  .edit-actions { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px; }
+  .rejected-note { margin-top: 14px; border: 1px solid rgba(248,113,113,0.25); background: rgba(248,113,113,0.08); border-radius: 16px; padding: 14px; }
+  .rejected-note strong { color: #fecaca; }
+  .rejected-note p { margin: 6px 0 0; color: rgba(244,242,234,0.72); }
+
+  @media (max-width: 760px) {
+    .edit-meta-grid { grid-template-columns: 1fr; }
+    .review-head-actions { justify-content: flex-start; }
+  }
+
 `;
