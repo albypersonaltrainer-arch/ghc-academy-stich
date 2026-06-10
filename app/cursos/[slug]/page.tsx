@@ -48,6 +48,7 @@ const emptyFinalExamState: FinalExamState = {
   message: '',
 };
 
+const BUILD_MARK = 'GHC-COURSE-FINAL-EXAM-GATE-V1 · certificado condicionado al examen final';
 const GREEN = '#63E546';
 
 const supabase = createClient(
@@ -68,21 +69,9 @@ export default function CourseDetailPage() {
   const [moduleCompletions, setModuleCompletions] = useState<AnyRecord[]>([]);
   const [courseCompletion, setCourseCompletion] = useState<AnyRecord | null>(null);
   const [realCertificate, setRealCertificate] = useState<AnyRecord | null>(null);
+  const [bestFinalExamAttempt, setBestFinalExamAttempt] = useState<AnyRecord | null>(null);
   const [finalExamState, setFinalExamState] = useState<FinalExamState>(emptyFinalExamState);
   const [currentHash, setCurrentHash] = useState('');
-
-  useEffect(() => {
-    const syncHash = () => {
-      setCurrentHash(window.location.hash || '');
-    };
-
-    syncHash();
-    window.addEventListener('hashchange', syncHash);
-
-    return () => {
-      window.removeEventListener('hashchange', syncHash);
-    };
-  }, []);
 
   const [previewModuleCompletions, setPreviewModuleCompletions] = useState<AnyRecord[]>([]);
   const [previewCourseCompletion, setPreviewCourseCompletion] = useState<AnyRecord | null>(null);
@@ -92,10 +81,18 @@ export default function CourseDetailPage() {
   const [systemMessage, setSystemMessage] = useState('');
 
   useEffect(() => {
+    const syncHash = () => setCurrentHash(window.location.hash || '');
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
+  }, []);
+
+  useEffect(() => {
     async function loadCourseDetail() {
       try {
         setLoading(true);
         setSystemMessage('');
+        setBestFinalExamAttempt(null);
 
         const { data: userData } = await supabase.auth.getUser();
         const activeUser = userData?.user || null;
@@ -134,33 +131,36 @@ export default function CourseDetailPage() {
             message: 'No se pudo cargar el examen final del curso.',
           });
         } else if (finalExamData?.id) {
-          const { data: finalQuestionsData, error: finalQuestionsError } = await supabase
-            .from('exam_questions')
-            .select('*')
-            .eq('exam_id', finalExamData.id)
-            .order('sort_order', { ascending: true });
+          const questions = await loadPublishedExamQuestions(finalExamData.id);
 
-          if (finalQuestionsError) {
-            console.error('Error cargando preguntas del examen final:', finalQuestionsError);
-            setFinalExamState({
-              exam: finalExamData,
-              questions: [],
-              selectedAnswers: {},
-              result: null,
-              loading: false,
-              submitting: false,
-              message: 'El examen final existe, pero no se pudieron cargar sus preguntas.',
-            });
-          } else {
-            setFinalExamState({
-              exam: finalExamData,
-              questions: Array.isArray(finalQuestionsData) ? finalQuestionsData : [],
-              selectedAnswers: {},
-              result: null,
-              loading: false,
-              submitting: false,
-              message: '',
-            });
+          setFinalExamState({
+            exam: finalExamData,
+            questions,
+            selectedAnswers: {},
+            result: null,
+            loading: false,
+            submitting: false,
+            message: '',
+          });
+
+          if (activeUser?.id) {
+            const { data: attemptData, error: attemptError } = await supabase
+              .from('exam_attempts')
+              .select('*')
+              .eq('user_id', activeUser.id)
+              .eq('course_id', courseData.id)
+              .eq('exam_id', finalExamData.id)
+              .order('passed', { ascending: false })
+              .order('score', { ascending: false })
+              .order('completed_at', { ascending: false, nullsFirst: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (attemptError) {
+              console.error('Error cargando intento de examen final:', attemptError);
+            }
+
+            setBestFinalExamAttempt(attemptData || null);
           }
         } else {
           setFinalExamState({
@@ -194,16 +194,11 @@ export default function CourseDetailPage() {
           return;
         }
 
-        const orderedModules = Array.isArray(modulesData)
-          ? [...modulesData].sort(sortModules)
-          : [];
-
+        const orderedModules = Array.isArray(modulesData) ? [...modulesData].sort(sortModules) : [];
         setModules(orderedModules);
 
         if (orderedModules.length === 0) {
-          setSystemMessage(
-            'Curso cargado correctamente, pero todavía no se han encontrado módulos asociados.'
-          );
+          setSystemMessage('Curso cargado correctamente, pero todavía no se han encontrado módulos asociados.');
           setLessons([]);
           setLoading(false);
           return;
@@ -221,10 +216,7 @@ export default function CourseDetailPage() {
           setSystemMessage('Curso cargado, pero no se pudieron cargar las lecciones.');
           setLessons([]);
         } else {
-          const orderedLessons = Array.isArray(lessonsData)
-            ? [...lessonsData].sort(sortLessons)
-            : [];
-
+          const orderedLessons = Array.isArray(lessonsData) ? [...lessonsData].sort(sortLessons) : [];
           setLessons(orderedLessons);
         }
 
@@ -245,15 +237,15 @@ export default function CourseDetailPage() {
             .eq('course_id', courseData.id)
             .eq('completed', true);
 
-          setModuleCompletions(
-            Array.isArray(moduleCompletionData) ? moduleCompletionData : []
-          );
+          setModuleCompletions(Array.isArray(moduleCompletionData) ? moduleCompletionData : []);
 
           const { data: courseCompletionData } = await supabase
             .from('course_completions')
             .select('*')
             .eq('user_id', activeUser.id)
             .eq('course_id', courseData.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
             .maybeSingle();
 
           setCourseCompletion(courseCompletionData || null);
@@ -264,6 +256,8 @@ export default function CourseDetailPage() {
             .eq('user_id', activeUser.id)
             .eq('course_id', courseData.id)
             .eq('status', 'valid')
+            .order('created_at', { ascending: false })
+            .limit(1)
             .maybeSingle();
 
           setRealCertificate(certificateData || null);
@@ -276,26 +270,73 @@ export default function CourseDetailPage() {
       }
     }
 
-    if (slug) {
-      loadCourseDetail();
-    }
+    if (slug) loadCourseDetail();
   }, [slug]);
+
+  async function loadPublishedExamQuestions(examId: string) {
+    const { data: questionsData, error: questionsError } = await supabase
+      .from('exam_questions')
+      .select('*')
+      .eq('exam_id', examId)
+      .eq('is_active', true)
+      .in('question_status', ['approved', 'edited'])
+      .order('sort_order', { ascending: true });
+
+    if (questionsError) {
+      console.error('Error cargando preguntas del examen final:', questionsError);
+      return [];
+    }
+
+    const questions = Array.isArray(questionsData) ? [...questionsData] : [];
+    const questionIds = questions.map((question) => question.id).filter(Boolean);
+
+    if (!questionIds.length) return questions;
+
+    const { data: optionsData, error: optionsError } = await supabase
+      .from('exam_question_options')
+      .select('*')
+      .in('question_id', questionIds)
+      .order('sort_order', { ascending: true });
+
+    if (optionsError) {
+      console.error('Error cargando opciones del examen final:', optionsError);
+      return questions;
+    }
+
+    const optionsByQuestion = new Map<string, AnyRecord[]>();
+    (Array.isArray(optionsData) ? optionsData : []).forEach((option) => {
+      const key = String(option.question_id || '');
+      const current = optionsByQuestion.get(key) || [];
+      current.push(option);
+      optionsByQuestion.set(key, current);
+    });
+
+    return questions.map((question) => {
+      const rows = optionsByQuestion.get(String(question.id)) || [];
+      const normalized = { ...question };
+
+      rows.forEach((option) => {
+        const label = normalizeOption(option.label);
+        if (['A', 'B', 'C', 'D', 'E', 'F'].includes(label)) {
+          normalized[`option_${label.toLowerCase()}`] = option.option_text || option.text || '';
+          if (option.is_correct) normalized.correct_option = label;
+        }
+      });
+
+      return normalized;
+    });
+  }
 
   function loadPreviewModuleCompletions(courseId: string) {
     try {
       if (typeof window === 'undefined') return;
-
-      const storageKey = `ghc_preview_module_completions_${courseId}`;
-      const raw = window.localStorage.getItem(storageKey);
-
+      const raw = window.localStorage.getItem(`ghc_preview_module_completions_${courseId}`);
       if (!raw) {
         setPreviewModuleCompletions([]);
         return;
       }
-
       const parsed = JSON.parse(raw);
       const records = Object.values(parsed || {}) as AnyRecord[];
-
       setPreviewModuleCompletions(records.filter((item) => item?.completed));
     } catch (error) {
       console.error('Error leyendo preview module completions:', error);
@@ -306,23 +347,13 @@ export default function CourseDetailPage() {
   function loadPreviewCourseCompletion(courseId: string) {
     try {
       if (typeof window === 'undefined') return;
-
-      const storageKey = `ghc_preview_course_completion_${courseId}`;
-      const raw = window.localStorage.getItem(storageKey);
-
+      const raw = window.localStorage.getItem(`ghc_preview_course_completion_${courseId}`);
       if (!raw) {
         setPreviewCourseCompletion(null);
         return;
       }
-
       const parsed = JSON.parse(raw);
-
-      if (parsed?.completed) {
-        setPreviewCourseCompletion(parsed);
-        return;
-      }
-
-      setPreviewCourseCompletion(null);
+      setPreviewCourseCompletion(parsed?.completed ? parsed : null);
     } catch (error) {
       console.error('Error leyendo preview course completion:', error);
       setPreviewCourseCompletion(null);
@@ -332,23 +363,13 @@ export default function CourseDetailPage() {
   function loadPreviewCertificate(courseId: string) {
     try {
       if (typeof window === 'undefined') return;
-
-      const storageKey = `ghc_preview_certificate_${courseId}`;
-      const raw = window.localStorage.getItem(storageKey);
-
+      const raw = window.localStorage.getItem(`ghc_preview_certificate_${courseId}`);
       if (!raw) {
         setPreviewCertificate(null);
         return;
       }
-
       const parsed = JSON.parse(raw);
-
-      if (parsed?.certificate_id && parsed?.status === 'valid') {
-        setPreviewCertificate(parsed);
-        return;
-      }
-
-      setPreviewCertificate(null);
+      setPreviewCertificate(parsed?.certificate_id && parsed?.status === 'valid' ? parsed : null);
     } catch (error) {
       console.error('Error leyendo preview certificate:', error);
       setPreviewCertificate(null);
@@ -357,52 +378,40 @@ export default function CourseDetailPage() {
 
   const effectiveModuleCompletions = useMemo(() => {
     if (user?.id) return moduleCompletions;
-
     const byModuleId = new Map<string, AnyRecord>();
-
     previewModuleCompletions.forEach((item) => {
-      if (item?.module_id) {
-        byModuleId.set(String(item.module_id), item);
-      }
+      if (item?.module_id) byModuleId.set(String(item.module_id), item);
     });
-
     return Array.from(byModuleId.values());
   }, [user, moduleCompletions, previewModuleCompletions]);
 
-  const effectiveCourseCompletion = user?.id
-    ? courseCompletion
-    : previewCourseCompletion;
+  const effectiveCourseCompletion = user?.id ? courseCompletion : previewCourseCompletion;
+  const effectiveCertificate = user?.id ? realCertificate : previewCertificate;
 
-  const effectiveCertificate = user?.id
-    ? realCertificate
-    : previewCertificate;
-
-  const completedLessonIds = useMemo(() => {
-    return new Set(lessonProgress.map((item) => String(item.lesson_id)));
-  }, [lessonProgress]);
-
-  const completedModuleIds = useMemo(() => {
-    return new Set(effectiveModuleCompletions.map((item) => String(item.module_id)));
-  }, [effectiveModuleCompletions]);
+  const completedLessonIds = useMemo(() => new Set(lessonProgress.map((item) => String(item.lesson_id))), [lessonProgress]);
+  const completedModuleIds = useMemo(() => new Set(effectiveModuleCompletions.map((item) => String(item.module_id))), [effectiveModuleCompletions]);
 
   const totalLessons = lessons.length;
   const completedLessons = lessonProgress.length;
+  const lessonProgressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
-  const lessonProgressPercent =
-    totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+  const allModulesCompleted = modules.length > 0 && modules.every((module) => completedModuleIds.has(String(module.id)));
+  const completedModulesCount = modules.filter((module) => completedModuleIds.has(String(module.id))).length;
 
-  const isCourseCompleted = Boolean(effectiveCourseCompletion?.completed);
+  const finalExamExists = Boolean(finalExamState.exam?.id);
+  const finalExamPassed = Boolean(finalExamState.result?.passed || bestFinalExamAttempt?.passed);
+  const finalExamScore = Number(finalExamState.result?.score ?? bestFinalExamAttempt?.score ?? effectiveCourseCompletion?.final_score ?? 0);
 
-  const allModulesCompleted =
-    modules.length > 0 &&
-    modules.every((module) => completedModuleIds.has(String(module.id)));
+  // Regla nueva oficial:
+  // si hay examen final publicado, el curso solo se considera superado cuando existe intento aprobado.
+  // el 100% de lecciones ya no desbloquea certificado por sí solo.
+  const isCourseCompleted = finalExamExists
+    ? finalExamPassed
+    : Boolean(effectiveCourseCompletion?.completed);
 
-  const completedModulesCount = modules.filter((module) =>
-    completedModuleIds.has(String(module.id))
-  ).length;
-
-  const finalExamUnlocked = allModulesCompleted && !isCourseCompleted;
-  const certificateAvailable = isCourseCompleted;
+  const finalExamUnlocked = finalExamExists && allModulesCompleted && !finalExamPassed;
+  const certificateAvailable = Boolean(isCourseCompleted && finalExamPassed);
+  const certificateBlockedByExam = finalExamExists && allModulesCompleted && !finalExamPassed;
 
   const courseHeroStyle = {
     '--course-hero-image': `url(${getPremiumCourseImageUrl(course || {})})`,
@@ -416,26 +425,18 @@ export default function CourseDetailPage() {
 
       const moduleLessons = getModuleLessons(String(module.id));
       const moduleCompleted = completedModuleIds.has(String(module.id));
-
       const pending = moduleLessons.find((lesson) => !completedLessonIds.has(String(lesson.id)));
 
       if (pending) return pending;
-
-      if (!moduleCompleted && moduleLessons[0]) {
-        return moduleLessons[0];
-      }
+      if (!moduleCompleted && moduleLessons[0]) return moduleLessons[0];
     }
 
     for (let moduleIndex = modules.length - 1; moduleIndex >= 0; moduleIndex -= 1) {
       const module = modules[moduleIndex];
       const unlocked = isModuleUnlocked(module, moduleIndex);
       if (!unlocked) continue;
-
       const moduleLessons = getModuleLessons(String(module.id));
-
-      if (moduleLessons[0]) {
-        return moduleLessons[0];
-      }
+      if (moduleLessons[0]) return moduleLessons[0];
     }
 
     return lessons[0] || null;
@@ -443,39 +444,19 @@ export default function CourseDetailPage() {
 
   const activeModule = useMemo(() => {
     if (!firstAvailableLesson?.module_id) return modules[0] || null;
-
-    return (
-      modules.find((module) => String(module.id) === String(firstAvailableLesson.module_id)) ||
-      modules[0] ||
-      null
-    );
+    return modules.find((module) => String(module.id) === String(firstAvailableLesson.module_id)) || modules[0] || null;
   }, [modules, firstAvailableLesson]);
 
-  const activeModuleLessons = activeModule ? getModuleLessons(String(activeModule.id)) : [];
-  const activeModuleCompletedLessons = activeModuleLessons.filter((lesson) =>
-    completedLessonIds.has(String(lesson.id))
-  ).length;
-
-  const activeModulePercent =
-    activeModuleLessons.length > 0
-      ? Math.round((activeModuleCompletedLessons / activeModuleLessons.length) * 100)
-      : 0;
-
   function getModuleLessons(moduleId: string) {
-    return lessons
-      .filter((lesson) => String(lesson.module_id) === String(moduleId))
-      .sort(sortLessons);
+    return lessons.filter((lesson) => String(lesson.module_id) === String(moduleId)).sort(sortLessons);
   }
 
   function isModuleUnlocked(module: AnyRecord, index: number) {
     if (index === 0) return true;
     if (isCourseCompleted) return true;
     if (completedModuleIds.has(String(module.id))) return true;
-
     const previousModule = modules[index - 1];
-
     if (!previousModule) return false;
-
     return completedModuleIds.has(String(previousModule.id));
   }
 
@@ -504,8 +485,8 @@ export default function CourseDetailPage() {
     if (!finalExamUnlocked) {
       setFinalExamState((previous) => ({
         ...previous,
-        message: isCourseCompleted
-          ? 'Este curso ya figura como completado.'
+        message: finalExamPassed
+          ? 'Este examen final ya figura como superado.'
           : 'Primero completa todos los módulos para desbloquear el examen final.',
       }));
       return;
@@ -519,9 +500,7 @@ export default function CourseDetailPage() {
       return;
     }
 
-    const allAnswered = finalExamState.questions.every((question) =>
-      Boolean(finalExamState.selectedAnswers[String(question.id)])
-    );
+    const allAnswered = finalExamState.questions.every((question) => Boolean(finalExamState.selectedAnswers[String(question.id)]));
 
     if (!allAnswered) {
       setFinalExamState((previous) => ({
@@ -532,16 +511,11 @@ export default function CourseDetailPage() {
     }
 
     try {
-      setFinalExamState((previous) => ({
-        ...previous,
-        submitting: true,
-        message: 'Corrigiendo examen final...',
-      }));
+      setFinalExamState((previous) => ({ ...previous, submitting: true, message: 'Corrigiendo examen final...' }));
 
       const evaluatedAnswers = finalExamState.questions.map((question) => {
         const selected = finalExamState.selectedAnswers[String(question.id)];
         const correct = normalizeOption(selected) === normalizeOption(question.correct_option);
-
         return {
           question_id: question.id,
           question: question.question,
@@ -554,8 +528,9 @@ export default function CourseDetailPage() {
       const correctAnswers = evaluatedAnswers.filter((answer) => answer.is_correct).length;
       const totalQuestions = finalExamState.questions.length;
       const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
-      const passScore = Number(finalExamState.exam.pass_score || finalExamState.exam.passing_score || 70);
+      const passScore = Number(finalExamState.exam.pass_score || finalExamState.exam.passing_score || finalExamState.exam.pass_percentage || 70);
       const passed = score >= passScore;
+      const now = new Date().toISOString();
 
       const { data: attemptData, error: attemptError } = await supabase
         .from('exam_attempts')
@@ -568,8 +543,8 @@ export default function CourseDetailPage() {
           correct_answers: correctAnswers,
           passed,
           answers: evaluatedAnswers,
-          started_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
+          started_at: now,
+          completed_at: now,
         })
         .select('*')
         .maybeSingle();
@@ -584,13 +559,8 @@ export default function CourseDetailPage() {
         return;
       }
 
-      const result: FinalExamResult = {
-        score,
-        totalQuestions,
-        correctAnswers,
-        passed,
-      };
-
+      const result: FinalExamResult = { score, totalQuestions, correctAnswers, passed };
+      setBestFinalExamAttempt(attemptData || null);
       setFinalExamState((previous) => ({
         ...previous,
         result,
@@ -601,10 +571,7 @@ export default function CourseDetailPage() {
       }));
 
       if (passed) {
-        await saveCourseCompletion({
-          examAttemptId: attemptData?.id || null,
-          score,
-        });
+        await saveCourseCompletion({ examAttemptId: attemptData?.id || null, score });
       }
     } catch (error) {
       console.error('Error inesperado enviando examen final:', error);
@@ -616,15 +583,10 @@ export default function CourseDetailPage() {
     }
   }
 
-  async function saveCourseCompletion({
-    examAttemptId,
-    score,
-  }: {
-    examAttemptId: string | null;
-    score: number;
-  }) {
+  async function saveCourseCompletion({ examAttemptId, score }: { examAttemptId: string | null; score: number }) {
     if (!user?.id || !course?.id || !finalExamState.exam?.id) return;
 
+    const now = new Date().toISOString();
     const payload = {
       user_id: user.id,
       course_id: course.id,
@@ -632,8 +594,8 @@ export default function CourseDetailPage() {
       exam_attempt_id: examAttemptId,
       completed: true,
       final_score: score,
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      completed_at: now,
+      updated_at: now,
     };
 
     const { data: existing } = await supabase
@@ -655,53 +617,36 @@ export default function CourseDetailPage() {
 
       if (error) {
         console.error('Error actualizando course_completions:', error);
-        setFinalExamState((previous) => ({
-          ...previous,
-          message: 'Examen superado, pero no se pudo actualizar course_completions.',
-        }));
+        setFinalExamState((previous) => ({ ...previous, message: 'Examen superado, pero no se pudo actualizar course_completions.' }));
         return;
       }
 
       const savedCompletion = data || payload;
       setCourseCompletion(savedCompletion);
       const issuedCertificate = await ensureCertificateForCompletion(savedCompletion);
-
       if (issuedCertificate) {
-        setFinalExamState((previous) => ({
-          ...previous,
-          message: `${previous.message} Certificado emitido automáticamente.`,
-        }));
+        setFinalExamState((previous) => ({ ...previous, message: `${previous.message} Certificado emitido automáticamente.` }));
       }
       return;
     }
 
     const { data, error } = await supabase
       .from('course_completions')
-      .insert({
-        ...payload,
-        created_at: new Date().toISOString(),
-      })
+      .insert({ ...payload, created_at: now })
       .select('*')
       .maybeSingle();
 
     if (error) {
       console.error('Error creando course_completions:', error);
-      setFinalExamState((previous) => ({
-        ...previous,
-        message: 'Examen superado, pero no se pudo crear course_completions.',
-      }));
+      setFinalExamState((previous) => ({ ...previous, message: 'Examen superado, pero no se pudo crear course_completions.' }));
       return;
     }
 
     const savedCompletion = data || payload;
     setCourseCompletion(savedCompletion);
     const issuedCertificate = await ensureCertificateForCompletion(savedCompletion);
-
     if (issuedCertificate) {
-      setFinalExamState((previous) => ({
-        ...previous,
-        message: `${previous.message} Certificado emitido automáticamente.`,
-      }));
+      setFinalExamState((previous) => ({ ...previous, message: `${previous.message} Certificado emitido automáticamente.` }));
     }
   }
 
@@ -760,16 +705,12 @@ export default function CourseDetailPage() {
       return null;
     }
 
-    if (insertedCertificate) {
-      setRealCertificate(insertedCertificate);
-    }
-
+    if (insertedCertificate) setRealCertificate(insertedCertificate);
     return insertedCertificate || null;
   }
 
   async function getCertificateStudentName() {
     if (!user?.id) return 'Alumno GHC Academy';
-
     const metadataName = String(user?.user_metadata?.full_name || '').trim();
     if (metadataName) return metadataName;
 
@@ -779,9 +720,7 @@ export default function CourseDetailPage() {
       .eq('id', user.id)
       .maybeSingle();
 
-    if (error) {
-      console.error('Error cargando nombre para certificado:', error);
-    }
+    if (error) console.error('Error cargando nombre para certificado:', error);
 
     const profileName = String(profileData?.full_name || '').trim();
     const profileEmail = String(profileData?.email || '').trim();
@@ -791,7 +730,7 @@ export default function CourseDetailPage() {
   }
 
   async function issueCertificate() {
-    if (!course || !effectiveCourseCompletion?.completed) return;
+    if (!course || !effectiveCourseCompletion?.completed || !finalExamPassed) return;
 
     if (!user?.id) {
       issuePreviewCertificate();
@@ -799,38 +738,27 @@ export default function CourseDetailPage() {
     }
 
     const issuedCertificate = await ensureCertificateForCompletion(effectiveCourseCompletion);
-
-    if (!issuedCertificate) {
-      alert('No se pudo emitir el certificado real. Revisa Supabase.');
-    }
+    if (!issuedCertificate) alert('No se pudo emitir el certificado real. Revisa Supabase.');
   }
 
   function issuePreviewCertificate() {
-    if (!course || !effectiveCourseCompletion?.completed) return;
+    if (!course || !effectiveCourseCompletion?.completed || !finalExamPassed) return;
 
     const now = new Date();
-    const certificateId = crypto.randomUUID();
     const identifiers = generateCertificateIdentifiers();
-    const code = identifiers.code;
-    const verificationSlug = identifiers.slug;
-
     const certificate: PreviewCertificate = {
-      certificate_id: certificateId,
-      certificate_code: code,
-      verification_slug: verificationSlug,
+      certificate_id: crypto.randomUUID(),
+      certificate_code: identifiers.code,
+      verification_slug: identifiers.slug,
       student_name: 'Alumno GHC Academy',
       course_id: String(course.id),
       course_title: String(course.title || 'Curso GHC Academy'),
-      final_score: Number(effectiveCourseCompletion.final_score || 100),
+      final_score: Number(effectiveCourseCompletion.final_score || finalExamScore || 100),
       issued_at: now.toISOString(),
       status: 'valid',
     };
 
-    window.localStorage.setItem(
-      `ghc_preview_certificate_${course.id}`,
-      JSON.stringify(certificate)
-    );
-
+    window.localStorage.setItem(`ghc_preview_certificate_${course.id}`, JSON.stringify(certificate));
     setPreviewCertificate(certificate);
   }
 
@@ -841,7 +769,7 @@ export default function CourseDetailPage() {
         <section className="loading-card">
           <GHCLogo size="md" showText tagline={false} />
           <h1>Cargando curso</h1>
-          <span>Preparando módulos, lecciones y progreso del alumno.</span>
+          <span>Preparando módulos, lecciones, evaluación y certificado.</span>
         </section>
         <GlobalStyles />
       </main>
@@ -863,19 +791,12 @@ export default function CourseDetailPage() {
     );
   }
 
-  const certificateLink = effectiveCertificate
-    ? `/certificados/${effectiveCertificate.verification_slug}`
-    : '';
-
-  const continueHref = firstAvailableLesson
-    ? `/cursos/${slug}/${firstAvailableLesson.id}`
-    : `/cursos/${slug}`;
-
+  const certificateLink = effectiveCertificate ? `/certificados/${effectiveCertificate.verification_slug}` : '';
+  const continueHref = firstAvailableLesson ? `/cursos/${slug}/${firstAvailableLesson.id}` : `/cursos/${slug}`;
   const courseTypeLabel = course.course_type || course.type || 'Curso';
   const levelLabel = course.level || 'Nivel GHC';
-  const durationLabel = Number(course.duration_minutes || 0) > 0
-    ? `${Number(course.duration_minutes || 0)} min`
-    : 'A tu ritmo';
+  const durationLabel = Number(course.duration_minutes || 0) > 0 ? `${Number(course.duration_minutes || 0)} min` : 'A tu ritmo';
+  const evaluationStateLabel = finalExamPassed ? 'Curso completado' : finalExamUnlocked ? 'Disponible' : 'Bloqueado';
 
   return (
     <main className="course-dashboard-page">
@@ -897,53 +818,12 @@ export default function CourseDetailPage() {
         </Link>
 
         <nav className="side-nav" aria-label="Navegación del alumno">
-          <Link href="/alumno" className="side-item">
-            <span>▦</span>
-            <div>
-              <strong>Panel</strong>
-              <small>Resumen</small>
-            </div>
-          </Link>
-
-          <Link href="/alumno" className="side-item active">
-            <span>▧</span>
-            <div>
-              <strong>Mis cursos</strong>
-              <small>Cursos activos</small>
-            </div>
-          </Link>
-
-          <a href="#modulos" className="side-item">
-            <span>▤</span>
-            <div>
-              <strong>Itinerario</strong>
-              <small>Módulos</small>
-            </div>
-          </a>
-
-          <a href="#evaluacion" className="side-item">
-            <span>☑</span>
-            <div>
-              <strong>Evaluaciones</strong>
-              <small>Examen final</small>
-            </div>
-          </a>
-
-          <a href="#certificado" className="side-item">
-            <span>▱</span>
-            <div>
-              <strong>Certificados</strong>
-              <small>Credenciales</small>
-            </div>
-          </a>
-
-          <Link href="/alumno" className="side-item">
-            <span>⌁</span>
-            <div>
-              <strong>Rendimiento</strong>
-              <small>Perfil</small>
-            </div>
-          </Link>
+          <Link href="/alumno" className="side-item"><span>▦</span><div><strong>Panel</strong><small>Resumen</small></div></Link>
+          <Link href="/alumno" className="side-item active"><span>▧</span><div><strong>Mis cursos</strong><small>Cursos activos</small></div></Link>
+          <a href="#modulos" className="side-item"><span>▤</span><div><strong>Itinerario</strong><small>Módulos</small></div></a>
+          <a href="#evaluacion" className="side-item"><span>☑</span><div><strong>Evaluaciones</strong><small>Examen final</small></div></a>
+          <a href="#certificado" className="side-item"><span>▱</span><div><strong>Certificados</strong><small>Credenciales</small></div></a>
+          <Link href="/alumno" className="side-item"><span>⌁</span><div><strong>Rendimiento</strong><small>Perfil</small></div></Link>
         </nav>
 
         <div className="student-card">
@@ -953,34 +833,18 @@ export default function CourseDetailPage() {
           <Link href="/alumno">Cerrar sesión</Link>
         </div>
 
-        <div className="weather-card">
-          <span />
-          <div>
-            <strong>31°C</strong>
-            <small>Soleado</small>
-          </div>
-          <em>⌄</em>
-        </div>
+        <div className="weather-card"><span /><div><strong>31°C</strong><small>Soleado</small></div><em>⌄</em></div>
       </aside>
 
       <section className="course-shell">
         <header className="topbar">
           <div className="breadcrumb">
-            <Link href="/alumno">Panel</Link>
-            <span>›</span>
-            <Link href="/alumno">Mis cursos</Link>
-            <span>›</span>
-            <strong>{course.title || 'Curso GHC'}</strong>
+            <Link href="/alumno">Panel</Link><span>›</span><Link href="/alumno">Mis cursos</Link><span>›</span><strong>{course.title || 'Curso GHC'}</strong>
           </div>
-
-          <div className="toplinks">
-            <Link href="/alumno">Inicio</Link>
-            <Link href="/cursos" className="green-link">Explorar cursos</Link>
-            <span className="bell">3</span>
-            <span className="avatar-mini">A</span>
-          </div>
+          <div className="toplinks"><Link href="/alumno">Inicio</Link><Link href="/cursos" className="green-link">Explorar cursos</Link><span className="bell">3</span><span className="avatar-mini">A</span></div>
         </header>
 
+        <div className="build-ribbon">{BUILD_MARK}</div>
         {systemMessage && <div className="notice">{systemMessage}</div>}
 
         <div className={currentHash === '#evaluacion' ? 'dashboard-layout evaluation-focus' : 'dashboard-layout'}>
@@ -989,18 +853,13 @@ export default function CourseDetailPage() {
               <div>
                 <p className="kicker">Curso activo</p>
                 <h1>{course.title}</h1>
-                <p>
-                  {course.description ||
-                    'Formación premium basada en ciencia aplicada, estructura y rendimiento.'}
-                </p>
+                <p>{course.description || 'Formación premium basada en ciencia aplicada, estructura y rendimiento.'}</p>
               </div>
 
               <div className="course-progress-inline">
                 <span>Progreso del curso</span>
                 <strong>{lessonProgressPercent}%</strong>
-                <div className="progress-mini">
-                  <div style={{ width: `${lessonProgressPercent}%` }} />
-                </div>
+                <div className="progress-mini"><div style={{ width: `${lessonProgressPercent}%` }} /></div>
               </div>
             </section>
 
@@ -1013,14 +872,9 @@ export default function CourseDetailPage() {
               </div>
 
               <div className="hero-actions">
-                <Link href={continueHref} className="primary-action">
-                  ▶ Continuar curso
-                </Link>
-                <a href="#recursos" className="secondary-action">
-                  ▥ Ver recursos
-                </a>
+                <Link href={continueHref} className="primary-action">▶ Continuar curso</Link>
+                <a href="#recursos" className="secondary-action">▥ Ver recursos</a>
               </div>
-
               <div className="hero-image" />
             </section>
 
@@ -1032,130 +886,46 @@ export default function CourseDetailPage() {
             </nav>
 
             <section id="modulos" className="modules-section">
-              <div className="section-title-row">
-                <p className="kicker">Módulos del curso</p>
-                <span>{completedModulesCount}/{modules.length} completados</span>
-              </div>
-
+              <div className="section-title-row"><p className="kicker">Módulos del curso</p><span>{completedModulesCount}/{modules.length} completados</span></div>
               <div className="modules-list">
                 {modules.map((module, index) => {
                   const moduleLessons = getModuleLessons(String(module.id));
                   const unlocked = isModuleUnlocked(module, index);
                   const moduleCompleted = completedModuleIds.has(String(module.id));
-
-                  const completionRecord = effectiveModuleCompletions.find(
-                    (item) => String(item.module_id) === String(module.id)
-                  );
-
-                  const completedInModule = moduleLessons.filter((lesson) =>
-                    completedLessonIds.has(String(lesson.id))
-                  ).length;
-
-                  const modulePercent =
-                    moduleLessons.length > 0
-                      ? Math.round((completedInModule / moduleLessons.length) * 100)
-                      : 0;
-
-                  const expanded =
-                    activeModule?.id
-                      ? String(activeModule.id) === String(module.id)
-                      : index === 0;
+                  const completionRecord = effectiveModuleCompletions.find((item) => String(item.module_id) === String(module.id));
+                  const completedInModule = moduleLessons.filter((lesson) => completedLessonIds.has(String(lesson.id))).length;
+                  const modulePercent = moduleLessons.length > 0 ? Math.round((completedInModule / moduleLessons.length) * 100) : 0;
+                  const expanded = activeModule?.id ? String(activeModule.id) === String(module.id) : index === 0;
 
                   return (
-                    <article
-                      key={module.id}
-                      className={[
-                        'module-card',
-                        expanded ? 'expanded' : '',
-                        moduleCompleted ? 'completed' : '',
-                        !unlocked ? 'locked' : '',
-                      ].filter(Boolean).join(' ')}
-                    >
+                    <article key={module.id} className={['module-card', expanded ? 'expanded' : '', moduleCompleted ? 'completed' : '', !unlocked ? 'locked' : ''].filter(Boolean).join(' ')}>
                       <div className="module-header">
-                        <div className="module-index">
-                          <span>{index + 1}</span>
-                        </div>
-
-                        <div className="module-copy">
-                          <strong>{module.title || `Módulo ${index + 1}`}</strong>
-                          <small>
-                            {module.description || 'Bloque formativo de GHC Academy.'}
-                          </small>
-                        </div>
-
-                        <div className="module-state">
-                          <strong>{modulePercent}%</strong>
-                          <span className={moduleCompleted ? 'dot done' : modulePercent > 0 ? 'dot working' : 'dot'} />
-                          <em>{expanded ? '⌃' : '⌄'}</em>
-                        </div>
+                        <div className="module-index"><span>{index + 1}</span></div>
+                        <div className="module-copy"><strong>{module.title || `Módulo ${index + 1}`}</strong><small>{module.description || 'Bloque formativo de GHC Academy.'}</small></div>
+                        <div className="module-state"><strong>{modulePercent}%</strong><span className={moduleCompleted ? 'dot done' : modulePercent > 0 ? 'dot working' : 'dot'} /><em>{expanded ? '⌃' : '⌄'}</em></div>
                       </div>
 
                       {expanded && (
                         <div className="lessons-list">
-                          {moduleLessons.length === 0 && (
-                            <div className="lesson-row empty">
-                              <div>
-                                <strong>Lecciones pendientes de crear</strong>
-                                <span>Este módulo todavía no tiene contenido visible.</span>
-                              </div>
-                              <em>—</em>
-                            </div>
-                          )}
+                          {moduleLessons.length === 0 && <div className="lesson-row empty"><div><strong>Lecciones pendientes de crear</strong><span>Este módulo todavía no tiene contenido visible.</span></div><em>—</em></div>}
 
                           {moduleLessons.map((lesson, lessonIndex) => {
                             const lessonCompleted = completedLessonIds.has(String(lesson.id));
                             const lessonType = getLessonTypeLabel(lesson);
-                            const isCurrent =
-                              firstAvailableLesson?.id &&
-                              String(firstAvailableLesson.id) === String(lesson.id);
-
+                            const isCurrent = firstAvailableLesson?.id && String(firstAvailableLesson.id) === String(lesson.id);
                             return (
-                              <div
-                                key={lesson.id}
-                                className={[
-                                  'lesson-row',
-                                  lessonCompleted ? 'completed' : '',
-                                  isCurrent ? 'current' : '',
-                                ].filter(Boolean).join(' ')}
-                              >
-                                <span className="lesson-icon">
-                                  {lessonCompleted ? '✓' : isCurrent ? '▶' : '▤'}
-                                </span>
-
-                                <div className="lesson-name">
-                                  <small>Lección {index + 1}.{lessonIndex + 1}</small>
-                                  <strong>{lesson.title || 'Lección GHC'}</strong>
-                                </div>
-
+                              <div key={lesson.id} className={['lesson-row', lessonCompleted ? 'completed' : '', isCurrent ? 'current' : ''].filter(Boolean).join(' ')}>
+                                <span className="lesson-icon">{lessonCompleted ? '✓' : isCurrent ? '▶' : '▤'}</span>
+                                <div className="lesson-name"><small>Lección {index + 1}.{lessonIndex + 1}</small><strong>{lesson.title || 'Lección GHC'}</strong></div>
                                 <span className="lesson-kind">{lessonType}</span>
-
-                                <span className="lesson-status">
-                                  {lessonCompleted ? 'Completada' : isCurrent ? 'En progreso' : unlocked ? 'Disponible' : 'Bloqueada'}
-                                </span>
-
-                                <span className="lesson-duration">
-                                  {Number(lesson.duration_minutes || 0) > 0
-                                    ? `${Number(lesson.duration_minutes || 0)} min`
-                                    : '—'}
-                                </span>
-
-                                {unlocked ? (
-                                  <Link href={`/cursos/${slug}/${lesson.id}`}>
-                                    Abrir
-                                  </Link>
-                                ) : (
-                                  <em>🔒</em>
-                                )}
+                                <span className="lesson-status">{lessonCompleted ? 'Completada' : isCurrent ? 'En progreso' : unlocked ? 'Disponible' : 'Bloqueada'}</span>
+                                <span className="lesson-duration">{Number(lesson.duration_minutes || 0) > 0 ? `${Number(lesson.duration_minutes || 0)} min` : '—'}</span>
+                                {unlocked ? <Link href={`/cursos/${slug}/${lesson.id}`}>Abrir</Link> : <em>🔒</em>}
                               </div>
                             );
                           })}
 
-                          {moduleCompleted && (
-                            <div className="module-score">
-                              Módulo aprobado · Nota: {completionRecord?.final_score || 0}%
-                              {!user ? ' · Preview' : ''}
-                            </div>
-                          )}
+                          {moduleCompleted && <div className="module-score">Módulo aprobado · Nota: {completionRecord?.final_score || 0}%{!user ? ' · Preview' : ''}</div>}
                         </div>
                       )}
                     </article>
@@ -1164,45 +934,20 @@ export default function CourseDetailPage() {
               </div>
             </section>
 
-            <section id="evaluacion" className={finalExamUnlocked || isCourseCompleted ? 'main-evaluation-section active' : 'main-evaluation-section locked'}>
+            <section id="evaluacion" className={finalExamUnlocked || finalExamPassed ? 'main-evaluation-section active' : 'main-evaluation-section locked'}>
               <div className="section-title-row evaluation-title-row">
-                <div>
-                  <p className="kicker">Evaluación final</p>
-                  <h2>{finalExamState.exam?.title || 'Examen final del curso'}</h2>
-                </div>
-                <span>
-                  {isCourseCompleted
-                    ? 'Curso completado'
-                    : finalExamUnlocked
-                      ? 'Disponible'
-                      : 'Bloqueado'}
-                </span>
+                <div><p className="kicker">Evaluación final</p><h2>{finalExamState.exam?.title || 'Examen final del curso'}</h2></div>
+                <span>{evaluationStateLabel}</span>
               </div>
 
               <div className="evaluation-main-card">
                 <div className="evaluation-main-copy">
-                  <span className="evaluation-pill">
-                    {finalExamState.questions.length || 3} preguntas · Aprobado mínimo {Number(finalExamState.exam?.pass_score || finalExamState.exam?.passing_score || 70)}%
-                  </span>
-
-                  <h3>
-                    {isCourseCompleted
-                      ? 'Curso superado'
-                      : finalExamUnlocked
-                        ? 'Completa la evaluación final para cerrar oficialmente el curso'
-                        : 'Completa todos los módulos para desbloquear la evaluación final'}
-                  </h3>
-
-                  <p>
-                    {isCourseCompleted
-                      ? `Curso superado con ${Number(effectiveCourseCompletion?.final_score || 100)}%. Ya puedes pasar a la emisión del certificado.`
-                      : finalExamUnlocked
-                        ? 'Responde las preguntas finales. Al aprobar, la plataforma registrará el curso como completado y se desbloqueará la certificación.'
-                        : 'El examen final se activa cuando todos los módulos del curso están aprobados.'}
-                  </p>
+                  <span className="evaluation-pill">{finalExamState.questions.length || 3} preguntas · Aprobado mínimo {Number(finalExamState.exam?.pass_score || finalExamState.exam?.passing_score || finalExamState.exam?.pass_percentage || 70)}%</span>
+                  <h3>{finalExamPassed ? 'Curso superado' : finalExamUnlocked ? 'Realiza la evaluación final para desbloquear el certificado' : 'Completa todos los módulos para desbloquear la evaluación final'}</h3>
+                  <p>{finalExamPassed ? `Evaluación final superada con ${finalExamScore || 100}%. Ya puedes emitir o consultar tu certificado.` : finalExamUnlocked ? 'Responde las preguntas finales. Al aprobar, la plataforma registrará el curso como completado y desbloqueará la certificación digital.' : 'El examen final se activa cuando todos los módulos del curso están aprobados.'}</p>
                 </div>
 
-                {finalExamUnlocked && !isCourseCompleted ? (
+                {finalExamUnlocked ? (
                   <div className="final-exam-box main-final-exam-box">
                     {finalExamState.loading ? (
                       <p className="exam-helper">Cargando examen final...</p>
@@ -1210,75 +955,35 @@ export default function CourseDetailPage() {
                       <p className="exam-helper">{finalExamState.message || 'El examen final todavía no tiene preguntas configuradas.'}</p>
                     ) : (
                       <>
-                        <div className="final-exam-meta">
-                          <span>{finalExamState.questions.length} preguntas</span>
-                          <span>Aprobado mínimo {Number(finalExamState.exam?.pass_score || finalExamState.exam?.passing_score || 70)}%</span>
-                        </div>
-
+                        <div className="final-exam-meta"><span>{finalExamState.questions.length} preguntas</span><span>Aprobado mínimo {Number(finalExamState.exam?.pass_score || finalExamState.exam?.passing_score || finalExamState.exam?.pass_percentage || 70)}%</span></div>
                         <div className="final-question-list main-final-question-list">
                           {finalExamState.questions.map((question, index) => (
                             <article key={question.id} className="final-question-card main-final-question-card">
                               <h4>{index + 1}. {question.question}</h4>
-
                               {['A', 'B', 'C', 'D'].map((option) => {
                                 const optionText = question[`option_${option.toLowerCase()}`];
                                 if (!optionText) return null;
-
-                                const checked =
-                                  finalExamState.selectedAnswers[String(question.id)] === option;
-
+                                const checked = finalExamState.selectedAnswers[String(question.id)] === option;
                                 return (
                                   <label key={option} className={checked ? 'final-answer selected' : 'final-answer'}>
-                                    <input
-                                      type="radio"
-                                      name={`final-question-${question.id}`}
-                                      checked={checked}
-                                      onChange={() => selectFinalExamAnswer(String(question.id), option)}
-                                    />
-                                    <span>{option}</span>
-                                    <p>{optionText}</p>
+                                    <input type="radio" name={`final-question-${question.id}`} checked={checked} onChange={() => selectFinalExamAnswer(String(question.id), option)} />
+                                    <span>{option}</span><p>{optionText}</p>
                                   </label>
                                 );
                               })}
                             </article>
                           ))}
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={submitFinalExam}
-                          disabled={finalExamState.submitting}
-                          className="primary-action as-button full"
-                        >
-                          {finalExamState.submitting ? 'Enviando...' : 'Enviar examen final'}
-                        </button>
-
-                        {finalExamState.result ? (
-                          <div className={finalExamState.result.passed ? 'final-result passed' : 'final-result failed'}>
-                            <strong>{finalExamState.result.score}%</strong>
-                            <span>
-                              {finalExamState.result.correctAnswers} de {finalExamState.result.totalQuestions} correctas ·{' '}
-                              {finalExamState.result.passed ? 'Superado' : 'No superado'}
-                            </span>
-                          </div>
-                        ) : null}
-
-                        {finalExamState.message ? (
-                          <p className="exam-helper">{finalExamState.message}</p>
-                        ) : null}
+                        <button type="button" onClick={submitFinalExam} disabled={finalExamState.submitting} className="primary-action as-button full">{finalExamState.submitting ? 'Enviando...' : 'Enviar examen final'}</button>
+                        {finalExamState.result ? <div className={finalExamState.result.passed ? 'final-result passed' : 'final-result failed'}><strong>{finalExamState.result.score}%</strong><span>{finalExamState.result.correctAnswers} de {finalExamState.result.totalQuestions} correctas · {finalExamState.result.passed ? 'Superado' : 'No superado'}</span></div> : null}
+                        {finalExamState.message ? <p className="exam-helper">{finalExamState.message}</p> : null}
                       </>
                     )}
                   </div>
                 ) : (
                   <div className="evaluation-locked-box">
-                    <div className="module-side-progress">
-                      <div style={{ width: `${isCourseCompleted ? 100 : lessonProgressPercent}%` }} />
-                    </div>
-                    <p>
-                      {isCourseCompleted
-                        ? 'La evaluación final ya está superada.'
-                        : `${completedModulesCount} de ${modules.length} módulos completados.`}
-                    </p>
+                    <div className="module-side-progress"><div style={{ width: `${finalExamPassed ? 100 : lessonProgressPercent}%` }} /></div>
+                    <p>{finalExamPassed ? 'La evaluación final ya está superada.' : `${completedModulesCount} de ${modules.length} módulos completados.`}</p>
                   </div>
                 )}
               </div>
@@ -1288,111 +993,32 @@ export default function CourseDetailPage() {
           <aside className="right-column">
             <section className="side-panel progress-panel">
               <p className="panel-title">Tu progreso</p>
-
               <div className="progress-ring-row">
-                <div
-                  className="progress-ring"
-                  style={{
-                    background: `conic-gradient(var(--green) ${lessonProgressPercent * 3.6}deg, rgba(255,255,255,.08) 0deg)`,
-                  }}
-                >
-                  <div>
-                    <strong>{lessonProgressPercent}%</strong>
-                    <span>completado</span>
-                  </div>
-                </div>
-
-                <div className="progress-stats">
-                  <div>
-                    <span>Módulos completados</span>
-                    <strong>{completedModulesCount} de {modules.length}</strong>
-                  </div>
-                  <div>
-                    <span>Lecciones completadas</span>
-                    <strong>{completedLessons} de {totalLessons}</strong>
-                  </div>
-                  <div>
-                    <span>Tipo</span>
-                    <strong>{courseTypeLabel}</strong>
-                  </div>
-                </div>
+                <div className="progress-ring" style={{ background: `conic-gradient(var(--green) ${lessonProgressPercent * 3.6}deg, rgba(255,255,255,.08) 0deg)` }}><div><strong>{lessonProgressPercent}%</strong><span>completado</span></div></div>
+                <div className="progress-stats"><div><span>Módulos completados</span><strong>{completedModulesCount} de {modules.length}</strong></div><div><span>Lecciones completadas</span><strong>{completedLessons} de {totalLessons}</strong></div><div><span>Tipo</span><strong>{courseTypeLabel}</strong></div></div>
               </div>
-
               <Link href="/alumno" className="panel-link">↗ Ver rendimiento detallado</Link>
             </section>
 
             <section className="side-panel next-panel">
-              <p className="panel-title">Siguiente lección</p>
-
-              <div className="next-lesson">
-                <div className="thumb" />
-                <div>
-                  <span>
-                    {activeModule ? activeModule.title || 'Módulo actual' : 'Curso GHC'}
-                  </span>
-                  <strong>{firstAvailableLesson?.title || 'Lección pendiente'}</strong>
-                  <small>
-                    {firstAvailableLesson ? 'En progreso' : 'Sin lecciones disponibles'}
-                  </small>
-                </div>
-              </div>
-
-              <Link href={continueHref} className="primary-action full">
-                Continuar lección ▶
-              </Link>
+              <p className="panel-title">Siguiente paso</p>
+              <div className="next-lesson"><div className="thumb" /><div><span>{finalExamUnlocked ? 'Evaluación final' : activeModule?.title || 'Curso GHC'}</span><strong>{finalExamUnlocked ? 'Examen final disponible' : firstAvailableLesson?.title || 'Lección pendiente'}</strong><small>{finalExamUnlocked ? 'Pendiente' : firstAvailableLesson ? 'En progreso' : 'Sin lecciones disponibles'}</small></div></div>
+              <Link href={finalExamUnlocked ? '#evaluacion' : continueHref} className="primary-action full">{finalExamUnlocked ? 'Ir al examen final ▶' : 'Continuar lección ▶'}</Link>
             </section>
 
             <section id="recursos" className="side-panel resources-panel">
               <p className="panel-title">Recursos privados</p>
-
-              <div className="resource-row">
-                <span>▤ Guías y PDFs</span>
-                <strong>{lessons.filter((lesson) => hasLessonPdf(lesson)).length} archivos</strong>
-              </div>
-              <div className="resource-row">
-                <span>▣ Vídeos</span>
-                <strong>{lessons.filter((lesson) => hasLessonVideo(lesson)).length} vídeos</strong>
-              </div>
-              <div className="resource-row">
-                <span>◉ Audio</span>
-                <strong>{lessons.filter((lesson) => hasLessonAudio(lesson)).length} audios</strong>
-              </div>
-
+              <div className="resource-row"><span>▤ Guías y PDFs</span><strong>{lessons.filter((lesson) => hasLessonPdf(lesson)).length} archivos</strong></div>
+              <div className="resource-row"><span>▣ Vídeos</span><strong>{lessons.filter((lesson) => hasLessonVideo(lesson)).length} vídeos</strong></div>
+              <div className="resource-row"><span>◉ Audio</span><strong>{lessons.filter((lesson) => hasLessonAudio(lesson)).length} audios</strong></div>
               <a href="#modulos" className="panel-link">↗ Ver todos los recursos</a>
             </section>
 
             <section id="certificado" className={certificateAvailable || effectiveCertificate ? 'side-panel certificate-panel active' : 'side-panel certificate-panel'}>
               <p className="panel-title">Certificación</p>
-
-              <strong>
-                {effectiveCertificate
-                  ? 'Certificado emitido'
-                  : certificateAvailable
-                    ? 'Certificado disponible'
-                    : 'Bloqueado'}
-              </strong>
-
-              <p>
-                {effectiveCertificate
-                  ? `Código ${effectiveCertificate.certificate_code}`
-                  : certificateAvailable
-                    ? 'Puedes emitir la certificación digital.'
-                    : 'Completa el curso para desbloquear la certificación.'}
-              </p>
-
-              {effectiveCertificate ? (
-                <Link href={certificateLink} className="secondary-action full">
-                  Ver certificado
-                </Link>
-              ) : certificateAvailable ? (
-                <button type="button" onClick={issueCertificate} className="primary-action as-button full">
-                  Emitir certificado
-                </button>
-              ) : (
-                <button type="button" className="disabled-button" disabled>
-                  Pendiente
-                </button>
-              )}
+              <strong>{effectiveCertificate ? 'Certificado emitido' : certificateAvailable ? 'Certificado disponible' : certificateBlockedByExam ? 'Examen final pendiente' : 'Bloqueado'}</strong>
+              <p>{effectiveCertificate ? `Código ${effectiveCertificate.certificate_code}` : certificateAvailable ? 'Puedes emitir la certificación digital.' : certificateBlockedByExam ? 'Aprueba la evaluación final para desbloquear la certificación.' : 'Completa el curso para desbloquear la certificación.'}</p>
+              {effectiveCertificate ? <Link href={certificateLink} className="secondary-action full">Ver certificado</Link> : certificateAvailable ? <button type="button" onClick={issueCertificate} className="primary-action as-button full">Emitir certificado</button> : <button type="button" className="disabled-button" disabled>Pendiente</button>}
             </section>
           </aside>
         </div>
@@ -1403,72 +1029,28 @@ export default function CourseDetailPage() {
   );
 }
 
-
 function getCourseImage(course: AnyRecord) {
-  return (
-    course?.cover_image ||
-    course?.cover_image_url ||
-    course?.image ||
-    course?.image_url ||
-    course?.thumbnail ||
-    course?.thumbnail_url ||
-    ''
-  );
+  return course?.cover_image || course?.cover_image_url || course?.image || course?.image_url || course?.thumbnail || course?.thumbnail_url || '';
 }
 
 function getPremiumCourseImageUrl(course: AnyRecord) {
   const realImage = getCourseImage(course);
-
   if (realImage) return realImage;
 
-  const raw = [
-    course?.title,
-    course?.subtitle,
-    course?.description,
-    course?.category,
-    course?.level,
-    course?.tags,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  if (raw.includes('nutric') || raw.includes('dieta') || raw.includes('suplement')) {
-    return 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1400&q=80';
-  }
-
-  if (raw.includes('salud') || raw.includes('ciencia') || raw.includes('science') || raw.includes('fisiolog')) {
-    return 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1400&q=80';
-  }
-
-  if (raw.includes('rendimiento') || raw.includes('performance') || raw.includes('atleta')) {
-    return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1400&q=80';
-  }
-
-  if (raw.includes('entren') || raw.includes('fitness') || raw.includes('fuerza') || raw.includes('personal')) {
-    return 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1400&q=80';
-  }
-
+  const raw = [course?.title, course?.subtitle, course?.description, course?.category, course?.level, course?.tags].filter(Boolean).join(' ').toLowerCase();
+  if (raw.includes('nutric') || raw.includes('dieta') || raw.includes('suplement')) return 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1400&q=80';
+  if (raw.includes('salud') || raw.includes('ciencia') || raw.includes('science') || raw.includes('fisiolog')) return 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1400&q=80';
+  if (raw.includes('rendimiento') || raw.includes('performance') || raw.includes('atleta')) return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1400&q=80';
+  if (raw.includes('entren') || raw.includes('fitness') || raw.includes('fuerza') || raw.includes('personal')) return 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1400&q=80';
   return 'https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1400&q=80';
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
+  return <div className="metric"><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function Background() {
-  return (
-    <div className="background" aria-hidden="true">
-      <div className="orb orb-one" />
-      <div className="orb orb-two" />
-      <div className="grid-texture" />
-    </div>
-  );
+  return <div className="background" aria-hidden="true"><div className="orb orb-one" /><div className="orb orb-two" /><div className="grid-texture" /></div>;
 }
 
 function normalizeOption(value: unknown) {
@@ -1480,15 +1062,7 @@ function generateCertificateIdentifiers() {
   const serial = 320000 + Math.floor(Math.random() * 680000);
   const suffix = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, 'X');
   const slugSuffix = Math.random().toString(36).slice(2, 10).toLowerCase().padEnd(8, 'x');
-
-  return {
-    code: `GHC-${year}-${serial}-${suffix}`,
-    slug: `ghc-${year}-${serial}-${slugSuffix}`,
-  };
-}
-
-function generateCertificateCode(courseTitle: string) {
-  return generateCertificateIdentifiers().code;
+  return { code: `GHC-${year}-${serial}-${suffix}`, slug: `ghc-${year}-${serial}-${slugSuffix}` };
 }
 
 function getOrder(item: AnyRecord, fallback: number) {
@@ -1498,18 +1072,14 @@ function getOrder(item: AnyRecord, fallback: number) {
 function sortModules(a: AnyRecord, b: AnyRecord) {
   const aNumber = extractModuleNumber(a.title);
   const bNumber = extractModuleNumber(b.title);
-
   if (aNumber !== bNumber) return aNumber - bNumber;
-
   return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
 }
 
 function sortLessons(a: AnyRecord, b: AnyRecord) {
   const aNumber = extractLessonNumber(a.title);
   const bNumber = extractLessonNumber(b.title);
-
   if (aNumber !== bNumber) return aNumber - bNumber;
-
   return Number(getOrder(a, 999)) - Number(getOrder(b, 999));
 }
 
@@ -1524,60 +1094,33 @@ function extractModuleNumber(title: string = '') {
 }
 
 function getLessonTypeLabel(lesson: AnyRecord) {
-  const rawType = String(
-    lesson.type ||
-      lesson.content_type ||
-      lesson.lesson_type ||
-      ''
-  ).toLowerCase();
-
+  const rawType = String(lesson.type || lesson.content_type || lesson.lesson_type || '').toLowerCase();
   const allValues = getLessonAssetText(lesson);
-
   const hasVideo = rawType.includes('video') || /\.(mp4|webm|mov|m4v)/i.test(allValues);
   const hasAudio = rawType.includes('audio') || /\.(mp3|wav|m4a|ogg)/i.test(allValues);
   const hasPdf = rawType.includes('pdf') || /\.pdf/i.test(allValues);
   const isMixed = rawType.includes('mixed') || rawType.includes('mixto');
-
   if (isMixed || [hasVideo, hasAudio, hasPdf].filter(Boolean).length >= 2) return 'Mixto';
   if (hasVideo) return 'Vídeo';
   if (hasAudio) return 'Audio';
   if (hasPdf) return 'PDF';
-
   return 'Texto';
 }
 
 function getLessonAssetText(lesson: AnyRecord) {
-  return [
-    lesson.content,
-    lesson.video_url,
-    lesson.audio_url,
-    lesson.pdf_url,
-    lesson.file_url,
-    lesson.url,
-    lesson.media_url,
-    lesson.content_url,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+  return [lesson.content, lesson.video_url, lesson.audio_url, lesson.pdf_url, lesson.file_url, lesson.url, lesson.media_url, lesson.content_url].filter(Boolean).join(' ').toLowerCase();
 }
 
 function hasLessonPdf(lesson: AnyRecord) {
-  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('pdf') ||
-    Boolean(lesson.pdf_url) ||
-    /\.pdf/i.test(getLessonAssetText(lesson));
+  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('pdf') || Boolean(lesson.pdf_url) || /\.pdf/i.test(getLessonAssetText(lesson));
 }
 
 function hasLessonVideo(lesson: AnyRecord) {
-  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('video') ||
-    Boolean(lesson.video_url) ||
-    /\.(mp4|webm|mov|m4v)/i.test(getLessonAssetText(lesson));
+  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('video') || Boolean(lesson.video_url) || /\.(mp4|webm|mov|m4v)/i.test(getLessonAssetText(lesson));
 }
 
 function hasLessonAudio(lesson: AnyRecord) {
-  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('audio') ||
-    Boolean(lesson.audio_url) ||
-    /\.(mp3|wav|m4a|ogg)/i.test(getLessonAssetText(lesson));
+  return String(lesson.content_type || lesson.type || '').toLowerCase().includes('audio') || Boolean(lesson.audio_url) || /\.(mp3|wav|m4a|ogg)/i.test(getLessonAssetText(lesson));
 }
 
 function GlobalStyles() {
@@ -1591,32 +1134,13 @@ function GlobalStyles() {
         --white: #f4f6f2;
         --muted: rgba(244,246,242,.62);
         --soft: rgba(244,246,242,.44);
-        --gold: #d6b25e;
       }
 
-      * {
-        box-sizing: border-box;
-      }
-
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        background: var(--bg);
-      }
-
-      body {
-        color: var(--white);
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-
-      a {
-        color: inherit;
-      }
-
-      button {
-        font: inherit;
-      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--bg); }
+      body { color: var(--white); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      a { color: inherit; }
+      button { font: inherit; }
 
       .course-dashboard-page {
         min-height: 100vh;
@@ -1629,1401 +1153,203 @@ function GlobalStyles() {
         color: var(--white);
       }
 
-      .background {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        overflow: hidden;
-        z-index: 0;
-      }
-
-      .orb {
-        position: absolute;
-        border-radius: 999px;
-        filter: blur(100px);
-      }
-
-      .orb-one {
-        width: 520px;
-        height: 520px;
-        top: -220px;
-        left: -180px;
-        background: rgba(var(--green-rgb), .10);
-      }
-
-      .orb-two {
-        width: 520px;
-        height: 520px;
-        right: -260px;
-        top: 110px;
-        background: rgba(120,135,130,.09);
-      }
-
-      .grid-texture {
-        position: absolute;
-        inset: 0;
-        background-image:
-          linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
-        background-size: 42px 42px;
-        opacity: .38;
-        mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
-      }
-
-      .rail {
-        position: fixed;
-        z-index: 3;
-        left: 0;
-        top: 0;
-        width: 54px;
-        height: 100vh;
-        border-right: 1px solid rgba(255,255,255,.055);
-        background: rgba(4,6,5,.78);
-        display: grid;
-        align-content: start;
-        justify-items: center;
-        gap: 18px;
-        padding-top: 88px;
-      }
-
-      .rail-dot {
-        width: 28px;
-        height: 28px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        color: rgba(244,246,242,.34);
-        border: 1px solid transparent;
-        font-size: 12px;
-      }
-
-      .rail-dot.active,
-      .rail-dot.green {
-        color: var(--green);
-        background: rgba(var(--green-rgb), .08);
-        border-color: rgba(var(--green-rgb), .18);
-      }
-
-      .rail > span {
-        margin-top: auto;
-        margin-bottom: 28px;
-        color: rgba(244,246,242,.32);
-        font-size: 10px;
-        font-weight: 950;
-      }
-
-      .sidebar {
-        position: fixed;
-        z-index: 2;
-        left: 54px;
-        top: 0;
-        width: 290px;
-        height: 100vh;
-        border-right: 1px solid rgba(255,255,255,.075);
-        background:
-          linear-gradient(180deg, rgba(8,11,10,.985), rgba(3,5,4,.965)),
-          #050706;
-        padding: 24px 24px 20px;
-        display: grid;
-        grid-template-rows: auto auto 1fr auto auto;
-        gap: 22px;
-        box-shadow: 18px 0 80px rgba(0,0,0,.22);
-      }
-
-      .brand {
-        min-height: 44px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        color: var(--white);
-        text-decoration: none;
-        text-transform: uppercase;
-        letter-spacing: .22em;
-      }
-
-      .brand.official-brand {
-        text-transform: none;
-        letter-spacing: normal;
-      }
-
-      .brand-mark {
-        width: 32px;
-        height: 32px;
-        border-radius: 12px;
-        border: 1px solid rgba(var(--green-rgb), .35);
-        color: var(--green);
-        display: grid;
-        place-items: center;
-        font-size: 13px;
-        font-weight: 950;
-      }
-
-      .brand strong {
-        font-size: 18px;
-        letter-spacing: .18em;
-      }
-
-      .brand em {
-        color: rgba(244,246,242,.62);
-        font-style: normal;
-        font-size: 12px;
-      }
-
-      .side-nav {
-        display: grid;
-        gap: 8px;
-      }
-
-      .side-item {
-        min-height: 58px;
-        display: grid;
-        grid-template-columns: 28px minmax(0, 1fr);
-        gap: 12px;
-        align-items: center;
-        border-radius: 16px;
-        color: rgba(244,246,242,.56);
-        text-decoration: none;
-        padding: 9px 12px;
-        border: 1px solid transparent;
-      }
-
-      .side-item span {
-        color: rgba(244,246,242,.46);
-        text-align: center;
-      }
-
-      .side-item strong,
-      .side-item small {
-        display: block;
-      }
-
-      .side-item strong {
-        color: rgba(244,246,242,.76);
-        font-size: 14px;
-        line-height: 1.1;
-      }
-
-      .side-item small {
-        color: rgba(244,246,242,.42);
-        margin-top: 4px;
-      }
-
-      .side-item.active {
-        color: var(--green);
-        border-color: rgba(var(--green-rgb), .20);
-        background: linear-gradient(90deg, rgba(var(--green-rgb),.13), rgba(var(--green-rgb),.035));
-        box-shadow: inset 3px 0 0 rgba(var(--green-rgb),.82);
-      }
-
-      .side-item.active span,
-      .side-item.active strong {
-        color: var(--green);
-      }
-
-      .student-card,
-      .weather-card {
-        border-radius: 20px;
-        border: 1px solid rgba(255,255,255,.075);
-        background: rgba(255,255,255,.026);
-        padding: 16px;
-      }
-
-      .student-card .avatar {
-        width: 52px;
-        height: 52px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        border: 1px solid rgba(var(--green-rgb), .18);
-        color: var(--green);
-        background: rgba(var(--green-rgb), .06);
-        font-weight: 950;
-        margin-bottom: 12px;
-      }
-
-      .student-card strong,
-      .student-card span,
-      .student-card a {
-        display: block;
-      }
-
-      .student-card strong {
-        font-size: 16px;
-      }
-
-      .student-card span {
-        color: rgba(244,246,242,.52);
-        margin-top: 4px;
-      }
-
-      .student-card b {
-        color: var(--green);
-        font-size: 11px;
-        margin-left: 4px;
-      }
-
-      .student-card a {
-        color: rgba(244,246,242,.70);
-        text-decoration: none;
-        margin-top: 14px;
-      }
-
-      .weather-card {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .weather-card > span {
-        width: 22px;
-        height: 22px;
-        border-radius: 999px;
-        background: #f59d35;
-      }
-
-      .weather-card strong,
-      .weather-card small {
-        display: block;
-      }
-
-      .weather-card small,
-      .weather-card em {
-        color: rgba(244,246,242,.52);
-        font-style: normal;
-      }
-
-      .course-shell {
-        position: relative;
-        z-index: 1;
-        min-height: 100vh;
-        margin-left: 344px;
-        padding: 18px 32px 38px;
-      }
-
-      .topbar {
-        min-height: 52px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 18px;
-        border-bottom: 1px solid rgba(255,255,255,.07);
-        margin-bottom: 24px;
-      }
-
-      .breadcrumb,
-      .toplinks {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 0;
-      }
-
-      .breadcrumb,
-      .breadcrumb a {
-        color: rgba(244,246,242,.62);
-        text-decoration: none;
-        font-size: 12px;
-        font-weight: 850;
-      }
-
-      .breadcrumb strong {
-        color: var(--white);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .toplinks a {
-        text-decoration: none;
-        color: rgba(244,246,242,.52);
-        text-transform: uppercase;
-        letter-spacing: .14em;
-        font-size: 11px;
-        font-weight: 950;
-      }
-
-      .toplinks .green-link {
-        color: var(--green);
-      }
-
-      .bell,
-      .avatar-mini {
-        width: 28px;
-        height: 28px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        border: 1px solid rgba(255,255,255,.08);
-        color: var(--green);
-        font-size: 11px;
-        font-weight: 950;
-      }
-
-      .dashboard-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
-        gap: 24px;
-        align-items: start;
-      }
-
-      .main-column,
-      .right-column {
-        display: grid;
-        gap: 18px;
-      }
-
-
-      /* Vista de evaluación final ensanchada de forma explícita por estado React.
-         No cambia tamaños de letra: solo libera la columna derecha y da todo el ancho útil al examen. */
-      .dashboard-layout.evaluation-focus {
-        grid-template-columns: minmax(0, 1fr) !important;
-      }
-
-      .dashboard-layout.evaluation-focus .right-column {
-        display: none !important;
-      }
-
-      .dashboard-layout.evaluation-focus .main-column,
-      .dashboard-layout.evaluation-focus .main-evaluation-section {
-        width: 100%;
-        max-width: none;
-      }
-
-      .dashboard-layout.evaluation-focus .evaluation-main-card {
-        grid-template-columns: 300px minmax(0, 1fr);
-        gap: 24px;
-      }
-
-      .dashboard-layout.evaluation-focus .main-final-exam-box {
-        width: 100%;
-        max-width: none;
-      }
-
-      .course-heading {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 330px;
-        gap: 24px;
-        align-items: end;
-      }
-
-      .kicker,
-      .panel-title {
-        margin: 0;
-        color: var(--green);
-        text-transform: uppercase;
-        letter-spacing: .16em;
-        font-size: 10px;
-        font-weight: 950;
-      }
-
-      .course-heading h1 {
-        margin: 8px 0 8px;
-        color: var(--white);
-        font-size: clamp(28px, 3.5vw, 46px);
-        line-height: .98;
-        letter-spacing: -.052em;
-        font-weight: 950;
-      }
-
-      .course-heading p:not(.kicker) {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.55;
-      }
-
-      .course-progress-inline > span {
-        display: block;
-        color: rgba(244,246,242,.46);
-        text-transform: uppercase;
-        letter-spacing: .18em;
-        font-size: 10px;
-        font-weight: 900;
-      }
-
-      .course-progress-inline strong {
-        display: inline-block;
-        color: var(--green);
-        font-size: 28px;
-        line-height: 1;
-        margin: 9px 12px 0 0;
-      }
-
-      .progress-mini,
-      .module-side-progress,
-      .module-progress-line {
-        height: 8px;
-        overflow: hidden;
-        border-radius: 999px;
-        background: rgba(255,255,255,.075);
-      }
-
-      .progress-mini {
-        display: inline-block;
-        width: min(180px, 100%);
-      }
-
-      .progress-mini div,
-      .module-side-progress div,
-      .module-progress-line div {
-        height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, var(--green), #7bee65);
-        box-shadow: 0 0 22px rgba(var(--green-rgb), .26);
-      }
-
-      .hero-card,
-      .side-panel,
-      .module-card,
-      .loading-card,
-      .notice {
-        border-radius: 22px;
-        border: 1px solid rgba(255,255,255,.085);
-        background:
-          radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%),
-          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-          rgba(8,12,10,.92);
-        box-shadow: 0 24px 82px rgba(0,0,0,.22);
-      }
-
-      .hero-card {
-        position: relative;
-        min-height: 170px;
-        overflow: hidden;
-        display: grid;
-        align-content: space-between;
-        padding: 24px;
-      }
-
-      .hero-card::after,
-      .hero-image {
-        content: '';
-        position: absolute;
-        inset: 0 0 0 auto;
-        width: 55%;
-        background:
-          linear-gradient(90deg, rgba(8,12,10,1), rgba(8,12,10,.72), rgba(8,12,10,.20)),
-          var(--course-hero-image, url('https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1200&q=70'));
-        background-size: cover;
-        background-position: center;
-        filter: grayscale(1) contrast(1.1) brightness(.62);
-        opacity: .48;
-        pointer-events: none;
-      }
-
-      .hero-meta,
-      .hero-actions {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-
-      .hero-actions {
-        margin-top: 24px;
-      }
-
-      .metric {
-        min-width: 105px;
-        min-height: 58px;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.085);
-        background: rgba(255,255,255,.032);
-        padding: 12px;
-      }
-
-      .metric span,
-      .resource-row span,
-      .progress-stats span,
-      .phase-status span {
-        display: block;
-        color: rgba(244,246,242,.46);
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: .12em;
-        font-weight: 900;
-      }
-
-      .metric strong,
-      .resource-row strong,
-      .progress-stats strong,
-      .phase-status strong {
-        display: block;
-        color: var(--white);
-        margin-top: 6px;
-        font-size: 13px;
-        font-weight: 900;
-      }
-
-      .primary-action,
-      .secondary-action,
-      .disabled-button {
-        min-height: 42px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 0 18px;
-        text-decoration: none;
-        font-size: 12px;
-        font-weight: 950;
-        letter-spacing: .04em;
-        cursor: pointer;
-      }
-
-      .primary-action {
-        border: 1px solid rgba(var(--green-rgb), .30);
-        background: linear-gradient(135deg, var(--green), #7bee65);
-        color: #061008;
-        box-shadow: 0 0 30px rgba(var(--green-rgb), .14);
-      }
-
-      .secondary-action,
-      .disabled-button {
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(255,255,255,.04);
-        color: rgba(244,246,242,.82);
-      }
-
-      .disabled-button {
-        width: 100%;
-        color: rgba(244,246,242,.44);
-        cursor: default;
-      }
-
-      .primary-action.full,
-      .secondary-action.full,
-      .primary-action.as-button.full {
-        width: 100%;
-      }
-
-      button.primary-action {
-        border: 1px solid rgba(var(--green-rgb), .30);
-      }
-
-      .tabs {
-        min-height: 50px;
-        display: flex;
-        align-items: end;
-        gap: 32px;
-        border-bottom: 1px solid rgba(255,255,255,.075);
-      }
-
-      .tabs a {
-        position: relative;
-        padding: 0 0 14px;
-        color: rgba(244,246,242,.50);
-        text-decoration: none;
-        font-size: 13px;
-        font-weight: 900;
-      }
-
-      .tabs a.active {
-        color: var(--green);
-      }
-
-      .tabs a.active::after {
-        content: '';
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: -1px;
-        height: 2px;
-        background: var(--green);
-        box-shadow: 0 0 20px rgba(var(--green-rgb), .28);
-      }
-
-      .modules-section {
-        display: grid;
-        gap: 14px;
-      }
-
-      .section-title-row {
-        display: flex;
-        align-items: end;
-        justify-content: space-between;
-        gap: 16px;
-      }
-
-      .section-title-row > span {
-        color: rgba(244,246,242,.42);
-        font-size: 11px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: .12em;
-      }
-
-      .modules-list {
-        display: grid;
-        gap: 10px;
-      }
-
-      .module-card {
-        overflow: hidden;
-      }
-
-      .module-card.completed {
-        border-color: rgba(var(--green-rgb), .24);
-      }
-
-      .module-card.locked {
-        opacity: .54;
-      }
-
-      .module-header {
-        min-height: 64px;
-        display: grid;
-        grid-template-columns: 54px minmax(0, 1fr) 150px;
-        gap: 12px;
-        align-items: center;
-        padding: 14px 16px;
-      }
-
-      .module-index {
-        display: grid;
-        place-items: center;
-      }
-
-      .module-index span {
-        width: 31px;
-        height: 31px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        color: rgba(244,246,242,.70);
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.03);
-        font-weight: 900;
-      }
-
-      .module-card.expanded .module-index span,
-      .module-card.completed .module-index span {
-        color: #061008;
-        background: var(--green);
-      }
-
-      .module-copy strong,
-      .module-copy small {
-        display: block;
-      }
-
-      .module-copy strong {
-        color: var(--white);
-        font-size: 15px;
-        font-weight: 900;
-      }
-
-      .module-copy small {
-        color: rgba(244,246,242,.55);
-        margin-top: 5px;
-      }
-
-      .module-state {
-        display: grid;
-        grid-template-columns: 45px 24px 20px;
-        gap: 8px;
-        align-items: center;
-        justify-content: end;
-      }
-
-      .module-state strong {
-        color: var(--white);
-        font-size: 13px;
-      }
-
-      .module-state em {
-        color: rgba(244,246,242,.54);
-        font-style: normal;
-      }
-
-      .dot {
-        width: 18px;
-        height: 18px;
-        border-radius: 999px;
-        border: 2px solid rgba(255,255,255,.12);
-      }
-
-      .dot.working {
-        border-color: rgba(var(--green-rgb), .60);
-        border-top-color: transparent;
-      }
-
-      .dot.done {
-        border-color: var(--green);
-        background: var(--green);
-        box-shadow: inset 0 0 0 4px rgba(0,0,0,.45);
-      }
-
-      .lessons-list {
-        display: grid;
-        gap: 0;
-        padding: 0 16px 16px 70px;
-      }
-
-      .lesson-row {
-        min-height: 48px;
-        display: grid;
-        grid-template-columns: 34px minmax(0, 1fr) 82px 120px 60px 70px;
-        gap: 12px;
-        align-items: center;
-        border-top: 1px solid rgba(255,255,255,.055);
-        color: rgba(244,246,242,.70);
-      }
-
-      .lesson-row.empty {
-        grid-template-columns: minmax(0, 1fr) auto;
-        color: rgba(244,246,242,.55);
-      }
-
-      .lesson-icon {
-        width: 22px;
-        height: 22px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        color: var(--green);
-        border: 1px solid rgba(var(--green-rgb), .18);
-        background: rgba(var(--green-rgb), .055);
-        font-size: 11px;
-      }
-
-      .lesson-name small,
-      .lesson-name strong {
-        display: block;
-      }
-
-      .lesson-name small {
-        color: rgba(244,246,242,.46);
-        font-size: 11px;
-      }
-
-      .lesson-name strong {
-        color: rgba(244,246,242,.84);
-        font-size: 13px;
-        font-weight: 850;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .lesson-kind,
-      .lesson-status,
-      .lesson-duration {
-        font-size: 12px;
-      }
-
-      .lesson-status {
-        color: var(--green);
-      }
-
-      .lesson-duration {
-        color: rgba(244,246,242,.46);
-      }
-
-      .lesson-row a {
-        min-height: 30px;
-        border-radius: 999px;
-        border: 1px solid rgba(var(--green-rgb), .20);
-        background: rgba(var(--green-rgb), .06);
-        color: var(--green);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 10px;
-        text-decoration: none;
-        font-size: 12px;
-        font-weight: 950;
-      }
-
-      .lesson-row em {
-        color: rgba(244,246,242,.36);
-        font-style: normal;
-        font-size: 12px;
-      }
-
-      .module-score {
-        margin-top: 12px;
-        border-radius: 14px;
-        background: rgba(var(--green-rgb), .055);
-        border: 1px solid rgba(var(--green-rgb), .18);
-        color: var(--green);
-        padding: 10px 12px;
-        font-size: 12px;
-        font-weight: 900;
-      }
-
-      .right-column {
-        position: sticky;
-        top: 18px;
-      }
-
-      .side-panel {
-        padding: 20px;
-      }
-
-      .progress-ring-row {
-        margin-top: 18px;
-        display: grid;
-        grid-template-columns: 106px minmax(0, 1fr);
-        gap: 16px;
-        align-items: center;
-      }
-
-      .progress-ring {
-        width: 104px;
-        height: 104px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-      }
-
-      .progress-ring > div {
-        width: 78px;
-        height: 78px;
-        border-radius: 999px;
-        background: #070a09;
-        display: grid;
-        place-items: center;
-        align-content: center;
-      }
-
-      .progress-ring strong,
-      .progress-ring span {
-        display: block;
-      }
-
-      .progress-ring strong {
-        color: var(--green);
-        font-size: 22px;
-        line-height: 1;
-      }
-
-      .progress-ring span {
-        color: rgba(244,246,242,.50);
-        font-size: 10px;
-      }
-
-      .progress-stats {
-        display: grid;
-        gap: 10px;
-      }
-
-      .panel-link {
-        margin-top: 16px;
-        display: inline-flex;
-        color: var(--green);
-        text-decoration: none;
-        font-size: 12px;
-        font-weight: 900;
-      }
-
-      .next-lesson {
-        margin: 16px 0;
-        display: grid;
-        grid-template-columns: 92px minmax(0, 1fr);
-        gap: 14px;
-        align-items: center;
-      }
-
-      .thumb {
-        height: 62px;
-        border-radius: 14px;
-        background:
-          linear-gradient(135deg, rgba(var(--green-rgb), .12), rgba(0,0,0,.18)),
-          url('https://images.unsplash.com/photo-1571019613914-85f342c6a11e?auto=format&fit=crop&w=420&q=70');
-        background-size: cover;
-        background-position: center;
-        filter: grayscale(1) brightness(.72);
-      }
-
-      .next-lesson span,
-      .next-lesson strong,
-      .next-lesson small {
-        display: block;
-      }
-
-      .next-lesson span {
-        color: rgba(244,246,242,.48);
-        font-size: 11px;
-      }
-
-      .next-lesson strong {
-        color: var(--white);
-        font-size: 14px;
-        margin-top: 4px;
-      }
-
-      .next-lesson small {
-        color: var(--green);
-        margin-top: 6px;
-      }
-
-      .resource-row {
-        min-height: 34px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        border-bottom: 1px solid rgba(255,255,255,.055);
-      }
-
-      .resource-row span {
-        text-transform: none;
-        letter-spacing: 0;
-        color: rgba(244,246,242,.66);
-        font-size: 13px;
-      }
-
-      .resource-row strong {
-        color: rgba(244,246,242,.62);
-        font-size: 12px;
-      }
-
-      .module-side-progress {
-        margin: 16px 0 12px;
-      }
-
-      .module-state-panel > span,
-      .certificate-panel > strong {
-        display: block;
-        margin-top: 14px;
-        color: var(--white);
-        font-weight: 900;
-      }
-
-      .module-state-panel > strong {
-        display: block;
-        color: var(--green);
-        margin-top: 8px;
-      }
-
-      .module-state-panel p,
-      .certificate-panel p {
-        color: var(--muted);
-        line-height: 1.55;
-        font-size: 13px;
-      }
-
-      .module-state-panel button {
-        width: 100%;
-        min-height: 40px;
-        border-radius: 999px;
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.035);
-        color: rgba(244,246,242,.76);
-        font-weight: 850;
-      }
-
-      .notice {
-        padding: 14px 16px;
-        color: rgba(244,246,242,.72);
-      }
-
-      .loading {
-        display: grid;
-        place-items: center;
-      }
-
-      .loading-card {
-        position: relative;
-        z-index: 1;
-        width: min(720px, calc(100vw - 40px));
-        padding: 34px;
-      }
-
-      .loading-card p {
-        color: var(--green);
-        text-transform: uppercase;
-        letter-spacing: .16em;
-        font-size: 10px;
-        font-weight: 950;
-      }
-
-      .loading-card h1 {
-        margin: 10px 0;
-        font-size: clamp(34px, 5vw, 58px);
-        line-height: .95;
-        letter-spacing: -.06em;
-      }
-
-      .loading-card span {
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-
-
-      /* Evaluación final a ancho completo cuando se accede desde la pestaña Evaluación.
-         Mantiene la estética actual y solo evita que el examen quede estrecho con una columna negra a la derecha. */
-      .dashboard-layout:has(#evaluacion:target) {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .dashboard-layout:has(#evaluacion:target) .right-column {
-        display: none;
-      }
-
-      .dashboard-layout:has(#evaluacion:target) .main-evaluation-section {
-        width: 100%;
-      }
-
-      .dashboard-layout:has(#evaluacion:target) .evaluation-main-card {
-        grid-template-columns: minmax(340px, .64fr) minmax(0, 1.36fr);
-        gap: 24px;
-      }
-
-      .dashboard-layout:has(#evaluacion:target) .main-final-exam-box {
-        padding: 20px;
-      }
-
-      .dashboard-layout:has(#evaluacion:target) .main-final-question-card {
-        padding: 18px;
-      }
-
-      .dashboard-layout:has(#evaluacion:target) .main-final-question-card .final-answer {
-        min-height: 54px;
-        padding: 12px;
-      }
+      .background { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+      .orb { position: absolute; border-radius: 999px; filter: blur(100px); }
+      .orb-one { width: 520px; height: 520px; top: -220px; left: -180px; background: rgba(var(--green-rgb), .10); }
+      .orb-two { width: 520px; height: 520px; right: -260px; top: 110px; background: rgba(120,135,130,.09); }
+      .grid-texture { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px); background-size: 42px 42px; opacity: .38; mask-image: radial-gradient(circle at center, black 0%, transparent 82%); }
+
+      .rail { position: fixed; z-index: 3; left: 0; top: 0; width: 54px; height: 100vh; border-right: 1px solid rgba(255,255,255,.055); background: rgba(4,6,5,.78); display: grid; align-content: start; justify-items: center; gap: 18px; padding-top: 88px; }
+      .rail-dot { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; color: rgba(244,246,242,.34); border: 1px solid transparent; font-size: 12px; }
+      .rail-dot.active, .rail-dot.green { color: var(--green); background: rgba(var(--green-rgb), .08); border-color: rgba(var(--green-rgb), .18); }
+      .rail > span { margin-top: auto; margin-bottom: 28px; color: rgba(244,246,242,.32); font-size: 10px; font-weight: 950; }
+
+      .sidebar { position: fixed; z-index: 2; left: 54px; top: 0; width: 290px; height: 100vh; border-right: 1px solid rgba(255,255,255,.075); background: linear-gradient(180deg, rgba(8,11,10,.985), rgba(3,5,4,.965)), #050706; padding: 24px 24px 20px; display: grid; grid-template-rows: auto auto 1fr auto auto; gap: 22px; box-shadow: 18px 0 80px rgba(0,0,0,.22); }
+      .brand { min-height: 44px; display: flex; align-items: center; gap: 12px; color: var(--white); text-decoration: none; }
+      .side-nav { display: grid; gap: 8px; }
+      .side-item { min-height: 58px; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: center; border-radius: 16px; color: rgba(244,246,242,.56); text-decoration: none; padding: 9px 12px; border: 1px solid transparent; }
+      .side-item span { color: rgba(244,246,242,.46); text-align: center; }
+      .side-item strong, .side-item small { display: block; }
+      .side-item strong { color: rgba(244,246,242,.76); font-size: 14px; line-height: 1.1; }
+      .side-item small { color: rgba(244,246,242,.42); margin-top: 4px; }
+      .side-item.active { color: var(--green); border-color: rgba(var(--green-rgb), .20); background: linear-gradient(90deg, rgba(var(--green-rgb),.13), rgba(var(--green-rgb),.035)); box-shadow: inset 3px 0 0 rgba(var(--green-rgb),.82); }
+      .side-item.active span, .side-item.active strong { color: var(--green); }
+
+      .student-card, .weather-card { border-radius: 20px; border: 1px solid rgba(255,255,255,.075); background: rgba(255,255,255,.026); padding: 16px; }
+      .student-card .avatar { width: 52px; height: 52px; border-radius: 999px; display: grid; place-items: center; border: 1px solid rgba(var(--green-rgb), .18); color: var(--green); background: rgba(var(--green-rgb), .06); font-weight: 950; margin-bottom: 12px; }
+      .student-card strong, .student-card span, .student-card a { display: block; }
+      .student-card span { color: rgba(244,246,242,.52); margin-top: 4px; }
+      .student-card b { color: var(--green); font-size: 11px; margin-left: 4px; }
+      .student-card a { color: rgba(244,246,242,.70); text-decoration: none; margin-top: 14px; }
+      .weather-card { display: flex; align-items: center; gap: 12px; }
+      .weather-card > span { width: 22px; height: 22px; border-radius: 999px; background: #f59d35; }
+      .weather-card strong, .weather-card small { display: block; }
+      .weather-card small, .weather-card em { color: rgba(244,246,242,.52); font-style: normal; }
+
+      .course-shell { position: relative; z-index: 1; min-height: 100vh; margin-left: 344px; padding: 18px 32px 38px; }
+      .topbar { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid rgba(255,255,255,.07); margin-bottom: 14px; }
+      .breadcrumb, .toplinks { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .breadcrumb, .breadcrumb a { color: rgba(244,246,242,.62); text-decoration: none; font-size: 12px; font-weight: 850; }
+      .breadcrumb strong { color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .toplinks a { text-decoration: none; color: rgba(244,246,242,.52); text-transform: uppercase; letter-spacing: .14em; font-size: 11px; font-weight: 950; }
+      .toplinks .green-link { color: var(--green); }
+      .bell, .avatar-mini { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.08); color: var(--green); font-size: 11px; font-weight: 950; }
+      .build-ribbon { width: fit-content; margin: 0 0 14px; border-radius: 999px; border: 1px solid rgba(var(--green-rgb), .18); background: rgba(var(--green-rgb), .055); color: var(--green); padding: 8px 12px; font-size: 10px; font-weight: 950; letter-spacing: .08em; text-transform: uppercase; }
+
+      .dashboard-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
+      .main-column, .right-column { display: grid; gap: 18px; }
+      .dashboard-layout.evaluation-focus { grid-template-columns: minmax(0, 1fr) !important; }
+      .dashboard-layout.evaluation-focus .right-column { display: none !important; }
+      .dashboard-layout.evaluation-focus .main-column, .dashboard-layout.evaluation-focus .main-evaluation-section { width: 100%; max-width: none; }
+      .dashboard-layout.evaluation-focus .evaluation-main-card { grid-template-columns: 300px minmax(0, 1fr); gap: 24px; }
+
+      .course-heading { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: end; }
+      .kicker, .panel-title { margin: 0; color: var(--green); text-transform: uppercase; letter-spacing: .16em; font-size: 10px; font-weight: 950; }
+      .course-heading h1 { margin: 8px 0; color: var(--white); font-size: clamp(28px, 3.5vw, 46px); line-height: .98; letter-spacing: -.052em; font-weight: 950; }
+      .course-heading p:not(.kicker) { margin: 0; color: var(--muted); line-height: 1.55; }
+      .course-progress-inline > span { display: block; color: rgba(244,246,242,.46); text-transform: uppercase; letter-spacing: .18em; font-size: 10px; font-weight: 900; }
+      .course-progress-inline strong { display: inline-block; color: var(--green); font-size: 28px; line-height: 1; margin: 9px 12px 0 0; }
+      .progress-mini, .module-side-progress { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.075); }
+      .progress-mini { display: inline-block; width: min(180px, 100%); }
+      .progress-mini div, .module-side-progress div { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--green), #7bee65); box-shadow: 0 0 22px rgba(var(--green-rgb), .26); }
+
+      .hero-card, .side-panel, .module-card, .loading-card, .notice, .main-evaluation-section { border-radius: 22px; border: 1px solid rgba(255,255,255,.085); background: radial-gradient(circle at top right, rgba(var(--green-rgb), .055), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)), rgba(8,12,10,.92); box-shadow: 0 24px 82px rgba(0,0,0,.22); }
+      .hero-card { position: relative; min-height: 170px; overflow: hidden; display: grid; align-content: space-between; padding: 24px; }
+      .hero-card::after, .hero-image { content: ''; position: absolute; inset: 0 0 0 auto; width: 55%; background: linear-gradient(90deg, rgba(8,12,10,1), rgba(8,12,10,.72), rgba(8,12,10,.20)), var(--course-hero-image, url('https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1200&q=70')); background-size: cover; background-position: center; filter: grayscale(1) contrast(1.1) brightness(.62); opacity: .48; pointer-events: none; }
+      .hero-meta, .hero-actions { position: relative; z-index: 1; display: flex; gap: 12px; flex-wrap: wrap; }
+      .hero-actions { margin-top: 24px; }
+      .metric { min-width: 105px; min-height: 58px; border-radius: 16px; border: 1px solid rgba(255,255,255,.085); background: rgba(255,255,255,.032); padding: 12px; }
+      .metric span, .resource-row span, .progress-stats span { display: block; color: rgba(244,246,242,.46); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; font-weight: 900; }
+      .metric strong, .resource-row strong, .progress-stats strong { display: block; color: var(--white); margin-top: 6px; font-size: 13px; font-weight: 900; }
+
+      .primary-action, .secondary-action, .disabled-button { min-height: 42px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; text-decoration: none; font-size: 12px; font-weight: 950; letter-spacing: .04em; cursor: pointer; }
+      .primary-action { border: 1px solid rgba(var(--green-rgb), .30); background: linear-gradient(135deg, var(--green), #7bee65); color: #061008; box-shadow: 0 0 30px rgba(var(--green-rgb), .14); }
+      .secondary-action, .disabled-button { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: rgba(244,246,242,.82); }
+      .disabled-button { width: 100%; color: rgba(244,246,242,.44); cursor: default; }
+      .primary-action.full, .secondary-action.full, .primary-action.as-button.full { width: 100%; }
+      button.primary-action { border: 1px solid rgba(var(--green-rgb), .30); }
+
+      .tabs { min-height: 50px; display: flex; align-items: end; gap: 32px; border-bottom: 1px solid rgba(255,255,255,.075); }
+      .tabs a { position: relative; padding: 0 0 14px; color: rgba(244,246,242,.50); text-decoration: none; font-size: 13px; font-weight: 900; }
+      .tabs a.active { color: var(--green); }
+      .tabs a.active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--green); box-shadow: 0 0 20px rgba(var(--green-rgb), .28); }
+
+      .modules-section { display: grid; gap: 14px; }
+      .section-title-row { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+      .section-title-row > span { color: rgba(244,246,242,.42); font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; }
+      .modules-list { display: grid; gap: 10px; }
+      .module-card { overflow: hidden; }
+      .module-card.completed { border-color: rgba(var(--green-rgb), .24); }
+      .module-card.locked { opacity: .54; }
+      .module-header { min-height: 64px; display: grid; grid-template-columns: 54px minmax(0, 1fr) 150px; gap: 12px; align-items: center; padding: 14px 16px; }
+      .module-index { display: grid; place-items: center; }
+      .module-index span { width: 31px; height: 31px; border-radius: 999px; display: grid; place-items: center; color: rgba(244,246,242,.70); border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); font-weight: 900; }
+      .module-card.expanded .module-index span, .module-card.completed .module-index span { color: #061008; background: var(--green); }
+      .module-copy strong, .module-copy small { display: block; }
+      .module-copy strong { color: var(--white); font-size: 15px; font-weight: 900; }
+      .module-copy small { color: rgba(244,246,242,.55); margin-top: 5px; }
+      .module-state { display: grid; grid-template-columns: 45px 24px 20px; gap: 8px; align-items: center; justify-content: end; }
+      .module-state strong { color: var(--white); font-size: 13px; }
+      .module-state em { color: rgba(244,246,242,.54); font-style: normal; }
+      .dot { width: 18px; height: 18px; border-radius: 999px; border: 2px solid rgba(255,255,255,.12); }
+      .dot.working { border-color: rgba(var(--green-rgb), .60); border-top-color: transparent; }
+      .dot.done { border-color: var(--green); background: var(--green); box-shadow: inset 0 0 0 4px rgba(0,0,0,.45); }
+      .lessons-list { display: grid; gap: 0; padding: 0 16px 16px 70px; }
+      .lesson-row { min-height: 48px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 82px 120px 60px 70px; gap: 12px; align-items: center; border-top: 1px solid rgba(255,255,255,.055); color: rgba(244,246,242,.70); }
+      .lesson-row.empty { grid-template-columns: minmax(0, 1fr) auto; color: rgba(244,246,242,.55); }
+      .lesson-icon { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; color: var(--green); border: 1px solid rgba(var(--green-rgb), .18); background: rgba(var(--green-rgb), .055); font-size: 11px; }
+      .lesson-name small, .lesson-name strong { display: block; }
+      .lesson-name small { color: rgba(244,246,242,.46); font-size: 11px; }
+      .lesson-name strong { color: rgba(244,246,242,.84); font-size: 13px; font-weight: 850; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .lesson-kind, .lesson-status, .lesson-duration { font-size: 12px; }
+      .lesson-status { color: var(--green); }
+      .lesson-duration { color: rgba(244,246,242,.46); }
+      .lesson-row a { min-height: 30px; border-radius: 999px; border: 1px solid rgba(var(--green-rgb), .20); background: rgba(var(--green-rgb), .06); color: var(--green); display: inline-flex; align-items: center; justify-content: center; padding: 0 10px; text-decoration: none; font-size: 12px; font-weight: 950; }
+      .lesson-row em { color: rgba(244,246,242,.36); font-style: normal; font-size: 12px; }
+      .module-score { margin-top: 12px; border-radius: 14px; background: rgba(var(--green-rgb), .055); border: 1px solid rgba(var(--green-rgb), .18); color: var(--green); padding: 10px 12px; font-size: 12px; font-weight: 900; }
+
+      .right-column { position: sticky; top: 18px; }
+      .side-panel { padding: 20px; }
+      .progress-ring-row { margin-top: 18px; display: grid; grid-template-columns: 106px minmax(0, 1fr); gap: 16px; align-items: center; }
+      .progress-ring { width: 104px; height: 104px; border-radius: 999px; display: grid; place-items: center; }
+      .progress-ring > div { width: 78px; height: 78px; border-radius: 999px; background: #070a09; display: grid; place-items: center; align-content: center; }
+      .progress-ring strong, .progress-ring span { display: block; }
+      .progress-ring strong { color: var(--green); font-size: 22px; line-height: 1; }
+      .progress-ring span { color: rgba(244,246,242,.50); font-size: 10px; }
+      .progress-stats { display: grid; gap: 10px; }
+      .panel-link { margin-top: 16px; display: inline-flex; color: var(--green); text-decoration: none; font-size: 12px; font-weight: 900; }
+      .next-lesson { margin: 16px 0; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; align-items: center; }
+      .thumb { height: 62px; border-radius: 14px; background: linear-gradient(135deg, rgba(var(--green-rgb), .12), rgba(0,0,0,.18)), url('https://images.unsplash.com/photo-1571019613914-85f342c6a11e?auto=format&fit=crop&w=420&q=70'); background-size: cover; background-position: center; filter: grayscale(1) brightness(.72); }
+      .next-lesson span, .next-lesson strong, .next-lesson small { display: block; }
+      .next-lesson span { color: rgba(244,246,242,.48); font-size: 11px; }
+      .next-lesson strong { color: var(--white); font-size: 14px; margin-top: 4px; }
+      .next-lesson small { color: var(--green); margin-top: 6px; }
+      .resource-row { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(255,255,255,.055); }
+      .resource-row span { text-transform: none; letter-spacing: 0; color: rgba(244,246,242,.66); font-size: 13px; }
+      .resource-row strong { color: rgba(244,246,242,.62); font-size: 12px; }
+      .certificate-panel > strong { display: block; margin-top: 14px; color: var(--white); font-weight: 900; }
+      .certificate-panel p { color: var(--muted); line-height: 1.55; font-size: 13px; }
+      .notice { padding: 14px 16px; color: rgba(244,246,242,.72); margin-bottom: 12px; }
+      .loading { display: grid; place-items: center; }
+      .loading-card { position: relative; z-index: 1; width: min(720px, calc(100vw - 40px)); padding: 34px; }
+      .loading-card p { color: var(--green); text-transform: uppercase; letter-spacing: .16em; font-size: 10px; font-weight: 950; }
+      .loading-card h1 { margin: 10px 0; font-size: clamp(34px, 5vw, 58px); line-height: .95; letter-spacing: -.06em; }
+      .loading-card span { color: var(--muted); line-height: 1.6; }
+
+      .main-evaluation-section { padding: 22px; scroll-margin-top: 20px; }
+      .evaluation-title-row { margin-bottom: 16px; }
+      .evaluation-title-row h2 { margin: 6px 0 0; font-size: clamp(26px, 3vw, 42px); line-height: .96; letter-spacing: -.055em; font-weight: 950; }
+      .main-evaluation-section.locked { opacity: .92; }
+      .evaluation-main-card { border-radius: 18px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.026); padding: 18px; display: grid; grid-template-columns: minmax(280px,.55fr) minmax(0,1.45fr); gap: 18px; align-items: start; }
+      .evaluation-main-copy { position: sticky; top: 18px; display: grid; gap: 12px; }
+      .evaluation-pill { width: fit-content; border-radius: 999px; border: 1px solid rgba(var(--green-rgb), .22); background: rgba(var(--green-rgb), .08); color: var(--green); padding: 7px 10px; font-size: 11px; font-weight: 900; }
+      .evaluation-main-copy h3 { margin: 0; font-size: clamp(24px, 2.2vw, 34px); line-height: 1; letter-spacing: -.045em; font-weight: 950; }
+      .evaluation-main-copy p, .evaluation-locked-box p { margin: 0; color: var(--muted); line-height: 1.65; }
+      .main-final-exam-box { border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.16); padding: 16px; }
+      .final-exam-box { display: grid; gap: 12px; margin-top: 4px; }
+      .final-exam-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+      .final-exam-meta span { border-radius: 999px; border: 1px solid rgba(99,229,70,.22); background: rgba(99,229,70,.08); color: var(--green); padding: 6px 9px; font-size: 11px; font-weight: 850; }
+      .final-question-list { display: grid; gap: 14px; }
+      .final-question-card { border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.028); padding: 16px; display: grid; gap: 8px; }
+      .final-question-card h4 { margin: 0 0 2px; font-size: 15px; line-height: 1.4; font-weight: 850; }
+      .final-answer { min-height: 48px; border-radius: 11px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.024); display: grid; grid-template-columns: 22px 26px minmax(0,1fr); gap: 8px; align-items: center; padding: 10px; cursor: pointer; color: rgba(244,246,242,.76); }
+      .final-answer.selected { border-color: rgba(99,229,70,.42); background: rgba(99,229,70,.09); color: var(--white); }
+      .final-answer input { accent-color: var(--green); }
+      .final-answer span { width: 24px; height: 24px; border-radius: 999px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.10); color: var(--green); font-size: 11px; font-weight: 950; }
+      .final-answer p { margin: 0; font-size: 13px; line-height: 1.45; }
+      .final-result { border-radius: 12px; border: 1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.035); padding: 12px; display: grid; gap: 4px; }
+      .final-result.passed { border-color: rgba(99,229,70,.28); background: rgba(99,229,70,.08); }
+      .final-result.failed { border-color: rgba(255,105,105,.28); background: rgba(255,105,105,.08); }
+      .final-result strong { color: var(--green); font-size: 28px; line-height: 1; }
+      .final-result span, .exam-helper { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 0; }
 
       @media (max-width: 1320px) {
-        .dashboard-layout {
-          grid-template-columns: 1fr;
-        }
-
-        .evaluation-main-card {
-          grid-template-columns: 1fr;
-        }
-
-        .evaluation-main-copy {
-          position: static;
-        }
-
-        .right-column {
-          position: static;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          display: grid;
-        }
-
-        .course-heading {
-          grid-template-columns: 1fr;
-        }
-      }
-
-
-      .main-evaluation-section {
-        border-radius: 22px;
-        border: 1px solid rgba(255,255,255,.09);
-        background:
-          radial-gradient(circle at top right, rgba(var(--green-rgb), .10), transparent 34%),
-          linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
-          rgba(8, 12, 10, .90);
-        box-shadow: 0 24px 80px rgba(0,0,0,.22);
-        padding: 22px;
-        scroll-margin-top: 20px;
-      }
-
-      .evaluation-title-row {
-        margin-bottom: 16px;
-      }
-
-      .evaluation-title-row h2 {
-        margin: 6px 0 0;
-        font-size: clamp(26px, 3vw, 42px);
-        line-height: .96;
-        letter-spacing: -.055em;
-        font-weight: 950;
-      }
-
-      .main-evaluation-section.locked {
-        opacity: .92;
-      }
-
-      .evaluation-main-card {
-        border-radius: 18px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.026);
-        padding: 18px;
-        display: grid;
-        grid-template-columns: minmax(280px, .55fr) minmax(0, 1.45fr);
-        gap: 18px;
-        align-items: start;
-      }
-
-      .evaluation-main-copy {
-        position: sticky;
-        top: 18px;
-        display: grid;
-        gap: 12px;
-      }
-
-      .evaluation-pill {
-        width: fit-content;
-        border-radius: 999px;
-        border: 1px solid rgba(var(--green-rgb), .22);
-        background: rgba(var(--green-rgb), .08);
-        color: var(--green);
-        padding: 7px 10px;
-        font-size: 11px;
-        font-weight: 900;
-      }
-
-      .evaluation-main-copy h3 {
-        margin: 0;
-        font-size: clamp(24px, 2.2vw, 34px);
-        line-height: 1;
-        letter-spacing: -.045em;
-        font-weight: 950;
-      }
-
-      .evaluation-main-copy p,
-      .evaluation-locked-box p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.65;
-      }
-
-      .main-final-exam-box {
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(0,0,0,.16);
-        padding: 16px;
-      }
-
-      .main-final-question-list {
-        gap: 14px;
-      }
-
-      .main-final-question-card {
-        padding: 16px;
-      }
-
-      .main-final-question-card h4 {
-        font-size: 15px;
-        line-height: 1.4;
-      }
-
-      .main-final-question-card .final-answer {
-        min-height: 48px;
-        padding: 10px;
-      }
-
-      .main-final-question-card .final-answer p {
-        font-size: 13px;
-        line-height: 1.45;
-      }
-
-      .evaluation-locked-box {
-        display: grid;
-        gap: 12px;
-      }
-
-
-      .final-exam-panel {
-        display: grid;
-        gap: 12px;
-      }
-
-      .final-exam-panel > strong {
-        display: block;
-        font-size: 18px;
-        line-height: 1.2;
-        letter-spacing: -.025em;
-      }
-
-      .final-exam-box {
-        display: grid;
-        gap: 12px;
-        margin-top: 4px;
-      }
-
-      .final-exam-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .final-exam-meta span {
-        border-radius: 999px;
-        border: 1px solid rgba(99,229,70,.22);
-        background: rgba(99,229,70,.08);
-        color: var(--green);
-        padding: 6px 9px;
-        font-size: 11px;
-        font-weight: 850;
-      }
-
-      .final-question-list {
-        display: grid;
-        gap: 10px;
-      }
-
-      .final-question-card {
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.028);
-        padding: 12px;
-        display: grid;
-        gap: 8px;
-      }
-
-      .final-question-card h4 {
-        margin: 0 0 2px;
-        font-size: 13px;
-        line-height: 1.35;
-        font-weight: 850;
-      }
-
-      .final-answer {
-        min-height: 38px;
-        border-radius: 11px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.024);
-        display: grid;
-        grid-template-columns: 22px 26px minmax(0,1fr);
-        gap: 8px;
-        align-items: center;
-        padding: 8px;
-        cursor: pointer;
-        color: rgba(244,246,242,.76);
-      }
-
-      .final-answer.selected {
-        border-color: rgba(99,229,70,.42);
-        background: rgba(99,229,70,.09);
-        color: var(--white);
-      }
-
-      .final-answer input {
-        accent-color: var(--green);
-      }
-
-      .final-answer span {
-        width: 24px;
-        height: 24px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        border: 1px solid rgba(255,255,255,.10);
-        color: var(--green);
-        font-size: 11px;
-        font-weight: 950;
-      }
-
-      .final-answer p {
-        margin: 0;
-        font-size: 12px;
-        line-height: 1.35;
-      }
-
-      .final-result {
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(255,255,255,.035);
-        padding: 12px;
-        display: grid;
-        gap: 4px;
-      }
-
-      .final-result.passed {
-        border-color: rgba(99,229,70,.28);
-        background: rgba(99,229,70,.08);
-      }
-
-      .final-result.failed {
-        border-color: rgba(255,105,105,.28);
-        background: rgba(255,105,105,.08);
-      }
-
-      .final-result strong {
-        color: var(--green);
-        font-size: 28px;
-        line-height: 1;
-      }
-
-      .final-result span,
-      .exam-helper {
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.45;
-        margin: 0;
+        .dashboard-layout { grid-template-columns: 1fr; }
+        .evaluation-main-card { grid-template-columns: 1fr; }
+        .evaluation-main-copy { position: static; }
+        .right-column { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); display: grid; }
+        .course-heading { grid-template-columns: 1fr; }
       }
 
       @media (max-width: 1040px) {
-        .rail,
-        .sidebar {
-          display: none;
-        }
-
-        .course-shell {
-          margin-left: 0;
-          padding: 16px;
-        }
-
-        .topbar {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        .dashboard-layout {
-          gap: 18px;
-        }
+        .rail, .sidebar { display: none; }
+        .course-shell { margin-left: 0; padding: 16px; }
+        .topbar { flex-direction: column; align-items: flex-start; }
+        .dashboard-layout { gap: 18px; }
       }
 
       @media (max-width: 760px) {
-        .right-column {
-          grid-template-columns: 1fr;
-        }
-
-        .course-heading h1 {
-          font-size: clamp(30px, 10vw, 42px);
-        }
-
-        .hero-card::after,
-        .hero-image {
-          opacity: .26;
-          width: 100%;
-        }
-
-        .tabs {
-          gap: 18px;
-          overflow-x: auto;
-        }
-
-        .module-header {
-          grid-template-columns: 40px minmax(0, 1fr);
-        }
-
-        .module-state {
-          grid-column: 1 / -1;
-          grid-template-columns: 45px 24px 20px;
-          justify-content: start;
-        }
-
-        .lessons-list {
-          padding: 0 12px 14px;
-        }
-
-        .lesson-row {
-          grid-template-columns: 28px minmax(0, 1fr);
-        }
-
-        .lesson-kind,
-        .lesson-status,
-        .lesson-duration {
-          grid-column: 2;
-        }
-
-        .lesson-row a,
-        .lesson-row em {
-          grid-column: 2;
-          width: 100%;
-        }
-
-        .progress-ring-row,
-        .next-lesson {
-          grid-template-columns: 1fr;
-        }
+        .right-column { grid-template-columns: 1fr; }
+        .course-heading h1 { font-size: clamp(30px, 10vw, 42px); }
+        .hero-card::after, .hero-image { opacity: .26; width: 100%; }
+        .tabs { gap: 18px; overflow-x: auto; }
+        .module-header { grid-template-columns: 40px minmax(0, 1fr); }
+        .module-state { grid-column: 1 / -1; grid-template-columns: 45px 24px 20px; justify-content: start; }
+        .lessons-list { padding: 0 12px 14px; }
+        .lesson-row { grid-template-columns: 28px minmax(0, 1fr); }
+        .lesson-kind, .lesson-status, .lesson-duration { grid-column: 2; }
+        .lesson-row a, .lesson-row em { grid-column: 2; width: 100%; }
+        .progress-ring-row, .next-lesson { grid-template-columns: 1fr; }
       }
     `}</style>
   );
