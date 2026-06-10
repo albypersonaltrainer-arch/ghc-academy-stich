@@ -48,7 +48,7 @@ type ReviewQuestionForm = {
   evaluated_objective: string;
 };
 
-const BUILD_MARK = "GHC-EXAM-REVIEW-V7 · revisión humana estable · sin saltos de pantalla";
+const BUILD_MARK = "GHC-EXAM-PUBLISH-V8 · publicación segura · revisión cerrada";
 const VALID_QUESTION_TYPES = new Set(["test", "true_false", "case_option"]);
 const VALID_DIFFICULTIES = new Set(["basic", "medium", "advanced", "mixed"]);
 const LABELS = ["A", "B", "C", "D", "E", "F"] as const;
@@ -482,6 +482,46 @@ export default function BlueprintDetailPage() {
     }
   };
 
+  const publishExam = async () => {
+    if (!supabase || !blueprint?.id) return;
+
+    if (!reviewSummary.ready) {
+      setAlert({
+        type: "warning",
+        message: "Todavía no se puede publicar. Todas las preguntas deben estar aprobadas o editadas, sin rechazadas ni pendientes.",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Vas a publicar este examen. A partir de este momento quedará marcado como publicado dentro de GHC Academy. ¿Confirmas la publicación?"
+    );
+
+    if (!confirmed) return;
+
+    setWorking(true);
+    setAlert({ type: "info", message: "Publicando examen. No cierres la página hasta que termine." });
+
+    try {
+      const { data, error } = await supabase.rpc("ghc_admin_publish_exam_from_blueprint", {
+        p_blueprint_id: blueprint.id,
+      });
+
+      if (error) throw new Error(error.message || "No se pudo publicar el examen.");
+
+      await loadDetail(true);
+
+      setAlert({
+        type: "success",
+        message: `Examen publicado correctamente. ${Number(data?.total || reviewSummary.total)} preguntas activas vinculadas al examen.`,
+      });
+    } catch (error) {
+      setAlert({ type: "error", message: getErrorMessage(error) });
+    } finally {
+      setWorking(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="page-shell">
@@ -710,13 +750,42 @@ export default function BlueprintDetailPage() {
           </div>
           <div className="review-head-actions">
             <span className={reviewSummary.ready ? "ready-pill ok" : "ready-pill pending"}>
-              {reviewSummary.ready ? "Listo para publicar" : "Revisión pendiente"}
+              {blueprint.status === "published"
+                ? "Examen publicado"
+                : reviewSummary.ready
+                  ? "Listo para publicar"
+                  : "Revisión pendiente"}
             </span>
+            <button
+              type="button"
+              className="publish-button"
+              onClick={publishExam}
+              disabled={working || !reviewSummary.ready || blueprint.status === "published"}
+            >
+              {blueprint.status === "published" ? "Publicado" : working ? "Procesando..." : "Publicar examen"}
+            </button>
             <button type="button" onClick={() => loadDetail()} disabled={working}>
               Refrescar
             </button>
           </div>
         </div>
+
+        {blueprint.status === "published" ? (
+          <div className="publish-note success-note">
+            <strong>Examen publicado</strong>
+            <p>Este examen ya está marcado como publicado. Las preguntas aprobadas quedan activas para el siguiente bloque de integración con el área alumno.</p>
+          </div>
+        ) : reviewSummary.ready ? (
+          <div className="publish-note ready-note">
+            <strong>Revisión completa</strong>
+            <p>Las preguntas están aprobadas y el examen puede publicarse desde el botón superior. La publicación solo cambia el estado del examen; no toca certificados ni otras pantallas.</p>
+          </div>
+        ) : (
+          <div className="publish-note pending-note">
+            <strong>Publicación bloqueada</strong>
+            <p>Para publicar, todas las preguntas deben estar aprobadas o editadas, sin borradores, rechazadas ni pendientes de revisión.</p>
+          </div>
+        )}
 
         {questions.length ? (
           <div className="question-grid">
@@ -1781,6 +1850,46 @@ const styles = `
   .rejected-note { margin-top: 14px; border: 1px solid rgba(248,113,113,0.25); background: rgba(248,113,113,0.08); border-radius: 16px; padding: 14px; }
   .rejected-note strong { color: #fecaca; }
   .rejected-note p { margin: 6px 0 0; color: rgba(244,242,234,0.72); }
+
+  .publish-button {
+    color: #06100a !important;
+    background: linear-gradient(135deg, #22d65b, #a7f3d0) !important;
+    border-color: rgba(34,214,91,0.7) !important;
+  }
+
+  .publish-note {
+    margin: 0 0 18px;
+    padding: 15px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.045);
+  }
+
+  .publish-note strong {
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  .publish-note p {
+    margin: 0;
+    color: rgba(244,242,234,0.68);
+    line-height: 1.55;
+  }
+
+  .ready-note {
+    border-color: rgba(34,214,91,0.28);
+    background: rgba(34,214,91,0.065);
+  }
+
+  .success-note {
+    border-color: rgba(34,214,91,0.42);
+    background: rgba(34,214,91,0.09);
+  }
+
+  .pending-note {
+    border-color: rgba(250,204,21,0.28);
+    background: rgba(113,63,18,0.16);
+  }
 
   @media (max-width: 760px) {
     .edit-meta-grid { grid-template-columns: 1fr; }
