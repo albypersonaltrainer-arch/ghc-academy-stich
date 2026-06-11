@@ -167,6 +167,8 @@ const emptyDashboardData: DashboardData = {
   examQuestions: [],
   examResults: [],
   examAttempts: [],
+  examAttemptAnswers: [],
+  examBlueprints: [],
 };
 
 const emptyCourseForm: CourseFormState = {
