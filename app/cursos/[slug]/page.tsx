@@ -33,6 +33,7 @@ type FinalExamState = {
   questions: AnyRecord[];
   selectedAnswers: Record<string, string>;
   result: FinalExamResult | null;
+  review: AnyRecord | null;
   loading: boolean;
   submitting: boolean;
   message: string;
@@ -43,12 +44,13 @@ const emptyFinalExamState: FinalExamState = {
   questions: [],
   selectedAnswers: {},
   result: null,
+  review: null,
   loading: false,
   submitting: false,
   message: '',
 };
 
-const BUILD_MARK = 'GHC-COURSE-SECURE-EXAM-V2 · corrección segura en Supabase';
+const BUILD_MARK = 'GHC-COURSE-SECURE-EXAM-V3 · resultado detallado y repetición segura';
 const GREEN = '#63E546';
 
 const supabase = createClient(
@@ -145,11 +147,30 @@ export default function CourseDetailPage() {
                 })
               : [];
 
+            const { data: latestAttemptData, error: latestAttemptError } = await supabase.rpc(
+              'ghc_student_get_latest_exam_attempt_result',
+              { p_exam_id: secureExamData.exam.id }
+            );
+
+            if (latestAttemptError) {
+              console.error('Error cargando último resultado del examen:', latestAttemptError);
+            }
+
+            const latestAttempt = latestAttemptData?.attempt || null;
+
             setFinalExamState({
               exam: secureExamData.exam,
               questions: secureQuestions,
               selectedAnswers: {},
-              result: null,
+              result: latestAttempt
+                ? {
+                    score: Number(latestAttempt.score || 0),
+                    totalQuestions: Number(latestAttempt.total_questions || secureQuestions.length),
+                    correctAnswers: Number(latestAttempt.correct_answers || 0),
+                    passed: Boolean(latestAttempt.passed),
+                  }
+                : null,
+              review: latestAttemptData?.review?.length ? latestAttemptData : null,
               loading: false,
               submitting: false,
               message: '',
@@ -370,6 +391,7 @@ export default function CourseDetailPage() {
     : Boolean(effectiveCourseCompletion?.completed);
 
   const finalExamUnlocked = finalExamExists && allModulesCompleted && !finalExamPassed;
+  const canTakeFinalExam = finalExamExists && allModulesCompleted;
   const certificateAvailable = Boolean(isCourseCompleted && finalExamPassed);
   const certificateBlockedByExam = finalExamExists && allModulesCompleted && !finalExamPassed;
 
@@ -431,6 +453,20 @@ export default function CourseDetailPage() {
     }));
   }
 
+  function repeatFinalExam() {
+    setFinalExamState((previous) => ({
+      ...previous,
+      selectedAnswers: {},
+      result: null,
+      review: null,
+      message: 'Nuevo intento preparado. Responde de nuevo todas las preguntas.',
+    }));
+
+    setTimeout(() => {
+      document.getElementById('evaluacion')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }
+
   async function submitFinalExam() {
     if (!course) return;
 
@@ -442,12 +478,10 @@ export default function CourseDetailPage() {
       return;
     }
 
-    if (!finalExamUnlocked) {
+    if (!canTakeFinalExam) {
       setFinalExamState((previous) => ({
         ...previous,
-        message: finalExamPassed
-          ? 'Este examen final ya figura como superado.'
-          : 'Primero completa todos los módulos para desbloquear el examen final.',
+        message: 'Primero completa todos los módulos para desbloquear el examen final.',
       }));
       return;
     }
@@ -506,6 +540,15 @@ export default function CourseDetailPage() {
         passed: Boolean(secureResult.passed),
       };
 
+      const { data: attemptReviewData, error: attemptReviewError } = await supabase.rpc(
+        'ghc_student_get_exam_attempt_result',
+        { p_attempt_id: secureResult.attempt_id }
+      );
+
+      if (attemptReviewError) {
+        console.error('Error cargando revisión del intento:', attemptReviewError);
+      }
+
       setBestFinalExamAttempt({
         passed: result.passed,
         score: result.score,
@@ -519,6 +562,7 @@ export default function CourseDetailPage() {
       setFinalExamState((previous) => ({
         ...previous,
         result,
+        review: attemptReviewData?.review?.length ? attemptReviewData : null,
         submitting: false,
         message: result.passed
           ? `Examen final superado con ${result.score}%. Has acertado ${result.correctAnswers} de ${result.totalQuestions}. Certificación desbloqueada.`
@@ -898,7 +942,7 @@ export default function CourseDetailPage() {
               </div>
             </section>
 
-            <section id="evaluacion" className={finalExamUnlocked || finalExamPassed ? 'main-evaluation-section active' : 'main-evaluation-section locked'}>
+            <section id="evaluacion" className={canTakeFinalExam ? 'main-evaluation-section active' : 'main-evaluation-section locked'}>
               <div className="section-title-row evaluation-title-row">
                 <div><p className="kicker">Evaluación final</p><h2>{finalExamState.exam?.title || 'Examen final del curso'}</h2></div>
                 <span>{evaluationStateLabel}</span>
@@ -911,7 +955,7 @@ export default function CourseDetailPage() {
                   <p>{finalExamPassed ? `Evaluación final superada con ${finalExamScore || 100}%. Ya puedes emitir o consultar tu certificado.` : finalExamUnlocked ? 'Responde las preguntas finales. Al aprobar, la plataforma registrará el curso como completado y desbloqueará la certificación digital.' : 'El examen final se activa cuando todos los módulos del curso están aprobados.'}</p>
                 </div>
 
-                {finalExamUnlocked ? (
+                {canTakeFinalExam ? (
                   <div className="final-exam-box main-final-exam-box">
                     {finalExamState.loading ? (
                       <p className="exam-helper">Cargando examen final...</p>
@@ -938,8 +982,57 @@ export default function CourseDetailPage() {
                             </article>
                           ))}
                         </div>
-                        <button type="button" onClick={submitFinalExam} disabled={finalExamState.submitting} className="primary-action as-button full">{finalExamState.submitting ? 'Enviando...' : 'Enviar examen final'}</button>
-                        {finalExamState.result ? <div className={finalExamState.result.passed ? 'final-result passed' : 'final-result failed'}><strong>{finalExamState.result.score}%</strong><span>{finalExamState.result.correctAnswers} de {finalExamState.result.totalQuestions} correctas · {finalExamState.result.passed ? 'Superado' : 'No superado'}</span></div> : null}
+                        <button type="button" onClick={submitFinalExam} disabled={finalExamState.submitting} className="primary-action as-button full">{finalExamState.submitting ? 'Enviando...' : finalExamState.result ? 'Enviar nuevo intento' : 'Enviar examen final'}</button>
+
+                        {finalExamState.result ? (
+                          <div className={finalExamState.result.passed ? 'final-result passed' : 'final-result failed'}>
+                            <strong>{finalExamState.result.score}%</strong>
+                            <span>{finalExamState.result.correctAnswers} de {finalExamState.result.totalQuestions} correctas · {finalExamState.result.passed ? 'Superado' : 'No superado'}</span>
+                          </div>
+                        ) : null}
+
+                        {finalExamState.review?.review?.length ? (
+                          <section className="attempt-review">
+                            <div className="attempt-review-head">
+                              <div>
+                                <p className="kicker">Revisión del intento</p>
+                                <h3>Resultado pregunta por pregunta</h3>
+                              </div>
+                              <span>Intento completado</span>
+                            </div>
+
+                            <div className="attempt-review-list">
+                              {finalExamState.review.review.map((item: AnyRecord, reviewIndex: number) => (
+                                <article key={String(item.question_id || reviewIndex)} className={item.is_correct ? 'attempt-review-card correct' : 'attempt-review-card incorrect'}>
+                                  <div className="attempt-review-title">
+                                    <span>Pregunta {reviewIndex + 1}</span>
+                                    <strong>{item.is_correct ? 'Correcta' : 'Incorrecta'}</strong>
+                                  </div>
+                                  <h4>{item.question}</h4>
+                                  <div className="attempt-answer-grid">
+                                    <div>
+                                      <span>Tu respuesta</span>
+                                      <p><b>{item.selected_label}</b> {item.selected_text}</p>
+                                    </div>
+                                    <div>
+                                      <span>Respuesta correcta</span>
+                                      <p><b>{item.correct_label}</b> {item.correct_text}</p>
+                                    </div>
+                                  </div>
+                                  {item.explanation ? (
+                                    <div className="attempt-explanation">
+                                      <span>Explicación didáctica</span>
+                                      <p>{item.explanation}</p>
+                                    </div>
+                                  ) : null}
+                                </article>
+                              ))}
+                            </div>
+
+                            <button type="button" onClick={repeatFinalExam} className="secondary-action as-button full">Repetir examen</button>
+                          </section>
+                        ) : null}
+
                         {finalExamState.message ? <p className="exam-helper">{finalExamState.message}</p> : null}
                       </>
                     )}
@@ -1293,6 +1386,124 @@ function GlobalStyles() {
         .evaluation-main-copy { position: static; }
         .right-column { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); display: grid; }
         .course-heading { grid-template-columns: 1fr; }
+      }
+
+
+      .attempt-review {
+        margin-top: 8px;
+        display: grid;
+        gap: 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.022);
+        padding: 16px;
+      }
+
+      .attempt-review-head,
+      .attempt-review-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .attempt-review-head h3 {
+        margin: 6px 0 0;
+        font-size: 22px;
+        letter-spacing: -.035em;
+      }
+
+      .attempt-review-head > span,
+      .attempt-review-title > span,
+      .attempt-answer-grid span,
+      .attempt-explanation span {
+        color: rgba(244,246,242,.50);
+        text-transform: uppercase;
+        letter-spacing: .11em;
+        font-size: 10px;
+        font-weight: 900;
+      }
+
+      .attempt-review-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .attempt-review-card {
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(0,0,0,.18);
+        padding: 14px;
+      }
+
+      .attempt-review-card.correct {
+        border-color: rgba(var(--green-rgb), .28);
+        background: rgba(var(--green-rgb), .055);
+      }
+
+      .attempt-review-card.incorrect {
+        border-color: rgba(255,105,105,.28);
+        background: rgba(255,105,105,.055);
+      }
+
+      .attempt-review-title strong {
+        color: var(--green);
+        font-size: 12px;
+      }
+
+      .attempt-review-card.incorrect .attempt-review-title strong {
+        color: #ff8f8f;
+      }
+
+      .attempt-review-card h4 {
+        margin: 10px 0 12px;
+        font-size: 15px;
+        line-height: 1.45;
+      }
+
+      .attempt-answer-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .attempt-answer-grid > div,
+      .attempt-explanation {
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.07);
+        background: rgba(255,255,255,.025);
+        padding: 12px;
+      }
+
+      .attempt-answer-grid p,
+      .attempt-explanation p {
+        margin: 6px 0 0;
+        color: rgba(244,246,242,.76);
+        line-height: 1.5;
+        font-size: 12px;
+      }
+
+      .attempt-answer-grid b {
+        color: var(--green);
+        margin-right: 6px;
+      }
+
+      .attempt-explanation {
+        margin-top: 10px;
+        border-color: rgba(var(--green-rgb), .16);
+        background: rgba(var(--green-rgb), .035);
+      }
+
+      @media (max-width: 760px) {
+        .attempt-answer-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .attempt-review-head,
+        .attempt-review-title {
+          align-items: flex-start;
+          flex-direction: column;
+        }
       }
 
       @media (max-width: 1040px) {
