@@ -17,6 +17,7 @@ type DashboardData = {
   exams: AnyRecord[];
   questions: AnyRecord[];
   generations: AnyRecord[];
+  attempts: AnyRecord[];
 };
 
 type BlueprintView = {
@@ -48,6 +49,12 @@ type BlueprintView = {
   generatedAt: string;
   aiInstructions: string;
   reviewNotes: string;
+  examId: string;
+  attemptsCount: number;
+  studentsPresented: number;
+  averageScore: number;
+  bestScore: number;
+  passedAttempts: number;
 };
 
 const supabase = createClient(
@@ -63,10 +70,11 @@ const emptyData: DashboardData = {
   exams: [],
   questions: [],
   generations: [],
+  attempts: [],
 };
 
 const GREEN = "#63E546";
-const BUILD_ID = "GHC-EXAMS-BLUEPRINTS-V1";
+const BUILD_ID = "GHC-EXAMS-CENTER-V2";
 
 export default function Page() {
   const router = useRouter();
@@ -79,6 +87,7 @@ export default function Page() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | BlueprintStatus>("all");
+  const [courseFilter, setCourseFilter] = useState("all");
   const [selectedBlueprintId, setSelectedBlueprintId] = useState("");
 
   useEffect(() => {
@@ -136,6 +145,7 @@ export default function Page() {
 
     return views.filter((item) => {
       const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      const matchesCourse = courseFilter === "all" || String(item.raw.course_id || "") === courseFilter;
       const matchesSearch =
         !query ||
         [
@@ -153,9 +163,9 @@ export default function Page() {
           .toLowerCase()
           .includes(query);
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesCourse && matchesSearch;
     });
-  }, [views, search, statusFilter]);
+  }, [views, search, statusFilter, courseFilter]);
 
   const selectedBlueprint =
     filteredViews.find((item) => item.id === selectedBlueprintId) ||
@@ -165,6 +175,17 @@ export default function Page() {
     null;
 
   const stats = useMemo(() => buildStats(views), [views]);
+  const courseOptions = useMemo(
+    () =>
+      data.courses
+        .map((course) => ({
+          id: String(course.id || ""),
+          title: String(course.title || course.name || "Curso GHC Academy"),
+        }))
+        .filter((course) => course.id)
+        .sort((a, b) => a.title.localeCompare(b.title)),
+    [data.courses]
+  );
   const adminName = profile?.full_name || profile?.email || "Admin GHC";
 
   async function refreshData() {
@@ -242,11 +263,11 @@ export default function Page() {
                 <small>Configurar IA</small>
               </div>
             </button>
-            <button type="button" onClick={() => setMessage("La revisión profunda de preguntas se construye en el siguiente bloque.")}> 
+            <button type="button" onClick={() => selectedBlueprint ? openReview(selectedBlueprint) : setMessage("Selecciona primero un examen real.")}> 
               <span>▣</span>
               <div>
                 <strong>Revisión</strong>
-                <small>Próximo bloque</small>
+                <small>Abrir examen</small>
               </div>
             </button>
             <button type="button" onClick={goControlCenter}>
@@ -293,25 +314,25 @@ export default function Page() {
         <section className="hero-card">
           <div className="hero-copy">
             <p className="eyebrow">Agente de Exámenes GHC v1</p>
-            <h1>Blueprints y borradores de evaluación</h1>
+            <h1>Centro general de exámenes</h1>
             <p>
-              Aquí se listan las configuraciones reales creadas por el admin antes de generar preguntas con IA. La IA no publica nada: todo queda en borrador, revisión y aprobación humana.
+              Gestiona desde un único centro los exámenes reales, su revisión, publicación, intentos, alumnos presentados y rendimiento. La IA prepara borradores; la aprobación y publicación siguen bajo control humano.
             </p>
           </div>
 
           <div className="hero-panel">
             <span>Flujo oficial</span>
-            <strong>Configurar → generar → revisar → aprobar → publicar</strong>
-            <p>Cero rastro de IA para el alumno. Solo se mostrarán exámenes publicados.</p>
-            <button type="button" onClick={goCreateBlueprint}>Crear nuevo blueprint</button>
+            <strong>Crear → revisar → publicar → medir</strong>
+            <p>Accede a cada examen, revisa preguntas y consulta estadísticas reales sin depender de enlaces directos.</p>
+            <button type="button" onClick={goCreateBlueprint}>Crear evaluación</button>
           </div>
         </section>
 
         <section className="stats-grid">
-          <StatCard label="Blueprints" value={stats.total} helper="Configuraciones creadas" />
-          <StatCard label="Borradores IA" value={stats.draft} helper="Pendientes de generación/revisión" />
-          <StatCard label="En revisión" value={stats.review} helper="Control humano" />
-          <StatCard label="Publicados" value={stats.published} helper="Visibles para alumno" />
+          <StatCard label="Exámenes" value={stats.total} helper="Blueprints reales" />
+          <StatCard label="Publicados" value={stats.published} helper="Disponibles para alumnos" />
+          <StatCard label="Intentos" value={stats.attempts} helper="Entregas registradas" />
+          <StatCard label="Alumnos" value={stats.students} helper="Presentados al menos una vez" />
         </section>
 
         <section className="workspace-grid">
@@ -319,7 +340,7 @@ export default function Page() {
             <div className="list-head">
               <div>
                 <p className="eyebrow">Listado real</p>
-                <h2>Borradores y exámenes</h2>
+                <h2>Exámenes y evaluaciones</h2>
                 <span>{filteredViews.length} resultado(s)</span>
               </div>
               <button type="button" onClick={goCreateBlueprint}>+ Nuevo</button>
@@ -338,6 +359,12 @@ export default function Page() {
                 <option value="published">Publicado</option>
                 <option value="archived">Archivado</option>
                 <option value="rejected">Rechazado</option>
+              </select>
+              <select value={courseFilter} onChange={(event) => setCourseFilter(event.target.value)}>
+                <option value="all">Todos los cursos</option>
+                {courseOptions.map((course) => (
+                  <option key={course.id} value={course.id}>{course.title}</option>
+                ))}
               </select>
             </div>
 
@@ -362,11 +389,11 @@ export default function Page() {
                     </div>
                     <div className="blueprint-metric">
                       <strong>{blueprint.generatedQuestions}</strong>
-                      <span>generadas</span>
+                      <span>preguntas</span>
                     </div>
                     <div className="blueprint-metric hide-mobile">
-                      <strong>{blueprint.passPercentage}%</strong>
-                      <span>mínimo</span>
+                      <strong>{blueprint.attemptsCount}</strong>
+                      <span>intentos</span>
                     </div>
                     <em>{blueprint.createdAt}</em>
                   </button>
@@ -447,12 +474,22 @@ function BlueprintDetail({ blueprint, onReview, onCreate }: { blueprint: Bluepri
       </div>
 
       <div className="detail-section">
+        <h3>Rendimiento real</h3>
+        <div className="review-grid">
+          <ReviewBox label="Intentos" value={blueprint.attemptsCount} />
+          <ReviewBox label="Alumnos" value={blueprint.studentsPresented} />
+          <ReviewBox label="Nota media" value={blueprint.averageScore} tone="yellow" />
+          <ReviewBox label="Mejor nota" value={blueprint.bestScore} tone="green" />
+        </div>
+      </div>
+
+      <div className="detail-section">
         <h3>Instrucciones internas IA</h3>
         <p className="instruction-box">{blueprint.aiInstructions || "Sin instrucciones adicionales."}</p>
       </div>
 
       <div className="detail-actions">
-        <button type="button" className="primary-button" onClick={onReview}>Revisar borrador</button>
+        <button type="button" className="primary-button" onClick={onReview}>Abrir gestión y estadísticas</button>
         <button type="button" className="ghost-button" onClick={onCreate}>Crear otro</button>
       </div>
     </div>
@@ -460,7 +497,7 @@ function BlueprintDetail({ blueprint, onReview, onCreate }: { blueprint: Bluepri
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
-  const [blueprints, courses, modules, lessons, exams, questions, generations] = await Promise.all([
+  const [blueprints, courses, modules, lessons, exams, questions, generations, attempts] = await Promise.all([
     safeSelect("exam_blueprints", "*"),
     safeSelect("courses", "*"),
     safeSelect("modules", "*"),
@@ -468,6 +505,7 @@ async function loadDashboardData(): Promise<DashboardData> {
     safeSelect("exams", "*"),
     safeSelect("exam_questions", "*"),
     safeSelect("exam_ai_generations", "*"),
+    safeSelect("exam_attempts", "*"),
   ]);
 
   return {
@@ -478,6 +516,7 @@ async function loadDashboardData(): Promise<DashboardData> {
     exams,
     questions,
     generations,
+    attempts,
   };
 }
 
@@ -503,6 +542,11 @@ function buildBlueprintViews(data: DashboardData): BlueprintView[] {
     const lesson = data.lessons.find((item) => String(item.id) === String(blueprint.lesson_id));
     const generatedExam = data.exams.find((item) => String(item.id) === String(blueprint.generated_exam_id) || String(item.blueprint_id) === id);
     const questions = data.questions.filter((item) => String(item.blueprint_id) === id || (generatedExam?.id && String(item.exam_id) === String(generatedExam.id)));
+    const examAttempts = generatedExam?.id
+      ? data.attempts.filter((item) => String(item.exam_id) === String(generatedExam.id))
+      : [];
+    const uniqueStudents = new Set(examAttempts.map((item) => String(item.user_id || "")).filter(Boolean));
+    const scores = examAttempts.map((item) => Number(item.score)).filter((score) => Number.isFinite(score));
     const status = normalizeBlueprintStatus(blueprint.status);
 
     return {
@@ -534,6 +578,12 @@ function buildBlueprintViews(data: DashboardData): BlueprintView[] {
       generatedAt: formatShortDate(blueprint.generated_at),
       aiInstructions: String(blueprint.ai_instructions || ""),
       reviewNotes: String(blueprint.human_review_notes || ""),
+      examId: String(generatedExam?.id || ""),
+      attemptsCount: examAttempts.length,
+      studentsPresented: uniqueStudents.size,
+      averageScore: scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0,
+      bestScore: scores.length ? Math.max(...scores) : 0,
+      passedAttempts: examAttempts.filter((item) => item.passed === true).length,
     };
   });
 }
@@ -544,6 +594,8 @@ function buildStats(views: BlueprintView[]) {
     draft: views.filter((item) => item.status === "draft_ai").length,
     review: views.filter((item) => item.status === "in_review").length,
     published: views.filter((item) => item.status === "published").length,
+    attempts: views.reduce((sum, item) => sum + item.attemptsCount, 0),
+    students: views.reduce((sum, item) => sum + item.studentsPresented, 0),
   };
 }
 
@@ -683,7 +735,7 @@ function GlobalStyles() {
       .evaluation-sidebar{position:sticky;top:0;height:100vh;z-index:2;border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(5,8,7,.98),rgba(3,5,4,.94));padding:22px;display:flex;flex-direction:column;justify-content:space-between}.sidebar-logo{min-height:60px;display:flex;align-items:center;margin-bottom:24px}.sidebar-nav{display:grid;gap:8px}.sidebar-nav button{width:100%;min-height:58px;border-radius:16px;border:1px solid transparent;background:transparent;color:rgba(244,246,242,.66);display:grid;grid-template-columns:38px minmax(0,1fr);gap:12px;align-items:center;padding:10px 12px;text-align:left;cursor:pointer}.sidebar-nav button:hover{background:rgba(255,255,255,.035);color:var(--white)}.sidebar-nav button.active{background:linear-gradient(90deg,rgba(99,229,70,.15),rgba(99,229,70,.035));border-color:rgba(99,229,70,.16);color:var(--green);box-shadow:inset 3px 0 0 var(--green)}.sidebar-nav button>span{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);font-weight:950}.sidebar-nav strong{display:block;font-size:14px;line-height:1.05}.sidebar-nav small{display:block;margin-top:4px;color:var(--soft);font-size:11px}.sidebar-status{border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.035);padding:16px}.sidebar-status span{color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.16em;font-weight:950}.sidebar-status strong{display:block;margin-top:7px;font-size:13px}.sidebar-status p{margin:8px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
       .evaluation-shell{position:relative;z-index:1;min-width:0;padding:18px 20px 32px;display:grid;gap:16px}.evaluation-topbar{min-height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:18px}.breadcrumb{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;font-weight:850}.breadcrumb button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-weight:900;padding:0}.breadcrumb button:hover{color:var(--green);transform:none}.breadcrumb strong{color:var(--white)}.topbar-actions{display:flex;align-items:center;gap:10px;min-width:0}.admin-pill{height:42px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 12px}.admin-pill span{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.11);color:var(--green);font-size:11px;font-weight:950}.admin-pill strong{font-size:13px}.primary-button,.ghost-button{min-height:42px;border-radius:999px;padding:0 16px;font-weight:950;cursor:pointer}.primary-button{border:0;background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;box-shadow:0 14px 34px rgba(99,229,70,.18)}.ghost-button{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--white)}.ghost-button:disabled{opacity:.6;cursor:not-allowed}.system-message{border-radius:15px;border:1px solid rgba(99,229,70,.22);background:rgba(99,229,70,.06);padding:14px 16px;color:rgba(244,246,242,.78);font-size:14px;line-height:1.5}
       .hero-card{min-height:170px;border:1px solid var(--line);border-radius:24px;background:radial-gradient(circle at 80% 18%,rgba(99,229,70,.16),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.022));box-shadow:0 28px 90px rgba(0,0,0,.25);display:grid;grid-template-columns:minmax(0,1fr) 410px;gap:24px;align-items:center;padding:28px;overflow:hidden}.eyebrow{margin:0 0 10px;color:var(--green);text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:950}.hero-copy h1{margin:0;font-size:clamp(38px,4vw,58px);line-height:.92;letter-spacing:-.065em}.hero-copy p:not(.eyebrow){margin:14px 0 0;color:var(--muted);line-height:1.62;max-width:760px}.hero-panel{border:1px solid rgba(99,229,70,.22);border-radius:20px;background:linear-gradient(145deg,rgba(99,229,70,.085),rgba(255,255,255,.025));padding:18px;display:grid;gap:10px}.hero-panel span{color:var(--green);text-transform:uppercase;letter-spacing:.16em;font-size:10px;font-weight:950}.hero-panel strong{font-size:21px;line-height:1.1;letter-spacing:-.035em}.hero-panel p{margin:0;color:var(--muted);line-height:1.5;font-size:13px}.hero-panel button{justify-self:start;min-height:40px;border-radius:999px;border:0;background:var(--green);color:#061008;padding:0 16px;font-weight:950;cursor:pointer}
-      .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat-card{min-height:120px;border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:16px;box-shadow:0 22px 70px rgba(0,0,0,.18)}.stat-card span{color:var(--muted);font-size:12px;font-weight:850}.stat-card strong{display:block;margin-top:9px;font-size:34px;letter-spacing:-.05em}.stat-card p{margin:6px 0 0;color:var(--muted);font-size:12px}.workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:14px;align-items:start}.list-card,.detail-card{border:1px solid var(--line);border-radius:22px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.19);padding:18px}.detail-card{position:sticky;top:18px}.list-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.list-head h2{margin:0;font-size:27px;line-height:1;letter-spacing:-.045em}.list-head span{display:block;margin-top:8px;color:var(--muted);font-size:13px}.list-head button{min-height:38px;border-radius:999px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.08);color:var(--green);font-weight:950;padding:0 14px;cursor:pointer}.filters-row{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:10px;margin-bottom:14px}.search-field{height:44px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.search-field input{flex:1;min-width:0;height:42px;border:0;outline:0;background:transparent;color:var(--white)}.filters-row select{height:44px;border-radius:999px;border:1px solid var(--line);background:#0a0e0c;color:var(--white);padding:0 14px;outline:0}.blueprint-list{display:grid;gap:10px}.blueprint-row{width:100%;min-height:92px;border-radius:18px;border:1px solid rgba(255,255,255,.075);background:linear-gradient(135deg,rgba(255,255,255,.038),rgba(255,255,255,.016));color:var(--white);display:grid;grid-template-columns:118px minmax(0,1fr) 84px 92px 96px 92px;gap:12px;align-items:center;text-align:left;padding:13px;cursor:pointer}.blueprint-row:hover{border-color:rgba(99,229,70,.24);background:linear-gradient(135deg,rgba(99,229,70,.06),rgba(255,255,255,.018))}.blueprint-row.active{border-color:rgba(99,229,70,.38);background:linear-gradient(135deg,rgba(99,229,70,.12),rgba(255,255,255,.022));box-shadow:0 14px 40px rgba(0,0,0,.22)}.status-pill{display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:30px;border-radius:999px;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);color:var(--muted);white-space:nowrap}.status-pill.green{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.status-pill.yellow{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.095);color:var(--yellow)}.status-pill.red{border-color:rgba(255,100,100,.28);background:rgba(255,100,100,.095);color:var(--red)}.status-pill.muted{color:var(--soft)}.blueprint-main strong{display:block;font-size:17px;letter-spacing:-.02em;line-height:1.12}.blueprint-main p{margin:5px 0 0;color:var(--muted);font-size:13px}.blueprint-main small{display:block;margin-top:5px;color:var(--soft);font-size:11px}.blueprint-metric strong{display:block;font-size:22px;line-height:1;color:var(--white)}.blueprint-metric span{display:block;margin-top:4px;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900}.blueprint-row em{font-style:normal;color:var(--muted);font-size:12px}.empty-state,.empty-detail{text-align:center;padding:36px 22px;color:var(--muted)}.empty-state span,.empty-detail span{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;margin:0 auto 16px;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.18);color:var(--green);font-size:28px}.empty-state h3,.empty-detail h2{margin:0;color:var(--white);letter-spacing:-.035em}.empty-state p,.empty-detail p{line-height:1.55}.empty-state button,.empty-detail button{min-height:42px;border-radius:999px;border:0;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}
+      .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat-card{min-height:120px;border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:16px;box-shadow:0 22px 70px rgba(0,0,0,.18)}.stat-card span{color:var(--muted);font-size:12px;font-weight:850}.stat-card strong{display:block;margin-top:9px;font-size:34px;letter-spacing:-.05em}.stat-card p{margin:6px 0 0;color:var(--muted);font-size:12px}.workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:14px;align-items:start}.list-card,.detail-card{border:1px solid var(--line);border-radius:22px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.19);padding:18px}.detail-card{position:sticky;top:18px}.list-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.list-head h2{margin:0;font-size:27px;line-height:1;letter-spacing:-.045em}.list-head span{display:block;margin-top:8px;color:var(--muted);font-size:13px}.list-head button{min-height:38px;border-radius:999px;border:1px solid rgba(99,229,70,.24);background:rgba(99,229,70,.08);color:var(--green);font-weight:950;padding:0 14px;cursor:pointer}.filters-row{display:grid;grid-template-columns:minmax(0,1fr) 190px 230px;gap:10px;margin-bottom:14px}.search-field{height:44px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted)}.search-field input{flex:1;min-width:0;height:42px;border:0;outline:0;background:transparent;color:var(--white)}.filters-row select{height:44px;border-radius:999px;border:1px solid var(--line);background:#0a0e0c;color:var(--white);padding:0 14px;outline:0}.blueprint-list{display:grid;gap:10px}.blueprint-row{width:100%;min-height:92px;border-radius:18px;border:1px solid rgba(255,255,255,.075);background:linear-gradient(135deg,rgba(255,255,255,.038),rgba(255,255,255,.016));color:var(--white);display:grid;grid-template-columns:118px minmax(0,1fr) 84px 92px 96px 92px;gap:12px;align-items:center;text-align:left;padding:13px;cursor:pointer}.blueprint-row:hover{border-color:rgba(99,229,70,.24);background:linear-gradient(135deg,rgba(99,229,70,.06),rgba(255,255,255,.018))}.blueprint-row.active{border-color:rgba(99,229,70,.38);background:linear-gradient(135deg,rgba(99,229,70,.12),rgba(255,255,255,.022));box-shadow:0 14px 40px rgba(0,0,0,.22)}.status-pill{display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:30px;border-radius:999px;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);color:var(--muted);white-space:nowrap}.status-pill.green{border-color:rgba(99,229,70,.28);background:rgba(99,229,70,.1);color:var(--green)}.status-pill.yellow{border-color:rgba(247,201,72,.28);background:rgba(247,201,72,.095);color:var(--yellow)}.status-pill.red{border-color:rgba(255,100,100,.28);background:rgba(255,100,100,.095);color:var(--red)}.status-pill.muted{color:var(--soft)}.blueprint-main strong{display:block;font-size:17px;letter-spacing:-.02em;line-height:1.12}.blueprint-main p{margin:5px 0 0;color:var(--muted);font-size:13px}.blueprint-main small{display:block;margin-top:5px;color:var(--soft);font-size:11px}.blueprint-metric strong{display:block;font-size:22px;line-height:1;color:var(--white)}.blueprint-metric span{display:block;margin-top:4px;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900}.blueprint-row em{font-style:normal;color:var(--muted);font-size:12px}.empty-state,.empty-detail{text-align:center;padding:36px 22px;color:var(--muted)}.empty-state span,.empty-detail span{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;margin:0 auto 16px;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.18);color:var(--green);font-size:28px}.empty-state h3,.empty-detail h2{margin:0;color:var(--white);letter-spacing:-.035em}.empty-state p,.empty-detail p{line-height:1.55}.empty-state button,.empty-detail button{min-height:42px;border-radius:999px;border:0;background:var(--green);color:#061008;font-weight:950;padding:0 16px;cursor:pointer}
       .detail-inner{display:grid;gap:18px}.detail-top h2{margin:12px 0 8px;font-size:30px;line-height:1;letter-spacing:-.055em}.detail-top p{margin:0;color:var(--muted);line-height:1.55}.detail-section{border-top:1px solid rgba(255,255,255,.075);padding-top:16px}.detail-section h3{margin:0 0 12px;font-size:16px;letter-spacing:-.02em}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.detail-metric{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(0,0,0,.17);padding:11px;min-width:0}.detail-metric span{display:block;color:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950}.detail-metric strong{display:block;margin-top:6px;font-size:13px;line-height:1.25;color:var(--white);word-break:break-word}.review-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.review-box{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(255,255,255,.026);padding:12px}.review-box span{color:var(--muted);font-size:12px}.review-box strong{display:block;margin-top:5px;font-size:25px}.review-box.green strong{color:var(--green)}.review-box.yellow strong{color:var(--yellow)}.review-box.red strong{color:var(--red)}.flags{display:grid;gap:8px}.flags div{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(255,255,255,.026);padding:12px;display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:center}.flags span{width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.2);color:var(--green);font-weight:950}.flags p{margin:0;color:var(--muted);font-size:13px}.instruction-box{border:1px solid rgba(255,255,255,.075);border-radius:14px;background:rgba(0,0,0,.17);padding:13px;color:var(--muted);line-height:1.55;white-space:pre-wrap}.detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
       @media(max-width:1380px){.hero-card,.workspace-grid{grid-template-columns:1fr}.detail-card{position:static}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.blueprint-row{grid-template-columns:112px minmax(0,1fr) 84px 92px 92px}.hide-mobile{display:none}}
       @media(max-width:980px){.evaluation-page{grid-template-columns:1fr}.evaluation-sidebar{position:relative;height:auto}.evaluation-topbar{align-items:flex-start;flex-direction:column}.topbar-actions{width:100%;flex-wrap:wrap}.hero-card{padding:22px}.filters-row,.stats-grid,.detail-grid,.review-grid,.detail-actions{grid-template-columns:1fr}.blueprint-row{grid-template-columns:1fr}.evaluation-shell{padding:14px}.hero-copy h1{font-size:38px}}
