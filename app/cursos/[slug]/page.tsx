@@ -48,7 +48,7 @@ const emptyFinalExamState: FinalExamState = {
   message: '',
 };
 
-const BUILD_MARK = 'GHC-COURSE-FINAL-EXAM-GATE-V1 · certificado condicionado al examen final';
+const BUILD_MARK = 'GHC-COURSE-SECURE-EXAM-V2 · corrección segura en Supabase';
 const GREEN = '#63E546';
 
 const supabase = createClient(
@@ -113,60 +113,73 @@ export default function CourseDetailPage() {
         setCourse(courseData);
         setFinalExamState({ ...emptyFinalExamState, loading: true });
 
-        const { data: finalExamData, error: finalExamError } = await supabase
-          .from('exams')
-          .select('*')
-          .eq('course_id', courseData.id)
-          .eq('exam_scope', 'course')
-          .eq('status', 'published')
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
+        if (activeUser?.id) {
+          const { data: secureExamData, error: secureExamError } = await supabase.rpc(
+            'ghc_student_get_published_course_exam',
+            { p_course_id: courseData.id }
+          );
 
-        if (finalExamError) {
-          console.error('Error cargando examen final:', finalExamError);
-          setFinalExamState({
-            ...emptyFinalExamState,
-            loading: false,
-            message: 'No se pudo cargar el examen final del curso.',
-          });
-        } else if (finalExamData?.id) {
-          const questions = await loadPublishedExamQuestions(finalExamData.id);
+          if (secureExamError) {
+            console.error('Error cargando examen final seguro:', secureExamError);
+            setFinalExamState({
+              ...emptyFinalExamState,
+              loading: false,
+              message: 'No se pudo cargar el examen final del curso.',
+            });
+          } else if (secureExamData?.exam?.id) {
+            const secureQuestions = Array.isArray(secureExamData.questions)
+              ? secureExamData.questions.map((question: AnyRecord) => {
+                  const normalized = { ...question };
+                  const optionRows = Array.isArray(question.options) ? question.options : [];
 
-          setFinalExamState({
-            exam: finalExamData,
-            questions,
-            selectedAnswers: {},
-            result: null,
-            loading: false,
-            submitting: false,
-            message: '',
-          });
+                  optionRows.forEach((option: AnyRecord) => {
+                    const label = normalizeOption(option.label);
+                    if (['A', 'B', 'C', 'D', 'E', 'F'].includes(label)) {
+                      normalized[`option_${label.toLowerCase()}`] = option.text || '';
+                    }
+                  });
 
-          if (activeUser?.id) {
-            const { data: attemptData, error: attemptError } = await supabase
-              .from('exam_attempts')
-              .select('*')
-              .eq('user_id', activeUser.id)
-              .eq('course_id', courseData.id)
-              .eq('exam_id', finalExamData.id)
-              .order('passed', { ascending: false })
-              .order('score', { ascending: false })
-              .order('completed_at', { ascending: false, nullsFirst: false })
-              .limit(1)
-              .maybeSingle();
+                  delete normalized.options;
+                  delete normalized.correct_option;
+                  return normalized;
+                })
+              : [];
 
-            if (attemptError) {
-              console.error('Error cargando intento de examen final:', attemptError);
+            setFinalExamState({
+              exam: secureExamData.exam,
+              questions: secureQuestions,
+              selectedAnswers: {},
+              result: null,
+              loading: false,
+              submitting: false,
+              message: '',
+            });
+
+            setBestFinalExamAttempt(
+              secureExamData.has_passed
+                ? {
+                    passed: true,
+                    score: Number(secureExamData.best_score || 0),
+                    attempt_count: Number(secureExamData.attempt_count || 0),
+                  }
+                : null
+            );
+
+            if (secureExamData.certificate?.status === 'valid') {
+              setRealCertificate(secureExamData.certificate);
             }
-
-            setBestFinalExamAttempt(attemptData || null);
+          } else {
+            setFinalExamState({
+              ...emptyFinalExamState,
+              loading: false,
+              message: 'Todavía no hay examen final publicado para este curso.',
+            });
           }
         } else {
           setFinalExamState({
             ...emptyFinalExamState,
             loading: false,
-            message: 'Todavía no hay examen final publicado para este curso.',
+            message: 'Inicia sesión como alumno para acceder al examen final.',
           });
         }
 
@@ -273,59 +286,6 @@ export default function CourseDetailPage() {
     if (slug) loadCourseDetail();
   }, [slug]);
 
-  async function loadPublishedExamQuestions(examId: string) {
-    const { data: questionsData, error: questionsError } = await supabase
-      .from('exam_questions')
-      .select('*')
-      .eq('exam_id', examId)
-      .eq('is_active', true)
-      .in('question_status', ['approved', 'edited'])
-      .order('sort_order', { ascending: true });
-
-    if (questionsError) {
-      console.error('Error cargando preguntas del examen final:', questionsError);
-      return [];
-    }
-
-    const questions = Array.isArray(questionsData) ? [...questionsData] : [];
-    const questionIds = questions.map((question) => question.id).filter(Boolean);
-
-    if (!questionIds.length) return questions;
-
-    const { data: optionsData, error: optionsError } = await supabase
-      .from('exam_question_options')
-      .select('*')
-      .in('question_id', questionIds)
-      .order('sort_order', { ascending: true });
-
-    if (optionsError) {
-      console.error('Error cargando opciones del examen final:', optionsError);
-      return questions;
-    }
-
-    const optionsByQuestion = new Map<string, AnyRecord[]>();
-    (Array.isArray(optionsData) ? optionsData : []).forEach((option) => {
-      const key = String(option.question_id || '');
-      const current = optionsByQuestion.get(key) || [];
-      current.push(option);
-      optionsByQuestion.set(key, current);
-    });
-
-    return questions.map((question) => {
-      const rows = optionsByQuestion.get(String(question.id)) || [];
-      const normalized = { ...question };
-
-      rows.forEach((option) => {
-        const label = normalizeOption(option.label);
-        if (['A', 'B', 'C', 'D', 'E', 'F'].includes(label)) {
-          normalized[`option_${label.toLowerCase()}`] = option.option_text || option.text || '';
-          if (option.is_correct) normalized.correct_option = label;
-        }
-      });
-
-      return normalized;
-    });
-  }
 
   function loadPreviewModuleCompletions(courseId: string) {
     try {
@@ -500,7 +460,9 @@ export default function CourseDetailPage() {
       return;
     }
 
-    const allAnswered = finalExamState.questions.every((question) => Boolean(finalExamState.selectedAnswers[String(question.id)]));
+    const allAnswered = finalExamState.questions.every((question) =>
+      Boolean(finalExamState.selectedAnswers[String(question.id)])
+    );
 
     if (!allAnswered) {
       setFinalExamState((previous) => ({
@@ -511,67 +473,69 @@ export default function CourseDetailPage() {
     }
 
     try {
-      setFinalExamState((previous) => ({ ...previous, submitting: true, message: 'Corrigiendo examen final...' }));
+      setFinalExamState((previous) => ({
+        ...previous,
+        submitting: true,
+        message: 'Corrigiendo examen final de forma segura...',
+      }));
 
-      const evaluatedAnswers = finalExamState.questions.map((question) => {
-        const selected = finalExamState.selectedAnswers[String(question.id)];
-        const correct = normalizeOption(selected) === normalizeOption(question.correct_option);
-        return {
-          question_id: question.id,
-          question: question.question,
-          selected_answer: selected,
-          correct_answer: question.correct_option,
-          is_correct: correct,
-        };
-      });
+      const { data: secureResult, error: secureSubmitError } = await supabase.rpc(
+        'ghc_student_submit_course_exam',
+        {
+          p_exam_id: finalExamState.exam.id,
+          p_answers: finalExamState.selectedAnswers,
+        }
+      );
 
-      const correctAnswers = evaluatedAnswers.filter((answer) => answer.is_correct).length;
-      const totalQuestions = finalExamState.questions.length;
-      const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
-      const passScore = Number(finalExamState.exam.pass_score || finalExamState.exam.passing_score || finalExamState.exam.pass_percentage || 70);
-      const passed = score >= passScore;
-      const now = new Date().toISOString();
-
-      const { data: attemptData, error: attemptError } = await supabase
-        .from('exam_attempts')
-        .insert({
-          user_id: user.id,
-          course_id: course.id,
-          exam_id: finalExamState.exam.id,
-          score,
-          total_questions: totalQuestions,
-          correct_answers: correctAnswers,
-          passed,
-          answers: evaluatedAnswers,
-          started_at: now,
-          completed_at: now,
-        })
-        .select('*')
-        .maybeSingle();
-
-      if (attemptError) {
-        console.error('Error guardando intento de examen final:', attemptError);
+      if (secureSubmitError || !secureResult) {
+        console.error('Error en corrección segura del examen final:', secureSubmitError);
         setFinalExamState((previous) => ({
           ...previous,
           submitting: false,
-          message: 'No se pudo guardar el intento del examen final. Revisa Supabase.',
+          message:
+            secureSubmitError?.message ||
+            'No se pudo corregir y guardar el examen final de forma segura.',
         }));
         return;
       }
 
-      const result: FinalExamResult = { score, totalQuestions, correctAnswers, passed };
-      setBestFinalExamAttempt(attemptData || null);
+      const result: FinalExamResult = {
+        score: Number(secureResult.score || 0),
+        totalQuestions: Number(secureResult.total_questions || finalExamState.questions.length),
+        correctAnswers: Number(secureResult.correct_answers || 0),
+        passed: Boolean(secureResult.passed),
+      };
+
+      setBestFinalExamAttempt({
+        passed: result.passed,
+        score: result.score,
+        attempt_count: Number(secureResult.attempt_number || 1),
+      });
+
+      if (secureResult.certificate?.status === 'valid') {
+        setRealCertificate(secureResult.certificate);
+      }
+
       setFinalExamState((previous) => ({
         ...previous,
         result,
         submitting: false,
-        message: passed
-          ? `Examen final superado con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}.`
-          : `Examen final enviado con ${score}%. Has acertado ${correctAnswers} de ${totalQuestions}, pero no has alcanzado la puntuación mínima.`,
+        message: result.passed
+          ? `Examen final superado con ${result.score}%. Has acertado ${result.correctAnswers} de ${result.totalQuestions}. Certificación desbloqueada.`
+          : `Examen final enviado con ${result.score}%. Has acertado ${result.correctAnswers} de ${result.totalQuestions}. Puedes volver a intentarlo cuando quieras.`,
       }));
 
-      if (passed) {
-        await saveCourseCompletion({ examAttemptId: attemptData?.id || null, score });
+      if (result.passed) {
+        const { data: completionData } = await supabase
+          .from('course_completions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('course_id', course.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        setCourseCompletion(completionData || null);
       }
     } catch (error) {
       console.error('Error inesperado enviando examen final:', error);
