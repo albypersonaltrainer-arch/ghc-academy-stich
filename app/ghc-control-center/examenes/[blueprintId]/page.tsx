@@ -38,6 +38,14 @@ type ReviewOptionForm = {
   is_correct: boolean;
 };
 
+
+
+type ExamStatisticsState = {
+  loading: boolean;
+  error: string;
+  data: AnyRecord | null;
+};
+
 type ReviewQuestionForm = {
   question: string;
   question_type: "test" | "true_false" | "case_option";
@@ -48,7 +56,7 @@ type ReviewQuestionForm = {
   evaluated_objective: string;
 };
 
-const BUILD_MARK = "GHC-EXAM-PUBLISH-V8 · publicación segura · revisión cerrada";
+const BUILD_MARK = "GHC-EXAM-STATS-V9 · estadísticas reales · seguimiento administrador";
 const VALID_QUESTION_TYPES = new Set(["test", "true_false", "case_option"]);
 const VALID_DIFFICULTIES = new Set(["basic", "medium", "advanced", "mixed"]);
 const LABELS = ["A", "B", "C", "D", "E", "F"] as const;
@@ -75,6 +83,7 @@ export default function BlueprintDetailPage() {
   const [alert, setAlert] = useState<AlertState>({ type: "idle", message: "" });
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<ReviewQuestionForm | null>(null);
+  const [statistics, setStatistics] = useState<ExamStatisticsState>({ loading: false, error: "", data: null });
 
   const importerRef = useRef<HTMLTextAreaElement | null>(null);
   const questionsRef = useRef<HTMLDivElement | null>(null);
@@ -87,6 +96,16 @@ export default function BlueprintDetailPage() {
   const optionCount = Number(detail?.option_count || options.length || 0);
   const requestedQuestionCount = Number(blueprint?.requested_question_count || 0);
   const answerCount = Number(blueprint?.answer_count || 4);
+  const statisticsSummary = statistics.data?.summary || {};
+  const questionStatistics: AnyRecord[] = Array.isArray(statistics.data?.question_statistics)
+    ? statistics.data.question_statistics
+    : [];
+  const studentStatistics: AnyRecord[] = Array.isArray(statistics.data?.student_statistics)
+    ? statistics.data.student_statistics
+    : [];
+  const recentAttempts: AnyRecord[] = Array.isArray(statistics.data?.recent_attempts)
+    ? statistics.data.recent_attempts
+    : [];
 
   const reviewSummary = useMemo(() => {
     const total = questions.length;
@@ -162,9 +181,29 @@ export default function BlueprintDetailPage() {
     if (!silent) setLoading(false);
   }, [blueprintId]);
 
+  const loadStatistics = useCallback(async (silent = false) => {
+    if (!supabase || !blueprintId) return;
+
+    if (!silent) {
+      setStatistics((current) => ({ ...current, loading: true, error: "" }));
+    }
+
+    const { data, error } = await supabase.rpc("ghc_admin_get_exam_statistics", {
+      p_blueprint_id: blueprintId,
+    });
+
+    if (error) {
+      setStatistics({ loading: false, error: error.message, data: null });
+      return;
+    }
+
+    setStatistics({ loading: false, error: "", data: data || null });
+  }, [blueprintId]);
+
   useEffect(() => {
     loadDetail();
-  }, [loadDetail]);
+    loadStatistics();
+  }, [loadDetail, loadStatistics]);
 
   const openImporter = () => {
     setImporterOpen(true);
@@ -930,6 +969,110 @@ export default function BlueprintDetailPage() {
           </article>
         )}
       </section>
+
+      <section className="statistics-section" id="estadisticas">
+        <div className="panel-head statistics-head">
+          <div>
+            <p className="eyebrow">Rendimiento real</p>
+            <h2>Estadísticas del examen</h2>
+            <p className="statistics-subtitle">Datos consolidados de intentos, alumnos y rendimiento por pregunta.</p>
+          </div>
+          <button type="button" onClick={() => loadStatistics()} disabled={statistics.loading}>
+            {statistics.loading ? "Actualizando..." : "Actualizar estadísticas"}
+          </button>
+        </div>
+
+        {statistics.error ? (
+          <div className="statistics-error">
+            <strong>No se pudieron cargar las estadísticas</strong>
+            <p>{statistics.error}</p>
+          </div>
+        ) : statistics.loading && !statistics.data ? (
+          <div className="statistics-loading">Cargando estadísticas reales del examen...</div>
+        ) : (
+          <>
+            <div className="statistics-metrics">
+              <article><span>Alumnos presentados</span><strong>{Number(statisticsSummary.students_presented || 0)}</strong><p>{Number(statisticsSummary.students_passed || 0)} han aprobado</p></article>
+              <article><span>Intentos totales</span><strong>{Number(statisticsSummary.total_attempts || 0)}</strong><p>{Number(statisticsSummary.average_attempts || 0)} intentos por alumno</p></article>
+              <article><span>Tasa de superación</span><strong>{formatPercent(statisticsSummary.student_pass_rate)}</strong><p>Por alumno presentado</p></article>
+              <article><span>Nota media</span><strong>{formatScore(statisticsSummary.average_score)}</strong><p>Mejor nota: {formatScore(statisticsSummary.best_score)}</p></article>
+            </div>
+
+            <div className="statistics-grid">
+              <article className="statistics-card">
+                <div className="statistics-card-head">
+                  <div><span>Diagnóstico pedagógico</span><h3>Preguntas con más dificultad</h3></div>
+                  <em>{questionStatistics.length} preguntas</em>
+                </div>
+                {questionStatistics.length ? (
+                  <div className="question-performance-list">
+                    {questionStatistics.map((item, index) => (
+                      <div className="performance-row" key={String(item.question_id || index)}>
+                        <div className="performance-copy">
+                          <span>Pregunta {Number(item.sort_order || index + 1)}</span>
+                          <strong>{String(item.question || "Pregunta sin título")}</strong>
+                          <small>{Number(item.total_answers || 0)} respuestas registradas</small>
+                        </div>
+                        <div className="performance-score">
+                          <strong>{formatPercent(item.correct_percentage)}</strong>
+                          <span>acierto</span>
+                        </div>
+                        <div className="performance-bar"><div style={{ width: `${clampPercent(item.correct_percentage)}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="empty-statistics">Todavía no hay respuestas suficientes para calcular dificultad por pregunta.</p>}
+              </article>
+
+              <article className="statistics-card">
+                <div className="statistics-card-head">
+                  <div><span>Seguimiento individual</span><h3>Alumnos presentados</h3></div>
+                  <em>{studentStatistics.length} alumnos</em>
+                </div>
+                {studentStatistics.length ? (
+                  <div className="student-statistics-list">
+                    {studentStatistics.map((student, index) => (
+                      <div className="student-stat-row" key={String(student.user_id || index)}>
+                        <div className="student-badge">{getInitials(String(student.student_name || "Alumno"))}</div>
+                        <div className="student-copy">
+                          <strong>{String(student.student_name || "Alumno GHC Academy")}</strong>
+                          <span>{String(student.student_email || "Sin correo visible")}</span>
+                          <small>{Number(student.attempts_count || 0)} intento(s) · Última nota {formatScore(student.latest_score)}</small>
+                        </div>
+                        <div className={student.passed ? "student-status passed" : "student-status pending"}>
+                          <strong>{formatScore(student.best_score)}</strong>
+                          <span>{student.passed ? "Aprobado" : "Pendiente"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="empty-statistics">Aún no hay alumnos presentados en este examen.</p>}
+              </article>
+            </div>
+
+            <article className="statistics-card recent-card">
+              <div className="statistics-card-head">
+                <div><span>Actividad reciente</span><h3>Últimos intentos</h3></div>
+                <em>{recentAttempts.length} registros</em>
+              </div>
+              {recentAttempts.length ? (
+                <div className="attempt-table">
+                  <div className="attempt-row attempt-header"><span>Alumno</span><span>Resultado</span><span>Aciertos</span><span>Fecha</span></div>
+                  {recentAttempts.map((attempt, index) => (
+                    <div className="attempt-row" key={String(attempt.attempt_id || index)}>
+                      <span>{String(attempt.student_name || "Alumno GHC Academy")}</span>
+                      <strong className={attempt.passed ? "attempt-passed" : "attempt-failed"}>{formatScore(attempt.score)} · {attempt.passed ? "Aprobado" : "No aprobado"}</strong>
+                      <span>{Number(attempt.correct_answers || 0)} de {Number(attempt.total_questions || 0)}</span>
+                      <span>{formatDateTime(attempt.completed_at)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="empty-statistics">No hay intentos registrados todavía.</p>}
+            </article>
+          </>
+        )}
+      </section>
+
     </main>
   );
 }
@@ -1235,6 +1378,34 @@ function normalizeQuestionType(value: unknown) {
 function normalizeDifficulty(value: unknown) {
   const clean = String(value || "mixed").toLowerCase();
   return VALID_DIFFICULTIES.has(clean) ? clean : "mixed";
+}
+
+
+function formatPercent(value: unknown) {
+  const number = Number(value || 0);
+  return `${Number.isInteger(number) ? number : number.toFixed(1)}%`;
+}
+
+function formatScore(value: unknown) {
+  const number = Number(value || 0);
+  return `${Number.isInteger(number) ? number : number.toFixed(1)}%`;
+}
+
+function clampPercent(value: unknown) {
+  return Math.max(0, Math.min(100, Number(value || 0)));
+}
+
+function formatDateTime(value: unknown) {
+  const raw = String(value || "");
+  if (!raw) return "Sin fecha";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeStyle: "short" }).format(date);
+}
+
+function getInitials(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  return parts.map((part) => part.slice(0, 1).toUpperCase()).join("") || "GH";
 }
 
 function getBlueprintStatusLabel(status: string) {
@@ -1780,10 +1951,73 @@ const styles = `
     }
   }
 
+
+
+  .statistics-section {
+    margin-top: 18px;
+    padding: 24px;
+    border-radius: 26px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.026)), rgba(12,15,15,0.94);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.30);
+  }
+
+  .statistics-head { align-items: center; }
+  .statistics-subtitle { margin: 8px 0 0; color: rgba(244,242,234,0.62); line-height: 1.55; }
+  .statistics-loading, .statistics-error, .empty-statistics { padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.20); color: rgba(244,242,234,0.68); }
+  .statistics-error { border-color: rgba(248,113,113,0.34); background: rgba(127,29,29,0.18); }
+  .statistics-error strong { display: block; color: #fecaca; margin-bottom: 6px; }
+  .statistics-error p { margin: 0; }
+
+  .statistics-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
+  .statistics-metrics article { padding: 18px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.22); }
+  .statistics-metrics span { display: block; color: rgba(244,242,234,0.50); text-transform: uppercase; letter-spacing: .12em; font-size: 11px; }
+  .statistics-metrics strong { display: block; margin-top: 10px; font-size: 30px; letter-spacing: -.045em; color: #f4f2ea; }
+  .statistics-metrics p { margin: 7px 0 0; color: rgba(244,242,234,0.58); font-size: 13px; }
+
+  .statistics-grid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(360px,.9fr); gap: 16px; }
+  .statistics-card { padding: 20px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.20); }
+  .statistics-card-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+  .statistics-card-head span { display: block; color: #22d65b; text-transform: uppercase; letter-spacing: .14em; font-size: 10px; font-weight: 900; }
+  .statistics-card-head h3 { margin: 5px 0 0; font-size: 20px; letter-spacing: -.035em; }
+  .statistics-card-head em { font-style: normal; color: rgba(244,242,234,0.50); font-size: 12px; }
+
+  .question-performance-list, .student-statistics-list { display: grid; gap: 10px; }
+  .performance-row { display: grid; grid-template-columns: minmax(0,1fr) 80px; gap: 12px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); }
+  .performance-copy span, .performance-copy small { display: block; color: rgba(244,242,234,0.48); font-size: 11px; }
+  .performance-copy strong { display: block; margin: 5px 0; line-height: 1.35; font-size: 14px; }
+  .performance-score { text-align: right; }
+  .performance-score strong { display: block; color: #22d65b; font-size: 20px; }
+  .performance-score span { color: rgba(244,242,234,0.48); font-size: 11px; }
+  .performance-bar { grid-column: 1 / -1; height: 6px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,0.07); }
+  .performance-bar div { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #22d65b, #a7f3d0); }
+
+  .student-stat-row { display: grid; grid-template-columns: 44px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 13px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.035); }
+  .student-badge { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(34,214,91,0.10); border: 1px solid rgba(34,214,91,0.24); color: #22d65b; font-weight: 900; }
+  .student-copy strong, .student-copy span, .student-copy small { display: block; }
+  .student-copy span, .student-copy small { color: rgba(244,242,234,0.48); font-size: 11px; margin-top: 3px; }
+  .student-status { min-width: 82px; text-align: right; padding: 8px 10px; border-radius: 13px; }
+  .student-status strong, .student-status span { display: block; }
+  .student-status strong { font-size: 17px; }
+  .student-status span { font-size: 10px; margin-top: 3px; }
+  .student-status.passed { background: rgba(34,214,91,0.09); color: #86efac; }
+  .student-status.pending { background: rgba(250,204,21,0.08); color: #fde68a; }
+
+  .recent-card { margin-top: 16px; }
+  .attempt-table { display: grid; gap: 2px; overflow-x: auto; }
+  .attempt-row { min-width: 720px; display: grid; grid-template-columns: minmax(180px,1.4fr) minmax(150px,1fr) minmax(110px,.7fr) minmax(150px,1fr); gap: 14px; align-items: center; padding: 12px 14px; border-radius: 12px; color: rgba(244,242,234,0.68); }
+  .attempt-row:not(.attempt-header):hover { background: rgba(255,255,255,0.035); }
+  .attempt-header { color: rgba(244,242,234,0.40); text-transform: uppercase; letter-spacing: .10em; font-size: 10px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .attempt-passed { color: #86efac; }
+  .attempt-failed { color: #fca5a5; }
+
+
   @media (max-width: 1050px) {
     .overview-grid,
     .content-grid,
-    .question-grid {
+    .question-grid,
+    .statistics-metrics,
+    .statistics-grid {
       grid-template-columns: 1fr;
     }
 
@@ -1821,6 +2055,11 @@ const styles = `
     .option-row span {
       grid-column: 2;
     }
+
+    .statistics-section { padding: 18px; border-radius: 20px; }
+    .student-stat-row { grid-template-columns: 40px minmax(0,1fr); }
+    .student-status { grid-column: 2; text-align: left; width: fit-content; }
+    .statistics-head { align-items: flex-start; }
   }
   .review-head { align-items: flex-start; }
   .review-summary { margin: 8px 0 0; color: rgba(244,242,234,0.62); font-size: 13px; }
