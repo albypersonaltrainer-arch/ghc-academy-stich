@@ -129,7 +129,7 @@ type LessonFormState = {
 };
 
 const GREEN = "#63E546";
-const ADMIN_BUILD_ID = "RPC-DIAG-01 · 2026-05-20";
+const ADMIN_BUILD_ID = "EXAM-HUB-10 · 2026-06-11";
 const COURSE_ASSETS_BUCKET = "ghc-course-assets";
 
 const supabase = createClient(
@@ -613,6 +613,7 @@ export default function Page() {
   function topCreateAction() {
     if (activeTab === "cursos") return openCreateCourse();
     if (activeTab === "contenido") return openCreateModule();
+    if (activeTab === "examenes") return router.push("/ghc-control-center/examenes/crear");
     if (activeTab === "certificados") return setSystemMessage("La emisión real de certificados debe validar curso completado y examen final aprobado antes de crear el PDF.");
     if (activeTab === "comunicaciones") return setSystemMessage("Preparado para crear borradores de comunicación. El envío real quedará siempre sujeto a aprobación humana.");
     openCreateCourse();
@@ -1773,9 +1774,317 @@ function StudentDetailCard({ student, setActiveTab, setSystemMessage }: { studen
   return <article className="student-detail-card"><div className="student-detail-head"><span>{student.initials}</span><div><p className="admin-kicker">Ficha del alumno</p><h2>{student.name}</h2><p>{student.email}</p></div></div><div className="student-detail-section"><h3>Perfil académico</h3><div className="student-detail-grid"><DetailMetric label="Progreso" value={`${student.progress}%`} /><DetailMetric label="Cursos activos" value={student.activeCourses} /><DetailMetric label="Cursos completados" value={student.completedCourses} /><DetailMetric label="Certificados" value={student.certificates} /></div><div className="student-progress-track"><div style={{ width: `${student.progress}%` }} /></div><p className="student-note">Último curso detectado: <strong>{student.latestCourse}</strong></p></div><div className="student-detail-section commercial"><h3>Relación comercial y fidelización</h3><div className="commercial-grid"><DetailMetric label="Total invertido" value={student.totalInvested} /><DetailMetric label="Nivel" value={student.commercialTier} /><DetailMetric label="Estado pagos" value={student.commercialHint} /><DetailMetric label="Acceso" value={student.statusLabel} /></div><div className="loyalty-actions"><button type="button" onClick={() => setSystemMessage("Curso gratuito pendiente de permisos de Pagos y accesos.")}>Curso gratuito</button><button type="button" onClick={() => setSystemMessage("Becas y descuentos se conectarán con trazabilidad.")}>Beca / descuento</button></div></div><div className="student-detail-section follow-up"><h3>Seguimiento y riesgo</h3><div className={`follow-up-status ${student.riskTone}`}><strong>{student.riskLabel}</strong><span>{student.followUpStatus}</span></div><div className="follow-up-grid"><DetailMetric label="Última actividad" value={student.lastActivity} /><DetailMetric label="Días inactivo" value={student.inactiveDays === null ? "Sin datos" : student.inactiveDays} /></div><div className="follow-up-actions"><button type="button" onClick={() => setActiveTab("comunicaciones")}>Enviar mensaje</button><button type="button" onClick={() => setSystemMessage("Estado de contacto pendiente de tabla de seguimiento.")}>Marcar contactado</button></div></div></article>;
 }
 
-function ExamenesAdmin({ dashboardData, courseViews, setActiveTab, setSystemMessage }: { dashboardData: DashboardData; courseViews: CourseAdminView[]; setActiveTab: (tab: AdminTab) => void; setSystemMessage: (message: string) => void; }) {
-  const exams = dashboardData.exams.length ? dashboardData.exams : createPlaceholderModules();
-  return <SimpleSection className="exams-admin-page" kicker="Evaluación, certificación y agentes IA" title="Exámenes" text="Gestiona exámenes por módulo, examen final, banco de preguntas y futuros borradores IA. La IA propone; tú revisas y apruebas." sideTitle="Regla fija" sideText="La IA nunca publica exámenes sola. Borrador IA → revisión → aprobación admin → publicación." sideAction="Preparar borrador IA" onSideAction={() => setSystemMessage("Generador IA reservado para GHC Content Factory.")}><section className="exam-stats-grid"><CourseStat label="Exámenes" value={exams.length} helper="Detectados/preparados" /><CourseStat label="Preguntas" value={dashboardData.examQuestions.length} helper="Banco real" /><CourseStat label="Intentos" value={dashboardData.examAttempts.length} helper="Registros" /><CourseStat label="Cursos" value={courseViews.length} helper="Catálogo" /></section><article className="exam-list-card"><div className="section-title-row"><div><h2>Exámenes por módulo</h2><p>Estructuras listas para revisión, publicación o conexión futura.</p></div><button type="button" onClick={() => setActiveTab("contenido")}>Ver contenido</button></div><div className="exam-list">{exams.map((exam, index) => <div className="exam-row" key={String(exam.id || index)}><span className="exam-status draft">Borrador</span><div><strong>{String(exam.title || exam.name || `Examen módulo ${index + 1}`)}</strong><p>{courseViews[index % Math.max(1, courseViews.length)]?.title || "Curso GHC Academy"}</p></div><div><span>Preguntas</span><strong>{dashboardData.examQuestions.filter((q) => String(q.exam_id) === String(exam.id)).length || "—"}</strong></div><div><span>Duración</span><strong>45 min</strong></div><div><span>Nota</span><strong>70%</strong></div><button type="button" onClick={() => setSystemMessage("Edición detallada de examen pendiente de estructura final.")}>Editar</button></div>)}</div></article></SimpleSection>;
+function ExamenesAdmin({
+  dashboardData,
+  courseViews,
+  setActiveTab,
+  setSystemMessage,
+}: {
+  dashboardData: DashboardData;
+  courseViews: CourseAdminView[];
+  setActiveTab: (tab: AdminTab) => void;
+  setSystemMessage: (message: string) => void;
+}) {
+  const router = useRouter();
+
+  const exams = dashboardData.exams
+    .slice()
+    .sort((a, b) => {
+      const aDate = new Date(a.published_at || a.updated_at || a.created_at || 0).getTime();
+      const bDate = new Date(b.published_at || b.updated_at || b.created_at || 0).getTime();
+      return bDate - aDate;
+    });
+
+  const publishedCount = exams.filter(
+    (exam) => String(exam.status || "").toLowerCase() === "published"
+  ).length;
+
+  const reviewCount = exams.filter((exam) =>
+    ["draft", "in_review", "review", "pending"].includes(
+      String(exam.status || "draft").toLowerCase()
+    )
+  ).length;
+
+  const archivedCount = exams.filter((exam) =>
+    ["archived", "hidden", "inactive"].includes(
+      String(exam.status || "").toLowerCase()
+    )
+  ).length;
+
+  function getCourseTitle(exam: AnyRecord) {
+    return (
+      courseViews.find((course) => String(course.id) === String(exam.course_id))?.title ||
+      "Curso GHC Academy"
+    );
+  }
+
+  function getExamStatus(exam: AnyRecord) {
+    const status = String(exam.status || "draft").toLowerCase();
+
+    if (status === "published") {
+      return { label: "Publicado", tone: "published" };
+    }
+
+    if (status === "in_review" || status === "review") {
+      return { label: "En revisión", tone: "review" };
+    }
+
+    if (status === "archived" || status === "hidden" || status === "inactive") {
+      return { label: "Archivado", tone: "archived" };
+    }
+
+    return { label: "Borrador", tone: "draft" };
+  }
+
+  function getExamScope(exam: AnyRecord) {
+    const scope = String(exam.exam_scope || exam.scope || "course").toLowerCase();
+
+    if (scope === "lesson") return "Lección";
+    if (scope === "module") return "Módulo";
+    return "Curso";
+  }
+
+  function openExam(exam: AnyRecord) {
+    const blueprintId = String(exam.blueprint_id || "").trim();
+
+    if (!blueprintId) {
+      setSystemMessage(
+        "Este examen pertenece al sistema anterior y no tiene blueprint de revisión. Se mantiene visible como histórico, pero no se editará desde el Agente de Exámenes."
+      );
+      return;
+    }
+
+    router.push(`/ghc-control-center/examenes/${blueprintId}`);
+  }
+
+  return (
+    <div className="exams-admin-page exam-hub-page">
+      <section className="exam-hub-hero">
+        <div>
+          <p className="admin-kicker">Agente de Exámenes GHC</p>
+          <h1>Exámenes</h1>
+          <p>
+            Crea, revisa, publica y analiza evaluaciones reales desde un flujo seguro:
+            borrador, revisión humana, publicación y estadísticas.
+          </p>
+
+          <div className="exam-hub-hero-actions">
+            <button
+              type="button"
+              className="exam-hub-primary"
+              onClick={() => router.push("/ghc-control-center/examenes/crear")}
+            >
+              + Crear evaluación
+            </button>
+
+            <button
+              type="button"
+              className="exam-hub-secondary"
+              onClick={() => router.push("/ghc-control-center/examenes")}
+            >
+              Abrir centro de exámenes
+            </button>
+          </div>
+        </div>
+
+        <div className="exam-hub-principle">
+          <span>Flujo oficial GHC</span>
+          <strong>La IA propone. El administrador revisa y publica.</strong>
+          <p>
+            Ningún examen se publica automáticamente. La corrección del alumno se
+            ejecuta de forma segura en Supabase.
+          </p>
+
+          <div className="exam-hub-flow">
+            <span>Borrador</span>
+            <i>→</i>
+            <span>Revisión</span>
+            <i>→</i>
+            <span>Publicación</span>
+            <i>→</i>
+            <span>Resultados</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="exam-hub-stats">
+        <CourseStat label="Exámenes reales" value={exams.length} helper="Registrados en Supabase" />
+        <CourseStat label="Publicados" value={publishedCount} helper="Disponibles para alumnos" />
+        <CourseStat label="En revisión" value={reviewCount} helper="Pendientes de aprobación" />
+        <CourseStat label="Preguntas" value={dashboardData.examQuestions.length} helper="Banco real" />
+        <CourseStat label="Intentos" value={dashboardData.examAttempts.length} helper="Resultados registrados" />
+        <CourseStat label="Archivados" value={archivedCount} helper="Histórico conservado" />
+      </section>
+
+      <section className="exam-hub-layout">
+        <article className="exam-hub-list-card">
+          <div className="exam-hub-section-head">
+            <div>
+              <p className="admin-kicker">Gestión operativa</p>
+              <h2>Evaluaciones registradas</h2>
+              <p>
+                Accede a la revisión, publicación y estadísticas de cada examen creado
+                con el sistema actual.
+              </p>
+            </div>
+
+            <div className="exam-hub-head-actions">
+              <button
+                type="button"
+                onClick={() => router.push("/ghc-control-center/examenes")}
+              >
+                Ver listado completo
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => router.push("/ghc-control-center/examenes/crear")}
+              >
+                + Nueva evaluación
+              </button>
+            </div>
+          </div>
+
+          {exams.length ? (
+            <div className="exam-hub-list">
+              {exams.map((exam, index) => {
+                const status = getExamStatus(exam);
+                const blueprintId = String(exam.blueprint_id || "").trim();
+                const questionCount = dashboardData.examQuestions.filter(
+                  (question) => String(question.exam_id) === String(exam.id)
+                ).length;
+                const attemptCount = dashboardData.examAttempts.filter(
+                  (attempt) => String(attempt.exam_id) === String(exam.id)
+                ).length;
+                const passPercentage = Number(
+                  exam.pass_percentage || exam.pass_score || exam.passing_score || 70
+                );
+
+                return (
+                  <article className="exam-hub-row" key={String(exam.id || index)}>
+                    <div className="exam-hub-row-main">
+                      <span className={`exam-hub-status ${status.tone}`}>
+                        {status.label}
+                      </span>
+
+                      <div>
+                        <strong>
+                          {String(exam.title || exam.name || `Evaluación ${index + 1}`)}
+                        </strong>
+                        <p>
+                          {getCourseTitle(exam)} · Evaluación de {getExamScope(exam)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="exam-hub-row-metrics">
+                      <div>
+                        <span>Preguntas</span>
+                        <strong>{questionCount}</strong>
+                      </div>
+                      <div>
+                        <span>Intentos</span>
+                        <strong>{attemptCount}</strong>
+                      </div>
+                      <div>
+                        <span>Aprobado</span>
+                        <strong>{passPercentage}%</strong>
+                      </div>
+                      <div>
+                        <span>Modo</span>
+                        <strong>
+                          {String(exam.attempts_mode || "unlimited") === "limited"
+                            ? `${exam.max_attempts || "—"} intentos`
+                            : "Ilimitado"}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="exam-hub-row-actions">
+                      <button
+                        type="button"
+                        className={blueprintId ? "primary" : ""}
+                        onClick={() => openExam(exam)}
+                      >
+                        {blueprintId ? "Abrir gestión" : "Histórico"}
+                      </button>
+
+                      {blueprintId ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(
+                              `/ghc-control-center/examenes/${blueprintId}#estadisticas`
+                            )
+                          }
+                        >
+                          Estadísticas
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="exam-hub-empty">
+              <span>◈</span>
+              <h3>Todavía no hay evaluaciones</h3>
+              <p>
+                Crea el primer blueprint para empezar el flujo de borrador, revisión,
+                publicación y estadísticas.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push("/ghc-control-center/examenes/crear")}
+              >
+                Crear primera evaluación
+              </button>
+            </div>
+          )}
+        </article>
+
+        <aside className="exam-hub-side">
+          <article className="exam-hub-side-card highlighted">
+            <p className="admin-kicker">Acceso directo</p>
+            <h2>Agente de Exámenes</h2>
+            <p>
+              Crea un borrador, importa preguntas, revísalas y publica solo cuando estén
+              aprobadas.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/ghc-control-center/examenes/crear")}
+            >
+              Crear borrador
+            </button>
+          </article>
+
+          <article className="exam-hub-side-card">
+            <h2>Estado del sistema</h2>
+            <StatusRow label="Revisión humana" value="Activa" />
+            <StatusRow label="Corrección segura" value="Supabase" />
+            <StatusRow label="Intentos por defecto" value="Ilimitados" />
+            <StatusRow label="Certificado" value="Condicionado" />
+            <StatusRow label="Estadísticas" value="Activas" />
+          </article>
+
+          <article className="exam-hub-side-card">
+            <h2>Atajos relacionados</h2>
+            <button type="button" onClick={() => setActiveTab("contenido")}>
+              Ver contenido del curso
+            </button>
+            <button type="button" onClick={() => setActiveTab("alumnos")}>
+              Seguimiento de alumnos
+            </button>
+            <button type="button" onClick={() => setActiveTab("certificados")}>
+              Ver certificados
+            </button>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
 }
 
 function CertificadosAdmin({ certificates, setActiveTab, setSystemMessage }: { certificates: CertificateAdminView[]; setActiveTab: (tab: AdminTab) => void; setSystemMessage: (message: string) => void; }) {
@@ -2324,6 +2633,78 @@ function GlobalStyles() {
       .lesson-upload-field.active{border-color:rgba(99,229,70,.42);background:rgba(99,229,70,.085);box-shadow:inset 0 0 0 1px rgba(99,229,70,.08)}
       .lesson-upload-field.active small{color:var(--white);font-weight:800}
       .lesson-submit-button{box-shadow:0 0 0 1px rgba(99,229,70,.22),0 18px 50px rgba(99,229,70,.16)!important}
+
+
+    /* =========================================================
+       GHC EXAM HUB · integración real en el panel principal
+       ========================================================= */
+    .exam-hub-page{display:grid;gap:16px}
+    .exam-hub-hero{min-height:210px;border:1px solid var(--line);border-radius:24px;background:radial-gradient(circle at 83% 18%,rgba(99,229,70,.15),transparent 31%),linear-gradient(110deg,rgba(9,13,11,.99),rgba(7,10,9,.88));display:grid;grid-template-columns:minmax(0,1.25fr) minmax(340px,.75fr);gap:28px;align-items:center;padding:30px;box-shadow:0 30px 90px rgba(0,0,0,.24);overflow:hidden}
+    .exam-hub-hero h1{margin:0;font-size:clamp(40px,4.4vw,62px);line-height:.92;letter-spacing:-.065em;font-weight:950}
+    .exam-hub-hero>div>p:not(.admin-kicker){margin:14px 0 0;color:var(--muted);line-height:1.65;max-width:760px}
+    .exam-hub-hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+    .exam-hub-primary,.exam-hub-secondary{min-height:44px;border-radius:999px;padding:0 18px;font-weight:950;cursor:pointer}
+    .exam-hub-primary{border:0;background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;box-shadow:0 16px 34px rgba(99,229,70,.18)}
+    .exam-hub-secondary{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--white)}
+    .exam-hub-principle{border:1px solid rgba(99,229,70,.22);border-radius:20px;background:linear-gradient(145deg,rgba(99,229,70,.095),rgba(255,255,255,.025));padding:20px}
+    .exam-hub-principle>span{color:var(--green);text-transform:uppercase;letter-spacing:.16em;font-size:10px;font-weight:950}
+    .exam-hub-principle>strong{display:block;margin-top:9px;font-size:23px;line-height:1.12;letter-spacing:-.035em}
+    .exam-hub-principle>p{margin:10px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
+    .exam-hub-flow{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:16px}
+    .exam-hub-flow span{border-radius:999px;border:1px solid rgba(99,229,70,.18);background:rgba(99,229,70,.065);color:var(--green);padding:6px 9px;font-size:10px;font-weight:900}
+    .exam-hub-flow i{color:rgba(244,246,242,.34);font-style:normal}
+    .exam-hub-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+    .exam-hub-layout{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:14px;align-items:start}
+    .exam-hub-list-card,.exam-hub-side-card{border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:0 22px 70px rgba(0,0,0,.18)}
+    .exam-hub-list-card{padding:20px}
+    .exam-hub-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.07)}
+    .exam-hub-section-head h2{margin:0;font-size:28px;line-height:1;letter-spacing:-.045em}
+    .exam-hub-section-head p:not(.admin-kicker){margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+    .exam-hub-head-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+    .exam-hub-head-actions button,.exam-hub-row-actions button,.exam-hub-side-card button,.exam-hub-empty button{min-height:39px;border-radius:11px;border:1px solid rgba(255,255,255,.105);background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.026));color:var(--white);padding:0 13px;font-weight:900;cursor:pointer}
+    .exam-hub-head-actions button.primary,.exam-hub-row-actions button.primary,.exam-hub-side-card.highlighted button,.exam-hub-empty button{border-color:transparent;background:linear-gradient(135deg,#7cff55,var(--green));color:#061008;box-shadow:0 12px 28px rgba(99,229,70,.15)}
+    .exam-hub-list{display:grid;gap:12px;margin-top:18px}
+    .exam-hub-row{border:1px solid rgba(255,255,255,.08);border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.018));padding:15px;display:grid;grid-template-columns:minmax(260px,1.1fr) minmax(390px,1fr) auto;gap:16px;align-items:center}
+    .exam-hub-row:hover{border-color:rgba(99,229,70,.23);background:linear-gradient(135deg,rgba(99,229,70,.055),rgba(255,255,255,.018))}
+    .exam-hub-row-main{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center}
+    .exam-hub-row-main strong{display:block;font-size:16px;line-height:1.25}
+    .exam-hub-row-main p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.4}
+    .exam-hub-status{display:inline-flex;align-items:center;justify-content:center;min-width:88px;min-height:29px;border-radius:999px;padding:6px 9px;text-transform:uppercase;letter-spacing:.1em;font-size:9px;font-weight:950;border:1px solid rgba(255,255,255,.12)}
+    .exam-hub-status.published{color:var(--green);background:rgba(99,229,70,.09);border-color:rgba(99,229,70,.24)}
+    .exam-hub-status.review{color:#62d9ff;background:rgba(98,217,255,.08);border-color:rgba(98,217,255,.24)}
+    .exam-hub-status.draft{color:var(--warning);background:rgba(247,201,72,.08);border-color:rgba(247,201,72,.24)}
+    .exam-hub-status.archived{color:var(--muted);background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+    .exam-hub-row-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+    .exam-hub-row-metrics>div{border:1px solid rgba(255,255,255,.065);border-radius:12px;background:rgba(0,0,0,.15);padding:9px;min-width:0}
+    .exam-hub-row-metrics span{display:block;color:var(--soft);font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:900}
+    .exam-hub-row-metrics strong{display:block;margin-top:5px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .exam-hub-row-actions{display:grid;gap:7px;min-width:130px}
+    .exam-hub-side{display:grid;gap:14px;position:sticky;top:88px}
+    .exam-hub-side-card{padding:18px}
+    .exam-hub-side-card.highlighted{background:radial-gradient(circle at top right,rgba(99,229,70,.13),transparent 40%),linear-gradient(145deg,rgba(99,229,70,.075),rgba(255,255,255,.02));border-color:rgba(99,229,70,.2)}
+    .exam-hub-side-card h2{margin:0;font-size:23px;line-height:1.05;letter-spacing:-.035em}
+    .exam-hub-side-card p{color:var(--muted);font-size:13px;line-height:1.55}
+    .exam-hub-side-card>button{display:flex;width:100%;align-items:center;justify-content:center;margin-top:9px}
+    .exam-hub-empty{text-align:center;padding:48px 24px}
+    .exam-hub-empty>span{width:66px;height:66px;border-radius:20px;display:grid;place-items:center;margin:0 auto 16px;color:var(--green);background:rgba(99,229,70,.08);border:1px solid rgba(99,229,70,.2);font-size:30px}
+    .exam-hub-empty h3{margin:0;font-size:26px;letter-spacing:-.04em}
+    .exam-hub-empty p{margin:10px auto 18px;max-width:560px;color:var(--muted);line-height:1.55}
+    @media(max-width:1460px){
+      .exam-hub-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .exam-hub-layout{grid-template-columns:1fr}
+      .exam-hub-side{position:static;grid-template-columns:repeat(3,minmax(0,1fr))}
+      .exam-hub-row{grid-template-columns:1fr}
+      .exam-hub-row-actions{grid-template-columns:1fr 1fr}
+    }
+    @media(max-width:900px){
+      .exam-hub-hero{grid-template-columns:1fr;padding:22px}
+      .exam-hub-stats,.exam-hub-side{grid-template-columns:1fr}
+      .exam-hub-section-head{flex-direction:column}
+      .exam-hub-head-actions{justify-content:flex-start}
+      .exam-hub-row-main{grid-template-columns:1fr}
+      .exam-hub-row-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .exam-hub-row-actions{grid-template-columns:1fr}
+    }
 
   `}</style>;
 }
