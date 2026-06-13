@@ -96,14 +96,14 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         </header>
 
         <section className="certificate-hero">
-          <p className="certificate-kicker">Credencial oficial</p>
+          <p className="certificate-kicker">Verificación oficial GHC Academy</p>
           <h1>
-            Válido. Verificable.
+            Certificado oficial
             <br />
-            Profesional.
+            verificado
           </h1>
           <p className="certificate-subtitle">
-            Consulta la autenticidad de este certificado oficial de GHC Academy. Verificación endurecida: solo status valid se considera válido.
+            Esta página confirma que la credencial ha sido emitida por GHC Academy y que su estado figura como válido en el sistema de verificación oficial.
           </p>
         </section>
 
