@@ -1463,8 +1463,17 @@ function CertificadosTab({
   certificates: AnyRecord[];
   displayName: string;
 }) {
-  const issuedCertificate = certificates[0] || null;
-  const issuedCount = certificates.length;
+  const validCertificates = certificates
+    .filter((certificate) => String(certificate.status || 'valid').toLowerCase() === 'valid')
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.issued_at || b.created_at || 0).getTime() -
+        new Date(a.issued_at || a.created_at || 0).getTime()
+    );
+
+  const issuedCertificate = validCertificates[0] || null;
+  const issuedCount = validCertificates.length;
   const studentName = String(displayName || '').includes('@')
     ? shortName(displayName)
     : displayName || 'Alumno GHC Academy';
@@ -1473,13 +1482,13 @@ function CertificadosTab({
     issuedCertificate?.course_title ||
     issuedCertificate?.course_name ||
     issuedCertificate?.title ||
-    'Especialización GHC Academy';
+    'Certificación pendiente';
 
   const certificateCode =
     issuedCertificate?.certificate_code ||
     issuedCertificate?.verification_code ||
     issuedCertificate?.code ||
-    'GHC-VERIFY';
+    'Pendiente';
 
   const finalScore =
     issuedCertificate?.final_score ??
@@ -1488,8 +1497,6 @@ function CertificadosTab({
     '—';
 
   const issuedDate = issuedCertificate?.issued_at || issuedCertificate?.created_at || '';
-  const inProgressCount = issuedCount > 0 ? 1 : 1;
-  const lockedCount = issuedCount > 0 ? 1 : 2;
 
   return (
     <div className="cert-final-page">
@@ -1498,8 +1505,8 @@ function CertificadosTab({
           <p className="cert-final-kicker">Credenciales oficiales</p>
           <h1>Válido. Verificable. Profesional.</h1>
           <p className="cert-final-subtitle">
-            Consulta tus credenciales oficiales de GHC Academy, verifica su estado y comparte certificados
-            profesionales vinculados a tu progreso real.
+            Aquí aparecen únicamente certificados válidos emitidos por GHC Academy. La credencial
+            se desbloquea cuando completas los requisitos del curso y apruebas el examen final.
           </p>
         </div>
 
@@ -1526,19 +1533,19 @@ function CertificadosTab({
 
         <div className="cert-final-trust">
           <div>
-            <Icon name="star" />
-            <strong>Confiable por profesionales</strong>
-            <span>Formación con criterio técnico, estructura y aplicación real.</span>
+            <Icon name="exam" />
+            <strong>Examen final aprobado</strong>
+            <span>La emisión queda condicionada a superar la evaluación final del curso.</span>
           </div>
           <div>
             <Icon name="shield" />
-            <strong>Credenciales verificables</strong>
-            <span>Código único para consulta, validación y trazabilidad.</span>
+            <strong>Estado válido</strong>
+            <span>Solo se muestran credenciales con estado válido en Supabase.</span>
           </div>
           <div>
-            <Icon name="box" />
-            <strong>Reconocido en la industria</strong>
-            <span>Un distintivo premium para demostrar avance y especialización.</span>
+            <Icon name="certificate" />
+            <strong>Código verificable</strong>
+            <span>Cada certificado tiene código único y enlace público cuando está activado.</span>
           </div>
         </div>
       </section>
@@ -1569,7 +1576,7 @@ function CertificadosTab({
               </div>
 
               <div className="cert-final-card-content">
-                <span className="cert-final-pill-issued">Emitido</span>
+                <span className="cert-final-pill-issued">Emitido y válido</span>
                 <h3>{heroCourse}</h3>
                 <p>
                   Has completado los requisitos del curso y aprobado la evaluación final. Tu
@@ -1597,7 +1604,7 @@ function CertificadosTab({
                   </Link>
                 ) : (
                   <span className="cert-final-muted">
-                    Certificado registrado. El enlace público de verificación se activará desde administración.
+                    Certificado válido registrado. El enlace público de verificación se activará desde administración.
                   </span>
                 )}
               </div>
@@ -1609,74 +1616,77 @@ function CertificadosTab({
               </div>
               <h3>Aún no hay certificados emitidos</h3>
               <p>
-                Cuando completados un curso y apruebes el examen final, tu certificado aparecerá en
-                este panel con código de verificación y estado oficial.
+                Cuando completes un curso y apruebes su examen final, tu certificado aparecerá aquí
+                con código de verificación y estado oficial válido. No se muestra ninguna credencial
+                provisional ni estimada.
               </p>
             </article>
           )}
 
-          <article className="cert-final-locked">
-            <div className="cert-final-locked-art">
-              <div className="cert-final-locked-bg" />
-              <div className="cert-final-locked-brand">GHC Academy</div>
-              <div className="cert-final-locked-title">CERTIFICADO</div>
-              <div className="cert-final-locked-subtitle">Próxima credencial</div>
-              <div className="cert-final-locked-name">Alumno GHC</div>
-              <div className="cert-final-locked-course">Especialización pendiente</div>
-              <div className="cert-final-locked-line" />
-              <div className="cert-final-locked-seal"><Icon name="star" /></div>
-              <div className="cert-final-locked-padlock"><Icon name="lock" /></div>
+          {validCertificates.length > 1 ? (
+            <div className="performance-cert-list clean">
+              {validCertificates.slice(1).map((certificate, index) => {
+                const courseTitle =
+                  certificate.course_title ||
+                  certificate.course_name ||
+                  certificate.title ||
+                  `Certificado ${index + 2}`;
+                const code =
+                  certificate.certificate_code ||
+                  certificate.verification_code ||
+                  certificate.code ||
+                  'Código pendiente';
+                const href = certificate.verification_slug
+                  ? `/certificados/${certificate.verification_slug}`
+                  : '#';
+
+                return (
+                  <Link
+                    key={certificate.id || code || index}
+                    href={href}
+                    className="performance-cert-row-clean"
+                  >
+                    <div className="performance-medal-clean">{index + 2}</div>
+                    <div>
+                      <strong>{courseTitle}</strong>
+                      <p>{code}</p>
+                      <span>
+                        Emitido {certificate.issued_at ? formatShortDate(certificate.issued_at) : '—'}
+                      </span>
+                    </div>
+                    <em><Icon name="check" /> Válido</em>
+                  </Link>
+                );
+              })}
             </div>
-
-            <div className="cert-final-card-content">
-              <span className="cert-final-pill-locked">Bloqueado</span>
-              <h3>Próxima certificación</h3>
-              <p>
-                Completa todos los módulos y supera el examen final para desbloquear esta
-                credencial oficial de GHC Academy.
-              </p>
-
-              <div className="cert-final-progress">
-                <div style={{ width: issuedCount > 0 ? '82%' : '34%' }} />
-              </div>
-
-              <span className="cert-final-muted">
-                Progreso estimado: {issuedCount > 0 ? '82%' : '34%'}
-              </span>
-            </div>
-          </article>
-
-          <button type="button" className="cert-final-all">
-            Ver todos los certificados
-            <Icon name="arrow" />
-          </button>
+          ) : null}
         </article>
 
         <aside className="cert-final-right">
           <article className="cert-final-how">
             <p className="cert-final-kicker">Proceso</p>
-            <h2>Cómo funciona</h2>
+            <h2>Cómo se emite</h2>
 
             <div className="cert-final-steps">
               <div>
                 <span><Icon name="curriculum" /></span>
                 <strong>Completa módulos</strong>
-                <p>Avanza en cada bloque del curso.</p>
+                <p>Avanza por el itinerario académico real del curso.</p>
               </div>
               <div>
                 <span><Icon name="exam" /></span>
                 <strong>Aprueba examen final</strong>
-                <p>Supera la puntuación requerida.</p>
+                <p>Supera la puntuación requerida para certificar.</p>
               </div>
               <div>
                 <span><Icon name="certificate" /></span>
                 <strong>Recibe certificado</strong>
-                <p>Obtén tu credencial oficial.</p>
+                <p>La credencial se emite solo cuando corresponde.</p>
               </div>
               <div>
                 <span><Icon name="resources" /></span>
                 <strong>Verifica y comparte</strong>
-                <p>Presenta tu logro con confianza.</p>
+                <p>Usa el código público cuando esté disponible.</p>
               </div>
             </div>
           </article>
@@ -1689,13 +1699,19 @@ function CertificadosTab({
               <p className="cert-final-kicker">Seguridad</p>
               <h2>Verificación</h2>
               <p>
-                Los certificados de GHC Academy están preparados para validación pública,
-                control interno y trazabilidad de credenciales.
+                Los certificados de GHC Academy se muestran al alumno solo si están emitidos y válidos.
+                Cada enlace público pertenece a una credencial concreta.
               </p>
-              <button type="button">
-                Verificar certificado
-                <Icon name="arrow" />
-              </button>
+              {issuedCertificate?.verification_slug ? (
+                <Link href={`/certificados/${issuedCertificate.verification_slug}`} className="cert-final-primary">
+                  Verificar certificado
+                  <Icon name="arrow" />
+                </Link>
+              ) : (
+                <span className="cert-final-muted">
+                  No hay certificado válido con enlace público activo todavía.
+                </span>
+              )}
             </div>
           </article>
 
@@ -1706,12 +1722,12 @@ function CertificadosTab({
             <div>
               <p className="cert-final-kicker">Estado</p>
               <h2>Estado de credenciales</h2>
-              <p>Resumen de emisión, avance y credenciales pendientes.</p>
+              <p>Resumen real basado solo en certificados válidos asociados a tu usuario.</p>
             </div>
             <ul>
-              <li><span>Emitidos</span><strong>{issuedCount}</strong></li>
-              <li><span>En progreso</span><strong>{inProgressCount}</strong></li>
-              <li><span>Bloqueados</span><strong>{lockedCount}</strong></li>
+              <li><span>Emitidos válidos</span><strong>{issuedCount}</strong></li>
+              <li><span>Pendientes visibles</span><strong>0</strong></li>
+              <li><span>Ficticios</span><strong>0</strong></li>
             </ul>
           </article>
         </aside>
@@ -1719,7 +1735,6 @@ function CertificadosTab({
     </div>
   );
 }
-
 
 function RendimientoTab({
   displayName,
