@@ -18,46 +18,66 @@ export default async function CertificateVerificationPage({ params }: PageProps)
   const certificateId = decodeURIComponent(params.certificateId || '').trim();
   const certificate = await getCertificate(certificateId);
 
-  const isValid = Boolean(
-    certificate && String(certificate.status || '').toLowerCase() !== 'revoked'
-  );
+  const rawStatus = String(certificate?.status || '').toLowerCase();
+  const isValid = Boolean(certificate && rawStatus === 'valid');
+  const isRevoked = Boolean(certificate && rawStatus === 'revoked');
+  const statusLabel = !certificate
+    ? 'Credencial no encontrada'
+    : isValid
+      ? 'Credencial válida'
+      : isRevoked
+        ? 'Credencial revocada'
+        : 'Credencial no válida';
 
-  const studentName =
-    certificate?.student_name ||
-    certificate?.full_name ||
-    certificate?.alumno ||
-    certificate?.recipient_name ||
-    certificate?.profiles?.full_name ||
-    'Alumno GHC Academy';
+  const verificationText = !certificate
+    ? 'No hemos encontrado ningún certificado asociado a este código o enlace de verificación.'
+    : isValid
+      ? 'Este certificado figura como válido y verificable en el sistema de GHC Academy.'
+      : isRevoked
+        ? 'Este certificado existe, pero figura como revocado. No debe presentarse como credencial válida.'
+        : 'Este certificado existe, pero todavía no figura como válido en el sistema de GHC Academy.';
 
-  const courseTitle =
-    certificate?.course_title ||
-    certificate?.course_name ||
-    certificate?.title ||
-    certificate?.courses?.title ||
-    'Entrenador Personal Nivel 1';
+  const studentName = certificate
+    ? certificate.student_name ||
+      certificate.full_name ||
+      certificate.alumno ||
+      certificate.recipient_name ||
+      certificate.profiles?.full_name ||
+      'Alumno GHC Academy'
+    : 'Certificado no encontrado';
 
-  const certificateCode =
-    certificate?.certificate_code ||
-    certificate?.verification_code ||
-    certificate?.code ||
-    certificateId ||
-    'GHC-VERIFY';
+  const courseTitle = certificate
+    ? certificate.course_title ||
+      certificate.course_name ||
+      certificate.title ||
+      certificate.courses?.title ||
+      'Curso GHC Academy'
+    : 'No disponible';
 
-  const issuedDate =
-    certificate?.issued_at ||
-    certificate?.created_at ||
-    certificate?.date ||
-    '';
+  const certificateCode = certificate
+    ? certificate.certificate_code ||
+      certificate.verification_code ||
+      certificate.code ||
+      certificateId ||
+      'GHC-VERIFY'
+    : certificateId || '—';
 
-  const finalScore =
-    certificate?.final_score ??
-    certificate?.score ??
-    certificate?.grade ??
-    null;
+  const issuedDate = certificate
+    ? certificate.issued_at ||
+      certificate.created_at ||
+      certificate.date ||
+      ''
+    : '';
+
+  const finalScore = certificate
+    ? certificate.final_score ??
+      certificate.score ??
+      certificate.grade ??
+      null
+    : null;
 
   const formattedIssuedDate = issuedDate ? formatDate(issuedDate) : '—';
-  const displayedScore = finalScore !== null ? `${finalScore}%` : 'Aprobado';
+  const displayedScore = isValid ? (finalScore !== null ? `${finalScore}%` : 'Aprobado') : '—';
 
   return (
     <main className="certificate-public-page">
@@ -71,7 +91,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
 
           <div className="certificate-topbar-status">
             <span className={isValid ? 'status-dot valid' : 'status-dot invalid'} />
-            <strong>{isValid ? 'Credencial válida' : 'Credencial no válida'}</strong>
+            <strong>{statusLabel}</strong>
           </div>
         </header>
 
@@ -83,7 +103,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
             Profesional.
           </h1>
           <p className="certificate-subtitle">
-            Consulta la autenticidad de este certificado oficial de GHC Academy.
+            Consulta la autenticidad de este certificado oficial de GHC Academy. Verificación endurecida: solo status valid se considera válido.
           </p>
         </section>
 
@@ -95,7 +115,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
               </div>
 
               <div className={isValid ? 'paper-status-pill valid' : 'paper-status-pill invalid'}>
-                {isValid ? 'Válido' : 'No válido'}
+                {isValid ? 'Válido' : isRevoked ? 'Revocado' : 'No válido'}
               </div>
 
               <div className="paper-content">
@@ -134,12 +154,8 @@ export default async function CertificateVerificationPage({ params }: PageProps)
             <h2>Estado del certificado</h2>
 
             <div className={isValid ? 'verification-box valid' : 'verification-box invalid'}>
-              <strong>{isValid ? 'Válido' : 'No válido'}</strong>
-              <p>
-                {isValid
-                  ? 'Este certificado figura como válido y verificable en el sistema de GHC Academy.'
-                  : 'No hemos podido confirmar este certificado como válido en el sistema.'}
-              </p>
+              <strong>{isValid ? 'Válido' : isRevoked ? 'Revocado' : 'No válido'}</strong>
+              <p>{verificationText}</p>
             </div>
 
             <div className="verification-data">
@@ -148,6 +164,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
               <DataRow label="Código" value={certificateCode} />
               <DataRow label="Fecha" value={formattedIssuedDate} />
               <DataRow label="Nota final" value={displayedScore} />
+              <DataRow label="Estado" value={statusLabel} />
               <DataRow label="Academia" value="GHC Academy" />
             </div>
 
@@ -164,6 +181,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
         </section>
       </div>
 
+      {isValid ? (
       <section className="print-diploma" aria-hidden="true">
         <div className="print-diploma-page">
           <div className="print-border-outer" />
@@ -227,6 +245,7 @@ export default async function CertificateVerificationPage({ params }: PageProps)
           </div>
         </div>
       </section>
+      ) : null}
 
       <style>{`
         :root {
