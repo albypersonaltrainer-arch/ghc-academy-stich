@@ -131,7 +131,7 @@ type LessonFormState = {
 };
 
 const GREEN = "#63E546";
-const ADMIN_BUILD_ID = "EXAM-INTEGRATED-12 · pestaña Exámenes por URL · 2026-06-13";
+const ADMIN_BUILD_ID = "EXAM-INTEGRATED-13 · certificados admin reales · 2026-06-13";
 const COURSE_ASSETS_BUCKET = "ghc-course-assets";
 
 const supabase = createClient(
@@ -1411,7 +1411,7 @@ function buildDashboardStats(data: DashboardData) {
   const publishedCourses = data.courses.filter((course) => normalizeCourseStatus(course) === "published");
   const draftCourses = data.courses.filter((course) => normalizeCourseStatus(course) === "draft");
   const hiddenCourses = data.courses.filter((course) => normalizeCourseStatus(course) === "hidden");
-  const validCertificates = data.certificates.filter((certificate) => !["revoked", "revocado", "cancelled", "cancelado"].includes(String(certificate.status || "valid").toLowerCase()));
+  const validCertificates = data.certificates.filter((certificate) => normalizeCertificateStatus(certificate.status) === "valid");
   const completedCourses = data.courseCompletions.filter((item) => item.completed === true || String(item.status || "").toLowerCase() === "completed");
   const completionRate = students.length > 0 ? Math.round((completedCourses.length / Math.max(students.length, 1)) * 100) : 0;
   return { studentsTotal: students.length, activeStudents: students.length, coursesTotal: data.courses.length, publishedCourses: publishedCourses.length, draftCourses: draftCourses.length, hiddenCourses: hiddenCourses.length, certificates: validCertificates.length, modules: data.modules.length, lessons: data.lessons.length, moduleCompletions: data.moduleCompletions.length, lessonProgress: data.lessonProgress.length, completionRate: Math.min(100, completionRate), pendingReviews: draftCourses.length + Math.max(0, data.certificates.length - validCertificates.length) };
@@ -1434,7 +1434,7 @@ function buildStudentAdminViews(data: DashboardData, courseViews: CourseAdminVie
     const id = String(profile.id || profile.user_id || `student-${index}`);
     const studentLessons = data.lessonProgress.filter((item) => String(item.user_id) === id);
     const studentCompletedCourses = data.courseCompletions.filter((item) => String(item.user_id) === id);
-    const studentCertificates = data.certificates.filter((item) => String(item.user_id) === id);
+    const studentCertificates = data.certificates.filter((item) => String(item.user_id) === id && normalizeCertificateStatus(item.status) === "valid");
     const activeCourseIds = new Set<string>();
     studentLessons.forEach((item) => { if (item.course_id) activeCourseIds.add(String(item.course_id)); });
     studentCompletedCourses.forEach((item) => { if (item.course_id) activeCourseIds.add(String(item.course_id)); });
@@ -1452,15 +1452,45 @@ function buildStudentAdminViews(data: DashboardData, courseViews: CourseAdminVie
 }
 
 function buildCertificateAdminViews(data: DashboardData, courseViews: CourseAdminView[], studentViews: StudentAdminView[]): CertificateAdminView[] {
-  const real = data.certificates.map((certificate, index) => {
-    const student = studentViews.find((item) => String(item.id) === String(certificate.user_id));
-    const course = courseViews.find((item) => String(item.id) === String(certificate.course_id));
-    const status = normalizeCertificateStatus(certificate.status);
-    const code = getCertificateCode(certificate, index);
-    return { id: String(certificate.id || `certificate-${index}`), studentName: String(certificate.student_name_snapshot || certificate.student_name || student?.name || "Alumno GHC"), studentEmail: String(student?.email || certificate.student_email || "Sin email"), courseTitle: String(certificate.course_title_snapshot || certificate.course_title || course?.title || "Curso GHC Academy"), code, verificationPath: `/certificados/${certificate.verification_slug || code}`, issuedAt: formatShortDate(certificate.issued_at || certificate.created_at), score: formatCertificateScore(certificate.final_score ?? certificate.score ?? certificate.grade), status, statusLabel: getCertificateStatusLabel(status), downloadable: status === "valid" };
-  });
-  if (real.length) return real;
-  return courseViews.slice(0, 3).map((course, index) => { const student = studentViews[index]; const code = `GHC-${new Date().getFullYear()}-${320001 + index}-${makeVerificationSuffix(`${student?.id || "student"}-${course.id}`)}`; return { id: `pending-certificate-${index}`, studentName: student?.name || "Alumno pendiente", studentEmail: student?.email || "Pendiente de asignar", courseTitle: course.title, code, verificationPath: `/certificados/${code}`, issuedAt: "Pendiente", score: "Pendiente", status: "pending", statusLabel: "Pendiente", downloadable: false }; });
+  return data.certificates
+    .map((certificate, index) => {
+      const student = studentViews.find((item) => String(item.id) === String(certificate.user_id));
+      const course = courseViews.find((item) => String(item.id) === String(certificate.course_id));
+      const status = normalizeCertificateStatus(certificate.status);
+      const code = getCertificateCode(certificate, index);
+      const verificationTarget = String(certificate.verification_slug || code || "").trim();
+
+      return {
+        id: String(certificate.id || `certificate-${index}`),
+        studentName: String(
+          certificate.student_name_snapshot ||
+            certificate.student_name ||
+            certificate.full_name ||
+            student?.name ||
+            "Alumno GHC"
+        ),
+        studentEmail: String(student?.email || certificate.student_email || certificate.email || "Sin email"),
+        courseTitle: String(
+          certificate.course_title_snapshot ||
+            certificate.course_title ||
+            certificate.course_name ||
+            course?.title ||
+            "Curso GHC Academy"
+        ),
+        code,
+        verificationPath: verificationTarget ? `/certificados/${verificationTarget}` : "",
+        issuedAt: formatShortDate(certificate.issued_at || certificate.created_at),
+        score: formatCertificateScore(certificate.final_score ?? certificate.score ?? certificate.grade),
+        status,
+        statusLabel: getCertificateStatusLabel(status),
+        downloadable: status === "valid" && Boolean(verificationTarget),
+      };
+    })
+    .sort((a, b) => {
+      const aRaw = data.certificates.find((item) => String(item.id || "") === a.id);
+      const bRaw = data.certificates.find((item) => String(item.id || "") === b.id);
+      return new Date(bRaw?.issued_at || bRaw?.created_at || 0).getTime() - new Date(aRaw?.issued_at || aRaw?.created_at || 0).getTime();
+    });
 }
 
 function buildRecentActivity(data: DashboardData) {
@@ -2117,8 +2147,165 @@ function getIntegratedDifficultyLabel(value: unknown) {
 }
 
 function CertificadosAdmin({ certificates, setActiveTab, setSystemMessage }: { certificates: CertificateAdminView[]; setActiveTab: (tab: AdminTab) => void; setSystemMessage: (message: string) => void; }) {
-  const valid = certificates.filter((c) => c.status === "valid").length; const pending = certificates.filter((c) => c.status === "pending").length; const revoked = certificates.filter((c) => c.status === "revoked").length; const featured = certificates[0];
-  return <SimpleSection className="certificates-admin-page" kicker="Credenciales oficiales y verificación pública" title="Certificados" text="Emite, verifica, revoca y controla las credenciales oficiales de GHC Academy." sideTitle="Formato aprobado" sideText="GHC-2026-320001-A7K9 · numeración alta, sufijo verificador y vínculo con alumno/curso/estado." sideAction="Preparar emisión" onSideAction={() => setSystemMessage("La emisión real validará curso completado y examen final aprobado.")}><section className="certificate-stats-grid"><CourseStat label="Emitidos" value={valid} helper="Descargables" /><CourseStat label="Pendientes" value={pending} helper="Revisión admin" /><CourseStat label="Revocados" value={revoked} helper="Sin validez" /><CourseStat label="Verificaciones" value={valid * 3} helper="URL pública futura" /></section><section className="certificates-layout"><div className="certificates-main-column"><article className="certificate-template-card"><div className="card-head"><div><h2>Plantilla oficial GHC</h2><p>Diseño premium, descargable solo cuando el certificado está emitido y válido.</p></div><button type="button" onClick={() => setSystemMessage("Edición de plantilla pendiente de Studio GHC.")}>Editar plantilla</button></div><div className="certificate-preview-admin"><div className="certificate-preview-brand"><GHCLogo size="sm" showText tagline={false} /></div><div className="certificate-preview-title">CERTIFICADO</div><div className="certificate-preview-subtitle">CREDENCIAL OFICIAL</div><div className="certificate-preview-awarded">Se otorga a</div><h3>{featured?.studentName || "Alumno GHC"}</h3><div className="certificate-preview-divider" /><small>{featured?.courseTitle || "Curso certificado GHC Academy"}</small><div className="certificate-preview-footer"><span>Dirección académica</span><code>{featured?.code || "GHC-2026-320001-A7K9"}</code></div></div></article><article className="certificate-list-card"><div className="card-head compact"><h2>Credenciales recientes</h2><button type="button" onClick={() => setSystemMessage("Filtros y búsqueda por código pendientes.")}>Ver todas</button></div><div className="certificate-table">{certificates.length ? certificates.slice(0,6).map((c) => <div key={c.id} className="certificate-table-row"><div><strong>{c.studentName}</strong><p>{c.studentEmail}</p></div><div><strong>{c.courseTitle}</strong><p>{c.issuedAt} · Nota {c.score}</p></div><code>{c.code}</code><span className={`certificate-status ${c.status}`}>{c.statusLabel}</span><div className="certificate-actions"><button onClick={() => setSystemMessage(`Vista preparada para ${c.code}.`)}>Ver</button><button onClick={() => setSystemMessage(`Enlace verificable: ${c.verificationPath}`)}>Copiar</button><button onClick={() => setSystemMessage(c.downloadable ? "Descarga preparada." : "Solo descarga si está válido.")}>PDF</button></div></div>) : <div className="certificate-empty">Aún no hay certificados ni candidatos detectados.</div>}</div></article></div><aside className="certificates-side-column"><article className="certificate-side-card"><h2>Acciones rápidas</h2><button onClick={() => setSystemMessage("La emisión manual requiere validación curso + examen final.")}>Emitir certificado</button><button onClick={() => setActiveTab("examenes")}>Ver exámenes finales</button><button onClick={() => setActiveTab("alumnos")}>Buscar alumno</button></article></aside></section></SimpleSection>;
+  const valid = certificates.filter((certificate) => certificate.status === "valid").length;
+  const pending = certificates.filter((certificate) => certificate.status === "pending").length;
+  const revoked = certificates.filter((certificate) => certificate.status === "revoked").length;
+  const featured = certificates.find((certificate) => certificate.status === "valid") || certificates[0] || null;
+
+  function openCertificate(certificate: CertificateAdminView) {
+    if (!certificate.verificationPath) {
+      setSystemMessage(`El certificado ${certificate.code} no tiene enlace público verificable.`);
+      return;
+    }
+
+    window.open(certificate.verificationPath, "_blank", "noopener,noreferrer");
+    setSystemMessage(`Abriendo certificado verificable: ${certificate.code}`);
+  }
+
+  async function copyCertificateLink(certificate: CertificateAdminView) {
+    if (!certificate.verificationPath) {
+      setSystemMessage(`El certificado ${certificate.code} no tiene enlace público para copiar.`);
+      return;
+    }
+
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = `${origin}${certificate.verificationPath}`;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setSystemMessage(`Enlace público copiado: ${url}`);
+    } catch {
+      setSystemMessage(`Enlace verificable: ${url}`);
+    }
+  }
+
+  return (
+    <SimpleSection
+      className="certificates-admin-page"
+      kicker="Credenciales oficiales y verificación pública"
+      title="Certificados"
+      text="Controla las credenciales oficiales reales de GHC Academy: emitidas, pendientes, revocadas y verificables públicamente."
+      sideTitle="Formato aprobado"
+      sideText="GHC-2026-320001-A7K9 · numeración alta, sufijo verificador y vínculo con alumno, curso, fecha y estado."
+      sideAction="Preparar emisión"
+      onSideAction={() => setSystemMessage("La emisión real validará curso completado y examen final aprobado antes de crear certificado.")}
+    >
+      <section className="certificate-stats-grid">
+        <CourseStat label="Válidos" value={valid} helper="Verificables" />
+        <CourseStat label="Pendientes" value={pending} helper="No descargables" />
+        <CourseStat label="Revocados" value={revoked} helper="Sin validez" />
+        <CourseStat label="Registros" value={certificates.length} helper="Tabla certificates" />
+      </section>
+
+      <section className="certificates-layout">
+        <div className="certificates-main-column">
+          <article className="certificate-template-card">
+            <div className="card-head">
+              <div>
+                <h2>Plantilla oficial GHC</h2>
+                <p>Vista de referencia. El diploma descargable solo se habilita cuando el certificado existe y su estado es válido.</p>
+              </div>
+              <button type="button" onClick={() => setSystemMessage("Edición de plantilla pendiente de Studio GHC.")}>
+                Editar plantilla
+              </button>
+            </div>
+
+            <div className="certificate-preview-admin">
+              <div className="certificate-preview-brand">
+                <GHCLogo size="sm" showText tagline={false} />
+              </div>
+              <div className="certificate-preview-title">CERTIFICADO</div>
+              <div className="certificate-preview-subtitle">CREDENCIAL OFICIAL</div>
+              <div className="certificate-preview-awarded">Se otorga a</div>
+              <h3>{featured?.studentName || "Alumno GHC"}</h3>
+              <div className="certificate-preview-divider" />
+              <small>{featured?.courseTitle || "Curso certificado GHC Academy"}</small>
+              <div className="certificate-preview-footer">
+                <span>Dirección académica</span>
+                <code>{featured?.code || "GHC-2026-320001-A7K9"}</code>
+              </div>
+            </div>
+          </article>
+
+          <article className="certificate-list-card">
+            <div className="card-head compact">
+              <h2>Credenciales reales</h2>
+              <button type="button" onClick={() => setSystemMessage("Búsqueda avanzada por alumno, curso, código y estado queda para la siguiente fase.")}>
+                Filtros
+              </button>
+            </div>
+
+            <div className="certificate-table">
+              {certificates.length ? (
+                certificates.map((certificate) => (
+                  <div key={certificate.id} className="certificate-table-row">
+                    <div>
+                      <strong>{certificate.studentName}</strong>
+                      <p>{certificate.studentEmail}</p>
+                    </div>
+
+                    <div>
+                      <strong>{certificate.courseTitle}</strong>
+                      <p>{certificate.issuedAt} · Nota {certificate.score}</p>
+                    </div>
+
+                    <code>{certificate.code}</code>
+                    <span className={`certificate-status ${certificate.status}`}>{certificate.statusLabel}</span>
+
+                    <div className="certificate-actions">
+                      <button type="button" onClick={() => openCertificate(certificate)}>
+                        Ver
+                      </button>
+                      <button type="button" onClick={() => copyCertificateLink(certificate)}>
+                        Copiar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          certificate.downloadable
+                            ? openCertificate(certificate)
+                            : setSystemMessage("Solo los certificados con estado válido y enlace verificable pueden descargarse o imprimirse.")
+                        }
+                      >
+                        PDF
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="certificate-empty">
+                  Aún no hay certificados reales en Supabase. No se muestran candidatos ficticios ni credenciales inventadas.
+                </div>
+              )}
+            </div>
+          </article>
+        </div>
+
+        <aside className="certificates-side-column">
+          <article className="certificate-side-card">
+            <h2>Acciones rápidas</h2>
+            <button type="button" onClick={() => setSystemMessage("La emisión manual requiere validar curso completado + examen final aprobado + código único antes de crear el certificado.")}>
+              Emitir certificado
+            </button>
+            <button type="button" onClick={() => setActiveTab("examenes")}>
+              Ver exámenes finales
+            </button>
+            <button type="button" onClick={() => setActiveTab("alumnos")}>
+              Buscar alumno
+            </button>
+          </article>
+
+          <article className="certificate-side-card">
+            <h2>Regla de producción</h2>
+            <StatusRow label="Alumno" value="Debe existir" />
+            <StatusRow label="Curso" value="Completado" />
+            <StatusRow label="Examen final" value="Aprobado" />
+            <StatusRow label="Estado válido" value="status = valid" />
+          </article>
+        </aside>
+      </section>
+    </SimpleSection>
+  );
 }
 
 function PagosAdmin({ courseViews, studentViews, setActiveTab, setSystemMessage }: { courseViews: CourseAdminView[]; studentViews: StudentAdminView[]; setActiveTab: (tab: AdminTab) => void; setSystemMessage: (message: string) => void; }) {
@@ -2386,7 +2573,20 @@ function RoleCheck({ active }: { active: boolean }) { return <span className={ac
 function SettingField({ label, value }: { label: string; value: string }) { return <div className="setting-field"><span>{label}</span><strong>{value}</strong></div>; }
 
 function normalizeCourseStatus(course: AnyRecord): CourseStatus { const status = String(course.status || course.visibility || "").toLowerCase(); if (["draft", "borrador"].includes(status)) return "draft"; if (["hidden", "oculto", "archived", "archivado", "inactive", "inactivo"].includes(status)) return "hidden"; if (course.is_published === false || course.published === false) return "draft"; return "published"; }
-function normalizeCertificateStatus(value: unknown): CertificateAdminView["status"] { const status = String(value || "valid").toLowerCase(); if (["revoked", "revocado", "cancelled", "cancelado"].includes(status)) return "revoked"; if (["pending", "pendiente", "review", "revision"].includes(status)) return "pending"; return "valid"; }
+function normalizeCertificateStatus(value: unknown): CertificateAdminView["status"] {
+  const status = String(value || "pending").toLowerCase();
+
+  if (["valid", "válido", "valido", "issued", "emitido", "active", "activo"].includes(status)) {
+    return "valid";
+  }
+
+  if (["revoked", "revocado", "cancelled", "cancelado", "invalid", "no_valido", "no válido", "anulado"].includes(status)) {
+    return "revoked";
+  }
+
+  return "pending";
+}
+
 function getCertificateStatusLabel(status: CertificateAdminView["status"]) { if (status === "revoked") return "Revocado"; if (status === "pending") return "Pendiente"; return "Válido"; }
 function getCertificateCode(certificate: AnyRecord, index: number) { const existing = certificate.certificate_code || certificate.code || certificate.verification_code; if (existing) return String(existing); const date = certificate.issued_at || certificate.created_at; const year = date ? new Date(date).getFullYear() : new Date().getFullYear(); return `GHC-${year}-${320001 + index}-${makeVerificationSuffix(String(certificate.id || `${certificate.user_id || "user"}-${certificate.course_id || "course"}-${index}`))}`; }
 function makeVerificationSuffix(seed: string) { const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let hash = 0; for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0; let output = ""; for (let i = 0; i < 4; i += 1) output += alphabet[(hash >> (i * 5)) % alphabet.length]; return output; }
@@ -2394,7 +2594,7 @@ function formatCertificateScore(value: unknown) { if (value === null || value ==
 function getInactiveDays(value?: string | null) { if (!value) return null; try { const diff = Date.now() - new Date(value).getTime(); return Math.max(0, Math.floor(diff / 86400000)); } catch { return null; } }
 function getStudentRisk(inactiveDays: number | null, progress: number): { status: "active" | "inactive" | "risk"; statusLabel: string; label: string; tone: "green" | "yellow" | "red" | "muted" } { if (inactiveDays === null) return { status: "inactive", statusLabel: "Sin actividad", label: "Sin datos de acceso", tone: "muted" }; if (inactiveDays >= 21) return { status: "risk", statusLabel: "Riesgo", label: `Inactivo ${inactiveDays} días`, tone: "red" }; if (inactiveDays >= 7) return { status: "inactive", statusLabel: "En pausa", label: `Inactivo ${inactiveDays} días`, tone: "yellow" }; if (progress >= 80) return { status: "active", statusLabel: "Avanzado", label: "Alto compromiso", tone: "green" }; return { status: "active", statusLabel: "Activo", label: "Actividad reciente", tone: "green" }; }
 function getLatestCourseName(activeCourseIds: Set<string>, courseViews: CourseAdminView[]) { const firstId = Array.from(activeCourseIds)[0]; if (!firstId) return "Sin curso activo detectado"; return courseViews.find((course) => course.id === firstId)?.title || "Curso GHC Academy"; }
-function buildAnalyticsSnapshot(data: DashboardData, courseViews: CourseAdminView[], studentViews: StudentAdminView[]) { const completedCourses = data.courseCompletions.filter((item) => item.completed === true || String(item.status || "").toLowerCase() === "completed").length; const activeStudents = studentViews.length; const certificates = data.certificates.filter((certificate) => !["revoked", "revocado", "cancelled", "cancelado"].includes(String(certificate.status || "valid").toLowerCase())).length; const completionRate = activeStudents ? Math.min(100, Math.round((completedCourses / activeStudents) * 100)) : 0; return { activeStudents, completedCourses, completionRate, certificates, moduleCompletions: data.moduleCompletions.length, lessonProgress: data.lessonProgress.length, coursesTotal: courseViews.length, lessonsTotal: data.lessons.length }; }
+function buildAnalyticsSnapshot(data: DashboardData, courseViews: CourseAdminView[], studentViews: StudentAdminView[]) { const completedCourses = data.courseCompletions.filter((item) => item.completed === true || String(item.status || "").toLowerCase() === "completed").length; const activeStudents = studentViews.length; const certificates = data.certificates.filter((certificate) => normalizeCertificateStatus(certificate.status) === "valid").length; const completionRate = activeStudents ? Math.min(100, Math.round((completedCourses / activeStudents) * 100)) : 0; return { activeStudents, completedCourses, completionRate, certificates, moduleCompletions: data.moduleCompletions.length, lessonProgress: data.lessonProgress.length, coursesTotal: courseViews.length, lessonsTotal: data.lessons.length }; }
 function buildPaymentRows(studentViews: StudentAdminView[], courseViews: CourseAdminView[]) { const rows = studentViews.slice(0, 6).map((student, index) => { const course = courseViews[index % Math.max(courseViews.length, 1)]; const hasAccess = student.activeCourses > 0 || student.certificates > 0; const isRisk = student.status === "blocked" || student.riskTone === "red"; return { id: student.id, student: student.name, email: student.email, course: course?.title || student.latestCourse || "Curso GHC Academy", kind: hasAccess ? "Acceso activo / compra registrada" : "Sin compra registrada", amount: student.totalInvested, status: isRisk ? "Revisar" : hasAccess ? "Activo" : "Pendiente", statusTone: isRisk ? "risk" : hasAccess ? "active" : "pending", action: isRisk ? "Reactivar" : hasAccess ? "Gestionar" : "Asignar", actionMessage: isRisk ? "La reactivación se conectará con Pagos y accesos." : hasAccess ? "La gestión detallada se conectará con el historial comercial." : "La asignación manual se conectará en la siguiente fase." }; }); return rows.length ? rows : [{ id: "empty-payment-1", student: "Sin alumnos comerciales", email: "Pagos no conectados todavía", course: "Acceso manual preparado", kind: "Becas, regalos y desbloqueos futuros", amount: "—", status: "Preparado", statusTone: "active", action: "Configurar", actionMessage: "Cuando haya alumnos y pagos, aparecerán aquí." }]; }
 function buildCommunicationRows(studentViews: StudentAdminView[], courseViews: CourseAdminView[]) { const rows = studentViews.slice(0, 8).map((student, index) => { const risk = student.riskTone === "yellow" || student.riskTone === "red"; const course = courseViews[index % Math.max(courseViews.length, 1)]?.title || student.latestCourse || "Curso GHC Academy"; return { id: student.id, name: student.name, email: student.email, reason: risk ? "Seguimiento por inactividad" : "Mensaje informativo", detail: risk ? `${student.riskLabel} · ${course}` : "Comunicación general", channel: risk ? "Email" : "Interno", channelTone: risk ? "email" : "internal", status: risk ? "Preparado" : "Borrador", statusTone: risk ? "ready" : "draft", action: risk ? "Contactar" : "Preparar", actionMessage: risk ? `Mensaje de ayuda preparado para ${student.name}.` : `Mensaje en borrador para ${student.name}.` }; }); return rows.length ? rows : [{ id: "communication-empty-1", name: "Sin alumnos todavía", email: "Cuando haya alumnos, aparecerán aquí.", reason: "Sistema preparado", detail: "Seguimiento, campañas y marketing", channel: "Interno", channelTone: "internal", status: "Preparado", statusTone: "ready", action: "Configurar", actionMessage: "Comunicaciones preparada." }]; }
 function createPlaceholderModules(): AnyRecord[] { return [{ id: "placeholder-1", title: "Fundamentos y contexto" }, { id: "placeholder-2", title: "Desarrollo del contenido principal" }, { id: "placeholder-3", title: "Aplicación práctica y evaluación" }]; }
