@@ -131,7 +131,7 @@ type LessonFormState = {
 };
 
 const GREEN = "#63E546";
-const ADMIN_BUILD_ID = "EXAM-INTEGRATED-11 · 2026-06-11";
+const ADMIN_BUILD_ID = "EXAM-INTEGRATED-12 · pestaña Exámenes por URL · 2026-06-13";
 const COURSE_ASSETS_BUCKET = "ghc-course-assets";
 
 const supabase = createClient(
@@ -279,6 +279,29 @@ export default function Page() {
 
     protectAndLoad();
   }, [router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const tabFromUrl = getAdminTabFromParam(
+      new URLSearchParams(window.location.search).get("tab")
+    );
+
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, []);
+
+  function activateTab(tab: AdminTab) {
+    setActiveTab(tab);
+    setSystemMessage("");
+    setGlobalSearchOpen(false);
+
+    if (typeof window !== "undefined") {
+      const nextUrl = tab === "panel" ? "/ghc-control-center" : `/ghc-control-center?tab=${tab}`;
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }
 
   const displayName = profile?.full_name || adminUser?.user_metadata?.full_name || adminUser?.email || "Admin GHC";
   const initials = getInitials(displayName);
@@ -505,7 +528,7 @@ export default function Page() {
       setModalMode("none");
       setCourseSearch(courseForm.title);
       setCourseStatusFilter("all");
-      setActiveTab("cursos");
+      activateTab("cursos");
     } catch (error) {
       console.error(error);
       setSystemMessage(getErrorMessage(error, "No se pudo guardar el curso. Revisa columnas/RLS de Supabase."));
@@ -536,7 +559,7 @@ export default function Page() {
         await refreshDashboard(`Módulo creado: ${moduleForm.title}`);
       }
       setModalMode("none");
-      setActiveTab("contenido");
+      activateTab("contenido");
     } catch (error) {
       console.error(error);
       setSystemMessage(getErrorMessage(error, "No se pudo guardar el módulo. Revisa columnas/RLS de Supabase."));
@@ -594,7 +617,7 @@ export default function Page() {
       setLessonAudioFile(null);
       setLessonPdfFile(null);
       setModalMode("none");
-      setActiveTab("contenido");
+      activateTab("contenido");
     } catch (error) {
       console.error(error);
       setSystemMessage(getErrorMessage(error, "No se pudo guardar la lección. Revisa funciones RPC o columnas de lessons."));
@@ -610,14 +633,14 @@ export default function Page() {
       return;
     }
     setModalMode("none");
-    setActiveTab("contenido");
+    activateTab("contenido");
     setSystemMessage("Documento preparado en el panel. Para subida real falta conectar Storage/bucket y tabla de fuentes; no he simulado una subida que no exista.");
   }
 
   function topCreateAction() {
     if (activeTab === "cursos") return openCreateCourse();
     if (activeTab === "contenido") return openCreateModule();
-    if (activeTab === "examenes") return router.push("/ghc-control-center/examenes/crear");
+    if (activeTab === "examenes") return router.push("/ghc-control-center/examenes/crear?from=admin-examenes");
     if (activeTab === "certificados") return setSystemMessage("La emisión real de certificados debe validar curso completado y examen final aprobado antes de crear el PDF.");
     if (activeTab === "comunicaciones") return setSystemMessage("Preparado para crear borradores de comunicación. El envío real quedará siempre sujeto a aprobación humana.");
     openCreateCourse();
@@ -649,7 +672,7 @@ export default function Page() {
           <div className="admin-logo"><GHCLogo size="md" showText tagline={false} /></div>
           <nav className="admin-nav" aria-label="Navegación administrador">
             {adminTabs.map((tab) => (
-              <button key={tab.id} type="button" className={activeTab === tab.id ? "admin-nav-item active" : "admin-nav-item"} onClick={() => { setActiveTab(tab.id); setSystemMessage(""); setGlobalSearchOpen(false); }}>
+              <button key={tab.id} type="button" className={activeTab === tab.id ? "admin-nav-item active" : "admin-nav-item"} onClick={() => activateTab(tab.id)}>
                 <span className="admin-nav-icon">{tab.icon}</span>
                 <span><strong>{tab.label}</strong><small>{tab.helper}</small></span>
               </button>
@@ -697,7 +720,7 @@ export default function Page() {
               ) : null}
             </div>
             <button type="button" className="create-btn" onClick={topCreateAction}>+ Crear</button>
-            <button type="button" className="studio-top-btn" onClick={() => setActiveTab("studio")}>Studio GHC</button>
+            <button type="button" className="studio-top-btn" onClick={() => activateTab("studio")}>Studio GHC</button>
             <button type="button" className="icon-btn" onClick={() => refreshDashboard("Datos refrescados desde Supabase.")}>{isRefreshing ? "…" : "↻"}</button>
             <div className="topbar-user"><span>{initials}</span><div><strong>{shortName(displayName)}</strong><p>Administrador</p></div></div>
           </div>
@@ -711,18 +734,18 @@ export default function Page() {
 
         {systemMessage ? <div className="admin-notice">{systemMessage}</div> : null}
 
-        {activeTab === "panel" ? <PanelAdmin stats={dashboardStats} recentActivity={recentActivity} priorityTasks={priorityTasks} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateCourse={openCreateCourse} openCreateModule={() => openCreateModule()} /> : null}
-        {activeTab === "cursos" ? <CursosAdmin stats={dashboardStats} courseViews={filteredCourseViews} allCourseViews={courseViews} search={courseSearch} setSearch={setCourseSearch} statusFilter={courseStatusFilter} setStatusFilter={setCourseStatusFilter} viewMode={courseViewMode} setViewMode={setCourseViewMode} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} openCreateCourse={openCreateCourse} openEditCourse={openEditCourse} openCreateModule={openCreateModule} /> : null}
-        {activeTab === "contenido" ? <ContenidoAdmin stats={dashboardStats} courseViews={courseViews} dashboardData={dashboardData} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} selectedCourseId={contentCourseId} setSelectedCourseId={setContentCourseId} selectedModuleId={contentModuleId} setSelectedModuleId={setContentModuleId} openCreateModule={openCreateModule} openEditModule={openEditModule} openCreateLesson={openCreateLesson} openEditLesson={openEditLesson} openSourceUpload={openSourceUpload} openImportDocument={openImportDocument} /> : null}
-        {activeTab === "alumnos" ? <AlumnosAdmin stats={dashboardStats} students={filteredStudentViews} allStudents={studentViews} selectedStudent={selectedStudent} search={studentSearch} setSearch={setStudentSearch} setSelectedStudentId={setSelectedStudentId} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
-        {activeTab === "examenes" ? <ExamenesAdmin dashboardData={dashboardData} courseViews={courseViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
-        {activeTab === "certificados" ? <CertificadosAdmin certificates={certificateViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
-        {activeTab === "pagos" ? <PagosAdmin courseViews={courseViews} studentViews={studentViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
-        {activeTab === "comunicaciones" ? <ComunicacionesAdmin courseViews={courseViews} studentViews={studentViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
-        {activeTab === "analitica" ? <AnaliticaAdmin dashboardData={dashboardData} courseViews={courseViews} studentViews={studentViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
-        {activeTab === "seguridad" ? <SeguridadAdmin dashboardData={dashboardData} studentViews={studentViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
-        {activeTab === "studio" ? <StudioGHCAdmin courseViews={courseViews} setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
-        {activeTab === "ajustes" ? <AjustesAdmin setActiveTab={setActiveTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "panel" ? <PanelAdmin stats={dashboardStats} recentActivity={recentActivity} priorityTasks={priorityTasks} setActiveTab={activateTab} setSystemMessage={setSystemMessage} openCreateCourse={openCreateCourse} openCreateModule={() => openCreateModule()} /> : null}
+        {activeTab === "cursos" ? <CursosAdmin stats={dashboardStats} courseViews={filteredCourseViews} allCourseViews={courseViews} search={courseSearch} setSearch={setCourseSearch} statusFilter={courseStatusFilter} setStatusFilter={setCourseStatusFilter} viewMode={courseViewMode} setViewMode={setCourseViewMode} setActiveTab={activateTab} setSystemMessage={setSystemMessage} openCreateCourse={openCreateCourse} openEditCourse={openEditCourse} openCreateModule={openCreateModule} /> : null}
+        {activeTab === "contenido" ? <ContenidoAdmin stats={dashboardStats} courseViews={courseViews} dashboardData={dashboardData} setActiveTab={activateTab} setSystemMessage={setSystemMessage} selectedCourseId={contentCourseId} setSelectedCourseId={setContentCourseId} selectedModuleId={contentModuleId} setSelectedModuleId={setContentModuleId} openCreateModule={openCreateModule} openEditModule={openEditModule} openCreateLesson={openCreateLesson} openEditLesson={openEditLesson} openSourceUpload={openSourceUpload} openImportDocument={openImportDocument} /> : null}
+        {activeTab === "alumnos" ? <AlumnosAdmin stats={dashboardStats} students={filteredStudentViews} allStudents={studentViews} selectedStudent={selectedStudent} search={studentSearch} setSearch={setStudentSearch} setSelectedStudentId={setSelectedStudentId} setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "examenes" ? <ExamenesAdmin dashboardData={dashboardData} courseViews={courseViews} setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "certificados" ? <CertificadosAdmin certificates={certificateViews} setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "pagos" ? <PagosAdmin courseViews={courseViews} studentViews={studentViews} setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "comunicaciones" ? <ComunicacionesAdmin courseViews={courseViews} studentViews={studentViews} setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "analitica" ? <AnaliticaAdmin dashboardData={dashboardData} courseViews={courseViews} studentViews={studentViews} setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "seguridad" ? <SeguridadAdmin dashboardData={dashboardData} studentViews={studentViews} setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "studio" ? <StudioGHCAdmin courseViews={courseViews} setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
+        {activeTab === "ajustes" ? <AjustesAdmin setActiveTab={activateTab} setSystemMessage={setSystemMessage} /> : null}
       </section>
 
       {(modalMode === "createCourse" || modalMode === "editCourse") ? (
@@ -2383,6 +2406,11 @@ function getErrorMessage(error: unknown, fallback: string) { if (!error) return 
 function formatNumber(value: number) { return new Intl.NumberFormat("es-ES").format(value || 0); }
 function formatShortDate(value?: string | null) { if (!value) return "Sin fecha"; try { return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value)); } catch { return "Sin fecha"; } }
 function formatRelative(value?: string | null) { if (!value) return "Reciente"; try { const date = new Date(value); const diff = Date.now() - date.getTime(); const minutes = Math.floor(diff / 60000); const hours = Math.floor(minutes / 60); const days = Math.floor(hours / 24); if (minutes < 1) return "Ahora"; if (minutes < 60) return `Hace ${minutes} min`; if (hours < 24) return `Hace ${hours} h`; if (days < 7) return `Hace ${days} días`; return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(date); } catch { return "Reciente"; } }
+function getAdminTabFromParam(value: unknown): AdminTab | null {
+  const tab = String(value || "").toLowerCase() as AdminTab;
+  return adminTabs.some((item) => item.id === tab) ? tab : null;
+}
+
 function getTabLabel(tab: AdminTab) { return adminTabs.find((item) => item.id === tab)?.label || "Panel"; }
 function getInitials(name: string) { return String(name).split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase(); }
 function shortName(name: string) { return String(name).split("@")[0].split(" ")[0] || "Admin"; }
