@@ -56,7 +56,10 @@ type ReviewQuestionForm = {
   evaluated_objective: string;
 };
 
-const BUILD_MARK = "GHC-EXAM-STATS-V9 · estadísticas reales · seguimiento administrador";
+const BUILD_MARK = "GHC-EXAM-DETAIL-NAV-V10 · navegación interna limpia · módulo Exámenes";
+const ADMIN_PANEL_HREF = "/ghc-control-center";
+const EXAMS_HOME_HREF = "/ghc-control-center/examenes";
+const CREATE_EXAM_HREF = "/ghc-control-center/examenes/crear";
 const VALID_QUESTION_TYPES = new Set(["test", "true_false", "case_option"]);
 const VALID_DIFFICULTIES = new Set(["basic", "medium", "advanced", "mixed"]);
 const LABELS = ["A", "B", "C", "D", "E", "F"] as const;
@@ -581,7 +584,7 @@ export default function BlueprintDetailPage() {
           <p className="eyebrow">Centro de evaluación GHC</p>
           <h1>Borrador no encontrado</h1>
           <p>{alert.message || "No se pudo cargar el blueprint solicitado."}</p>
-          <Link href="/ghc-control-center/examenes">Volver al listado</Link>
+          <Link href={EXAMS_HOME_HREF}>Volver a Exámenes</Link>
         </section>
       </main>
     );
@@ -590,6 +593,20 @@ export default function BlueprintDetailPage() {
   return (
     <main className="page-shell">
       <style jsx global>{styles}</style>
+
+      <nav className="admin-return-bar" aria-label="Navegación interna de exámenes">
+        <div className="breadcrumb-stack">
+          <Link href={ADMIN_PANEL_HREF}>Panel administrador</Link>
+          <span>/</span>
+          <Link href={EXAMS_HOME_HREF}>Exámenes</Link>
+          <span>/</span>
+          <strong>{blueprint.title || "Detalle del examen"}</strong>
+        </div>
+        <div className="return-actions">
+          <Link className="primary-return" href={EXAMS_HOME_HREF}>← Volver a Exámenes</Link>
+          <Link href={CREATE_EXAM_HREF}>Crear evaluación</Link>
+        </div>
+      </nav>
 
       <section className="build-ribbon">
         <span>{BUILD_MARK}</span>
@@ -609,9 +626,18 @@ export default function BlueprintDetailPage() {
         </div>
 
         <div className="hero-actions">
-          <Link href="/ghc-control-center/examenes">Volver al listado</Link>
-          <Link href="/ghc-control-center/examenes/crear">Crear otro borrador</Link>
+          <Link href={EXAMS_HOME_HREF}>Volver a Exámenes</Link>
+          <a href="#revision">Ir a revisión</a>
+          <a href="#estadisticas">Ir a estadísticas</a>
         </div>
+      </section>
+
+      <section className="detail-navigation" aria-label="Secciones del detalle del examen">
+        <a href="#configuracion">Configuración</a>
+        <a href="#importador">Importador JSON</a>
+        <a href="#revision">Revisión humana</a>
+        <a href="#estadisticas">Estadísticas</a>
+        <Link href={EXAMS_HOME_HREF}>Centro de Exámenes</Link>
       </section>
 
       {alert.type !== "idle" && alert.message ? (
@@ -646,7 +672,7 @@ export default function BlueprintDetailPage() {
         </article>
       </section>
 
-      <section className="content-grid">
+      <section className="content-grid" id="configuracion">
         <article className="panel">
           <div className="panel-head">
             <div>
@@ -724,7 +750,7 @@ export default function BlueprintDetailPage() {
         </article>
       </section>
 
-      <section className={importerOpen ? "importer open" : "importer"}>
+      <section className={importerOpen ? "importer open" : "importer"} id="importador">
         <div className="panel-head">
           <div>
             <p className="eyebrow">Importación controlada</p>
@@ -778,7 +804,7 @@ export default function BlueprintDetailPage() {
         )}
       </section>
 
-      <section className="questions-section" ref={questionsRef}>
+      <section className="questions-section" id="revision" ref={questionsRef}>
         <div className="panel-head review-head">
           <div>
             <p className="eyebrow">Revisión humana</p>
@@ -1071,6 +1097,11 @@ export default function BlueprintDetailPage() {
             </article>
           </>
         )}
+      </section>
+
+      <section className="bottom-return">
+        <Link className="primary-return" href={EXAMS_HOME_HREF}>← Volver a Exámenes</Link>
+        <Link href={ADMIN_PANEL_HREF}>Ir al panel administrador</Link>
       </section>
 
     </main>
@@ -1516,6 +1547,104 @@ const styles = `
     background:
       linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0)),
       #060808;
+  }
+
+
+  .admin-return-bar {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(10, 13, 13, 0.92);
+    border-radius: 20px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.24);
+  }
+
+  .breadcrumb-stack {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: rgba(244,242,234,0.56);
+    font-size: 13px;
+  }
+
+  .breadcrumb-stack a {
+    color: rgba(244,242,234,0.74);
+    font-weight: 800;
+  }
+
+  .breadcrumb-stack a:hover {
+    color: #22d65b;
+  }
+
+  .breadcrumb-stack strong {
+    color: #f4f2ea;
+    font-weight: 900;
+  }
+
+  .return-actions,
+  .bottom-return {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .return-actions a,
+  .bottom-return a,
+  .detail-navigation a {
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.055);
+    color: #f4f2ea;
+    padding: 10px 13px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 900;
+    transition: 160ms ease;
+  }
+
+  .return-actions a:hover,
+  .bottom-return a:hover,
+  .detail-navigation a:hover {
+    transform: translateY(-1px);
+    border-color: rgba(34,214,91,0.46);
+    background: rgba(34,214,91,0.10);
+  }
+
+  .primary-return {
+    color: #06100a !important;
+    background: linear-gradient(135deg, #22d65b, #a7f3d0) !important;
+    border-color: rgba(34,214,91,0.70) !important;
+  }
+
+  .detail-navigation {
+    position: sticky;
+    top: 12px;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 16px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 20px;
+    background: rgba(6, 8, 8, 0.86);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 18px 55px rgba(0,0,0,0.22);
+  }
+
+  .bottom-return {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid rgba(255,255,255,0.09);
+    background: rgba(12,15,15,0.90);
+    border-radius: 22px;
   }
 
   .build-ribbon {
@@ -2039,9 +2168,16 @@ const styles = `
       padding: 18px;
     }
 
-    .build-ribbon {
+    .build-ribbon,
+    .admin-return-bar {
       flex-direction: column;
       align-items: flex-start;
+    }
+
+    .return-actions,
+    .bottom-return,
+    .detail-navigation {
+      justify-content: flex-start;
     }
 
     .config-list {
