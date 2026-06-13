@@ -56,9 +56,9 @@ type ReviewQuestionForm = {
   evaluated_objective: string;
 };
 
-const BUILD_MARK = "GHC-EXAM-DETAIL-NAV-V10 · navegación interna limpia · módulo Exámenes";
+const BUILD_MARK = "GHC-EXAM-DETAIL-NAV-V11 · retorno al panel Exámenes · producción";
 const ADMIN_PANEL_HREF = "/ghc-control-center";
-const EXAMS_HOME_HREF = "/ghc-control-center/examenes";
+const EXAMS_HOME_HREF = "/ghc-control-center?tab=examenes";
 const CREATE_EXAM_HREF = "/ghc-control-center/examenes/crear";
 const VALID_QUESTION_TYPES = new Set(["test", "true_false", "case_option"]);
 const VALID_DIFFICULTIES = new Set(["basic", "medium", "advanced", "mixed"]);
