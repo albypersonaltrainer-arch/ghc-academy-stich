@@ -1,0 +1,66 @@
+.hero-v02-small {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 4%, rgba(34, 214, 91, 0.08), transparent 34%),
+    linear-gradient(180deg, #0a0d0c 0%, #060807 100%);
+}
+
+.hero-v02-small img {
+  display: none;
+}
+
+.hero-v02-small::before {
+  content: "ANÁLISIS Y SEGUIMIENTO";
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: rgba(242, 244, 241, 0.5);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.hero-v02-small::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 24px;
+  height: 68%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, transparent 0 10%, rgba(34, 214, 91, 0.34) 10% 16%, transparent 16% 26%, rgba(34, 214, 91, 0.48) 26% 34%, transparent 34% 46%, rgba(34, 214, 91, 0.64) 46% 56%, transparent 56% 68%, rgba(34, 214, 91, 0.82) 68% 80%, transparent 80%),
+    linear-gradient(180deg, transparent 0 16%, rgba(255,255,255,0.035) 16% 17%, transparent 17% 33%, rgba(255,255,255,0.035) 33% 34%, transparent 34% 50%, rgba(255,255,255,0.035) 50% 51%, transparent 51% 67%, rgba(255,255,255,0.035) 67% 68%, transparent 68%),
+    rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 0 0 1px rgba(34, 214, 91, 0.02);
+}
+
+.payment-align,
+.paymentGrid {
+  align-items: stretch !important;
+}
+
+.payment-align article,
+.paymentGrid article {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100% !important;
+}
+
+.payment-align article p,
+.paymentGrid article p {
+  margin-bottom: 18px !important;
+}
+
+.payment-align article button,
+.paymentGrid article button {
+  margin-top: auto !important;
+}
+
+@media (max-width: 900px) {
+  .hero-v02-small {
+    min-height: 280px;
+  }
+}
