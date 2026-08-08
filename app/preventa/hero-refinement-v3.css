@@ -1,0 +1,181 @@
+/* Hero V3 · refinamiento visual del bloque derecho.
+   Se carga después de refinements.css y no altera precios, checkout ni Gates. */
+
+.hero-v02 {
+  grid-template-columns: minmax(0, 1.58fr) minmax(310px, 0.42fr) !important;
+  gap: 18px !important;
+  align-items: stretch !important;
+}
+
+.hero-v02-side {
+  display: grid !important;
+  grid-template-rows: 1fr !important;
+  min-height: 650px !important;
+}
+
+.hero-v02-small {
+  display: none !important;
+}
+
+.hero-v02-card {
+  position: relative !important;
+  min-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  overflow: hidden !important;
+  padding: 34px 30px 30px !important;
+  border: 1px solid rgba(34, 214, 91, 0.24) !important;
+  border-radius: 28px !important;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(34, 214, 91, 0.11), transparent 24%),
+    linear-gradient(180deg, #0b0f0c 0%, #070a08 100%) !important;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34) !important;
+}
+
+.hero-v02-card::before {
+  content: "SISTEMA GHC" !important;
+  display: block !important;
+  margin: 0 0 10px !important;
+  color: var(--ghc-green) !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.16em !important;
+  line-height: 1.4 !important;
+}
+
+.hero-v02-card > span {
+  display: block !important;
+  margin: 0 0 30px !important;
+  color: var(--ghc-muted-2) !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.55 !important;
+  text-transform: none !important;
+}
+
+.hero-v02-card > span::after {
+  content: " · de la observación al ajuste";
+}
+
+.hero-v02-card > strong {
+  display: none !important;
+}
+
+.hero-v02-card .mini-flow {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  counter-reset: ghc-step !important;
+}
+
+.hero-v02-card .mini-flow::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 30px;
+  bottom: 30px;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(34,214,91,.12), rgba(34,214,91,.55), rgba(34,214,91,.12));
+}
+
+.hero-v02-card .mini-flow i {
+  counter-increment: ghc-step !important;
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: 38px 1fr !important;
+  align-items: center !important;
+  gap: 14px !important;
+  min-height: 86px !important;
+  height: auto !important;
+  padding: 14px 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.055) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  font-style: normal !important;
+}
+
+.hero-v02-card .mini-flow i:first-child {
+  border-top: 0 !important;
+}
+
+.hero-v02-card .mini-flow i::before {
+  content: "0" counter(ghc-step);
+  position: relative;
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(34, 214, 91, 0.34);
+  border-radius: 12px;
+  background: #0a100c;
+  color: var(--ghc-green);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+}
+
+.hero-v02-card .mini-flow i::after {
+  color: var(--ghc-text);
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.hero-v02-card .mini-flow i:nth-child(1)::after {
+  content: "OBSERVAR  ·  Qué está ocurriendo realmente";
+}
+
+.hero-v02-card .mini-flow i:nth-child(2)::after {
+  content: "PRIORIZAR  ·  Qué importa ahora";
+}
+
+.hero-v02-card .mini-flow i:nth-child(3)::after {
+  content: "DECIDIR  ·  Qué intervención tiene sentido";
+}
+
+.hero-v02-card .mini-flow i:nth-child(4)::after {
+  content: "REVISAR  ·  Qué ha cambiado y qué ajustar";
+}
+
+.hero-v02-card::after {
+  content: "Evaluar, interpretar y ajustar con criterio." !important;
+  display: block !important;
+  margin-top: auto !important;
+  padding-top: 26px !important;
+  border-top: 1px solid rgba(34, 214, 91, 0.14) !important;
+  color: var(--ghc-muted) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  line-height: 1.55 !important;
+  white-space: normal !important;
+}
+
+@media (max-width: 900px) {
+  .hero-v02 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .hero-v02-side {
+    min-height: auto !important;
+  }
+
+  .hero-v02-card {
+    min-height: 430px !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .hero-v02-card {
+    min-height: 0 !important;
+    padding: 26px 22px !important;
+  }
+
+  .hero-v02-card .mini-flow i {
+    min-height: 76px !important;
+  }
+}
