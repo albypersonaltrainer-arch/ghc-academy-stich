@@ -191,6 +191,12 @@
   align-self: end !important;
 }
 
+/* El fraccionado ya no está pendiente: se muestra con presencia visual normal. */
+[class*="paymentChoicePending"] {
+  opacity: 1 !important;
+  border-color: var(--ghc-border) !important;
+}
+
 @media (max-width: 900px) {
   .hero-v02 {
     grid-template-columns: 1fr !important;
