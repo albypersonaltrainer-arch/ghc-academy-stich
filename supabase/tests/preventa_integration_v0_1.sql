@@ -66,7 +66,7 @@ begin
   if v.status <> 'paid' or v.founder_status <> 'confirmed' or v.founder_place_number <> 1 then
     raise exception 'FAIL: pago único/plaza fundadora';
   end if;
-  if (select status from public.preventa_capacity_holds h join public.preventa_orders o on o.id=h.order_id where o.order_reference='GHC-TEST0001') <> 'consumed' then
+  if (select h.status from public.preventa_capacity_holds h join public.preventa_orders o on o.id=h.order_id where o.order_reference='GHC-TEST0001') <> 'consumed' then
     raise exception 'FAIL: hold single no quedó consumed';
   end if;
   if (select commission_base_cents from public.preventa_attribution where order_id=v.id) <> 169000 then
@@ -177,7 +177,7 @@ begin
   if (select commission_base_cents from public.preventa_attribution where order_id=v.id) <> 89500 then
     raise exception 'FAIL: comisión primera cuota';
   end if;
-  if (select status from public.preventa_capacity_holds where order_id=v.id) <> 'consumed' then
+  if (select h.status from public.preventa_capacity_holds h where h.order_id=v.id) <> 'consumed' then
     raise exception 'FAIL: hold split no quedó consumed';
   end if;
 end $$;
@@ -230,7 +230,7 @@ select public.preventa_release_capacity_v1(
 
 do $$
 begin
-  if (select status from public.preventa_capacity_holds h join public.preventa_orders o on o.id=h.order_id where o.order_reference='GHC-TEST0004') <> 'released' then
+  if (select h.status from public.preventa_capacity_holds h join public.preventa_orders o on o.id=h.order_id where o.order_reference='GHC-TEST0004') <> 'released' then
     raise exception 'FAIL: hold fallido no se liberó';
   end if;
 end $$;
