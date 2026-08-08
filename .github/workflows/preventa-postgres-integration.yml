@@ -1,0 +1,104 @@
+name: Preventa PostgreSQL Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/preventa-postgres-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preventa-postgres17:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      - name: Create Supabase-compatible roles
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $do$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+              CREATE ROLE anon NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+              CREATE ROLE authenticated NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+              CREATE ROLE service_role NOLOGIN;
+            END IF;
+          END
+          $do$;
+          SQL
+
+      - name: Apply preventa migrations in filename order
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find supabase/migrations -maxdepth 1 -type f -name '*preventa*.sql' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo 'No preventa migrations found.' >&2
+            exit 1
+          fi
+          printf 'Migration order:\n'
+          printf ' - %s\n' "${files[@]}"
+          for file in "${files[@]}"; do
+            echo "::group::Applying $file"
+            psql -v ON_ERROR_STOP=1 -f "$file"
+            echo '::endgroup::'
+          done
+
+      - name: Run preventa SQL integration suite
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_integration_v0_1.sql
+
+      - name: Verify expected private tables exist
+        run: |
+          psql -v ON_ERROR_STOP=1 -Atc "
+            select case when count(*) = 7 then 'PREVENTA_SCHEMA_OK' else 'UNEXPECTED_TABLE_COUNT:' || count(*)::text end
+            from information_schema.tables
+            where table_schema = 'public'
+              and table_name in (
+                'preventa_orders',
+                'preventa_payments',
+                'preventa_acceptances',
+                'preventa_attribution',
+                'preventa_events',
+                'preventa_email_queue',
+                'preventa_checkout_attempts'
+              );
+          " | grep '^PREVENTA_SCHEMA_OK$'
