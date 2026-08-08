@@ -29,6 +29,15 @@ function getPublicBaseUrl() {
   return value;
 }
 
+function getSumUpReturnUrl(publicBaseUrl: string) {
+  const url = new URL('/api/preventa/sumup-webhook', publicBaseUrl);
+  if (process.env.VERCEL_ENV === 'preview') {
+    const bypassSecret = (process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '').trim();
+    if (bypassSecret) url.searchParams.set('x-vercel-protection-bypass', bypassSecret);
+  }
+  return url.toString();
+}
+
 function parseBody(input: unknown) {
   if (!input || typeof input !== 'object') return null;
   const value = input as Record<string, unknown>;
@@ -58,6 +67,8 @@ export async function GET() {
     sumupMerchantConfigured: sumup.merchantConfigured,
     publicBaseUrlConfigured: Boolean(publicBaseUrl),
     checkoutTokenConfigured: token.configured,
+    previewAutomationBypassConfigured:
+      process.env.VERCEL_ENV !== 'preview' || Boolean(process.env.VERCEL_AUTOMATION_BYPASS_SECRET),
     checkoutReady:
       persistence.ready &&
       sumup.checkoutEnabled &&
@@ -105,6 +116,13 @@ export async function POST(request: NextRequest) {
   if (!token.configured) {
     return NextResponse.json(
       { ok: false, code: 'CHECKOUT_TOKEN_NOT_CONFIGURED', error: 'Falta la clave privada de acceso al checkout.' },
+      { status: 503 }
+    );
+  }
+
+  if (process.env.VERCEL_ENV === 'preview' && !process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+    return NextResponse.json(
+      { ok: false, code: 'VERCEL_AUTOMATION_BYPASS_NOT_CONFIGURED', error: 'Falta el bypass de automatización para el callback de SumUp.' },
       { status: 503 }
     );
   }
@@ -168,7 +186,7 @@ export async function POST(request: NextRequest) {
       currency: context.currency,
       description,
       redirectUrl: `${publicBaseUrl}/preventa/confirmacion?ref=${encodeURIComponent(context.orderReference)}`,
-      returnUrl: `${publicBaseUrl}/api/preventa/sumup-webhook`,
+      returnUrl: getSumUpReturnUrl(publicBaseUrl),
     });
 
     const registeredAt = new Date().toISOString();
