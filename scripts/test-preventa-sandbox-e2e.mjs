@@ -10,6 +10,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const apiKey = process.env.SUMUP_API_KEY ?? '';
 const merchantCode = process.env.SUMUP_MERCHANT_CODE ?? '';
 const publicBaseUrl = (process.env.PREVENTA_PUBLIC_BASE_URL ?? '').replace(/\/$/, '');
+const returnUrl = `${publicBaseUrl}/api/preventa/sumup-webhook`;
 
 if (!supabaseUrl || !serviceKey || !apiKey || !merchantCode || !publicBaseUrl) {
   console.error('[preventa-e2e] configuración incompleta');
@@ -98,6 +99,7 @@ try {
       merchant_code: merchantCode,
       hosted_checkout: { enabled: true },
       redirect_url: `${publicBaseUrl}/preventa/confirmacion?ref=${encodeURIComponent(orderReference)}`,
+      return_url: returnUrl,
     }),
   });
   if (!createResponse.ok) throw new Error(`SumUp create:${createResponse.status}`);
@@ -106,6 +108,14 @@ try {
     throw new Error('checkout inválido');
   }
   console.log('[preventa-e2e] hostedCheckout: OK');
+
+  const retrieveResponse = await fetch(`https://api.sumup.com/v0.1/checkouts/${encodeURIComponent(checkout.id)}`, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+  });
+  if (!retrieveResponse.ok) throw new Error(`SumUp retrieve:${retrieveResponse.status}`);
+  const retrievedCheckout = await retrieveResponse.json();
+  if (retrievedCheckout?.return_url !== returnUrl) throw new Error('return_url no persistido por SumUp');
+  console.log('[preventa-e2e] returnUrl: OK');
 
   await rpc('preventa_attach_capacity_checkout_v1', {
     p_order_reference: orderReference,
@@ -127,36 +137,14 @@ try {
   });
   console.log('[preventa-e2e] checkoutAttempt: OK');
 
-  const { data: order, error: orderError } = await supabase
-    .from('preventa_orders')
-    .select('status,founder_status,founder_place_number')
-    .eq('id', orderId)
-    .single();
+  const { data: order, error: orderError } = await supabase.from('preventa_orders').select('status,founder_status,founder_place_number').eq('id', orderId).single();
   if (orderError) throw orderError;
-
-  const { data: holdRow, error: holdError } = await supabase
-    .from('preventa_capacity_holds')
-    .select('status,provider_checkout_id')
-    .eq('order_id', orderId)
-    .single();
+  const { data: holdRow, error: holdError } = await supabase.from('preventa_capacity_holds').select('status,provider_checkout_id').eq('order_id', orderId).single();
   if (holdError) throw holdError;
-
-  const { data: attempt, error: attemptError } = await supabase
-    .from('preventa_checkout_attempts')
-    .select('status,expected_amount_cents,provider_checkout_id')
-    .eq('order_id', orderId)
-    .single();
+  const { data: attempt, error: attemptError } = await supabase.from('preventa_checkout_attempts').select('status,expected_amount_cents,provider_checkout_id').eq('order_id', orderId).single();
   if (attemptError) throw attemptError;
 
-  const stateOk = order?.status === 'awaiting_payment' &&
-    order?.founder_status === 'pending' &&
-    order?.founder_place_number == null &&
-    holdRow?.status === 'attached' &&
-    holdRow?.provider_checkout_id === checkout.id &&
-    attempt?.status === 'created' &&
-    attempt?.expected_amount_cents === 169000 &&
-    attempt?.provider_checkout_id === checkout.id;
-
+  const stateOk = order?.status === 'awaiting_payment' && order?.founder_status === 'pending' && order?.founder_place_number == null && holdRow?.status === 'attached' && holdRow?.provider_checkout_id === checkout.id && attempt?.status === 'created' && attempt?.expected_amount_cents === 169000 && attempt?.provider_checkout_id === checkout.id;
   if (!stateOk) throw new Error('estado E2E inesperado');
   console.log('[preventa-e2e] persistedState: OK');
 } finally {
@@ -166,10 +154,7 @@ try {
       console.error(`[preventa-e2e] cleanup FAIL: ${deleteError.message}`);
       process.exit(1);
     }
-    const { count, error: countError } = await supabase
-      .from('preventa_orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('id', orderId);
+    const { count, error: countError } = await supabase.from('preventa_orders').select('id', { count: 'exact', head: true }).eq('id', orderId);
     if (countError || count !== 0) {
       console.error('[preventa-e2e] cleanup verification FAIL');
       process.exit(1);
@@ -178,4 +163,4 @@ try {
   }
 }
 
-console.log('[preventa-e2e] E2E Sandbox OK: matrícula ficticia limpia; checkout externo queda solo en Sandbox y sin pago');
+console.log('[preventa-e2e] E2E Sandbox OK: matrícula ficticia limpia; return_url registrado; checkout sin pago');
