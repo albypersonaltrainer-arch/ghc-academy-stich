@@ -12,6 +12,11 @@ import {
   createHostedSumUpCheckout,
   getSumUpIntegrationStatus,
 } from '../../../../lib/preventa/sumup-client';
+import {
+  CheckoutAccessTokenError,
+  getCheckoutAccessTokenStatus,
+  verifyCheckoutAccessToken,
+} from '../../../../lib/preventa/checkout-access-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,17 +31,20 @@ function parseBody(input: unknown) {
   const value = input as Record<string, unknown>;
   const orderReference = typeof value.orderReference === 'string' ? value.orderReference.trim() : '';
   const installmentNo = Number(value.installmentNo);
+  const checkoutToken = typeof value.checkoutToken === 'string' ? value.checkoutToken.trim() : '';
 
   if (!/^GHC-[A-Z0-9]{8}$/.test(orderReference)) return null;
   if (installmentNo !== 1 && installmentNo !== 2) return null;
+  if (!checkoutToken || checkoutToken.length > 768) return null;
 
-  return { orderReference, installmentNo: installmentNo as 1 | 2 };
+  return { orderReference, installmentNo: installmentNo as 1 | 2, checkoutToken };
 }
 
 export async function GET() {
   const persistence = getPreventaPersistenceStatus();
   const sumup = getSumUpIntegrationStatus();
   const publicBaseUrl = getPublicBaseUrl();
+  const token = getCheckoutAccessTokenStatus();
 
   return NextResponse.json({
     ok: true,
@@ -46,12 +54,14 @@ export async function GET() {
     sumupApiConfigured: sumup.apiConfigured,
     sumupMerchantConfigured: sumup.merchantConfigured,
     publicBaseUrlConfigured: Boolean(publicBaseUrl),
+    checkoutTokenConfigured: token.configured,
     checkoutReady:
       persistence.ready &&
       sumup.checkoutEnabled &&
       sumup.apiConfigured &&
       sumup.merchantConfigured &&
-      Boolean(publicBaseUrl),
+      Boolean(publicBaseUrl) &&
+      token.configured,
   });
 }
 
@@ -59,6 +69,7 @@ export async function POST(request: NextRequest) {
   const persistence = getPreventaPersistenceStatus();
   const sumup = getSumUpIntegrationStatus();
   const publicBaseUrl = getPublicBaseUrl();
+  const token = getCheckoutAccessTokenStatus();
 
   if (!persistence.ready) {
     return NextResponse.json(
@@ -88,6 +99,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!token.configured) {
+    return NextResponse.json(
+      { ok: false, code: 'CHECKOUT_TOKEN_NOT_CONFIGURED', error: 'Falta la clave privada de acceso al checkout.' },
+      { status: 503 }
+    );
+  }
+
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     return NextResponse.json({ ok: false, error: 'Content-Type debe ser application/json.' }, { status: 415 });
@@ -102,6 +120,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    verifyCheckoutAccessToken({
+      token: body.checkoutToken,
+      orderReference: body.orderReference,
+      installmentNo: body.installmentNo,
+    });
+
     const context = await getPreventaCheckoutContext(body);
     const attemptToken = randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase();
     const checkoutReference = createSumUpCheckoutReference(
@@ -147,6 +171,13 @@ export async function POST(request: NextRequest) {
       persistence: persistenceResult,
     });
   } catch (error) {
+    if (error instanceof CheckoutAccessTokenError) {
+      return NextResponse.json(
+        { ok: false, code: error.code, error: 'Acceso al checkout no autorizado o caducado.' },
+        { status: 403 }
+      );
+    }
+
     console.error('SumUp Hosted Checkout creation error', error);
 
     return NextResponse.json(
