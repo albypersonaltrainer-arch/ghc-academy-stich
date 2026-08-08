@@ -63,6 +63,49 @@
   line-height: 1.5;
 }
 
+/* ESTADO DE GATES: jurídico y económico ya aprobados por Alby. */
+[role="status"] span {
+  font-size: 0 !important;
+}
+
+[role="status"] span::after {
+  content: "Gate jurídico y económico aprobados. Publicación y cobro bloqueados hasta Gate técnico, operativo y autorización final.";
+  font-size: 11px;
+}
+
+[class*="paymentSection"] [class*="sectionIntroCenter"] > p:last-child {
+  font-size: 0 !important;
+}
+
+[class*="paymentSection"] [class*="sectionIntroCenter"] > p:last-child::after {
+  content: "La parte jurídica y económica ya está aprobada. La matrícula seguirá desactivada hasta completar el Gate técnico, operativo y la autorización final.";
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ghc-muted);
+}
+
+[class*="faqSection"] [class*="sectionIntroRow"] > p {
+  font-size: 0 !important;
+}
+
+[class*="faqSection"] [class*="sectionIntroRow"] > p::after {
+  content: "El paquete jurídico Word está aprobado. Antes de producción se incorporarán los datos identificativos, fiscales y URLs contractuales definitivas.";
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ghc-muted);
+}
+
+[class*="footer"] > p {
+  font-size: 0 !important;
+}
+
+[class*="footer"] > p::after {
+  content: "GHC Academy · Formación privada online · Base jurídica aprobada · Publicación y cobro pendientes de Gates técnico y operativo.";
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ghc-muted-2);
+}
+
 /* JERARQUÍA DE PRECIO: reducir carga cognitiva.
    Los precios individuales siguen visibles arriba. Debajo, 2.670 € pasa a ser referencia secundaria
    y la comparación comercial principal queda en 2.290 € vs 1.690 €. */
@@ -128,8 +171,7 @@
   padding: 11px 15px !important;
 }
 
-/* PRECIOS: Next.js transforma las clases del módulo.
-   Los selectores por fragmento alcanzan las clases compiladas reales. */
+/* FORMAS DE PAGO: alineación y precio fraccionado aprobado. */
 [class*="paymentGrid"] {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -169,7 +211,7 @@
 }
 
 [class*="paymentGrid"] > article:nth-child(2) > strong::after {
-  content: "1.790 € total";
+  content: "895 € + 895 €";
   font-size: 22px;
 }
 
@@ -184,7 +226,7 @@
 }
 
 [class*="paymentGrid"] > article:nth-child(2) > p::after {
-  content: "Dos pagos de 895 €. El segundo vence 15 días naturales después del primero. Total fraccionado: 1.790 €.";
+  content: "Dos pagos de 895 €. El segundo vence 15 días naturales después del primero. Total fraccionado: 1.790 € (+100 €).";
   font-size: 14px;
   line-height: 1.6;
   color: var(--ghc-muted);
@@ -197,10 +239,26 @@
   align-self: end !important;
 }
 
-/* El fraccionado ya no está pendiente: se muestra con presencia visual normal. */
+[class*="paymentGrid"] > article:nth-child(2) > button {
+  font-size: 0 !important;
+}
+
+[class*="paymentGrid"] > article:nth-child(2) > button::after {
+  content: "Matrícula fraccionada · pendiente de apertura";
+  font-size: 13px;
+}
+
+/* Checkout: el fraccionado ya no está pendiente y el bloque jurídico aparece aprobado. */
 [class*="paymentChoicePending"] {
   opacity: 1 !important;
-  border-color: var(--ghc-border) !important;
+  border-color: var(--ghc-border-green) !important;
+  background: linear-gradient(145deg, rgba(34, 214, 91, 0.05), rgba(255, 255, 255, 0.02)) !important;
+}
+
+[class*="legalPending"] {
+  border-left-color: var(--ghc-green) !important;
+  background: rgba(34, 214, 91, 0.05) !important;
+  color: var(--ghc-muted) !important;
 }
 
 @media (max-width: 900px) {
