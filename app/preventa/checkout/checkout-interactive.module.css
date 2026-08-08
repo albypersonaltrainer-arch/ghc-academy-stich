@@ -28,15 +28,9 @@
   opacity: 0.72;
 }
 
-/* Mantiene país y teléfono en la misma línea visual, con idéntica altura de control. */
-:global([class*="fieldGrid"] > [class*="field"]) {
-  align-content: start;
-}
-
-:global([class*="fieldGrid"] > [class*="field"] > input),
-:global([class*="fieldGrid"] > [class*="field"] > select) {
-  height: 50px;
-  min-height: 50px;
+.controlAligned {
+  height: 50px !important;
+  min-height: 50px !important;
   box-sizing: border-box;
 }
 
