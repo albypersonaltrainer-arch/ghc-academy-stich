@@ -1,0 +1,132 @@
+.selected {
+  outline: 2px solid rgba(34, 214, 91, 0.34);
+  box-shadow: 0 0 0 4px rgba(34, 214, 91, 0.06);
+}
+
+.radio {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ghc-green);
+}
+
+.previewButton {
+  cursor: pointer !important;
+  border-color: rgba(34, 214, 91, 0.55) !important;
+  background: rgba(34, 214, 91, 0.16) !important;
+  color: var(--ghc-text) !important;
+}
+
+.previewButton:hover:not(:disabled) {
+  background: rgba(34, 214, 91, 0.22) !important;
+}
+
+.previewButton:disabled {
+  cursor: wait !important;
+  opacity: 0.72;
+}
+
+.errorBox,
+.successBox {
+  padding: 22px;
+  border-radius: 20px;
+}
+
+.errorBox {
+  border: 1px solid rgba(255, 103, 103, 0.32);
+  background: rgba(255, 103, 103, 0.06);
+  color: #ffd7d7;
+}
+
+.errorBox strong {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.errorBox ul {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.65;
+}
+
+.successBox {
+  border: 1px solid var(--ghc-border-green);
+  background: radial-gradient(circle at 85% 0%, rgba(34, 214, 91, 0.10), transparent 36%), rgba(34, 214, 91, 0.025);
+}
+
+.successLabel {
+  color: var(--ghc-green);
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.successBox h2 {
+  margin: 8px 0 14px;
+  font-size: 28px;
+}
+
+.reference {
+  display: inline-block;
+  padding: 10px 13px;
+  border: 1px solid rgba(34, 214, 91, 0.24);
+  border-radius: 12px;
+  background: #080c09;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--ghc-green);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.resultGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.resultGrid > div {
+  padding: 14px;
+  border: 1px solid var(--ghc-border-soft);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.018);
+}
+
+.resultGrid span {
+  display: block;
+  color: var(--ghc-muted-2);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.resultGrid strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.successBox p {
+  margin: 16px 0 0;
+  color: var(--ghc-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.confirmLink {
+  display: inline-flex;
+  margin-top: 16px;
+  color: var(--ghc-green);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+@media (max-width: 620px) {
+  .resultGrid {
+    grid-template-columns: 1fr;
+  }
+}
