@@ -6,6 +6,10 @@ import {
   getPreventaPersistenceStatus,
   persistPreventaDraft,
 } from '../../../../lib/preventa/persistence';
+import {
+  getCheckoutAccessTokenStatus,
+  issueCheckoutAccessToken,
+} from '../../../../lib/preventa/checkout-access-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,19 +21,22 @@ function cleanRequestKey(value: string | null) {
 
 export async function GET() {
   const persistence = getPreventaPersistenceStatus();
+  const checkoutToken = getCheckoutAccessTokenStatus();
 
   return NextResponse.json({
     ok: true,
     route: 'preventa-orders',
     persistenceEnabled: persistence.enabled,
     persistenceConfigured: persistence.configured,
-    writeReady: persistence.ready,
+    checkoutTokenConfigured: checkoutToken.configured,
+    writeReady: persistence.ready && checkoutToken.configured,
     paymentsEnabled: false,
   });
 }
 
 export async function POST(request: NextRequest) {
   const persistence = getPreventaPersistenceStatus();
+  const checkoutToken = getCheckoutAccessTokenStatus();
 
   if (!persistence.enabled) {
     return NextResponse.json(
@@ -48,6 +55,17 @@ export async function POST(request: NextRequest) {
         ok: false,
         code: 'PERSISTENCE_NOT_CONFIGURED',
         error: 'La persistencia está habilitada pero faltan variables privadas de servidor.',
+      },
+      { status: 503 }
+    );
+  }
+
+  if (!checkoutToken.configured) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'CHECKOUT_TOKEN_NOT_CONFIGURED',
+        error: 'Falta la clave privada para emitir accesos seguros al checkout.',
       },
       { status: 503 }
     );
@@ -93,6 +111,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const persisted = await persistPreventaDraft(body, requestKey, orderReference);
+    const checkoutAccessToken = issueCheckoutAccessToken({
+      orderReference: persisted.orderReference,
+      installmentNo: 1,
+    });
 
     return NextResponse.json({
       ok: true,
@@ -109,6 +131,10 @@ export async function POST(request: NextRequest) {
         firstInstallmentCents: validated.data.firstInstallmentCents,
         secondInstallmentCents: validated.data.secondInstallmentCents,
         secondDueAt: null,
+      },
+      checkout: {
+        installmentNo: 1,
+        accessToken: checkoutAccessToken,
       },
       next: {
         requiresSumUpCheckout: true,
