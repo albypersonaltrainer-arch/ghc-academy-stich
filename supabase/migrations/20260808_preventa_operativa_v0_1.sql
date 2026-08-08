@@ -51,8 +51,10 @@ create table if not exists public.preventa_orders (
     (payment_plan = 'split'
       and total_amount_cents = 179000
       and first_installment_cents = 89500
-      and second_installment_cents = 89500
-      and second_due_at is not null)
+      and second_installment_cents = 89500)
+  ),
+  constraint preventa_orders_second_due_consistency check (
+    payment_plan = 'split' or second_due_at is null
   ),
   constraint preventa_orders_founder_place_range check (
     founder_place_number is null or founder_place_number between 1 and 100
