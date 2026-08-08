@@ -72,6 +72,62 @@ export async function getPreventaCheckoutContext(input: {
   return mapContext(data);
 }
 
+export async function reservePreventaCapacity(input: {
+  orderReference: string;
+  checkoutReference: string;
+  heldUntil: string;
+  idempotencyKey: string;
+  occurredAt: string;
+}) {
+  const supabase = getServerClient();
+  const { data, error } = await supabase.rpc('preventa_reserve_capacity_v1', {
+    p_order_reference: cleanReference(input.orderReference),
+    p_checkout_reference: input.checkoutReference,
+    p_held_until: input.heldUntil,
+    p_idempotency_key: input.idempotencyKey,
+    p_occurred_at: input.occurredAt,
+  });
+
+  if (error) throw new Error(`PREVENTA_RESERVE_CAPACITY_FAILED:${error.message}`);
+  return data;
+}
+
+export async function attachPreventaCapacityCheckout(input: {
+  orderReference: string;
+  checkoutReference: string;
+  providerCheckoutId: string;
+  occurredAt: string;
+}) {
+  const supabase = getServerClient();
+  const { data, error } = await supabase.rpc('preventa_attach_capacity_checkout_v1', {
+    p_order_reference: cleanReference(input.orderReference),
+    p_checkout_reference: input.checkoutReference,
+    p_provider_checkout_id: input.providerCheckoutId,
+    p_occurred_at: input.occurredAt,
+  });
+
+  if (error) throw new Error(`PREVENTA_ATTACH_CAPACITY_FAILED:${error.message}`);
+  return data;
+}
+
+export async function releasePreventaCapacity(input: {
+  orderReference: string;
+  checkoutReference: string;
+  reason: string;
+  occurredAt: string;
+}) {
+  const supabase = getServerClient();
+  const { data, error } = await supabase.rpc('preventa_release_capacity_v1', {
+    p_order_reference: cleanReference(input.orderReference),
+    p_checkout_reference: input.checkoutReference,
+    p_reason: input.reason,
+    p_occurred_at: input.occurredAt,
+  });
+
+  if (error) throw new Error(`PREVENTA_RELEASE_CAPACITY_FAILED:${error.message}`);
+  return data;
+}
+
 export async function registerPreventaCheckoutAttempt(input: {
   orderReference: string;
   installmentNo: 1 | 2;
