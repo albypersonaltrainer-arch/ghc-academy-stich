@@ -135,7 +135,7 @@ export function createPaymentMachineState(paymentPlan: PreventaPaymentPlan): Pay
   if (paymentPlan === 'split') {
     installments.push({
       installmentNo: 2,
-      expectedAmountCents: price.installments[1],
+      expectedAmountCents: PREVENTA_OFFER.prices.split.installments[1],
       status: 'pending',
       dueAt: null,
       paidAt: null,
