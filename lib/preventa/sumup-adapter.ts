@@ -25,6 +25,9 @@ export type SumUpCheckout = {
   transaction_id?: string;
   transaction_code?: string;
   transactions?: SumUpTransaction[];
+  hosted_checkout_url?: string;
+  redirect_url?: string;
+  return_url?: string;
 };
 
 export type VerifiedSumUpPayment = {
@@ -32,6 +35,7 @@ export type VerifiedSumUpPayment = {
   checkoutReference: string;
   orderReference: string;
   installmentNo: 1 | 2;
+  attemptToken: string | null;
   amountCents: number;
   providerPaymentId: string;
   occurredAt: string;
@@ -69,16 +73,26 @@ export function parseSumUpWebhookPayload(input: unknown): SumUpWebhookPayload {
   return { event_type: 'CHECKOUT_STATUS_CHANGED', id };
 }
 
-export function createSumUpCheckoutReference(orderReference: string, installmentNo: 1 | 2) {
+export function createSumUpCheckoutReference(
+  orderReference: string,
+  installmentNo: 1 | 2,
+  attemptToken?: string
+) {
   const cleanOrderReference = orderReference.trim();
   if (!/^GHC-[A-Z0-9]{8}$/.test(cleanOrderReference)) {
     throw new SumUpAdapterError('INVALID_ORDER_REFERENCE', 'Referencia interna de matrícula no válida.');
   }
-  return `${cleanOrderReference}-I${installmentNo}`;
+
+  const token = cleanString(attemptToken).toUpperCase();
+  if (token && !/^[A-Z0-9]{6,16}$/.test(token)) {
+    throw new SumUpAdapterError('INVALID_ATTEMPT_TOKEN', 'Identificador de intento SumUp no válido.');
+  }
+
+  return `${cleanOrderReference}-I${installmentNo}${token ? `-A${token}` : ''}`;
 }
 
 export function parseSumUpCheckoutReference(checkoutReference: string) {
-  const match = checkoutReference.trim().match(/^(GHC-[A-Z0-9]{8})-I([12])$/);
+  const match = checkoutReference.trim().match(/^(GHC-[A-Z0-9]{8})-I([12])(?:-A([A-Z0-9]{6,16}))?$/);
   if (!match) {
     throw new SumUpAdapterError('INVALID_CHECKOUT_REFERENCE', 'La referencia del checkout no pertenece al formato de preventa GHC.');
   }
@@ -86,6 +100,7 @@ export function parseSumUpCheckoutReference(checkoutReference: string) {
   return {
     orderReference: match[1],
     installmentNo: Number(match[2]) as 1 | 2,
+    attemptToken: match[3] || null,
   };
 }
 
@@ -177,6 +192,7 @@ export function verifySumUpCheckoutForPreventa(input: {
     checkoutReference,
     orderReference: parsed.orderReference,
     installmentNo: parsed.installmentNo,
+    attemptToken: parsed.attemptToken,
     amountCents: checkoutAmountCents,
     providerPaymentId: cleanString(transaction.id),
     occurredAt,
@@ -185,6 +201,7 @@ export function verifySumUpCheckoutForPreventa(input: {
       checkout_id: webhookCheckoutId,
       checkout_reference: checkoutReference,
       checkout_status: checkout.status,
+      checkout_attempt: parsed.attemptToken,
       transaction_code: transaction.transaction_code || checkout.transaction_code || null,
       transaction_status: transaction.status,
       verified_via_sumup_api: true,
