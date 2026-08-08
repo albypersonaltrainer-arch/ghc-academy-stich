@@ -37,8 +37,8 @@ export default function ConfirmacionPreventaPage() {
           </p>
 
           <div className={styles.variantTabs}>
-            <Link href="/preventa/confirmacion" data-active="true">Pago único</Link>
-            <Link href="/preventa/confirmacion?modalidad=fraccionado">50 % + 50 % · estructura pendiente</Link>
+            <Link href="/preventa/confirmacion" data-active="true">Pago único · 1.690 €</Link>
+            <Link href="/preventa/confirmacion?modalidad=fraccionado">Fraccionado · 895 € + 895 €</Link>
           </div>
         </section>
 
@@ -49,8 +49,9 @@ export default function ConfirmacionPreventaPage() {
               <div className={styles.orderLine}><span>Referencia</span><strong>GHC-FUND-2026-XXXX</strong></div>
               <div className={styles.orderLine}><span>Producto</span><strong>Pack completo · 3 niveles · 30 módulos</strong></div>
               <div className={styles.orderLine}><span>Condición</span><strong>Alumno Fundador</strong></div>
-              <div className={styles.orderLine}><span>Modalidad</span><strong>Pago único</strong></div>
-              <div className={styles.orderLine}><span>Total abonado</span><strong>1.690 €</strong></div>
+              <div className={styles.orderLine}><span>Modalidad mostrada</span><strong>Pago único</strong></div>
+              <div className={styles.orderLine}><span>Total pago único</span><strong>1.690 €</strong></div>
+              <div className={styles.orderLine}><span>Alternativa fraccionada</span><strong>895 € + 895 € · total 1.790 €</strong></div>
               <div className={styles.orderLine}><span>Apertura prevista</span><strong>Durante octubre de 2026</strong></div>
               <div className={styles.orderLine}><span>Naturaleza</span><strong>Formación privada online</strong></div>
             </div>
@@ -63,7 +64,7 @@ export default function ConfirmacionPreventaPage() {
                 <b>01</b>
                 <div>
                   <strong>Recibirás el correo de confirmación</strong>
-                  <p>Debe incluir la orden, modalidad, importe, condiciones aplicables y la información contractual que determine el Gate jurídico.</p>
+                  <p>Incluirá la orden, modalidad, importe y las condiciones aplicables a la contratación.</p>
                 </div>
               </div>
               <div className={styles.nextStep}>
@@ -76,12 +77,19 @@ export default function ConfirmacionPreventaPage() {
               <div className={styles.nextStep}>
                 <b>03</b>
                 <div>
+                  <strong>Si eliges pago fraccionado</strong>
+                  <p>El segundo pago de 895 € vencerá 15 días naturales después del primero.</p>
+                </div>
+              </div>
+              <div className={styles.nextStep}>
+                <b>04</b>
+                <div>
                   <strong>Te avisaremos antes de la apertura</strong>
                   <p>GHC comunicará la fecha concreta cuando pueda garantizarla. No se promete todavía un día específico de octubre.</p>
                 </div>
               </div>
               <div className={styles.nextStep}>
-                <b>04</b>
+                <b>05</b>
                 <div>
                   <strong>Activación de acceso</strong>
                   <p>El acceso dependerá del estado de pago y del Gate técnico completo de plataforma, evaluaciones, certificados y alta.</p>
@@ -94,8 +102,8 @@ export default function ConfirmacionPreventaPage() {
         <section className={styles.confirmFooter}>
           <strong>Esta Preview no crea una matrícula ni genera derechos contractuales.</strong>
           <p>
-            Antes de producción deben estar cerrados precio fraccionado, entidad contratante, fiscalidad,
-            desistimiento, SumUp, correos, soporte duradero, trazabilidad e integración de altas.
+            El Gate económico y la base jurídica están aprobados. Antes de producción quedan la integración de pago,
+            datos fiscales definitivos, URLs legales, correos, trazabilidad, alta automática y Gate técnico final.
           </p>
         </section>
       </div>
