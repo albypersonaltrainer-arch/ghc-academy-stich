@@ -2,12 +2,13 @@ import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPreventaPersistenceStatus } from '../../../../lib/preventa/persistence';
 import {
+  attachPreventaCapacityCheckout,
   getPreventaCheckoutContext,
   registerPreventaCheckoutAttempt,
+  releasePreventaCapacity,
+  reservePreventaCapacity,
 } from '../../../../lib/preventa/checkout-persistence';
-import {
-  createSumUpCheckoutReference,
-} from '../../../../lib/preventa/sumup-adapter';
+import { createSumUpCheckoutReference } from '../../../../lib/preventa/sumup-adapter';
 import {
   createHostedSumUpCheckout,
   getSumUpIntegrationStatus,
@@ -19,6 +20,8 @@ import {
 } from '../../../../lib/preventa/checkout-access-token';
 
 export const dynamic = 'force-dynamic';
+
+const FIRST_INSTALLMENT_HOLD_MINUTES = 30;
 
 function getPublicBaseUrl() {
   const value = (process.env.PREVENTA_PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');
@@ -119,6 +122,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let checkoutReference: string | null = null;
+  let capacityHeld = false;
+
   try {
     verifyCheckoutAccessToken({
       token: body.checkoutToken,
@@ -128,11 +134,29 @@ export async function POST(request: NextRequest) {
 
     const context = await getPreventaCheckoutContext(body);
     const attemptToken = randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase();
-    const checkoutReference = createSumUpCheckoutReference(
+    checkoutReference = createSumUpCheckoutReference(
       context.orderReference,
       context.installmentNo,
       attemptToken
     );
+
+    const startedAt = new Date();
+    const occurredAt = startedAt.toISOString();
+
+    if (context.installmentNo === 1) {
+      const heldUntil = new Date(
+        startedAt.getTime() + FIRST_INSTALLMENT_HOLD_MINUTES * 60 * 1000
+      ).toISOString();
+
+      await reservePreventaCapacity({
+        orderReference: context.orderReference,
+        checkoutReference,
+        heldUntil,
+        idempotencyKey: `capacity:${checkoutReference}`,
+        occurredAt,
+      });
+      capacityHeld = true;
+    }
 
     const description = context.installmentNo === 1
       ? `GHC Academy · Edición Fundadora · ${context.paymentPlan === 'single' ? 'Pago único' : 'Primera cuota'}`
@@ -146,7 +170,17 @@ export async function POST(request: NextRequest) {
       redirectUrl: `${publicBaseUrl}/preventa/confirmacion?ref=${encodeURIComponent(context.orderReference)}`,
     });
 
-    const occurredAt = new Date().toISOString();
+    const registeredAt = new Date().toISOString();
+
+    if (context.installmentNo === 1) {
+      await attachPreventaCapacityCheckout({
+        orderReference: context.orderReference,
+        checkoutReference,
+        providerCheckoutId: checkout.id!,
+        occurredAt: registeredAt,
+      });
+    }
+
     const persistenceResult = await registerPreventaCheckoutAttempt({
       orderReference: context.orderReference,
       installmentNo: context.installmentNo,
@@ -155,7 +189,7 @@ export async function POST(request: NextRequest) {
       hostedCheckoutUrl: checkout.hosted_checkout_url!,
       expectedAmountCents: context.expectedAmountCents,
       idempotencyKey: `checkout:${checkout.id}`,
-      occurredAt,
+      occurredAt: registeredAt,
     });
 
     return NextResponse.json({
@@ -168,9 +202,23 @@ export async function POST(request: NextRequest) {
       checkoutReference,
       checkoutId: checkout.id,
       hostedCheckoutUrl: checkout.hosted_checkout_url,
+      capacityProtected: context.installmentNo === 1,
       persistence: persistenceResult,
     });
   } catch (error) {
+    if (capacityHeld && checkoutReference && /^GHC-[A-Z0-9]{8}$/.test(body.orderReference)) {
+      try {
+        await releasePreventaCapacity({
+          orderReference: body.orderReference,
+          checkoutReference,
+          reason: 'checkout_creation_or_registration_failed',
+          occurredAt: new Date().toISOString(),
+        });
+      } catch (releaseError) {
+        console.error('Preventa capacity release error', releaseError);
+      }
+    }
+
     if (error instanceof CheckoutAccessTokenError) {
       return NextResponse.json(
         { ok: false, code: error.code, error: 'Acceso al checkout no autorizado o caducado.' },
