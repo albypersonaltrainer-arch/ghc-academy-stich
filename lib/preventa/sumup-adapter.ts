@@ -96,7 +96,6 @@ function expectedAmountCents(installmentNo: 1 | 2, checkoutReference: string) {
   }
 
   if (installmentNo === 1) {
-    // El importe exacto de cuota 1 se valida contra el checkout: 1.690 € para pago único o 895 € para split.
     return [PREVENTA_OFFER.prices.single.installments[0], PREVENTA_OFFER.prices.split.installments[0]];
   }
 
@@ -116,6 +115,7 @@ function selectSuccessfulTransaction(checkout: SumUpCheckout, expectedCents: num
   const successful = transactions.find((transaction) => {
     if (transaction.status !== 'SUCCESSFUL') return false;
     if (transaction.currency !== PREVENTA_OFFER.currency) return false;
+    if (!cleanString(transaction.id)) return false;
     try {
       return majorUnitsToCents(transaction.amount) === expectedCents;
     } catch {
@@ -123,19 +123,14 @@ function selectSuccessfulTransaction(checkout: SumUpCheckout, expectedCents: num
     }
   });
 
-  if (successful?.id) return successful;
-
-  if (checkout.transaction_id) {
-    return {
-      id: checkout.transaction_id,
-      transaction_code: checkout.transaction_code,
-      amount: expectedCents / 100,
-      currency: PREVENTA_OFFER.currency,
-      status: 'SUCCESSFUL',
-    } satisfies SumUpTransaction;
+  if (!successful) {
+    throw new SumUpAdapterError(
+      'SUCCESSFUL_TRANSACTION_NOT_FOUND',
+      'El checkout PAID no contiene una transacción SUCCESSFUL verificable con importe y moneda correctos.'
+    );
   }
 
-  throw new SumUpAdapterError('SUCCESSFUL_TRANSACTION_NOT_FOUND', 'El checkout PAID no contiene una transacción SUCCESSFUL verificable.');
+  return successful;
 }
 
 export function verifySumUpCheckoutForPreventa(input: {
@@ -170,7 +165,6 @@ export function verifySumUpCheckoutForPreventa(input: {
     throw new SumUpAdapterError('CHECKOUT_AMOUNT_MISMATCH', `Importe de checkout no válido para la cuota ${parsed.installmentNo}.`);
   }
 
-  // Una I1 de 1.690 € corresponde a pago único. Una I1/I2 de 895 € corresponde al fraccionado.
   if (parsed.installmentNo === 2 && checkoutAmountCents !== PREVENTA_OFFER.prices.split.installments[1]) {
     throw new SumUpAdapterError('SECOND_INSTALLMENT_AMOUNT_MISMATCH', 'La segunda cuota debe ser de 895 €.');
   }
@@ -192,7 +186,7 @@ export function verifySumUpCheckoutForPreventa(input: {
       checkout_reference: checkoutReference,
       checkout_status: checkout.status,
       transaction_code: transaction.transaction_code || checkout.transaction_code || null,
-      transaction_status: transaction.status || 'SUCCESSFUL',
+      transaction_status: transaction.status,
       verified_via_sumup_api: true,
     },
   };
