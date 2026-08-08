@@ -24,7 +24,7 @@ const checks = {
   sumupMerchantCode: process.env.SUMUP_MERCHANT_CODE === expectedMerchantCode,
   publicBaseUrl: (process.env.PREVENTA_PUBLIC_BASE_URL ?? '').replace(/\/$/, '') === expectedPreviewBaseUrl,
   sumupCheckoutEnabled: process.env.SUMUP_CHECKOUT_ENABLED === 'true',
-  sumupWebhookClosed: process.env.SUMUP_WEBHOOK_ENABLED !== 'true',
+  sumupWebhookEnabled: process.env.SUMUP_WEBHOOK_ENABLED === 'true',
   vercelAutomationBypassPresent: automationBypassSecret.length === 32,
 };
 
@@ -38,4 +38,4 @@ if (failed.length > 0) {
   process.exit(1);
 }
 
-console.log('[preventa-env] Persistencia, Hosted Checkout Sandbox y bypass Vercel listos; webhook sigue CERRADO');
+console.log('[preventa-env] Persistencia, Hosted Checkout Sandbox, webhook Sandbox y bypass Vercel: OK');
