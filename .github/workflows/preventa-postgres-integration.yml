@@ -89,7 +89,7 @@ jobs:
       - name: Verify expected private tables exist
         run: |
           psql -v ON_ERROR_STOP=1 -Atc "
-            select case when count(*) = 7 then 'PREVENTA_SCHEMA_OK' else 'UNEXPECTED_TABLE_COUNT:' || count(*)::text end
+            select case when count(*) = 8 then 'PREVENTA_SCHEMA_OK' else 'UNEXPECTED_TABLE_COUNT:' || count(*)::text end
             from information_schema.tables
             where table_schema = 'public'
               and table_name in (
@@ -99,6 +99,7 @@ jobs:
                 'preventa_attribution',
                 'preventa_events',
                 'preventa_email_queue',
-                'preventa_checkout_attempts'
+                'preventa_checkout_attempts',
+                'preventa_capacity_holds'
               );
           " | grep '^PREVENTA_SCHEMA_OK$'
