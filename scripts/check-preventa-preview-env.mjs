@@ -11,6 +11,7 @@ const expectedMerchantCode = 'MH72DEDY';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const tokenSecret = process.env.PREVENTA_CHECKOUT_TOKEN_SECRET ?? '';
 const sumupApiKey = process.env.SUMUP_API_KEY ?? '';
+const automationBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? '';
 
 const checks = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL === expectedSupabaseUrl,
@@ -24,6 +25,7 @@ const checks = {
   publicBaseUrl: (process.env.PREVENTA_PUBLIC_BASE_URL ?? '').replace(/\/$/, '') === expectedPreviewBaseUrl,
   sumupCheckoutEnabled: process.env.SUMUP_CHECKOUT_ENABLED === 'true',
   sumupWebhookClosed: process.env.SUMUP_WEBHOOK_ENABLED !== 'true',
+  vercelAutomationBypassPresent: automationBypassSecret.length === 32,
 };
 
 for (const [name, ok] of Object.entries(checks)) {
@@ -36,4 +38,4 @@ if (failed.length > 0) {
   process.exit(1);
 }
 
-console.log('[preventa-env] Persistencia y Hosted Checkout Sandbox habilitados; webhook sigue CERRADO');
+console.log('[preventa-env] Persistencia, Hosted Checkout Sandbox y bypass Vercel listos; webhook sigue CERRADO');
