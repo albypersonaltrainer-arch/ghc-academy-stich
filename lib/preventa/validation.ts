@@ -9,6 +9,7 @@ export type PreviewOrderInput = {
   taxId?: unknown;
   paymentPlan?: unknown;
   acceptedTerms?: unknown;
+  acceptedPrivacy?: unknown;
   acknowledgedPrivateTraining?: unknown;
   marketingConsent?: unknown;
   attribution?: {
@@ -53,6 +54,7 @@ export function validatePreviewOrderInput(input: PreviewOrderInput) {
   if (!country) errors.push('País de residencia obligatorio.');
   if (!isPaymentPlan(input.paymentPlan)) errors.push('Modalidad de pago no válida.');
   if (input.acceptedTerms !== true) errors.push('Debes aceptar las condiciones de contratación.');
+  if (input.acceptedPrivacy !== true) errors.push('Debes confirmar que has leído la información de privacidad.');
   if (input.acknowledgedPrivateTraining !== true) {
     errors.push('Debes confirmar la naturaleza privada de la formación.');
   }
@@ -83,6 +85,7 @@ export function validatePreviewOrderInput(input: PreviewOrderInput) {
       secondInstallmentCents: paymentPlan === 'split' ? price.installments[1] : 0,
       secondDueAt: null,
       acceptedTerms: input.acceptedTerms === true,
+      acceptedPrivacy: input.acceptedPrivacy === true,
       acknowledgedPrivateTraining: input.acknowledgedPrivateTraining === true,
       marketingConsent: input.marketingConsent === true,
       attribution,
