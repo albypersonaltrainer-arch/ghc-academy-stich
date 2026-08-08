@@ -57,7 +57,6 @@ export default function CheckoutInteractive() {
       email: form.get('email'),
       country: form.get('country'),
       phone: form.get('phone'),
-      taxId: form.get('taxId'),
       paymentPlan,
       acceptedTerms: form.get('acceptedTerms') === 'on',
       acceptedPrivacy: form.get('acceptedPrivacy') === 'on',
@@ -175,10 +174,6 @@ export default function CheckoutInteractive() {
               <label htmlFor="phone">Teléfono · opcional</label>
               <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+34 ..." />
               <small>No implica consentimiento comercial.</small>
-            </div>
-            <div className={styles.fieldFull}>
-              <label htmlFor="taxId">NIF / identificador fiscal · cuando proceda</label>
-              <input id="taxId" name="taxId" type="text" placeholder="Solo si es necesario para facturación" />
             </div>
           </div>
         </section>
