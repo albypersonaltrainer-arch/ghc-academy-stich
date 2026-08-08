@@ -21,7 +21,10 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const FIRST_INSTALLMENT_HOLD_MINUTES = 30;
+// SumUp Hosted Checkout is nominally short-lived, but provider expiration/webhook delivery
+// can lag slightly. Keep founder capacity reserved for 45 minutes to avoid accepting a
+// valid provider payment just after our local hold expires.
+const FIRST_INSTALLMENT_HOLD_MINUTES = 45;
 
 function getPublicBaseUrl() {
   const value = (process.env.PREVENTA_PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');
