@@ -168,6 +168,7 @@ export async function POST(request: NextRequest) {
       currency: context.currency,
       description,
       redirectUrl: `${publicBaseUrl}/preventa/confirmacion?ref=${encodeURIComponent(context.orderReference)}`,
+      returnUrl: `${publicBaseUrl}/api/preventa/sumup-webhook`,
     });
 
     const registeredAt = new Date().toISOString();
