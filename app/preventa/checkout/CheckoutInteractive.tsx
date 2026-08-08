@@ -165,14 +165,14 @@ export default function CheckoutInteractive() {
             </div>
             <div className={styles.field}>
               <label htmlFor="country">País de residencia</label>
-              <select id="country" name="country" defaultValue="">
+              <select className={ui.controlAligned} id="country" name="country" defaultValue="">
                 <option value="" disabled>Selecciona país</option>
                 <option>España</option><option>México</option><option>Argentina</option><option>Colombia</option><option>Chile</option><option>Uruguay</option><option>Otro país hispanohablante</option>
               </select>
             </div>
             <div className={styles.field}>
               <label htmlFor="phone">Teléfono · opcional</label>
-              <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+34 ..." />
+              <input className={ui.controlAligned} id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+34 ..." />
               <small>No implica consentimiento comercial.</small>
             </div>
           </div>
