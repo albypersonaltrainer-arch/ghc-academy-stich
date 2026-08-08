@@ -48,7 +48,8 @@ if (existing.data) {
 const suffix = Math.random().toString(36).slice(2, 10).toUpperCase().padEnd(8, '0').slice(0, 8);
 const orderReference = `GHC-${suffix}`;
 const requestKey = `sandbox-manual-${Date.now()}-${suffix}`;
-const checkoutReference = `GHC-MANUAL-${Date.now().toString(36).toUpperCase()}-${suffix}`;
+const attemptToken = Math.random().toString(36).slice(2, 12).toUpperCase().padEnd(10, '0').slice(0, 10);
+const checkoutReference = `${orderReference}-I1-A${attemptToken}`;
 const now = new Date();
 const occurredAt = now.toISOString();
 const heldUntil = new Date(now.getTime() + 30 * 60 * 1000).toISOString();
@@ -139,6 +140,7 @@ await rpc('preventa_register_checkout_attempt_v1', {
 });
 
 console.log(`[manual-sandbox] orderReference=${orderReference}`);
+console.log(`[manual-sandbox] checkoutReference=${checkoutReference}`);
 console.log(`[manual-sandbox] checkoutId=${checkout.id}`);
 console.log(`[manual-sandbox] hostedCheckoutUrl=${checkout.hosted_checkout_url}`);
-console.log('[manual-sandbox] listo: Sandbox, 1690 EUR ficticios, matrícula retenida hasta completar la prueba');
+console.log('[manual-sandbox] listo: Sandbox, 1690 EUR ficticios, referencia real de preventa');
