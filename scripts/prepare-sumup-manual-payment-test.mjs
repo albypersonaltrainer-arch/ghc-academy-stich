@@ -33,7 +33,9 @@ const supabase = createClient(supabaseUrl, serviceKey, {
 const existing = await supabase
   .from('preventa_orders')
   .select('id,order_reference')
-  .eq('source_channel', 'sandbox_manual_payment_test')
+  .eq('first_name', 'Sandbox')
+  .eq('last_name', 'Pago Manual')
+  .like('email_normalized', 'sandbox-manual-%@example.invalid')
   .limit(1)
   .maybeSingle();
 
