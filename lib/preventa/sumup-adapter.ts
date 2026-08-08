@@ -89,7 +89,7 @@ export function parseSumUpCheckoutReference(checkoutReference: string) {
   };
 }
 
-function expectedAmountCents(installmentNo: 1 | 2, checkoutReference: string) {
+function expectedAmountCents(installmentNo: 1 | 2, checkoutReference: string): number[] {
   const { installmentNo: parsedInstallmentNo } = parseSumUpCheckoutReference(checkoutReference);
   if (parsedInstallmentNo !== installmentNo) {
     throw new SumUpAdapterError('INSTALLMENT_REFERENCE_MISMATCH', 'La cuota no coincide con la referencia del checkout.');
