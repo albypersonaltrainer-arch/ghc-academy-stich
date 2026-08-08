@@ -22,7 +22,7 @@ const checks = {
   sumupApiKeyLooksSecret: sumupApiKey.startsWith('sup_sk_'),
   sumupMerchantCode: process.env.SUMUP_MERCHANT_CODE === expectedMerchantCode,
   publicBaseUrl: (process.env.PREVENTA_PUBLIC_BASE_URL ?? '').replace(/\/$/, '') === expectedPreviewBaseUrl,
-  sumupCheckoutClosed: process.env.SUMUP_CHECKOUT_ENABLED !== 'true',
+  sumupCheckoutEnabled: process.env.SUMUP_CHECKOUT_ENABLED === 'true',
   sumupWebhookClosed: process.env.SUMUP_WEBHOOK_ENABLED !== 'true',
 };
 
@@ -36,4 +36,4 @@ if (failed.length > 0) {
   process.exit(1);
 }
 
-console.log('[preventa-env] Persistencia y credenciales Sandbox presentes; Gates SumUp de cobro: CERRADOS');
+console.log('[preventa-env] Persistencia y Hosted Checkout Sandbox habilitados; webhook sigue CERRADO');
