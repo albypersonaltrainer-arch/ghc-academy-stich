@@ -85,6 +85,7 @@ export async function createHostedSumUpCheckout(input: {
   currency: 'EUR';
   description: string;
   redirectUrl?: string;
+  returnUrl?: string;
 }): Promise<SumUpCheckout> {
   const config = assertApiConfig('checkout');
 
@@ -102,6 +103,7 @@ export async function createHostedSumUpCheckout(input: {
   };
 
   if (input.redirectUrl?.trim()) payload.redirect_url = input.redirectUrl.trim();
+  if (input.returnUrl?.trim()) payload.return_url = input.returnUrl.trim();
 
   const response = await fetch('https://api.sumup.com/v0.1/checkouts', {
     method: 'POST',
