@@ -8,6 +8,11 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const sumup = getSumUpIntegrationStatus();
   const persistence = getPaymentPersistenceStatus();
+  const webhookReady =
+    sumup.webhookEnabled &&
+    sumup.apiConfigured &&
+    sumup.merchantConfigured &&
+    persistence.ready;
 
   return NextResponse.json({
     ok: true,
@@ -16,7 +21,7 @@ export async function GET() {
     sumupApiConfigured: sumup.apiConfigured,
     sumupMerchantConfigured: sumup.merchantConfigured,
     persistenceReady: persistence.ready,
-    writeReady: sumup.ready && persistence.ready,
+    writeReady: webhookReady,
   });
 }
 
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!sumup.ready) {
+  if (!sumup.apiConfigured || !sumup.merchantConfigured) {
     return NextResponse.json(
       { ok: false, code: 'SUMUP_NOT_CONFIGURED', error: 'Faltan credenciales privadas de SumUp.' },
       { status: 503 }
