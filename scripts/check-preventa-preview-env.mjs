@@ -6,8 +6,11 @@ if (!isPreview) {
 }
 
 const expectedSupabaseUrl = 'https://oqlxvesnjdkxlxwxkikq.supabase.co';
+const expectedPreviewBaseUrl = 'https://ghc-academy-stich-git-preven-ba2fa0-albycanarion-8693s-projects.vercel.app';
+const expectedMerchantCode = 'MH72DEDY';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const tokenSecret = process.env.PREVENTA_CHECKOUT_TOKEN_SECRET ?? '';
+const sumupApiKey = process.env.SUMUP_API_KEY ?? '';
 
 const checks = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL === expectedSupabaseUrl,
@@ -15,6 +18,10 @@ const checks = {
   serviceKeyPresent: serviceKey.length >= 20,
   serviceKeyLooksServerSide: serviceKey.startsWith('sb_secret_') || serviceKey.startsWith('eyJ'),
   checkoutTokenSecretPresent: tokenSecret.length >= 32,
+  sumupApiKeyPresent: sumupApiKey.length >= 20,
+  sumupApiKeyLooksSecret: sumupApiKey.startsWith('sup_sk_'),
+  sumupMerchantCode: process.env.SUMUP_MERCHANT_CODE === expectedMerchantCode,
+  publicBaseUrl: (process.env.PREVENTA_PUBLIC_BASE_URL ?? '').replace(/\/$/, '') === expectedPreviewBaseUrl,
   sumupCheckoutClosed: process.env.SUMUP_CHECKOUT_ENABLED !== 'true',
   sumupWebhookClosed: process.env.SUMUP_WEBHOOK_ENABLED !== 'true',
 };
@@ -29,4 +36,4 @@ if (failed.length > 0) {
   process.exit(1);
 }
 
-console.log('[preventa-env] Gate Preview de persistencia: OK; Gates SumUp: CERRADOS');
+console.log('[preventa-env] Persistencia y credenciales Sandbox presentes; Gates SumUp de cobro: CERRADOS');
