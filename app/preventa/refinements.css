@@ -1,10 +1,9 @@
 /* Ajuste visual definitivo de la Preview de preventa.
    Este archivo se carga únicamente dentro de /preventa. */
 
-/* HERO: el panel de gráficos se elimina por completo.
-   La fotografía queda limpia y la tarjeta Sistema GHC ocupa una columna propia. */
+/* HERO: fotografía limpia + explicación inmediata del Sistema GHC. */
 .hero-v02 {
-  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.45fr) !important;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.45fr) !important;
   gap: 18px !important;
   align-items: stretch !important;
 }
@@ -23,38 +22,45 @@
   min-height: 100% !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: flex-end !important;
-  padding: 30px !important;
+  justify-content: center !important;
+  padding: 34px 30px !important;
   border-radius: 28px !important;
+  border-color: var(--ghc-border-green) !important;
   background:
-    radial-gradient(circle at 50% 18%, rgba(34, 214, 91, 0.16), transparent 38%),
+    radial-gradient(circle at 50% 50%, rgba(34, 214, 91, 0.10), transparent 48%),
     linear-gradient(180deg, #0b0f0c 0%, #060807 100%) !important;
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35) !important;
 }
 
 .hero-v02-card::before {
-  content: "CRITERIO PROFESIONAL";
+  content: "CÓMO TRABAJA EL SISTEMA GHC";
   display: block;
-  margin-bottom: auto;
-  color: rgba(242, 244, 241, 0.46);
-  font-size: 10px;
+  margin: 0 0 28px;
+  color: var(--ghc-green);
+  font-size: 11px;
   font-weight: 950;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.15em;
+  line-height: 1.45;
 }
 
-.hero-v02-card span {
-  font-size: 12px !important;
-}
-
-.hero-v02-card strong {
-  max-width: 270px;
-  margin-top: 16px !important;
-  font-size: 24px !important;
-  line-height: 1.28 !important;
-}
-
+.hero-v02-card > span,
+.hero-v02-card > strong,
 .hero-v02-card .mini-flow {
-  margin-top: 28px !important;
+  display: none !important;
+}
+
+.hero-v02-card::after {
+  content:
+    "01 · OBSERVAR\AQué está ocurriendo realmente.\A\A"
+    "02 · PRIORIZAR\AQué importa ahora.\A\A"
+    "03 · DECIDIR\AQué intervención tiene sentido.\A\A"
+    "04 · REVISAR\AQué ha cambiado y qué ajustar.";
+  display: block;
+  white-space: pre-line;
+  color: var(--ghc-text);
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.5;
 }
 
 /* JERARQUÍA DE PRECIO: reducir carga cognitiva.
@@ -203,7 +209,7 @@
   }
 
   .hero-v02-side {
-    min-height: 300px !important;
+    min-height: 380px !important;
   }
 
   .price-arrow,
