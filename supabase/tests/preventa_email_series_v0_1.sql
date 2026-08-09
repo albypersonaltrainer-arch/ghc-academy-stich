@@ -33,7 +33,7 @@ insert into public.preventa_orders (
   169000,
   0,
   'paid',
-  1,
+  99,
   'confirmed',
   'TERMS-TEST',
   'PRIVACY-TEST',
