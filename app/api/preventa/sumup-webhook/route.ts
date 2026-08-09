@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseSumUpWebhookPayload, SumUpAdapterError, verifySumUpCheckoutForPreventa } from '../../../../lib/preventa/sumup-adapter';
-import { getConfiguredSumUpMerchantCode, getSumUpIntegrationStatus, retrieveSumUpCheckout } from '../../../../lib/preventa/sumup-client';
-import { confirmPreventaPayment, getPaymentPersistenceStatus } from '../../../../lib/preventa/payment-persistence';
+import {
+  parseSumUpWebhookPayload,
+  SumUpAdapterError,
+  verifySumUpCheckoutForPreventa,
+  verifySumUpCheckoutStateForPreventa,
+} from '../../../../lib/preventa/sumup-adapter';
+import {
+  getConfiguredSumUpMerchantCode,
+  getSumUpIntegrationStatus,
+  retrieveSumUpCheckout,
+} from '../../../../lib/preventa/sumup-client';
+import {
+  confirmPreventaPayment,
+  getPaymentPersistenceStatus,
+  markPreventaCheckoutTerminal,
+} from '../../../../lib/preventa/payment-persistence';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,12 +73,49 @@ export async function POST(request: NextRequest) {
   try {
     const webhook = parseSumUpWebhookPayload(body);
 
-    // El POST recibido es solo una notificación. La acreditación se hace consultando SumUp.
+    // La notificación nunca acredita estado por sí sola: siempre se reconsulta SumUp.
     const checkout = await retrieveSumUpCheckout(webhook.id);
+    const expectedMerchantCode = getConfiguredSumUpMerchantCode();
+    const state = verifySumUpCheckoutStateForPreventa({
+      webhookCheckoutId: webhook.id,
+      checkout,
+      expectedMerchantCode,
+    });
+
+    if (state.status === 'PENDING') {
+      return NextResponse.json({
+        ok: true,
+        applied: false,
+        verifiedAgainstSumUpApi: true,
+        checkoutStatus: 'PENDING',
+      });
+    }
+
+    if (state.status === 'FAILED' || state.status === 'EXPIRED') {
+      const terminalStatus = state.status.toLowerCase() as 'failed' | 'expired';
+      const transition = await markPreventaCheckoutTerminal({
+        orderReference: state.orderReference,
+        installmentNo: state.installmentNo,
+        providerCheckoutId: state.checkoutId,
+        terminalStatus,
+        idempotencyKey: `sumup:${state.checkoutId}:${terminalStatus}`,
+        occurredAt: state.occurredAt,
+        providerMetadata: state.providerMetadata,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        applied: true,
+        verifiedAgainstSumUpApi: true,
+        checkoutStatus: state.status,
+        transition,
+      });
+    }
+
     const verified = verifySumUpCheckoutForPreventa({
       webhookCheckoutId: webhook.id,
       checkout,
-      expectedMerchantCode: getConfiguredSumUpMerchantCode(),
+      expectedMerchantCode,
     });
 
     const transition = await confirmPreventaPayment({
@@ -80,20 +130,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      applied: true,
       verifiedAgainstSumUpApi: true,
+      checkoutStatus: 'PAID',
       transition,
     });
   } catch (error) {
     if (error instanceof SumUpAdapterError) {
-      const informational = error.code === 'CHECKOUT_NOT_PAID';
       return NextResponse.json(
         {
-          ok: informational,
+          ok: false,
           applied: false,
           code: error.code,
           error: error.message,
         },
-        { status: informational ? 200 : 400 }
+        { status: 400 }
       );
     }
 
