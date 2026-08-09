@@ -5,12 +5,12 @@ import styles from './correos.module.css';
 
 export const metadata = {
   title: 'Correos transaccionales · Preventa GHC Academy',
-  description: 'Preview interna de los correos transaccionales E01–E11 de la Edición Fundadora 2026.',
+  description: 'Preview interna de los correos transaccionales E01–E14 de la Edición Fundadora 2026.',
 };
 
 const toneLabel = {
   success: 'Confirmación',
-  neutral: 'Recordatorio',
+  neutral: 'Información',
   warning: 'Atención',
   critical: 'Aviso importante',
 };
@@ -20,23 +20,24 @@ export default function PreventaCorreosPage() {
     <main className={styles.page}>
       <div className={styles.banner}>
         <strong>Preview interna</strong>
-        <span>Plantillas sin proveedor de envío conectado.</span>
+        <span>Serie E01–E14 cerrada. Proveedor de envío todavía no conectado.</span>
       </div>
 
       <header className={styles.header}>
         <Link href="/preventa" className={styles.logoLink}>
           <GHCLogo size="md" showText tagline />
         </Link>
-        <div className={styles.headerText}>Correos transaccionales · E01–E11</div>
+        <div className={styles.headerText}>Correos transaccionales · E01–E14</div>
         <Link href="/preventa/checkout" className={styles.backLink}>← Volver al checkout</Link>
       </header>
 
       <section className={styles.hero}>
-        <p className={styles.eyebrow}>Sistema de comunicación postcompra</p>
-        <h1>Once correos para que el alumno nunca tenga que adivinar qué ocurre.</h1>
+        <p className={styles.eyebrow}>Sistema de comunicación postcontratación</p>
+        <h1>Catorce correos para cubrir el ciclo completo de una matrícula.</h1>
         <p>
-          Confirmación, segundo pago, regularización y apertura. Cada mensaje tiene un disparador concreto,
-          un estado de matrícula y una acción clara.
+          Confirmación contractual, fraccionamiento, vencimientos, regularización, apertura,
+          incidencias de checkout y reembolso. Cada mensaje responde a un estado verificable
+          y evita que el alumno tenga que interpretar qué ha ocurrido.
         </p>
       </section>
 
@@ -90,7 +91,7 @@ export default function PreventaCorreosPage() {
                 {email.cta && <div className={styles.cta}>{email.cta}</div>}
 
                 <div className={styles.footNote}>
-                  GHC Academy · Formación privada online. Para incidencias de matrícula o pago: {'{{support_email}}'}
+                  GHC Academy · GHC Training — Health Through Strength · Formación privada online. Para incidencias de matrícula o pago: {'{{support_email}}'}
                 </div>
               </div>
             </div>
