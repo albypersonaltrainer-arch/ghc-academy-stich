@@ -93,6 +93,30 @@ export async function confirmPreventaPayment(input: {
   return data;
 }
 
+export async function markPreventaCheckoutTerminal(input: {
+  orderReference: string;
+  installmentNo: 1 | 2;
+  providerCheckoutId: string;
+  terminalStatus: 'failed' | 'expired';
+  idempotencyKey: string;
+  occurredAt: string;
+  providerMetadata?: Record<string, unknown>;
+}) {
+  const supabase = getServerClient();
+  const { data, error } = await supabase.rpc('preventa_mark_checkout_terminal_v1', {
+    p_order_reference: cleanRequired(input.orderReference, 'ORDER_REFERENCE_REQUIRED'),
+    p_installment_no: input.installmentNo,
+    p_provider_checkout_id: cleanRequired(input.providerCheckoutId, 'PROVIDER_CHECKOUT_ID_REQUIRED'),
+    p_terminal_status: input.terminalStatus,
+    p_idempotency_key: cleanRequired(input.idempotencyKey, 'IDEMPOTENCY_KEY_REQUIRED'),
+    p_occurred_at: input.occurredAt,
+    p_provider_metadata: input.providerMetadata || {},
+  });
+
+  if (error) throw new Error(`PREVENTA_MARK_CHECKOUT_TERMINAL_FAILED:${error.message}`);
+  return data;
+}
+
 export async function markPreventaOverdue(input: {
   orderReference: string;
   idempotencyKey: string;
