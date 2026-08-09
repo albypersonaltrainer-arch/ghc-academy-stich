@@ -1,0 +1,378 @@
+import 'server-only';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getCheckoutAccessTokenStatus, issueCheckoutAccessToken } from './checkout-access-token';
+import { getPreventaEmailProviderStatus, sendPreventaEmail } from './email-provider';
+import {
+  renderPreventaEmail,
+  type PreventaEmailTemplateCode,
+} from './email-renderer';
+
+const PAYMENT_CTA_CODES = new Set<PreventaEmailTemplateCode>([
+  'E03', 'E04', 'E05', 'E06', 'E07', 'E08', 'E12', 'E13',
+]);
+
+export type PreventaEmailWorkerStatus = {
+  persistenceReady: boolean;
+  providerReady: boolean;
+  checkoutTokenConfigured: boolean;
+  publicBaseUrlConfigured: boolean;
+  supportEmailConfigured: boolean;
+  ready: boolean;
+};
+
+type ClaimedEmail = {
+  queue_id: string;
+  order_id: string;
+  template_code: PreventaEmailTemplateCode;
+  scheduled_for: string;
+  attempt_count: number;
+  recipient_email: string;
+  first_name: string;
+  last_name: string;
+  order_reference: string;
+  payment_plan: 'single' | 'split';
+  total_amount_cents: number;
+  first_installment_cents: number;
+  second_installment_cents: number;
+  second_due_at: string | null;
+  founder_place_number: number | null;
+  founder_status: string;
+  terms_version: string;
+  privacy_version: string;
+  legal_package_version: string;
+};
+
+type IncidentContext = {
+  installmentNo?: 1 | 2;
+  attemptedAmountCents?: number;
+  refundedAmountCents?: number;
+  refundReference?: string;
+};
+
+function clean(value: string | undefined) {
+  return (value || '').trim();
+}
+
+function getPublicBaseUrl() {
+  const value = clean(process.env.PREVENTA_PUBLIC_BASE_URL).replace(/\/$/, '');
+  if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(value)) return null;
+  return value;
+}
+
+function getPersistenceConfig() {
+  const enabled = process.env.PREVENTA_PERSISTENCE_ENABLED === 'true';
+  const supabaseUrl = clean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const serviceRoleKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return {
+    ready: enabled && Boolean(supabaseUrl) && Boolean(serviceRoleKey),
+    supabaseUrl,
+    serviceRoleKey,
+  };
+}
+
+function createPreventaAdminClient() {
+  const config = getPersistenceConfig();
+  if (!config.ready) throw new Error('PREVENTA_EMAIL_PERSISTENCE_NOT_READY');
+  return createClient(config.supabaseUrl, config.serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+function formatEuro(cents: number | null | undefined) {
+  const safe = Number.isFinite(cents) ? Number(cents) : 0;
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(safe / 100);
+}
+
+function formatMadridDate(value: string | null | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Madrid',
+  }).format(date);
+}
+
+async function getIncidentContext(
+  supabase: SupabaseClient,
+  claimed: ClaimedEmail
+): Promise<IncidentContext> {
+  if (claimed.template_code === 'E12' || claimed.template_code === 'E13') {
+    const terminalStatus = claimed.template_code === 'E12' ? 'failed' : 'expired';
+    const { data, error } = await supabase
+      .from('preventa_checkout_attempts')
+      .select('installment_no, expected_amount_cents, status, updated_at')
+      .eq('order_id', claimed.order_id)
+      .eq('status', terminalStatus)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw new Error(`PREVENTA_EMAIL_INCIDENT_LOOKUP_FAILED:${error.message}`);
+    if (!data || (data.installment_no !== 1 && data.installment_no !== 2)) {
+      throw new Error(`PREVENTA_EMAIL_INCIDENT_ATTEMPT_NOT_FOUND:${claimed.template_code}`);
+    }
+
+    return {
+      installmentNo: data.installment_no as 1 | 2,
+      attemptedAmountCents: Number(data.expected_amount_cents),
+    };
+  }
+
+  if (claimed.template_code === 'E14') {
+    const [{ data: payments, error: paymentsError }, { data: refundEvent, error: eventError }] =
+      await Promise.all([
+        supabase
+          .from('preventa_payments')
+          .select('refunded_amount_cents')
+          .eq('order_id', claimed.order_id),
+        supabase
+          .from('preventa_events')
+          .select('payload, occurred_at')
+          .eq('order_id', claimed.order_id)
+          .eq('event_type', 'payment.full_refunded')
+          .order('occurred_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+    if (paymentsError) throw new Error(`PREVENTA_EMAIL_REFUND_LOOKUP_FAILED:${paymentsError.message}`);
+    if (eventError) throw new Error(`PREVENTA_EMAIL_REFUND_EVENT_FAILED:${eventError.message}`);
+
+    const refundedAmountCents = (payments || []).reduce(
+      (sum, payment) => sum + Number(payment.refunded_amount_cents || 0),
+      0
+    );
+    const payload = (refundEvent?.payload || {}) as Record<string, unknown>;
+    const refundReference = typeof payload.provider_refund_id === 'string'
+      ? payload.provider_refund_id.trim()
+      : '';
+
+    if (refundedAmountCents <= 0 || !refundReference) {
+      throw new Error('PREVENTA_EMAIL_REFUND_CONTEXT_INCOMPLETE');
+    }
+
+    return { refundedAmountCents, refundReference };
+  }
+
+  return {};
+}
+
+function getPaymentInstallmentForTemplate(
+  code: PreventaEmailTemplateCode,
+  incident: IncidentContext
+): 1 | 2 | null {
+  if (code >= 'E03' && code <= 'E08') return 2;
+  if (code === 'E12' || code === 'E13') return incident.installmentNo || null;
+  return null;
+}
+
+function buildCtaUrl(
+  claimed: ClaimedEmail,
+  incident: IncidentContext,
+  publicBaseUrl: string
+) {
+  const code = claimed.template_code;
+  if (!PAYMENT_CTA_CODES.has(code)) {
+    if (code === 'E11') return `${publicBaseUrl}/acceso`;
+    if (code === 'E01' || code === 'E02' || code === 'E10') return `${publicBaseUrl}/preventa`;
+    return null;
+  }
+
+  const installmentNo = getPaymentInstallmentForTemplate(code, incident);
+  if (!installmentNo) throw new Error(`PREVENTA_EMAIL_PAYMENT_INSTALLMENT_UNKNOWN:${code}`);
+
+  const checkoutToken = issueCheckoutAccessToken({
+    orderReference: claimed.order_reference,
+    installmentNo,
+    ttlSeconds: 7 * 24 * 60 * 60,
+  });
+
+  const url = new URL('/preventa/pago', publicBaseUrl);
+  url.searchParams.set('order', claimed.order_reference);
+  url.searchParams.set('installment', String(installmentNo));
+  url.searchParams.set('token', checkoutToken);
+  return url.toString();
+}
+
+function buildVariables(claimed: ClaimedEmail, incident: IncidentContext) {
+  const supportEmail = clean(process.env.PREVENTA_EMAIL_SUPPORT);
+  const installmentNo = getPaymentInstallmentForTemplate(claimed.template_code, incident);
+
+  return {
+    nombre: claimed.first_name,
+    founder_place_number: claimed.founder_place_number,
+    order_reference: claimed.order_reference,
+    terms_version: claimed.terms_version,
+    privacy_version: claimed.privacy_version,
+    second_payment_due_date: formatMadridDate(claimed.second_due_at),
+    support_email: supportEmail,
+    attempted_amount: incident.attemptedAmountCents
+      ? formatEuro(incident.attemptedAmountCents)
+      : undefined,
+    installment_description: installmentNo === 1
+      ? 'Primera cuota'
+      : installmentNo === 2
+        ? 'Segunda cuota'
+        : undefined,
+    refunded_amount: incident.refundedAmountCents
+      ? formatEuro(incident.refundedAmountCents)
+      : undefined,
+    refund_reference: incident.refundReference,
+  };
+}
+
+async function finishEmail(
+  supabase: SupabaseClient,
+  input: {
+    queueId: string;
+    success: boolean;
+    providerMessageId?: string | null;
+    error?: string | null;
+  }
+) {
+  const { data, error } = await supabase.rpc('preventa_finish_email_delivery_v1', {
+    p_queue_id: input.queueId,
+    p_success: input.success,
+    p_provider_message_id: input.providerMessageId || '',
+    p_error: input.error || '',
+    p_occurred_at: new Date().toISOString(),
+  });
+
+  if (error) throw new Error(`PREVENTA_EMAIL_FINISH_FAILED:${error.message}`);
+  return data;
+}
+
+export function getPreventaEmailWorkerStatus(): PreventaEmailWorkerStatus {
+  const persistence = getPersistenceConfig();
+  const provider = getPreventaEmailProviderStatus();
+  const token = getCheckoutAccessTokenStatus();
+  const publicBaseUrl = getPublicBaseUrl();
+  const supportEmail = clean(process.env.PREVENTA_EMAIL_SUPPORT);
+
+  return {
+    persistenceReady: persistence.ready,
+    providerReady: provider.ready,
+    checkoutTokenConfigured: token.configured,
+    publicBaseUrlConfigured: Boolean(publicBaseUrl),
+    supportEmailConfigured: Boolean(supportEmail),
+    ready:
+      persistence.ready &&
+      provider.ready &&
+      token.configured &&
+      Boolean(publicBaseUrl) &&
+      Boolean(supportEmail),
+  };
+}
+
+export async function runPreventaEmailWorker(batchSize = 10) {
+  const status = getPreventaEmailWorkerStatus();
+  const publicBaseUrl = getPublicBaseUrl();
+
+  if (!status.ready || !publicBaseUrl) {
+    throw new Error('PREVENTA_EMAIL_WORKER_NOT_READY');
+  }
+
+  const supabase = createPreventaAdminClient();
+  const now = new Date().toISOString();
+  const limit = Math.max(1, Math.min(Math.trunc(batchSize || 10), 50));
+
+  const { data: claimedData, error: claimError } = await supabase.rpc(
+    'preventa_claim_email_batch_v1',
+    { p_limit: limit, p_now: now }
+  );
+
+  if (claimError) throw new Error(`PREVENTA_EMAIL_CLAIM_FAILED:${claimError.message}`);
+  const claimed = (claimedData || []) as ClaimedEmail[];
+
+  const results: Array<{
+    queueId: string;
+    templateCode: PreventaEmailTemplateCode;
+    orderReference: string;
+    status: 'sent' | 'retry_or_failed';
+    providerMessageId?: string;
+    error?: string;
+  }> = [];
+
+  for (const item of claimed) {
+    try {
+      const incident = await getIncidentContext(supabase, item);
+      const ctaUrl = buildCtaUrl(item, incident, publicBaseUrl);
+      const rendered = renderPreventaEmail(item.template_code, {
+        variables: buildVariables(item, incident),
+        ctaUrl,
+      });
+
+      const delivery = await sendPreventaEmail({
+        queueId: item.queue_id,
+        templateCode: item.template_code,
+        orderReference: item.order_reference,
+        recipientEmail: item.recipient_email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
+
+      await finishEmail(supabase, {
+        queueId: item.queue_id,
+        success: true,
+        providerMessageId: delivery.messageId,
+      });
+
+      results.push({
+        queueId: item.queue_id,
+        templateCode: item.template_code,
+        orderReference: item.order_reference,
+        status: 'sent',
+        providerMessageId: delivery.messageId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'UNKNOWN_EMAIL_WORKER_ERROR';
+      try {
+        await finishEmail(supabase, {
+          queueId: item.queue_id,
+          success: false,
+          error: message,
+        });
+      } catch (finishError) {
+        const finishMessage = finishError instanceof Error
+          ? finishError.message
+          : 'UNKNOWN_EMAIL_FINISH_ERROR';
+        results.push({
+          queueId: item.queue_id,
+          templateCode: item.template_code,
+          orderReference: item.order_reference,
+          status: 'retry_or_failed',
+          error: `${message};${finishMessage}`.slice(0, 1000),
+        });
+        continue;
+      }
+
+      results.push({
+        queueId: item.queue_id,
+        templateCode: item.template_code,
+        orderReference: item.order_reference,
+        status: 'retry_or_failed',
+        error: message.slice(0, 1000),
+      });
+    }
+  }
+
+  return {
+    claimed: claimed.length,
+    sent: results.filter((item) => item.status === 'sent').length,
+    retryOrFailed: results.filter((item) => item.status !== 'sent').length,
+    results,
+  };
+}
