@@ -66,7 +66,6 @@ if (
   })}`);
 }
 
-// Elimina únicamente un residuo del mismo escenario Sandbox si existiera.
 await supabase.from('preventa_orders').delete().eq('order_reference', orderReference);
 
 let orderCreated = false;
@@ -163,7 +162,7 @@ try {
     supabase.from('preventa_payments').select('status,paid_amount_cents,provider_payment_id').eq('order_id', order.id).eq('installment_no', 1).single(),
     supabase.from('preventa_checkout_attempts').select('status').eq('order_id', order.id).eq('provider_checkout_id', checkoutId).single(),
     supabase.from('preventa_capacity_holds').select('status,consumed_at').eq('order_id', order.id).eq('provider_checkout_id', checkoutId).single(),
-    supabase.from('preventa_events').select('id').eq('order_id', order.id).eq('event_type', 'payment.installment.paid'),
+    supabase.from('preventa_events').select('id').eq('order_id', order.id).eq('event_type', 'payment.single.paid'),
     supabase.from('preventa_email_queue').select('id').eq('order_id', order.id).eq('template_code', 'E01'),
     supabase.from('preventa_attribution').select('commission_base_cents').eq('order_id', order.id).single(),
   ]);
