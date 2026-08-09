@@ -2,6 +2,7 @@ import {
   SumUpAdapterError,
   parseSumUpWebhookPayload,
   verifySumUpCheckoutForPreventa,
+  verifySumUpCheckoutStateForPreventa,
 } from './sumup-adapter';
 
 export type SumUpSelfTestResult = {
@@ -63,10 +64,7 @@ export function runSumUpAdapterSelfTest() {
   const results: SumUpSelfTestResult[] = [];
 
   results.push(run('Webhook válido · CHECKOUT_STATUS_CHANGED + id', () => {
-    const payload = parseSumUpWebhookPayload({
-      event_type: 'CHECKOUT_STATUS_CHANGED',
-      id: checkoutId,
-    });
+    const payload = parseSumUpWebhookPayload({ event_type: 'CHECKOUT_STATUS_CHANGED', id: checkoutId });
     expect(payload.id === checkoutId, 'No se conservó el checkout id.');
   }));
 
@@ -86,19 +84,9 @@ export function runSumUpAdapterSelfTest() {
     const payment = verifySumUpCheckoutForPreventa({
       webhookCheckoutId: 'checkout-split-001',
       checkout: {
-        id: 'checkout-split-001',
-        checkout_reference: 'GHC-FF001122-I1',
-        amount: 895,
-        currency: 'EUR',
-        merchant_code: merchantCode,
-        status: 'PAID',
-        transactions: [{
-          id: 'tx-split-1',
-          amount: 895,
-          currency: 'EUR',
-          status: 'SUCCESSFUL',
-          timestamp: '2026-08-08T12:00:00.000Z',
-        }],
+        id: 'checkout-split-001', checkout_reference: 'GHC-FF001122-I1', amount: 895,
+        currency: 'EUR', merchant_code: merchantCode, status: 'PAID',
+        transactions: [{ id: 'tx-split-1', amount: 895, currency: 'EUR', status: 'SUCCESSFUL', timestamp: '2026-08-08T12:00:00.000Z' }],
       },
       expectedMerchantCode: merchantCode,
     });
@@ -110,26 +98,34 @@ export function runSumUpAdapterSelfTest() {
     const payment = verifySumUpCheckoutForPreventa({
       webhookCheckoutId: 'checkout-split-002',
       checkout: {
-        id: 'checkout-split-002',
-        checkout_reference: 'GHC-FF001122-I2',
-        amount: 895,
-        currency: 'EUR',
-        merchant_code: merchantCode,
-        status: 'PAID',
-        transactions: [{
-          id: 'tx-split-2',
-          amount: 895,
-          currency: 'EUR',
-          status: 'SUCCESSFUL',
-          timestamp: '2026-08-23T12:00:00.000Z',
-        }],
+        id: 'checkout-split-002', checkout_reference: 'GHC-FF001122-I2', amount: 895,
+        currency: 'EUR', merchant_code: merchantCode, status: 'PAID',
+        transactions: [{ id: 'tx-split-2', amount: 895, currency: 'EUR', status: 'SUCCESSFUL', timestamp: '2026-08-23T12:00:00.000Z' }],
       },
       expectedMerchantCode: merchantCode,
     });
     expect(payment.installmentNo === 2, 'Número de segunda cuota incorrecto.');
   }));
 
-  results.push(run('Checkout no pagado · se rechaza', () => {
+  for (const terminalStatus of ['PENDING', 'FAILED', 'EXPIRED'] as const) {
+    results.push(run(`Estado ${terminalStatus} · se clasifica sin acreditar pago`, () => {
+      const state = verifySumUpCheckoutStateForPreventa({
+        webhookCheckoutId: checkoutId,
+        checkout: {
+          ...validSingle,
+          status: terminalStatus,
+          transactions: terminalStatus === 'FAILED' ? [{
+            id: 'tx-failed-001', amount: 1690, currency: 'EUR', status: 'FAILED', timestamp: '2026-08-08T12:01:00.000Z',
+          }] : [],
+          valid_until: terminalStatus === 'EXPIRED' ? '2026-08-08T12:30:00.000Z' : null,
+        },
+        expectedMerchantCode: merchantCode,
+      });
+      expect(state.status === terminalStatus, `Estado ${terminalStatus} no reconocido.`);
+    }));
+  }
+
+  results.push(run('Checkout no pagado · no pasa como PAID', () => {
     expectError(() => verifySumUpCheckoutForPreventa({
       webhookCheckoutId: checkoutId,
       checkout: { ...validSingle, status: 'PENDING' },
@@ -138,7 +134,7 @@ export function runSumUpAdapterSelfTest() {
   }));
 
   results.push(run('Merchant distinto · se rechaza', () => {
-    expectError(() => verifySumUpCheckoutForPreventa({
+    expectError(() => verifySumUpCheckoutStateForPreventa({
       webhookCheckoutId: checkoutId,
       checkout: { ...validSingle, merchant_code: 'OTHER_MERCHANT' },
       expectedMerchantCode: merchantCode,
@@ -146,7 +142,7 @@ export function runSumUpAdapterSelfTest() {
   }));
 
   results.push(run('Importe manipulado · se rechaza', () => {
-    expectError(() => verifySumUpCheckoutForPreventa({
+    expectError(() => verifySumUpCheckoutStateForPreventa({
       webhookCheckoutId: checkoutId,
       checkout: { ...validSingle, amount: 1600 },
       expectedMerchantCode: merchantCode,
@@ -154,7 +150,7 @@ export function runSumUpAdapterSelfTest() {
   }));
 
   results.push(run('Referencia ajena/corrupta · se rechaza', () => {
-    expectError(() => verifySumUpCheckoutForPreventa({
+    expectError(() => verifySumUpCheckoutStateForPreventa({
       webhookCheckoutId: checkoutId,
       checkout: { ...validSingle, checkout_reference: 'OTHER-ORDER' },
       expectedMerchantCode: merchantCode,
@@ -162,10 +158,7 @@ export function runSumUpAdapterSelfTest() {
   }));
 
   results.push(run('Evento desconocido · se rechaza', () => {
-    expectError(() => parseSumUpWebhookPayload({
-      event_type: 'SOMETHING_ELSE',
-      id: checkoutId,
-    }), 'UNSUPPORTED_EVENT_TYPE');
+    expectError(() => parseSumUpWebhookPayload({ event_type: 'SOMETHING_ELSE', id: checkoutId }), 'UNSUPPORTED_EVENT_TYPE');
   }));
 
   return {
