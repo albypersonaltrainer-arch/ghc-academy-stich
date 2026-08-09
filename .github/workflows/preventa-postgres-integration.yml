@@ -7,6 +7,7 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      - 'app/api/preventa/sumup-checkout/route.ts'
       - '.github/workflows/preventa-postgres-integration.yml'
   workflow_dispatch:
 
@@ -48,6 +49,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client
 
+      - name: Lock first-installment capacity hold to 45 minutes
+        run: |
+          grep -Fq 'const FIRST_INSTALLMENT_HOLD_MINUTES = 45;' app/api/preventa/sumup-checkout/route.ts
+          echo 'PREVENTA_FIRST_INSTALLMENT_HOLD_45_MIN_OK'
+
       - name: Create Supabase-compatible roles
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -86,6 +92,7 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_integration_v0_1.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_terminal_states_v0_1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_capacity_boundary_v0_1.sql
 
       - name: Verify expected private tables exist
         run: |
