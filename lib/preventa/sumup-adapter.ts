@@ -22,6 +22,8 @@ export type SumUpCheckout = {
   currency?: string;
   merchant_code?: string;
   status?: 'PENDING' | 'FAILED' | 'PAID' | 'EXPIRED' | string;
+  date?: string;
+  valid_until?: string | null;
   transaction_id?: string;
   transaction_code?: string;
   transactions?: SumUpTransaction[];
@@ -30,16 +32,21 @@ export type SumUpCheckout = {
   return_url?: string;
 };
 
-export type VerifiedSumUpPayment = {
+export type VerifiedSumUpCheckoutState = {
   checkoutId: string;
   checkoutReference: string;
   orderReference: string;
   installmentNo: 1 | 2;
   attemptToken: string | null;
   amountCents: number;
-  providerPaymentId: string;
+  status: 'PENDING' | 'FAILED' | 'PAID' | 'EXPIRED';
   occurredAt: string;
   providerMetadata: Record<string, unknown>;
+};
+
+export type VerifiedSumUpPayment = VerifiedSumUpCheckoutState & {
+  status: 'PAID';
+  providerPaymentId: string;
 };
 
 export class SumUpAdapterError extends Error {
@@ -148,11 +155,24 @@ function selectSuccessfulTransaction(checkout: SumUpCheckout, expectedCents: num
   return successful;
 }
 
-export function verifySumUpCheckoutForPreventa(input: {
+function selectFailedTransaction(checkout: SumUpCheckout, expectedCents: number) {
+  const transactions = Array.isArray(checkout.transactions) ? checkout.transactions : [];
+  return transactions.find((transaction) => {
+    if (transaction.status !== 'FAILED') return false;
+    if (transaction.currency !== PREVENTA_OFFER.currency) return false;
+    try {
+      return majorUnitsToCents(transaction.amount) === expectedCents;
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function verifySumUpCheckoutStateForPreventa(input: {
   webhookCheckoutId: string;
   checkout: SumUpCheckout;
   expectedMerchantCode: string;
-}): VerifiedSumUpPayment {
+}): VerifiedSumUpCheckoutState {
   const { webhookCheckoutId, checkout, expectedMerchantCode } = input;
 
   if (cleanString(checkout.id) !== webhookCheckoutId) {
@@ -165,10 +185,6 @@ export function verifySumUpCheckoutForPreventa(input: {
 
   if (checkout.currency !== PREVENTA_OFFER.currency) {
     throw new SumUpAdapterError('CURRENCY_MISMATCH', 'La moneda del checkout no coincide con la oferta GHC.');
-  }
-
-  if (checkout.status !== 'PAID') {
-    throw new SumUpAdapterError('CHECKOUT_NOT_PAID', `El checkout está en estado ${checkout.status || 'desconocido'}, no PAID.`);
   }
 
   const checkoutReference = cleanString(checkout.checkout_reference);
@@ -184,8 +200,18 @@ export function verifySumUpCheckoutForPreventa(input: {
     throw new SumUpAdapterError('SECOND_INSTALLMENT_AMOUNT_MISMATCH', 'La segunda cuota debe ser de 895 €.');
   }
 
-  const transaction = selectSuccessfulTransaction(checkout, checkoutAmountCents);
-  const occurredAt = cleanString(transaction.timestamp) || new Date().toISOString();
+  const status = cleanString(checkout.status).toUpperCase();
+  if (!['PENDING', 'FAILED', 'PAID', 'EXPIRED'].includes(status)) {
+    throw new SumUpAdapterError('UNSUPPORTED_CHECKOUT_STATUS', `Estado SumUp no soportado: ${status || 'desconocido'}.`);
+  }
+
+  const failedTransaction = status === 'FAILED'
+    ? selectFailedTransaction(checkout, checkoutAmountCents)
+    : undefined;
+  const occurredAt =
+    cleanString(failedTransaction?.timestamp) ||
+    (status === 'EXPIRED' ? cleanString(checkout.valid_until) : '') ||
+    new Date().toISOString();
 
   return {
     checkoutId: webhookCheckoutId,
@@ -194,17 +220,47 @@ export function verifySumUpCheckoutForPreventa(input: {
     installmentNo: parsed.installmentNo,
     attemptToken: parsed.attemptToken,
     amountCents: checkoutAmountCents,
-    providerPaymentId: cleanString(transaction.id),
+    status: status as VerifiedSumUpCheckoutState['status'],
     occurredAt,
     providerMetadata: {
       provider: 'sumup',
       checkout_id: webhookCheckoutId,
       checkout_reference: checkoutReference,
-      checkout_status: checkout.status,
+      checkout_status: status,
       checkout_attempt: parsed.attemptToken,
-      transaction_code: transaction.transaction_code || checkout.transaction_code || null,
-      transaction_status: transaction.status,
+      checkout_date: cleanString(checkout.date) || null,
+      checkout_valid_until: cleanString(checkout.valid_until) || null,
+      transaction_id: cleanString(failedTransaction?.id) || null,
+      transaction_code: failedTransaction?.transaction_code || checkout.transaction_code || null,
+      transaction_status: failedTransaction?.status || null,
       verified_via_sumup_api: true,
+    },
+  };
+}
+
+export function verifySumUpCheckoutForPreventa(input: {
+  webhookCheckoutId: string;
+  checkout: SumUpCheckout;
+  expectedMerchantCode: string;
+}): VerifiedSumUpPayment {
+  const state = verifySumUpCheckoutStateForPreventa(input);
+  if (state.status !== 'PAID') {
+    throw new SumUpAdapterError('CHECKOUT_NOT_PAID', `El checkout está en estado ${state.status}, no PAID.`);
+  }
+
+  const transaction = selectSuccessfulTransaction(input.checkout, state.amountCents);
+  const occurredAt = cleanString(transaction.timestamp) || new Date().toISOString();
+
+  return {
+    ...state,
+    status: 'PAID',
+    providerPaymentId: cleanString(transaction.id),
+    occurredAt,
+    providerMetadata: {
+      ...state.providerMetadata,
+      transaction_id: cleanString(transaction.id),
+      transaction_code: transaction.transaction_code || input.checkout.transaction_code || null,
+      transaction_status: transaction.status,
     },
   };
 }
