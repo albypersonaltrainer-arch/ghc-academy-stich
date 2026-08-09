@@ -82,9 +82,10 @@ jobs:
             echo '::endgroup::'
           done
 
-      - name: Run preventa SQL integration suite
+      - name: Run preventa SQL integration suites
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_integration_v0_1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_terminal_states_v0_1.sql
 
       - name: Verify expected private tables exist
         run: |
