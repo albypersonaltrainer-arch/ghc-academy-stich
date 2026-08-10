@@ -1,6 +1,7 @@
 import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getCheckoutAccessTokenStatus, issueCheckoutAccessToken } from './checkout-access-token';
+import { issueMatriculaAccessToken } from './matricula-access-token';
 import { getPreventaEmailProviderStatus, sendPreventaEmail } from './email-provider';
 import {
   renderPreventaEmail,
@@ -190,7 +191,15 @@ function buildCtaUrl(
   const code = claimed.template_code;
   if (!PAYMENT_CTA_CODES.has(code)) {
     if (code === 'E11') return `${publicBaseUrl}/acceso`;
-    if (code === 'E01' || code === 'E02' || code === 'E10') return `${publicBaseUrl}/preventa`;
+    if (code === 'E01' || code === 'E02' || code === 'E10') {
+      const matriculaToken = issueMatriculaAccessToken({
+        orderReference: claimed.order_reference,
+      });
+      const url = new URL('/preventa/matricula', publicBaseUrl);
+      url.searchParams.set('order', claimed.order_reference);
+      url.searchParams.set('token', matriculaToken);
+      return url.toString();
+    }
     return null;
   }
 
