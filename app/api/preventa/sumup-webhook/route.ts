@@ -15,8 +15,29 @@ import {
   getPaymentPersistenceStatus,
   markPreventaCheckoutTerminal,
 } from '../../../../lib/preventa/payment-persistence';
+import {
+  getPreventaEmailWorkerStatus,
+  runPreventaEmailWorker,
+} from '../../../../lib/preventa/email-worker';
 
 export const dynamic = 'force-dynamic';
+
+async function flushTransactionalEmailBestEffort() {
+  const worker = getPreventaEmailWorkerStatus();
+  if (!worker.ready) return;
+
+  try {
+    const result = await runPreventaEmailWorker(10);
+    console.info('[preventa-email-after-webhook]', {
+      claimed: result.claimed,
+      sent: result.sent,
+      retryOrFailed: result.retryOrFailed,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'UNKNOWN_EMAIL_WORKER_ERROR';
+    console.error('[preventa-email-after-webhook]', message);
+  }
+}
 
 export async function GET() {
   const sumup = getSumUpIntegrationStatus();
@@ -103,6 +124,8 @@ export async function POST(request: NextRequest) {
         providerMetadata: state.providerMetadata,
       });
 
+      await flushTransactionalEmailBestEffort();
+
       return NextResponse.json({
         ok: true,
         applied: true,
@@ -127,6 +150,8 @@ export async function POST(request: NextRequest) {
       occurredAt: verified.occurredAt,
       providerMetadata: verified.providerMetadata,
     });
+
+    await flushTransactionalEmailBestEffort();
 
     return NextResponse.json({
       ok: true,
