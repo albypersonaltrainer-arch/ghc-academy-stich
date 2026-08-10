@@ -32,12 +32,13 @@ export default function TestEmailPaymentPage() {
 
         <div style={{ padding: 30 }}>
           <h1 style={{ margin: '0 0 14px', fontSize: 28, lineHeight: 1.15 }}>
-            Pago Sandbox → webhook → email E01
+            Pago Sandbox → webhook → email transaccional
           </h1>
           <p style={{ margin: '0 0 20px', lineHeight: 1.7 }}>
             Esta pantalla crea una matrícula de prueba a nombre de Alby Aguiar con
-            albycanarion@gmail.com, prepara un pago único de 1.690 € en SumUp Sandbox y,
-            cuando el pago quede confirmado, debe generar y enviar el correo E01.
+            albycanarion@gmail.com y permite validar el pago único de 1.690 € o la primera
+            cuota de 895 € de la modalidad fraccionada. Cuando SumUp confirma el pago, el
+            webhook debe actualizar la matrícula y generar el email correspondiente.
           </p>
           <div
             style={{
@@ -49,7 +50,7 @@ export default function TestEmailPaymentPage() {
               lineHeight: 1.7,
             }}
           >
-            <strong>No mueve dinero real.</strong> El importe y la tarjeta son exclusivamente de Sandbox.
+            <strong>No mueve dinero real.</strong> Todos los importes y tarjetas utilizados aquí son exclusivamente de Sandbox.
           </div>
           <TestEmailPaymentClient />
         </div>
