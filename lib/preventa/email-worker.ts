@@ -53,6 +53,10 @@ function clean(value: string | undefined) {
   return (value || '').trim();
 }
 
+function getSupportEmail() {
+  return clean(process.env.PREVENTA_EMAIL_SUPPORT || process.env.PREVENTA_SUPPORT_EMAIL);
+}
+
 function getPublicBaseUrl() {
   const value = clean(process.env.PREVENTA_PUBLIC_BASE_URL).replace(/\/$/, '');
   if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(value)) return null;
@@ -207,7 +211,7 @@ function buildCtaUrl(
 }
 
 function buildVariables(claimed: ClaimedEmail, incident: IncidentContext) {
-  const supportEmail = clean(process.env.PREVENTA_EMAIL_SUPPORT);
+  const supportEmail = getSupportEmail();
   const installmentNo = getPaymentInstallmentForTemplate(claimed.template_code, incident);
 
   return {
@@ -259,7 +263,7 @@ export function getPreventaEmailWorkerStatus(): PreventaEmailWorkerStatus {
   const provider = getPreventaEmailProviderStatus();
   const token = getCheckoutAccessTokenStatus();
   const publicBaseUrl = getPublicBaseUrl();
-  const supportEmail = clean(process.env.PREVENTA_EMAIL_SUPPORT);
+  const supportEmail = getSupportEmail();
 
   return {
     persistenceReady: persistence.ready,
