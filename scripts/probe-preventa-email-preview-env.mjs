@@ -1,3 +1,4 @@
+// Preview env probe refreshed 2026-08-10 16:08 CEST
 const isPreview = process.env.VERCEL_ENV === 'preview';
 if (!isPreview) {
   console.log('[email-probe] omitido fuera de Preview');
