@@ -50,13 +50,17 @@ Los emails enviados antes de esta corrección conservan su URL histórica; los n
 
 Se detectó un hueco operativo adicional: E03–E09 ya tenían `scheduled_for`, pero el worker solo se ejecutaba automáticamente inmediatamente después de ciertos webhooks de pago.
 
-Se implementó mantenimiento programado:
+Se implementó el motor de mantenimiento programado:
 
 - endpoint: `/api/preventa/cron`;
 - protegido mediante `Authorization: Bearer <CRON_SECRET>`;
-- frecuencia declarada: una vez por hora (`0 * * * *`);
-- Vercel Cron solo se activará en deployment de Production;
+- lógica preparada para ejecutarse una vez por hora;
+- Vercel Cron solo se activa en deployments de Production;
 - Production no se ha desplegado ni activado.
+
+La cuenta Vercel actual es compatible con despliegues Preview, pero el intento de declarar `0 * * * *` en `vercel.json` fue rechazado por la limitación del plan Hobby: ese plan solo permite cron una vez al día y con precisión horaria. Para no degradar la precisión de los recordatorios de pago, el cron horario no queda declarado mientras el proyecto siga en Hobby.
+
+**Requisito de lanzamiento:** usar Vercel Pro —o un scheduler externo equivalente— antes de activar la preventa real, y entonces declarar el endpoint `/api/preventa/cron` con frecuencia horaria.
 
 Cada ejecución realiza, en este orden:
 
@@ -78,7 +82,7 @@ Validado:
 - Worker: `ready=true` con la configuración de Preview validada.
 - `EMAIL_PREVIEW_READY=YES` tras alinear el probe con el destinatario autorizado.
 - CTA de estado de matrícula: corregida y protegida con token firmado.
-- Scheduler: implementado en código, pendiente de secreto/activación cuando se abra el Gate de Production.
+- Scheduler: implementado en código y protegido; pendiente únicamente de `CRON_SECRET` y de un entorno con frecuencia horaria admitida cuando se abra el Gate de Production.
 
 ## Pendiente antes de Production
 
@@ -87,7 +91,7 @@ Validado:
 3. Configurar el buzón corporativo definitivo de soporte.
 4. Crear `CRON_SECRET` exclusivo para Production, de al menos 32 caracteres.
 5. Configurar variables live de SumUp exclusivamente cuando se autorice pasar de Sandbox a producción.
-6. Revisar la política/plan de Vercel necesario para mantener la frecuencia horaria del cron; si el plan activo no la admite, resolverlo antes del lanzamiento.
+6. Pasar el proyecto a Vercel Pro —o definir un scheduler externo equivalente— y activar la frecuencia horaria del mantenimiento de preventa.
 7. Ejecutar una última prueba controlada del CTA privado de matrícula con un email generado después de la corrección.
 8. Limpiar o identificar explícitamente los datos Sandbox antes de la apertura real.
 9. Realizar revisión final del PR y mergear únicamente con autorización expresa.
