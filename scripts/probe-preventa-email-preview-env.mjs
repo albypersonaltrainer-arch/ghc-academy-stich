@@ -1,4 +1,4 @@
-// Preview env probe refreshed 2026-08-10 16:08 CEST
+// Preview env probe refreshed 2026-08-10 18:24 CEST
 const isPreview = process.env.VERCEL_ENV === 'preview';
 if (!isPreview) {
   console.log('[email-probe] omitido fuera de Preview');
@@ -10,7 +10,7 @@ const checks = {
   providerResend: (process.env.PREVENTA_EMAIL_PROVIDER || '').trim().toLowerCase() === 'resend',
   apiKeyPresent: (process.env.RESEND_API_KEY || '').trim().length >= 20,
   senderConfigured: (process.env.PREVENTA_EMAIL_FROM || '').trim().length >= 5,
-  testRecipientIsAlby: (process.env.PREVENTA_EMAIL_TEST_RECIPIENT || '').trim().toLowerCase() === 'albycanarion@gmail.com',
+  testRecipientIsAlby: (process.env.PREVENTA_EMAIL_TEST_RECIPIENT || '').trim().toLowerCase() === 'albypersonaltrainer@gmail.com',
   workerSecretPresent: (process.env.PREVENTA_EMAIL_WORKER_SECRET || '').trim().length >= 32,
 };
 
