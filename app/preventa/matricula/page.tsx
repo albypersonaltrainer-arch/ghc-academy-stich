@@ -41,9 +41,16 @@ function formatMadridDate(value: string | null) {
 
 function statusLabel(status: string, founderStatus: string, balanceCents: number) {
   if (status === 'refunded') return 'Matrícula reembolsada';
-  if (status === 'cancelled' || status === 'closed') return 'Expediente cerrado';
-  if (balanceCents <= 0 && founderStatus === 'confirmed') return 'Matrícula confirmada y abonada';
-  if (status === 'partially_paid' || founderStatus === 'held') return 'Matrícula activa · pago pendiente';
+  if (status === 'cancelled') return 'Expediente cerrado';
+  if (status === 'overdue') return 'Matrícula activa · segundo pago vencido';
+  if (status === 'paid' && balanceCents <= 0 && founderStatus === 'confirmed') {
+    return 'Matrícula confirmada y abonada';
+  }
+  if (status === 'partial' || founderStatus === 'reserved') {
+    return 'Matrícula activa · pago pendiente';
+  }
+  if (status === 'awaiting_payment') return 'Pendiente de confirmación de pago';
+  if (status === 'draft') return 'Matrícula iniciada';
   if (status === 'paid') return 'Pago confirmado';
   return 'Matrícula registrada';
 }
