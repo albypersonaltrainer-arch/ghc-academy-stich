@@ -5,9 +5,11 @@ export type PreventaEmailProviderStatus = {
   provider: 'resend' | 'disabled';
   apiConfigured: boolean;
   senderConfigured: boolean;
+  supportConfigured: boolean;
   testRecipientConfigured: boolean;
   ready: boolean;
   previewSafe: boolean;
+  productionSafe: boolean;
 };
 
 export type SendPreventaEmailInput = {
@@ -31,24 +33,43 @@ function clean(value: string | undefined) {
   return (value || '').trim();
 }
 
+function extractEmail(value: string) {
+  const angleMatch = value.match(/<([^<>\s]+@[^<>\s]+)>/);
+  if (angleMatch?.[1]) return angleMatch[1].toLowerCase();
+
+  const plainMatch = value.match(/[^\s<>]+@[^\s<>]+/);
+  return (plainMatch?.[0] || '').toLowerCase();
+}
+
+function isResendDevelopmentSender(value: string) {
+  const email = extractEmail(value);
+  return email.endsWith('@resend.dev');
+}
+
 function getProviderConfig() {
   const deliveryEnabled = process.env.PREVENTA_EMAIL_DELIVERY_ENABLED === 'true';
   const providerRaw = clean(process.env.PREVENTA_EMAIL_PROVIDER).toLowerCase();
   const provider = providerRaw === 'resend' ? 'resend' : 'disabled';
   const apiKey = clean(process.env.RESEND_API_KEY);
   const from = clean(process.env.PREVENTA_EMAIL_FROM);
+  const supportEmail = clean(process.env.PREVENTA_SUPPORT_EMAIL);
   const testRecipient = clean(process.env.PREVENTA_EMAIL_TEST_RECIPIENT);
   const isProduction = process.env.VERCEL_ENV === 'production';
   const previewSafe = isProduction || Boolean(testRecipient);
+  const productionSafe =
+    !isProduction ||
+    (Boolean(from) && !isResendDevelopmentSender(from) && Boolean(supportEmail));
 
   return {
     deliveryEnabled,
     provider,
     apiKey,
     from,
+    supportEmail,
     testRecipient,
     isProduction,
     previewSafe,
+    productionSafe,
   } as const;
 }
 
@@ -59,14 +80,17 @@ export function getPreventaEmailProviderStatus(): PreventaEmailProviderStatus {
     provider: config.provider,
     apiConfigured: Boolean(config.apiKey),
     senderConfigured: Boolean(config.from),
+    supportConfigured: Boolean(config.supportEmail),
     testRecipientConfigured: Boolean(config.testRecipient),
     previewSafe: config.previewSafe,
+    productionSafe: config.productionSafe,
     ready:
       config.deliveryEnabled &&
       config.provider === 'resend' &&
       Boolean(config.apiKey) &&
       Boolean(config.from) &&
-      config.previewSafe,
+      config.previewSafe &&
+      config.productionSafe,
   };
 }
 
@@ -78,6 +102,10 @@ export async function sendPreventaEmail(
 
   if (!status.ready || config.provider !== 'resend') {
     throw new Error('PREVENTA_EMAIL_PROVIDER_NOT_READY');
+  }
+
+  if (config.isProduction && isResendDevelopmentSender(config.from)) {
+    throw new Error('PREVENTA_EMAIL_PRODUCTION_SENDER_MUST_USE_VERIFIED_DOMAIN');
   }
 
   const deliveredTo = config.isProduction ? input.recipientEmail : config.testRecipient;
@@ -95,6 +123,7 @@ export async function sendPreventaEmail(
     body: JSON.stringify({
       from: config.from,
       to: [deliveredTo],
+      reply_to: config.supportEmail || undefined,
       subject: input.subject,
       html: input.html,
       text: input.text,
