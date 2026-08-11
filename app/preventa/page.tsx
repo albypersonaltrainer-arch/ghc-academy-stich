@@ -201,8 +201,8 @@ export default function PreventaPage() {
 
       <section className="conversion-proof-section">
         <div className="conversion-proof-copy">
-          <p className={styles.eyebrow}>Una preventa con estructura detrás</p>
-          <h2>No estás comprando una idea escrita ayer.</h2>
+          <p className={styles.eyebrow}>Producto definido antes de abrir</p>
+          <h2>No estás comprando una promesa sin estructura.</h2>
           <p>La arquitectura académica de los tres niveles y los treinta módulos ya está definida. La preventa te permite entrar antes de la apertura oficial con una condición económica que no volverá a ser la estándar.</p>
           <div className="conversion-proof-list">
             <div><span>01</span><strong>3 niveles y 30 módulos estructurados como un recorrido único.</strong></div>
@@ -244,7 +244,10 @@ export default function PreventaPage() {
           <span>37 % menos que el valor acumulado</span>
         </div>
         <div className="conversion-price-close">
-          <div><strong>La preventa termina el 15 de septiembre de 2026 a las 23:59, hora de Madrid, o antes si se completan las 100 plazas.</strong><span>Sin contador artificial. Sin plazas inventadas. La condición termina cuando se cumple una de esas dos reglas.</span></div>
+          <div>
+            <strong>La preventa termina el 15 de septiembre de 2026 a las 23:59, hora de Madrid, o antes si se completan las 100 plazas.</strong>
+            <span>La disponibilidad está limitada por dos reglas objetivas: un máximo de 100 plazas y una fecha de cierre definida. La condición fundadora termina cuando se cumple una de las dos.</span>
+          </div>
           <Link href="/preventa/checkout?plan=single">Quiero mi plaza fundadora · 1.690 €</Link>
         </div>
       </section>
