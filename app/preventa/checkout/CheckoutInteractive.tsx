@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import styles from '../flow.module.css';
 import ui from './checkout-interactive.module.css';
 
@@ -44,12 +44,9 @@ export default function CheckoutInteractive({
   const [status, setStatus] = useState('');
 
   const total = paymentPlan === 'single' ? 169000 : 179000;
-  const buttonLabel = useMemo(
-    () => paymentPlan === 'single'
-      ? `Pagar ahora · 1.690 €${isPreview ? ' · Sandbox' : ''}`
-      : `Pagar ahora · primera cuota 895 €${isPreview ? ' · Sandbox' : ''}`,
-    [paymentPlan, isPreview]
-  );
+  const buttonLabel = paymentPlan === 'single'
+    ? `Pagar ahora · 1.690 €${isPreview ? ' · Sandbox' : ''}`
+    : `Pagar ahora · primera cuota 895 €${isPreview ? ' · Sandbox' : ''}`;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
