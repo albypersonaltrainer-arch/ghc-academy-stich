@@ -1,26 +1,28 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
-import Link from 'next/link';
 import styles from '../flow.module.css';
 import ui from './checkout-interactive.module.css';
 
 type PaymentPlan = 'single' | 'split';
 
-type PreviewResponse = {
-  ok: boolean;
-  errors?: string[];
+type OrderResponse = {
+  ok?: boolean;
   error?: string;
+  errors?: string[];
   order?: {
-    reference: string;
-    status: string;
-    founderStatus: string;
-    paymentPlan: PaymentPlan;
-    totalAmountCents: number;
-    firstInstallmentCents: number;
-    secondInstallmentCents: number;
-    secondDueAt: string | null;
+    reference?: string;
   };
+  checkout?: {
+    installmentNo?: number;
+    accessToken?: string;
+  };
+};
+
+type CheckoutResponse = {
+  ok?: boolean;
+  error?: string;
+  hostedCheckoutUrl?: string;
 };
 
 const euro = (cents: number) => new Intl.NumberFormat('es-ES', {
@@ -29,27 +31,30 @@ const euro = (cents: number) => new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 0,
 }).format(cents / 100);
 
-export default function CheckoutInteractive() {
+export default function CheckoutInteractive({ isPreview = false }: { isPreview?: boolean }) {
   const [paymentPlan, setPaymentPlan] = useState<PaymentPlan>('single');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [result, setResult] = useState<PreviewResponse['order'] | null>(null);
+  const [status, setStatus] = useState('');
 
   const total = paymentPlan === 'single' ? 169000 : 179000;
   const buttonLabel = useMemo(
     () => paymentPlan === 'single'
-      ? 'Validar matrícula de prueba · 1.690 €'
-      : 'Validar matrícula de prueba · 895 € + 895 €',
-    [paymentPlan]
+      ? `Pagar 1.690 €${isPreview ? ' · Sandbox' : ''}`
+      : `Pagar primera cuota · 895 €${isPreview ? ' · Sandbox' : ''}`,
+    [paymentPlan, isPreview]
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
+
     setLoading(true);
     setErrors([]);
-    setResult(null);
+    setStatus('Creando tu matrícula…');
 
     const form = new FormData(event.currentTarget);
+    const requestKey = `web_${crypto.randomUUID().replace(/-/g, '')}`;
 
     const payload = {
       firstName: form.get('firstName'),
@@ -63,28 +68,56 @@ export default function CheckoutInteractive() {
       acknowledgedPrivateTraining: form.get('acknowledgedPrivateTraining') === 'on',
       marketingConsent: form.get('marketingConsent') === 'on',
       attribution: {
-        sourceChannel: 'preview-web',
-        sourceDetail: 'checkout-interactive',
-        campaignCode: 'FOUNDERS_2026_PREVIEW',
+        sourceChannel: 'preventa-web',
+        sourceDetail: isPreview ? 'public-checkout-preview-sandbox' : 'public-checkout',
+        campaignCode: 'FOUNDERS_2026',
       },
     };
 
     try {
-      const response = await fetch('/api/preventa/preview-order', {
+      const orderResponse = await fetch('/api/preventa/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': requestKey,
+        },
         body: JSON.stringify(payload),
       });
-      const data = await response.json() as PreviewResponse;
 
-      if (!response.ok || !data.ok || !data.order) {
-        setErrors(data.errors || [data.error || 'No se pudo validar la matrícula de prueba.']);
+      const order = await orderResponse.json().catch(() => ({})) as OrderResponse;
+      const orderReference = order.order?.reference || '';
+      const checkoutToken = order.checkout?.accessToken || '';
+
+      if (!orderResponse.ok || !order.ok || !orderReference || !checkoutToken) {
+        setErrors(order.errors || [order.error || 'No se pudo crear la matrícula.']);
+        setStatus('');
         return;
       }
 
-      setResult(data.order);
+      setStatus(`Matrícula ${orderReference} creada. Preparando el pago seguro…`);
+
+      const checkoutResponse = await fetch('/api/preventa/sumup-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderReference,
+          installmentNo: 1,
+          checkoutToken,
+        }),
+      });
+
+      const checkout = await checkoutResponse.json().catch(() => ({})) as CheckoutResponse;
+      if (!checkoutResponse.ok || !checkout.ok || !checkout.hostedCheckoutUrl) {
+        setErrors([checkout.error || 'No se pudo preparar el pago. No se ha acreditado ningún cobro.']);
+        setStatus(`La matrícula ${orderReference} se creó, pero el pago no llegó a iniciarse.`);
+        return;
+      }
+
+      setStatus('Pago preparado. Abriendo SumUp…');
+      window.location.assign(checkout.hostedCheckoutUrl);
     } catch {
-      setErrors(['No se pudo conectar con la validación de Preview.']);
+      setErrors(['No se pudo conectar con el servicio de matrícula. No se ha acreditado ningún cobro.']);
+      setStatus('');
     } finally {
       setLoading(false);
     }
@@ -117,7 +150,7 @@ export default function CheckoutInteractive() {
             <span className={styles.step}>02</span>
             <div>
               <h2>Elige cómo pagar</h2>
-              <p>En Preview solo se valida la modalidad; no se crea ningún cobro.</p>
+              <p>{isPreview ? 'Preview conectado a SumUp Sandbox: no se mueve dinero real.' : 'El pago se procesa de forma segura mediante SumUp.'}</p>
             </div>
           </div>
 
@@ -145,7 +178,7 @@ export default function CheckoutInteractive() {
             <span className={styles.step}>03</span>
             <div>
               <h2>Datos del comprador</h2>
-              <p>Estos datos se validan en servidor, pero en Preview no se guardan.</p>
+              <p>Se utilizarán para tu matrícula, comunicaciones transaccionales, acceso y soporte.</p>
             </div>
           </div>
 
@@ -183,7 +216,7 @@ export default function CheckoutInteractive() {
             <span className={styles.step}>04</span>
             <div>
               <h2>Información esencial antes del pago</h2>
-              <p>Base jurídica aprobada. La Preview reproduce ya las condiciones esenciales del flujo.</p>
+              <p>Estas son las condiciones esenciales de la Edición Fundadora.</p>
             </div>
           </div>
 
@@ -191,14 +224,16 @@ export default function CheckoutInteractive() {
             <div className={styles.fact}><span>Naturaleza</span><strong>Formación privada. No es una titulación oficial ni una habilitación automática.</strong></div>
             <div className={styles.fact}><span>Inicio</span><strong>Apertura durante octubre de 2026; el día exacto se comunicará cuando pueda garantizarse.</strong></div>
             <div className={styles.fact}><span>Contenido</span><strong>Tres niveles y treinta módulos dentro de la plataforma.</strong></div>
-            <div className={styles.fact}><span>Evaluación</span><strong>Recorrido secuencial y umbral del 80 % por módulo, sujeto al Gate técnico completo.</strong></div>
+            <div className={styles.fact}><span>Evaluación</span><strong>Recorrido secuencial y umbral del 80 % por módulo.</strong></div>
             <div className={styles.fact}><span>Soporte</span><strong>Técnico, administrativo y académico básico. Sin tutoría individual ni mentoría.</strong></div>
             <div className={styles.fact}><span>Pago fraccionado</span><strong>895 € al contratar y 895 € a los 15 días naturales tras confirmar la primera cuota.</strong></div>
           </div>
 
-          <div className={styles.legalPending}>
-            <strong>Preview técnica.</strong> No se reserva plaza, no se genera pago y no se escribe ningún dato en Supabase.
-          </div>
+          {isPreview && (
+            <div className={styles.legalPending}>
+              <strong>Sandbox.</strong> Esta Preview crea registros de prueba y reserva capacidad temporal de prueba, pero SumUp no mueve dinero real.
+            </div>
+          )}
         </section>
 
         <section className={styles.card}>
@@ -206,7 +241,7 @@ export default function CheckoutInteractive() {
             <span className={styles.step}>05</span>
             <div>
               <h2>Aceptaciones y consentimientos</h2>
-              <p>Las obligatorias se registrarán por separado de cualquier consentimiento comercial.</p>
+              <p>Las aceptaciones obligatorias se registran separadas del consentimiento comercial opcional.</p>
             </div>
           </div>
 
@@ -225,19 +260,10 @@ export default function CheckoutInteractive() {
           </section>
         )}
 
-        {result && (
+        {status && !errors.length && (
           <section className={ui.successBox} aria-live="polite">
-            <span className={ui.successLabel}>Validación completada</span>
-            <h2>Matrícula simulada correcta.</h2>
-            <div className={ui.reference}>{result.reference}</div>
-            <div className={ui.resultGrid}>
-              <div><span>Modalidad</span><strong>{result.paymentPlan === 'single' ? 'Pago único' : '895 € + 895 €'}</strong></div>
-              <div><span>Total validado</span><strong>{euro(result.totalAmountCents)}</strong></div>
-              <div><span>Estado</span><strong>{result.status}</strong></div>
-              <div><span>Plaza fundadora</span><strong>No reservada · Preview</strong></div>
-            </div>
-            <p>La API ha validado datos, modalidad, importes y aceptaciones. No se ha creado cobro ni registro persistente.</p>
-            <Link className={ui.confirmLink} href={`/preventa/confirmacion?modalidad=${result.paymentPlan === 'split' ? 'fraccionado' : 'unico'}&preview=1`}>Continuar a la confirmación de ejemplo →</Link>
+            <span className={ui.successLabel}>{isPreview ? 'Sandbox activo' : 'Matrícula en curso'}</span>
+            <p>{status}</p>
           </section>
         )}
       </div>
@@ -256,10 +282,14 @@ export default function CheckoutInteractive() {
           <strong className={styles.totalPrice}>{euro(total)}</strong>
           <span className={styles.saving}>{paymentPlan === 'single' ? 'Ahorras 600 € frente al pack habitual' : 'Dos cuotas de 895 € · +100 € por fraccionamiento'}</span>
         </div>
-        <button className={`${styles.payButton} ${ui.previewButton}`} type="submit" disabled={loading}>
-          {loading ? 'Validando matrícula…' : buttonLabel}
+        <button className={`${styles.payButton} ${isPreview ? ui.previewButton : ''}`} type="submit" disabled={loading}>
+          {loading ? 'Preparando pago…' : buttonLabel}
         </button>
-        <p className={styles.secureNote}>Este botón solo llama a la API de Preview. No cobra, no reserva plaza y no guarda datos.</p>
+        <p className={styles.secureNote}>
+          {isPreview
+            ? 'Prueba real del flujo con SumUp Sandbox. No se mueve dinero real.'
+            : 'Pago procesado por SumUp. GHC Academy no almacena los datos de tu tarjeta.'}
+        </p>
       </aside>
     </form>
   );
