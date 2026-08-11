@@ -40,6 +40,8 @@ const faqs = [
 ];
 
 export default function PreventaPage() {
+  const isPreview = process.env.VERCEL_ENV === 'preview';
+
   return (
     <main className={styles.page}>
       <style>{`
@@ -95,10 +97,12 @@ export default function PreventaPage() {
         }
       `}</style>
 
-      <div className={styles.internalBanner} role="status">
-        <strong>Borrador interno</strong>
-        <span>No publicar ni cobrar hasta superar los Gates jurídico, técnico y económico.</span>
-      </div>
+      {isPreview && (
+        <div className={styles.internalBanner} role="status">
+          <strong>Preview Sandbox</strong>
+          <span>La matrícula está conectada al flujo real, pero SumUp usa Sandbox y no mueve dinero real.</span>
+        </div>
+      )}
 
       <header className={styles.header}>
         <Link href="/" className={styles.logoLink} aria-label="Ir a GHC Academy">
@@ -205,7 +209,7 @@ export default function PreventaPage() {
 
       <section className={styles.evaluationSection}>
         <div><p className={styles.eyebrow}>Aprendizaje y evaluación</p><h2>El progreso debe demostrarse, no presumirse.</h2><p>El modelo contempla avance secuencial, evaluación por módulo y certificados privados verificables.</p><div className={styles.legalNote}><strong>Naturaleza privada</strong><span>No constituye una titulación oficial ni una habilitación administrativa automática.</span></div></div>
-        <div className={styles.scoreCard}><span>Umbral académico diseñado</span><strong>80 %</strong><p>por módulo</p><div className={styles.scoreTrack}><i /></div><small>Flujo pendiente de validación técnica extremo a extremo.</small></div>
+        <div className={styles.scoreCard}><span>Umbral académico diseñado</span><strong>80 %</strong><p>por módulo</p><div className={styles.scoreTrack}><i /></div><small>Recorrido académico y controles de acceso validados en la plataforma Academy.</small></div>
       </section>
 
       <section className={styles.authoritySection}>
@@ -214,21 +218,46 @@ export default function PreventaPage() {
       </section>
 
       <section className={styles.paymentSection}>
-        <div className={styles.sectionIntroCenter}><p className={styles.eyebrow}>Edición Fundadora</p><h2>1.690 € para las primeras 100 plazas.</h2><p>La matrícula y los enlaces de pago seguirán desactivados hasta superar los Gates jurídico, técnico y operativo.</p></div>
+        <div className={styles.sectionIntroCenter}>
+          <p className={styles.eyebrow}>Edición Fundadora</p>
+          <h2>1.690 € para las primeras 100 plazas.</h2>
+          <p>Elige pago único para obtener el mejor precio o fracciona la matrícula en dos cuotas de 895 €.</p>
+        </div>
         <div className={styles.paymentGrid}>
-          <article className={styles.paymentCardFeatured}><span className={styles.paymentLabel}>Mejor condición económica</span><h3>Pago único</h3><strong>1.690 €</strong><p>Pack completo de tres niveles y treinta módulos.</p><button type="button" disabled>Matrícula pendiente de apertura</button></article>
-          <article className={styles.paymentCard}><span className={styles.paymentLabel}>Modalidad alternativa</span><h3>50 % + 50 %</h3><strong>Importe final pendiente</strong><p>Segundo pago previsto quince días después del primero. El total fraccionado se fijará en el Gate económico.</p><button type="button" disabled>Modalidad pendiente</button></article>
+          <article className={styles.paymentCardFeatured}>
+            <span className={styles.paymentLabel}>Mejor condición económica</span>
+            <h3>Pago único</h3>
+            <strong>1.690 €</strong>
+            <p>Pack completo de tres niveles y treinta módulos. Un solo pago.</p>
+            <Link href="/preventa/checkout" className={styles.primaryCta} style={{ width: '100%', marginTop: 22 }}>Comenzar matrícula</Link>
+          </article>
+          <article className={styles.paymentCard}>
+            <span className={styles.paymentLabel}>Modalidad alternativa</span>
+            <h3>895 € + 895 €</h3>
+            <strong>1.790 € total</strong>
+            <p>Primera cuota de 895 € al matricularte. Segunda cuota de 895 € quince días naturales después del primer pago confirmado.</p>
+            <Link href="/preventa/checkout" className={styles.secondaryCta} style={{ width: '100%', marginTop: 22 }}>Elegir pago fraccionado</Link>
+          </article>
         </div>
       </section>
 
       <section className={styles.faqSection}>
-        <div className={styles.sectionIntroRow}><div><p className={styles.eyebrow}>Preguntas esenciales</p><h2>Claridad antes de contratar.</h2></div><p>Las condiciones contractuales definitivas se incorporarán tras la revisión jurídica.</p></div>
+        <div className={styles.sectionIntroRow}><div><p className={styles.eyebrow}>Preguntas esenciales</p><h2>Claridad antes de contratar.</h2></div><p>El checkout resume las condiciones esenciales antes del pago y registra por separado las aceptaciones obligatorias.</p></div>
         <div className={styles.faqList}>{faqs.map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}</div>
       </section>
 
-      <section className={styles.finalSection}><div><p className={styles.eyebrow}>Primera generación</p><h2>Orden, criterio y responsabilidad profesional.</h2><p>Preventa hasta el 15 de septiembre de 2026 o hasta completar cien plazas.</p></div><a href="#precio" className={styles.primaryCta}>Revisar oferta fundadora</a></section>
+      <section className={styles.finalSection}>
+        <div><p className={styles.eyebrow}>Primera generación</p><h2>Orden, criterio y responsabilidad profesional.</h2><p>Preventa hasta el 15 de septiembre de 2026 o hasta completar cien plazas.</p></div>
+        <Link href="/preventa/checkout" className={styles.primaryCta}>Comenzar matrícula</Link>
+      </section>
 
-      <footer className={styles.footer}><GHCLogo size="sm" showText tagline /><p>GHC Academy · Formación privada online · Textos legales y contratación pendientes de validación final.</p><div><span>Aviso legal · Pendiente</span><span>Privacidad · Pendiente</span><span>Condiciones · Pendiente</span></div></footer>
+      <footer className={styles.footer}>
+        <GHCLogo size="sm" showText tagline />
+        <p>GHC Academy · Formación privada online.</p>
+        {isPreview
+          ? <div><span>Aviso legal · pendiente de publicación</span><span>Privacidad · pendiente de publicación</span><span>Condiciones · pendiente de publicación</span></div>
+          : <div><span>Aviso legal</span><span>Privacidad</span><span>Condiciones de contratación</span></div>}
+      </footer>
     </main>
   );
 }
