@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../../components/GHCLogo'
+import LessonStreamingPlayer from './LessonStreamingPlayer'
 import styles from './LessonExperience.module.css'
 
 const supabase = createClient(
@@ -143,6 +144,7 @@ export default function LessonExperience() {
     { lesson: {}, module: {} }
   )
   const [videoUrl, setVideoUrl] = useState('')
+  const [streamingAvailable, setStreamingAvailable] = useState(false)
   const [audioUrl, setAudioUrl] = useState('')
   const [manualUrl, setManualUrl] = useState('')
   const [manualLoading, setManualLoading] = useState(false)
@@ -203,6 +205,7 @@ export default function LessonExperience() {
 
       setExperience(nextExperience)
       setAnswers({ lesson: {}, module: {} })
+      setStreamingAvailable(false)
 
       const [nextVideoUrl, nextAudioUrl] = await Promise.all([
         loadPrivateAsset(nextExperience?.lesson?.video_path),
@@ -623,7 +626,12 @@ export default function LessonExperience() {
             </div>
 
             <div className={styles.viewer}>
-              {videoUrl && <video src={videoUrl} controls playsInline />}
+              <LessonStreamingPlayer
+                lessonId={lessonId}
+                title={String(experience.lesson?.title || 'GHC Academy')}
+                fallbackUrl={videoUrl}
+                onAvailabilityChange={setStreamingAvailable}
+              />
 
               {audioUrl && (
                 <div className={styles.audioStage}>
@@ -651,7 +659,7 @@ export default function LessonExperience() {
                 <article className={styles.textContent} dangerouslySetInnerHTML={{ __html: String(experience.lesson.content) }} />
               )}
 
-              {!videoUrl && !audioUrl && !experience.lesson?.manual_path && !experience.lesson?.content && (
+              {!streamingAvailable && !videoUrl && !audioUrl && !experience.lesson?.manual_path && !experience.lesson?.content && (
                 <div className={styles.emptyContent}>Esta lección todavía no tiene material visible.</div>
               )}
             </div>
