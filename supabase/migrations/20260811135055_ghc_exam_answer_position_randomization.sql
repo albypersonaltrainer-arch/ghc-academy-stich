@@ -1,0 +1,8 @@
+-- Historical bridge migration.
+-- The production database received an initial answer-position randomization pass at this version.
+-- Its final, replay-safe implementation is fully defined by the immediately following migration
+-- 20260811135546_ghc_exam_answer_position_plan.sql.
+--
+-- This file is intentionally a no-op on clean rebuilds so local migration history remains aligned
+-- with the production Supabase history without replaying an implementation that was superseded
+-- minutes later during the same QA session.
