@@ -1,0 +1,277 @@
+/* Ajuste visual definitivo de la Preview de preventa.
+   Este archivo se carga únicamente dentro de /preventa. */
+
+/* HERO: fotografía limpia + explicación inmediata del Sistema GHC. */
+.hero-v02 {
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.45fr) !important;
+  gap: 18px !important;
+  align-items: stretch !important;
+}
+
+.hero-v02-side {
+  display: grid !important;
+  grid-template-rows: 1fr !important;
+  min-height: 650px !important;
+}
+
+.hero-v02-small {
+  display: none !important;
+}
+
+.hero-v02-card {
+  min-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  padding: 34px 30px !important;
+  border-radius: 28px !important;
+  border-color: var(--ghc-border-green) !important;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(34, 214, 91, 0.10), transparent 48%),
+    linear-gradient(180deg, #0b0f0c 0%, #060807 100%) !important;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35) !important;
+}
+
+.hero-v02-card::before {
+  content: "CÓMO TRABAJA EL SISTEMA GHC";
+  display: block;
+  margin: 0 0 28px;
+  color: var(--ghc-green);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.15em;
+  line-height: 1.45;
+}
+
+.hero-v02-card > span,
+.hero-v02-card > strong,
+.hero-v02-card .mini-flow {
+  display: none !important;
+}
+
+.hero-v02-card::after {
+  content:
+    "01 · OBSERVAR\AQué está ocurriendo realmente.\A\A"
+    "02 · PRIORIZAR\AQué importa ahora.\A\A"
+    "03 · DECIDIR\AQué intervención tiene sentido.\A\A"
+    "04 · REVISAR\AQué ha cambiado y qué ajustar.";
+  display: block;
+  white-space: pre-line;
+  color: var(--ghc-text);
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.5;
+}
+
+/* ESTADO DE GATES: jurídico y económico ya aprobados por Alby. */
+[role="status"] span {
+  font-size: 0 !important;
+}
+
+[role="status"] span::after {
+  content: "Gate jurídico y económico aprobados. Publicación y cobro bloqueados hasta Gate técnico, operativo y autorización final.";
+  font-size: 11px;
+}
+
+[class*="paymentSection"] [class*="sectionIntroCenter"] > p:last-child {
+  font-size: 0 !important;
+}
+
+[class*="paymentSection"] [class*="sectionIntroCenter"] > p:last-child::after {
+  content: "La parte jurídica y económica ya está aprobada. La matrícula seguirá desactivada hasta completar el Gate técnico, operativo y la autorización final.";
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ghc-muted);
+}
+
+[class*="faqSection"] [class*="sectionIntroRow"] > p {
+  font-size: 0 !important;
+}
+
+[class*="faqSection"] [class*="sectionIntroRow"] > p::after {
+  content: "El paquete jurídico Word está aprobado. Antes de producción se incorporarán los datos identificativos, fiscales y URLs contractuales definitivas.";
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ghc-muted);
+}
+
+[class*="footer"] > p {
+  font-size: 0 !important;
+}
+
+[class*="footer"] > p::after {
+  content: "GHC Academy · Formación privada online · Base jurídica aprobada · Publicación y cobro pendientes de Gates técnico y operativo.";
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ghc-muted-2);
+}
+
+/* JERARQUÍA DE PRECIO: reducir carga cognitiva.
+   Los precios individuales siguen visibles arriba. Debajo, 2.670 € pasa a ser referencia secundaria
+   y la comparación comercial principal queda en 2.290 € vs 1.690 €. */
+.price-arrow {
+  grid-template-columns: 1fr 1.12fr !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+  margin-top: 18px !important;
+}
+
+.price-arrow > .price-node:first-child,
+.price-arrow > .price-chevron {
+  display: none !important;
+}
+
+.price-arrow::before {
+  content: "Los tres niveles comprados por separado sumarían 2.670 €. La comparación importante es esta:";
+  grid-column: 1 / -1;
+  display: block;
+  margin: 4px 0 2px;
+  color: var(--ghc-muted-2);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.price-arrow > .price-node:nth-of-type(2) {
+  border-color: var(--ghc-border) !important;
+}
+
+.price-arrow > .price-node:nth-of-type(2)::before {
+  content: "PRECIO HABITUAL DEL PACK";
+  display: block;
+  margin-bottom: 10px;
+  color: var(--ghc-muted-2);
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.13em;
+}
+
+.price-arrow > .price-node.featured {
+  position: relative;
+  border-width: 2px !important;
+  transform: translateY(-2px);
+}
+
+.price-arrow > .price-node.featured::before {
+  content: "TU PRECIO COMO FUNDADOR";
+  display: block;
+  margin-bottom: 10px;
+  color: var(--ghc-green);
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.13em;
+}
+
+.price-savings span:nth-child(2),
+.price-savings span:nth-child(3) {
+  display: none !important;
+}
+
+.price-savings span:first-child {
+  font-size: 13px !important;
+  padding: 11px 15px !important;
+}
+
+/* FORMAS DE PAGO: alineación y precio fraccionado aprobado. */
+[class*="paymentGrid"] {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+}
+
+[class*="paymentGrid"] > article {
+  display: grid !important;
+  grid-template-rows: auto 62px 58px minmax(108px, 1fr) 50px !important;
+  align-content: stretch !important;
+  min-height: 390px !important;
+  height: 100% !important;
+}
+
+[class*="paymentGrid"] > article [class*="paymentLabel"] {
+  align-self: start !important;
+}
+
+[class*="paymentGrid"] > article h3 {
+  min-height: 62px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  margin: 0 !important;
+  padding-top: 20px !important;
+}
+
+[class*="paymentGrid"] > article > strong {
+  min-height: 58px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  padding-top: 8px !important;
+  line-height: 1.2 !important;
+}
+
+[class*="paymentGrid"] > article:nth-child(2) > strong {
+  font-size: 0 !important;
+}
+
+[class*="paymentGrid"] > article:nth-child(2) > strong::after {
+  content: "895 € + 895 €";
+  font-size: 22px;
+}
+
+[class*="paymentGrid"] > article > p {
+  margin: 0 !important;
+  padding: 14px 0 24px !important;
+  align-self: stretch !important;
+}
+
+[class*="paymentGrid"] > article:nth-child(2) > p {
+  font-size: 0 !important;
+}
+
+[class*="paymentGrid"] > article:nth-child(2) > p::after {
+  content: "Dos pagos de 895 €. El segundo vence 15 días naturales después del primero. Total fraccionado: 1.790 € (+100 €).";
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ghc-muted);
+}
+
+[class*="paymentGrid"] > article > button {
+  width: 100% !important;
+  min-height: 50px !important;
+  margin: 0 !important;
+  align-self: end !important;
+}
+
+[class*="paymentGrid"] > article:nth-child(2) > button {
+  font-size: 0 !important;
+}
+
+[class*="paymentGrid"] > article:nth-child(2) > button::after {
+  content: "Matrícula fraccionada · pendiente de apertura";
+  font-size: 13px;
+}
+
+/* Checkout: el fraccionado ya no está pendiente y el bloque jurídico aparece aprobado. */
+[class*="paymentChoicePending"] {
+  opacity: 1 !important;
+  border-color: var(--ghc-border-green) !important;
+  background: linear-gradient(145deg, rgba(34, 214, 91, 0.05), rgba(255, 255, 255, 0.02)) !important;
+}
+
+[class*="legalPending"] {
+  border-left-color: var(--ghc-green) !important;
+  background: rgba(34, 214, 91, 0.05) !important;
+  color: var(--ghc-muted) !important;
+}
+
+@media (max-width: 900px) {
+  .hero-v02 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .hero-v02-side {
+    min-height: 380px !important;
+  }
+
+  .price-arrow,
+  [class*="paymentGrid"] {
+    grid-template-columns: 1fr !important;
+  }
+}
