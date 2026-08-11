@@ -31,8 +31,14 @@ const euro = (cents: number) => new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 0,
 }).format(cents / 100);
 
-export default function CheckoutInteractive({ isPreview = false }: { isPreview?: boolean }) {
-  const [paymentPlan, setPaymentPlan] = useState<PaymentPlan>('single');
+export default function CheckoutInteractive({
+  isPreview = false,
+  initialPlan = 'single',
+}: {
+  isPreview?: boolean;
+  initialPlan?: PaymentPlan;
+}) {
+  const [paymentPlan, setPaymentPlan] = useState<PaymentPlan>(initialPlan);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [status, setStatus] = useState('');
@@ -40,8 +46,8 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
   const total = paymentPlan === 'single' ? 169000 : 179000;
   const buttonLabel = useMemo(
     () => paymentPlan === 'single'
-      ? `Pagar 1.690 €${isPreview ? ' · Sandbox' : ''}`
-      : `Pagar primera cuota · 895 €${isPreview ? ' · Sandbox' : ''}`,
+      ? `Pagar ahora · 1.690 €${isPreview ? ' · Sandbox' : ''}`
+      : `Pagar ahora · primera cuota 895 €${isPreview ? ' · Sandbox' : ''}`,
     [paymentPlan, isPreview]
   );
 
@@ -124,14 +130,14 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
   }
 
   return (
-    <form className={styles.checkoutGrid} onSubmit={handleSubmit} noValidate>
+    <form className={styles.checkoutGrid} onSubmit={handleSubmit}>
       <div className={styles.flow}>
         <section className={styles.card}>
           <div className={styles.cardHeader}>
             <span className={styles.step}>01</span>
             <div>
-              <h2>Resumen de matrícula</h2>
-              <p>Solo lo que condiciona la decisión de compra.</p>
+              <h2>Tu plaza fundadora</h2>
+              <p>Antes de pedirte ningún dato, confirmamos exactamente qué estás contratando.</p>
             </div>
           </div>
 
@@ -141,7 +147,7 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
             <div><span>Edición</span><strong>Fundadora · máximo 100 plazas</strong></div>
             <div><span>Apertura</span><strong>Durante octubre de 2026</strong></div>
             <div><span>Formato</span><strong>Formación privada online</strong></div>
-            <div><span>Acceso</span><strong>Mientras la plataforma esté operativa</strong></div>
+            <div><span>Confirmación</span><strong>La plaza se confirma tras verificar el pago</strong></div>
           </div>
         </section>
 
@@ -149,7 +155,7 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
           <div className={styles.cardHeader}>
             <span className={styles.step}>02</span>
             <div>
-              <h2>Elige cómo pagar</h2>
+              <h2>Elige cómo quieres entrar</h2>
               <p>{isPreview ? 'Preview conectado a SumUp Sandbox: no se mueve dinero real.' : 'El pago se procesa de forma segura mediante SumUp.'}</p>
             </div>
           </div>
@@ -157,18 +163,18 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
           <div className={styles.paymentChoices}>
             <label className={`${styles.paymentChoice} ${paymentPlan === 'single' ? ui.selected : ''}`}>
               <input className={ui.radio} type="radio" name="paymentPlan" value="single" checked={paymentPlan === 'single'} onChange={() => setPaymentPlan('single')} />
-              <span className={styles.choiceLabel}>Mejor precio</span>
+              <span className={styles.choiceLabel}>Mejor condición económica</span>
               <h3>Pago único</h3>
               <strong className={styles.price}>1.690 €</strong>
-              <p>Un solo pago. Ahorras 100 € frente a la modalidad fraccionada.</p>
+              <p>Un solo pago. Ahorras 100 € frente a la modalidad fraccionada y 600 € frente al precio oficial futuro del pack.</p>
             </label>
 
             <label className={`${styles.paymentChoicePending} ${paymentPlan === 'split' ? ui.selected : ''}`}>
               <input className={ui.radio} type="radio" name="paymentPlan" value="split" checked={paymentPlan === 'split'} onChange={() => setPaymentPlan('split')} />
-              <span className={styles.choiceLabel}>Pago fraccionado</span>
+              <span className={styles.choiceLabel}>Modalidad alternativa</span>
               <h3>895 € + 895 €</h3>
-              <strong className={styles.price}>1.790 €</strong>
-              <p>La segunda cuota vence 15 días naturales después de confirmar el primer pago.</p>
+              <strong className={styles.price}>1.790 € total</strong>
+              <p>Pagas 895 € ahora. La segunda cuota vence 15 días naturales después de confirmar el primer pago.</p>
             </label>
           </div>
         </section>
@@ -177,28 +183,28 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
           <div className={styles.cardHeader}>
             <span className={styles.step}>03</span>
             <div>
-              <h2>Datos del comprador</h2>
-              <p>Se utilizarán para tu matrícula, comunicaciones transaccionales, acceso y soporte.</p>
+              <h2>Datos de tu matrícula</h2>
+              <p>Los usaremos para identificar tu plaza, enviarte las comunicaciones transaccionales y preparar el acceso.</p>
             </div>
           </div>
 
           <div className={styles.fieldGrid}>
             <div className={styles.field}>
               <label htmlFor="firstName">Nombre</label>
-              <input id="firstName" name="firstName" type="text" autoComplete="given-name" placeholder="Nombre" />
+              <input id="firstName" name="firstName" type="text" autoComplete="given-name" placeholder="Nombre" required />
             </div>
             <div className={styles.field}>
               <label htmlFor="lastName">Apellidos</label>
-              <input id="lastName" name="lastName" type="text" autoComplete="family-name" placeholder="Apellidos" />
+              <input id="lastName" name="lastName" type="text" autoComplete="family-name" placeholder="Apellidos" required />
             </div>
             <div className={styles.fieldFull}>
               <label htmlFor="email">Correo electrónico</label>
-              <input id="email" name="email" type="email" autoComplete="email" placeholder="nombre@correo.com" />
-              <small>Cuenta, confirmación, acceso y soporte.</small>
+              <input id="email" name="email" type="email" autoComplete="email" placeholder="nombre@correo.com" required />
+              <small>Aquí recibirás la confirmación, las instrucciones de apertura y las comunicaciones de tu matrícula.</small>
             </div>
             <div className={styles.field}>
               <label htmlFor="country">País de residencia</label>
-              <select className={ui.controlAligned} id="country" name="country" defaultValue="">
+              <select className={ui.controlAligned} id="country" name="country" defaultValue="" required>
                 <option value="" disabled>Selecciona país</option>
                 <option>España</option><option>México</option><option>Argentina</option><option>Colombia</option><option>Chile</option><option>Uruguay</option><option>Otro país hispanohablante</option>
               </select>
@@ -215,8 +221,8 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
           <div className={styles.cardHeader}>
             <span className={styles.step}>04</span>
             <div>
-              <h2>Información esencial antes del pago</h2>
-              <p>Estas son las condiciones esenciales de la Edición Fundadora.</p>
+              <h2>Lo esencial antes de pagar</h2>
+              <p>Queremos que la decisión sea clara antes de abrir la pasarela de pago.</p>
             </div>
           </div>
 
@@ -241,14 +247,14 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
             <span className={styles.step}>05</span>
             <div>
               <h2>Aceptaciones y consentimientos</h2>
-              <p>Las aceptaciones obligatorias se registran separadas del consentimiento comercial opcional.</p>
+              <p>Lo obligatorio para contratar queda separado del consentimiento comercial opcional.</p>
             </div>
           </div>
 
           <div className={styles.checkList}>
-            <label className={styles.checkRow}><input name="acceptedTerms" type="checkbox" /><span><strong>Obligatoria.</strong> He leído la información precontractual y acepto las condiciones de contratación aplicables.</span></label>
-            <label className={styles.checkRow}><input name="acceptedPrivacy" type="checkbox" /><span><strong>Obligatoria.</strong> He leído la información de privacidad aplicable a mi matrícula.</span></label>
-            <label className={styles.checkRow}><input name="acknowledgedPrivateTraining" type="checkbox" /><span><strong>Obligatoria.</strong> Confirmo que conozco la naturaleza privada de GHC Academy.</span></label>
+            <label className={styles.checkRow}><input name="acceptedTerms" type="checkbox" required /><span><strong>Obligatoria.</strong> He leído la información precontractual y acepto las condiciones de contratación aplicables.</span></label>
+            <label className={styles.checkRow}><input name="acceptedPrivacy" type="checkbox" required /><span><strong>Obligatoria.</strong> He leído la información de privacidad aplicable a mi matrícula.</span></label>
+            <label className={styles.checkRow}><input name="acknowledgedPrivateTraining" type="checkbox" required /><span><strong>Obligatoria.</strong> Confirmo que conozco la naturaleza privada de GHC Academy.</span></label>
             <label className={styles.checkRow}><input name="marketingConsent" type="checkbox" /><span className={styles.optional}><strong>Opcional.</strong> Quiero recibir comunicaciones comerciales propias de GHC Academy.</span></label>
           </div>
         </section>
@@ -269,18 +275,18 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
       </div>
 
       <aside className={styles.summaryCard}>
-        <div className={styles.summaryTop}><span>Resumen del pedido</span><h2>Edición Fundadora 2026</h2></div>
+        <div className={styles.summaryTop}><span>Resumen antes del pago</span><h2>Edición Fundadora 2026</h2></div>
         <div className={styles.summaryLines}>
           <div className={styles.summaryLine}><span>Producto</span><strong>3 niveles · 30 módulos</strong></div>
-          <div className={styles.summaryLine}><span>Precio habitual pack</span><strong><s>2.290 €</s></strong></div>
-          <div className={styles.summaryLine}><span>Modalidad elegida</span><strong>{paymentPlan === 'single' ? 'Pago único' : '50 % + 50 %'}</strong></div>
+          <div className={styles.summaryLine}><span>Precio oficial futuro</span><strong><s>2.290 €</s></strong></div>
+          <div className={styles.summaryLine}><span>Modalidad elegida</span><strong>{paymentPlan === 'single' ? 'Pago único' : '2 pagos'}</strong></div>
           <div className={styles.summaryLine}><span>Importe</span><strong>{paymentPlan === 'single' ? '1.690 €' : '895 € + 895 €'}</strong></div>
-          {paymentPlan === 'split' && <div className={styles.summaryLine}><span>Segundo vencimiento</span><strong>+15 días</strong></div>}
+          {paymentPlan === 'split' && <div className={styles.summaryLine}><span>Segundo vencimiento</span><strong>15 días naturales después</strong></div>}
         </div>
         <div className={styles.total}>
           <span className={styles.totalLabel}>{paymentPlan === 'single' ? 'Total fundador' : 'Total fraccionado'}</span>
           <strong className={styles.totalPrice}>{euro(total)}</strong>
-          <span className={styles.saving}>{paymentPlan === 'single' ? 'Ahorras 600 € frente al pack habitual' : 'Dos cuotas de 895 € · +100 € por fraccionamiento'}</span>
+          <span className={styles.saving}>{paymentPlan === 'single' ? 'Ahorras 600 € frente al pack oficial' : 'Pagas 895 € ahora · total 1.790 €'}</span>
         </div>
         <button className={`${styles.payButton} ${isPreview ? ui.previewButton : ''}`} type="submit" disabled={loading}>
           {loading ? 'Preparando pago…' : buttonLabel}
@@ -288,7 +294,7 @@ export default function CheckoutInteractive({ isPreview = false }: { isPreview?:
         <p className={styles.secureNote}>
           {isPreview
             ? 'Prueba real del flujo con SumUp Sandbox. No se mueve dinero real.'
-            : 'Pago procesado por SumUp. GHC Academy no almacena los datos de tu tarjeta.'}
+            : 'Pago procesado por SumUp. GHC Academy no almacena los datos de tu tarjeta. La plaza se confirma cuando el pago queda verificado.'}
         </p>
       </aside>
     </form>
