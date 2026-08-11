@@ -5,16 +5,20 @@ import styles from '../flow.module.css';
 
 export const metadata = {
   title: 'Checkout · Edición Fundadora · GHC Academy',
-  description: 'Resumen y preparación de matrícula de la Edición Fundadora GHC Academy 2026.',
+  description: 'Matrícula y pago de la Edición Fundadora GHC Academy 2026.',
 };
 
 export default function CheckoutPreventaPage() {
+  const isPreview = process.env.VERCEL_ENV === 'preview';
+
   return (
     <main className={styles.page}>
-      <div className={styles.internalBanner}>
-        <strong>Preview técnica</strong>
-        <span>Validación server-side activa · sin cobro · sin reserva de plaza · sin escritura en Supabase.</span>
-      </div>
+      {isPreview && (
+        <div className={styles.internalBanner}>
+          <strong>Preview Sandbox</strong>
+          <span>Flujo real de matrícula y SumUp Sandbox · no se mueve dinero real.</span>
+        </div>
+      )}
 
       <header className={styles.header}>
         <Link href="/preventa" className={styles.logoLink} aria-label="Volver a GHC Academy">
@@ -29,15 +33,16 @@ export default function CheckoutPreventaPage() {
 
       <div className={styles.shell}>
         <section className={styles.hero}>
-          <p className={styles.eyebrow}>Matrícula fundadora · Preview técnica</p>
-          <h1>Prueba el flujo sin realizar ningún pago.</h1>
+          <p className={styles.eyebrow}>Matrícula fundadora</p>
+          <h1>{isPreview ? 'Prueba el recorrido real de matrícula en Sandbox.' : 'Completa tu matrícula en la Edición Fundadora.'}</h1>
           <p>
-            El formulario ya valida desde servidor datos, modalidad, precios y aceptaciones. Si todo es correcto,
-            genera una referencia GHC simulada sin almacenar datos ni reservar una plaza real.
+            {isPreview
+              ? 'El formulario crea una matrícula de prueba, protege temporalmente una plaza y abre SumUp Sandbox con el mismo recorrido que usará la preventa.'
+              : 'Elige tu modalidad, completa tus datos y continúa al pago seguro con SumUp. La plaza fundadora se confirma cuando el pago queda verificado.'}
           </p>
         </section>
 
-        <CheckoutInteractive />
+        <CheckoutInteractive isPreview={isPreview} />
       </div>
     </main>
   );
