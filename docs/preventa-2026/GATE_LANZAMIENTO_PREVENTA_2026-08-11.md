@@ -59,6 +59,40 @@ La landing `/preventa` muestra:
 - vencimiento de segunda cuota a los 15 días naturales;
 - enlaces reales al checkout.
 
+### E2E final desde landing pública
+
+El 11 de agosto de 2026 se ejecutó el recorrido completo desde la landing pública de Preview, sin usar la pantalla técnica de QA.
+
+Orden creada:
+
+`GHC-F6538C96`
+
+Resultado verificado:
+
+- entrada desde `/preventa`;
+- navegación a `/preventa/checkout`;
+- creación real de pedido: HTTP 200;
+- creación de Hosted Checkout SumUp: HTTP 200;
+- modalidad: pago único;
+- importe: 1.690 €;
+- SumUp Sandbox confirmó el pago;
+- webhook recibido: HTTP 200;
+- webhook drenó el worker transaccional con `claimed: 1`, `sent: 1`, `retryOrFailed: 0`;
+- orden final: `paid`;
+- total pagado: 1.690 €;
+- total reembolsado: 0 €;
+- plaza Fundador: n.º 2, `confirmed`;
+- hold de capacidad: `consumed`;
+- intento de checkout: `paid`;
+- atribución: `source_channel = preventa-web`;
+- `source_detail = public-checkout-preview-sandbox`;
+- campaña: `FOUNDERS_2026`;
+- E01 enviado en un único intento;
+- E01 sin error de entrega;
+- provider message id registrado.
+
+Con esta prueba queda validado el recorrido que hará un comprador real desde la superficie pública, no únicamente desde arneses técnicos.
+
 ## Operativa administrativa de reembolso
 
 Implementado panel:
