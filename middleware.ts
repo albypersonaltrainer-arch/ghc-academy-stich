@@ -48,6 +48,24 @@ export function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Public launch surface: the apex domain renders the presale landing.
+  if (pathname === '/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/preventa';
+    return NextResponse.rewrite(url);
+  }
+
+  // Only the presale experience is public before Academy opens.
+  if (pathname === '/preventa' || pathname.startsWith('/preventa/')) {
+    return NextResponse.next();
+  }
+
+  // Only presale APIs are operational before Academy opens.
+  if (pathname === '/api/preventa' || pathname.startsWith('/api/preventa/')) {
+    return NextResponse.next();
+  }
+
+  // Every other API remains unavailable in Production.
   if (pathname.startsWith('/api/')) {
     return new NextResponse(null, {
       status: 404,
@@ -55,6 +73,7 @@ export function middleware(request: NextRequest) {
     });
   }
 
+  // Every Academy page, static public artifact and direct route stays locked.
   return lockedPage();
 }
 
