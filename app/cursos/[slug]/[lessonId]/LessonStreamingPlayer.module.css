@@ -1,0 +1,72 @@
+.playerWrap,
+.embedWrap {
+  position: relative;
+  width: 100%;
+  background: #090b0c;
+}
+
+.playerWrap video,
+.embedWrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: #090b0c;
+}
+
+.playerWrap video {
+  max-height: 68vh;
+}
+
+.embedWrap iframe {
+  min-height: min(68vh, 760px);
+}
+
+.liveBadge {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.state {
+  position: relative;
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 34px;
+  color: #aab4b9;
+  text-align: center;
+  background: #0d1012;
+}
+
+.state .liveBadge {
+  position: static;
+  margin-bottom: 8px;
+}
+
+.state strong {
+  color: #fff;
+}
+
+.state p {
+  margin: 0;
+}
+
+.error {
+  padding: 10px 14px;
+  color: #ffb8b8;
+  background: rgba(90, 20, 20, 0.45);
+  font-size: 12px;
+}
