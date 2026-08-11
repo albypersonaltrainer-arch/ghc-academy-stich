@@ -50,7 +50,7 @@ export default function CheckoutPreventaPage({ searchParams }: CheckoutPageProps
           </p>
         </section>
 
-        <CheckoutInteractive isPreview={isPreview} initialPlan={initialPlan} />
+        <CheckoutInteractive key={initialPlan} isPreview={isPreview} initialPlan={initialPlan} />
       </div>
     </main>
   );
