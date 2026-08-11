@@ -73,7 +73,7 @@ export default function AcademyFinancingAdminPage() {
     load().catch((e) => setError(e?.message || 'No se pudo cargar la operativa comercial.')).finally(() => setLoading(false))
   }, [load])
 
-  const run = async (action: () => Promise<{ error: any }>, success: string) => {
+  const run = async (action: () => PromiseLike<{ error: any }>, success: string) => {
     setBusy(true); setError(''); setMessage('')
     try {
       const result = await action()
