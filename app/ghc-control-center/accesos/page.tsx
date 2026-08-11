@@ -181,7 +181,6 @@ export default function AdminAccessPage() {
       <header className={styles.topbar}>
         <Link href="/ghc-control-center" className={styles.brand}><GHCLogo size="md" showText tagline={false} /></Link>
         <div className={styles.actions}>
-          <Link href="/ghc-control-center/preventa">Preventa</Link>
           <Link href="/ghc-control-center/financiacion">Planes Academy</Link>
           <Link href="/ghc-control-center/soporte">Soporte</Link>
           <Link href="/ghc-control-center">← Control Center</Link>
