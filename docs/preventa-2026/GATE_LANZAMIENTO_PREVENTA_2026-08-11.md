@@ -6,7 +6,7 @@ Fecha: 11 de agosto de 2026
 
 **MOTOR TÉCNICO CRÍTICO DE PREVENTA: VALIDADO EN PREVIEW/SANDBOX.**
 
-**GATE LIVE: CERRADO** hasta completar identidad/legal, correo corporativo, scheduler y credenciales SumUp live.
+**GATE LIVE TÉCNICO: CERRADO** hasta completar configuración live de correo, scheduler y SumUp. La identidad/fiscalidad del prestador queda fuera del QA técnico y debe resolverse externamente antes de cualquier afirmación de cumplimiento legal.
 
 Este documento complementa y actualiza `ESTADO_GATE_EMAIL_TRANSACCIONAL_2026-08-10.md`.
 
@@ -152,58 +152,72 @@ Estado tras sincronización:
 - Next.js compila y pasa lint/types;
 - los avisos de autoprefixer existentes en Academy no bloquean build.
 
-## Scheduler
+## Scheduler horario sin Vercel Pro
 
-Código disponible:
+Endpoint disponible:
 
 `/api/preventa/cron`
 
 Protegido con Bearer `CRON_SECRET` y preparado para frecuencia horaria.
 
-Bloqueo de infraestructura actual: el plan Vercel Hobby no permite el cron horario requerido. No se degradará deliberadamente la política a una ejecución diaria.
+Se añadió una alternativa sin coste adicional mediante GitHub Actions:
 
-**Gate live:** Vercel Pro o scheduler externo equivalente + `CRON_SECRET` exclusivo de Production.
+`.github/workflows/preventa-scheduled-maintenance.yml`
 
-## Bloqueos reales restantes antes de abrir cobros
+Configuración:
 
-### 1. Identidad y paquete jurídico público — BLOQUEANTE
+- ejecución cada hora al minuto `:17`;
+- `workflow_dispatch` disponible para prueba manual;
+- concurrencia bloqueada para evitar solapamientos;
+- timeout de 3 minutos;
+- llamada HTTP con Bearer secreto;
+- cualquier respuesta distinta de HTTP 200 falla el workflow;
+- el secreto no se imprime en logs.
 
-Las condiciones existentes están marcadas expresamente como `BORRADOR JURÍDICO OPERATIVO · NO PUBLICAR`.
+GitHub ejecuta los workflows `schedule` únicamente desde la rama por defecto. Por tanto, el scheduler no se activa mientras esta rama permanezca sin mergear a `main`.
 
-Faltan como mínimo:
+### Configuración necesaria al abrir Production
 
-- prestador legal definitivo;
-- NIF/CIF;
-- domicilio legal;
-- email legal/desistimiento y soporte definitivo;
-- dominio definitivo que debe figurar en contratación;
-- cierre contractual de la duración mínima de acceso/continuidad;
-- revisión jurídica final.
+Crear en GitHub Actions:
 
-No se publicarán páginas legales con placeholders ni se activará checkout live mientras este bloque siga abierto.
+- `PREVENTA_CRON_URL` = URL Production completa de `/api/preventa/cron`;
+- `PREVENTA_CRON_SECRET` = mismo secreto aleatorio de al menos 32 caracteres configurado como `CRON_SECRET` en Vercel Production.
 
-### 2. Email transaccional live — BLOQUEANTE
+Con esta arquitectura **Vercel Pro deja de ser requisito de lanzamiento** para el mantenimiento horario.
+
+## Bloqueos técnicos restantes antes de abrir cobros
+
+### 1. Email transaccional live
 
 - verificar dominio/subdominio en Resend;
 - sustituir `onboarding@resend.dev` por remitente corporativo;
 - configurar soporte corporativo;
 - retirar redirección de seguridad a buzón de prueba en Production.
 
-### 3. Scheduler horario — BLOQUEANTE
+### 2. Scheduler Production
 
-- Vercel Pro o equivalente;
-- `CRON_SECRET` Production;
-- activar frecuencia horaria.
+El código ya está terminado. Solo queda, al abrir el Gate:
 
-### 4. SumUp live — BLOQUEANTE PARA COBRAR
+- crear los dos secretos de GitHub Actions;
+- configurar el mismo `CRON_SECRET` en Vercel Production;
+- ejecutar `workflow_dispatch` una vez y verificar HTTP 200;
+- dejar activo el schedule horario.
+
+### 3. SumUp live
 
 - credenciales live únicamente con autorización explícita;
 - webhook live apuntando al deployment final;
 - smoke test controlado después del Gate.
 
-### 5. Datos Sandbox — PRE-LANZAMIENTO
+### 4. Datos Sandbox
 
 Identificar/eliminar de forma controlada los registros Sandbox antes de abrir la preventa. No borrar datos hasta que el cierre documental del QA esté asegurado.
+
+## Identidad, fiscalidad y documentación jurídica
+
+La documentación contractual existente contiene campos pendientes de identidad del prestador y no puede considerarse jurídicamente final mientras dichos datos no estén cerrados.
+
+Este asunto queda expresamente separado del QA técnico. No se introducirán datos ficticios ni se declarará cumplimiento jurídico que no haya sido verificado.
 
 ## Gate de merge
 
