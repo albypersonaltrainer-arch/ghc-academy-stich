@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const BUCKET = 'ghc-course-assets'
+const EXTERNAL_TEST_HOSTS = new Set(['mozilla.github.io'])
 
 function getBearerToken(request: NextRequest) {
   const header = request.headers.get('authorization') || ''
@@ -11,7 +12,6 @@ function getBearerToken(request: NextRequest) {
 function normalizeStoragePath(value: unknown) {
   const raw = String(value || '').trim()
   if (!raw) return ''
-
   if (!/^https?:\/\//i.test(raw)) return raw.replace(/^\/+/, '')
 
   try {
@@ -25,6 +25,31 @@ function normalizeStoragePath(value: unknown) {
   } catch {
     return ''
   }
+}
+
+function getApprovedExternalUrl(value: unknown) {
+  const raw = String(value || '').trim()
+  if (!/^https:\/\//i.test(raw)) return null
+
+  try {
+    const url = new URL(raw)
+    return EXTERNAL_TEST_HOSTS.has(url.hostname.toLowerCase()) ? url : null
+  } catch {
+    return null
+  }
+}
+
+function inlineResponse(bytes: ArrayBuffer, contentType = 'application/pdf') {
+  return new NextResponse(bytes, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Disposition': 'inline; filename="manual-ghc-academy.pdf"',
+      'Cache-Control': 'private, no-store, max-age=0',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer'
+    }
+  })
 }
 
 export async function GET(request: NextRequest) {
@@ -55,10 +80,7 @@ export async function GET(request: NextRequest) {
 
   const { data: experience, error: experienceError } = await supabase.rpc(
     'ghc_student_get_lesson_experience',
-    {
-      p_course_slug: courseSlug,
-      p_lesson_id: lessonId
-    }
+    { p_course_slug: courseSlug, p_lesson_id: lessonId }
   )
 
   if (experienceError || !experience?.allowed) {
@@ -68,26 +90,32 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const storagePath = normalizeStoragePath(experience?.lesson?.manual_path)
-  if (!storagePath) {
-    return NextResponse.json({ error: 'Esta lección no tiene manual disponible.' }, { status: 404 })
-  }
+  const rawManualPath = experience?.lesson?.manual_path
+  const storagePath = normalizeStoragePath(rawManualPath)
 
-  const { data: file, error: fileError } = await supabase.storage.from(BUCKET).download(storagePath)
-  if (fileError || !file) {
-    return NextResponse.json({ error: 'No se pudo abrir el manual.' }, { status: 404 })
-  }
-
-  const bytes = await file.arrayBuffer()
-
-  return new NextResponse(bytes, {
-    status: 200,
-    headers: {
-      'Content-Type': file.type || 'application/pdf',
-      'Content-Disposition': 'inline; filename="manual-ghc-academy.pdf"',
-      'Cache-Control': 'private, no-store, max-age=0',
-      'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'no-referrer'
+  if (storagePath) {
+    const { data: file, error: fileError } = await supabase.storage.from(BUCKET).download(storagePath)
+    if (fileError || !file) {
+      return NextResponse.json({ error: 'No se pudo abrir el manual.' }, { status: 404 })
     }
-  })
+
+    return inlineResponse(await file.arrayBuffer(), file.type || 'application/pdf')
+  }
+
+  // Temporary compatibility for the known Mozilla sample PDF used in current beta lessons.
+  // Real GHC manuals must live in the private Storage bucket instead.
+  const externalUrl = getApprovedExternalUrl(rawManualPath)
+  if (externalUrl) {
+    const response = await fetch(externalUrl, { cache: 'no-store', redirect: 'error' })
+    if (!response.ok) {
+      return NextResponse.json({ error: 'No se pudo abrir el manual de prueba.' }, { status: 502 })
+    }
+
+    return inlineResponse(
+      await response.arrayBuffer(),
+      response.headers.get('content-type') || 'application/pdf'
+    )
+  }
+
+  return NextResponse.json({ error: 'Esta lección no tiene manual disponible.' }, { status: 404 })
 }
