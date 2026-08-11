@@ -5,6 +5,21 @@ const SECURITY_HEADERS = {
   'X-Robots-Tag': 'noindex, nofollow, noarchive',
 };
 
+const PUBLIC_PREVENTA_PAGES = new Set([
+  '/preventa',
+  '/preventa/checkout',
+  '/preventa/confirmacion',
+  '/preventa/matricula',
+  '/preventa/pago',
+]);
+
+const PUBLIC_PREVENTA_API_PREFIXES = [
+  '/api/preventa/orders',
+  '/api/preventa/sumup-checkout',
+  '/api/preventa/sumup-webhook',
+  '/api/preventa/cron',
+];
+
 function lockedPage() {
   return new NextResponse(
     `<!doctype html>
@@ -41,6 +56,12 @@ function lockedPage() {
   );
 }
 
+function matchesAllowedApi(pathname: string) {
+  return PUBLIC_PREVENTA_API_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
 export function middleware(request: NextRequest) {
   if (process.env.VERCEL_ENV !== 'production') {
     return NextResponse.next();
@@ -55,13 +76,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // Only the presale experience is public before Academy opens.
-  if (pathname === '/preventa' || pathname.startsWith('/preventa/')) {
+  // Buyer-facing presale pages only. QA/test pages under /preventa stay closed.
+  if (PUBLIC_PREVENTA_PAGES.has(pathname)) {
     return NextResponse.next();
   }
 
-  // Only presale APIs are operational before Academy opens.
-  if (pathname === '/api/preventa' || pathname.startsWith('/api/preventa/')) {
+  // Operational presale APIs only. Self-tests, previews and admin APIs stay closed.
+  if (matchesAllowedApi(pathname)) {
     return NextResponse.next();
   }
 
@@ -73,7 +94,7 @@ export function middleware(request: NextRequest) {
     });
   }
 
-  // Every Academy page, static public artifact and direct route stays locked.
+  // Every Academy page, QA route, static public artifact and direct route stays locked.
   return lockedPage();
 }
 
