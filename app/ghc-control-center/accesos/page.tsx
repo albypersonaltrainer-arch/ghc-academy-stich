@@ -180,13 +180,17 @@ export default function AdminAccessPage() {
     <main className={styles.page}>
       <header className={styles.topbar}>
         <Link href="/ghc-control-center" className={styles.brand}><GHCLogo size="md" showText tagline={false} /></Link>
-        <div className={styles.actions}><Link href="/ghc-control-center">← Control Center</Link><Link href="/ghc-control-center/soporte">Soporte</Link></div>
+        <div className={styles.actions}>
+          <Link href="/ghc-control-center/financiacion">Planes Academy</Link>
+          <Link href="/ghc-control-center/soporte">Soporte</Link>
+          <Link href="/ghc-control-center">← Control Center</Link>
+        </div>
       </header>
 
       <section className={styles.hero}>
         <p>Operaciones reales · GHC Academy</p>
         <h1>Pagos y accesos</h1>
-        <span>El pago crea un derecho comercial. La matrícula académica se activa por separado y queda trazada.</span>
+        <span>Preventa, derechos comerciales y matrículas. Los planes ordinarios post-lanzamiento se gestionan desde “Planes Academy”.</span>
       </section>
 
       {loading ? <div className={styles.notice}>Cargando estados reales…</div> : null}
