@@ -5,9 +5,9 @@ Fecha de corte inicial: 2026-08-10
 
 ## Estado
 
-**PRUEBAS E2E DE PAGO ÚNICO Y PAGO FRACCIONADO SUPERADAS EN PREVIEW · GATE LIVE DE PREVENTA SIGUE CERRADO**
+**QA E2E ECONÓMICO Y TRANSACCIONAL CRÍTICO SUPERADO EN PREVIEW/SANDBOX · GATE LIVE DE PREVENTA SIGUE CERRADO**
 
-La validación se realizó íntegramente con SumUp Sandbox, Supabase y Resend en modo de prueba. Ningún cambio de estas pruebas de preventa se promovió a Production y no se activó SumUp live ni entrega de email real de preventa.
+La validación se realizó con SumUp Sandbox, Supabase y Resend en modo de prueba. Las pruebas de preventa no activaron SumUp live ni entrega real de email de preventa.
 
 ## Resultado E2E pago único + E01
 
@@ -22,16 +22,10 @@ Resultado:
 - Estado de orden: `paid`.
 - Plaza Fundador asignada: n.º 1.
 - Webhook SumUp procesado correctamente.
-- E01 creado en `preventa_email_queue`.
-- Primer intento de entrega rechazado por Resend al usar un destinatario distinto al propietario de la cuenta de prueba.
-- Reintento posterior ejecutado correctamente tras alinear `PREVENTA_EMAIL_TEST_RECIPIENT` con el buzón autorizado de Resend Sandbox.
-- Estado final E01: `sent`.
-- `last_error`: `null`.
-- `provider_message_id`: persistido en Supabase.
-- Recepción del correo confirmada manualmente en el buzón de prueba.
-- CTA privado de matrícula probado manualmente y validado después de la corrección: redirige a `/preventa/matricula` y muestra el estado real de la matrícula.
-
-La prueba real confirmó también el mecanismo de reintento: el primer intento quedó registrado y el segundo terminó en `sent` sin repetir el pago ni duplicar la matrícula.
+- E01 creado y entregado.
+- El mecanismo de reintento de email quedó validado después de un rechazo inicial de Resend por destinatario Sandbox no autorizado.
+- Recepción del correo confirmada manualmente.
+- CTA privado de matrícula probado manualmente y validado después de la corrección.
 
 ## Resultado E2E pago fraccionado + E02/E10
 
@@ -62,86 +56,164 @@ Segunda cuota:
 - plaza Fundador n.º 2: `confirmed`;
 - total pagado: 1.790 €;
 - saldo pendiente: 0 €;
-- E03–E09 quedaron `cancelled` automáticamente tras confirmar la segunda cuota;
+- E03–E09 quedaron `cancelled` automáticamente;
 - E10 se generó y envió en el mismo ciclo del webhook;
-- E10 quedó `sent`, `attempt_count=1`, `last_error=null` y con `provider_message_id` persistido;
-- evento `payment.installment2.paid` y evento `email.sent` quedaron registrados con idempotencia.
+- E10 fue revisado manualmente y su CTA privado mostró correctamente la matrícula abonada.
 
-Para la prueba de cuota 2 se utilizó temporalmente una ruta Preview que emitía un token firmado de cuota 2 para la matrícula Sandbox y una ruta temporal para ejecutar un lote del worker. Ambas rutas fueron eliminadas inmediatamente después de completar la prueba.
+Las rutas temporales utilizadas para acelerar la prueba de cuota 2 y ejecutar el worker fueron eliminadas tras la validación.
 
-## Corrección del CTA de matrícula
+## Fallo real de pago + E12
 
-Durante la revisión manual del primer E01 se detectó que el CTA **“Ver estado de mi matrícula”** apuntaba a `/preventa`.
+Se ejecutó un checkout real de SumUp Sandbox con una tarjeta de prueba que fuerza fallo de autenticación 3DS.
 
-Se corrigió el flujo para E01, E02 y E10:
+Orden: `GHC-2435393F`.
 
-- nueva ruta privada `/preventa/matricula`;
-- enlace firmado específico para consulta de matrícula;
-- validación server-side del token;
-- lectura server-side de los datos administrativos de la matrícula;
-- la referencia por sí sola no permite consultar una matrícula;
-- el enlace firmado tiene caducidad y no expone `SUPABASE_SERVICE_ROLE_KEY` ni otros secretos.
+Resultado verificado:
 
-La corrección fue validada manualmente con un email E01 generado después del cambio. Los emails enviados antes de la corrección conservan su URL histórica; los nuevos emails generan el CTA seguro.
+- SumUp devolvió fallo real del checkout;
+- webhook verificó el estado contra la API de SumUp;
+- pago quedó `failed` y con 0 € cobrados;
+- orden quedó `awaiting_payment`, por tanto reintentable;
+- plaza temporal fue liberada;
+- `founder_place_number` quedó `null`;
+- E12 se generó y envió exactamente una vez;
+- recepción y contenido del mensaje fueron confirmados manualmente.
+
+## Checkout expirado real + E13
+
+Se creó un checkout PENDING real en SumUp Sandbox y se desactivó mediante la API del proveedor, provocando estado `EXPIRED`.
+
+Resultado verificado:
+
+- SumUp devolvió `EXPIRED`;
+- webhook reconsultó el checkout contra SumUp y aplicó la transición;
+- intento quedó `expired`;
+- pago quedó `pending`, con 0 € cobrados;
+- orden quedó `awaiting_payment`, por tanto reintentable;
+- hold de capacidad quedó `expired` y liberado;
+- ninguna plaza Fundador quedó retenida;
+- E13 se generó y envió en un único intento;
+- la ruta temporal de QA fue eliminada inmediatamente después de la prueba.
+
+## Reembolso real SumUp + E14
+
+Se detectó que la transición interna de refund estaba cubierta por SQL, pero faltaba la operación real contra SumUp. Se añadió un servicio server-side reutilizable que ejecuta el orden correcto:
+
+`SumUp refund aceptado → transición interna Supabase → liberación de plaza → reversión de comisión → E14`
+
+La prueba se realizó sobre `GHC-0FD27434`, que tenía dos transacciones de 895 €.
+
+Resultado:
+
+- SumUp Sandbox aceptó el refund completo de la primera transacción de 895 €;
+- SumUp Sandbox aceptó el refund completo de la segunda transacción de 895 €;
+- total reembolsado: 1.790 €;
+- ambos pagos quedaron `refunded` y con `refunded_amount_cents = 89500`;
+- orden quedó `refunded`;
+- plaza Fundador quedó `released` y `founder_place_number = null`;
+- base de comisión quedó en 0 €;
+- comisión quedó `reversed`;
+- E14 se generó y envió correctamente por Resend;
+- la ruta temporal utilizada para ejecutar la prueba fue eliminada después del test.
+
+El servicio permanente queda en capa server-side; antes del lanzamiento debe conectarse a una operación administrativa segura y autenticada para que un reembolso real no dependa de código temporal.
+
+## Impago de segunda cuota + cierre día +60
+
+Además de las suites PostgreSQL de CI, se ejecutó una prueba transaccional contra el Supabase real del proyecto dentro de una transacción terminada en `ROLLBACK`, por lo que no dejó datos QA persistentes.
+
+Quedó verificado:
+
+- no se puede marcar `overdue` antes de `second_due_at + 1 día`;
+- `partial → overdue` funciona en el momento permitido;
+- no se puede ejecutar cierre +60 antes de la fecha exacta (`DAY60_TOO_EARLY`);
+- `overdue → cancelled` funciona a +60 días;
+- el cierre libera la plaza Fundador;
+- E09 se sincroniza con el momento efectivo del cierre;
+- las operaciones son idempotentes.
+
+## Suites automáticas
+
+La CI `Preventa PostgreSQL Integration` cubre de forma recurrente:
+
+- pago único y fraccionado;
+- idempotencia de pagos;
+- hold obligatorio y límites de capacidad;
+- `FAILED` y `EXPIRED`;
+- refund y reutilización de plaza;
+- pago tardío de segunda cuota después de `overdue`;
+- cancelación E03–E09 al completar pago;
+- E09–E14;
+- permisos de funciones económicas y tablas privadas.
+
+## CTA privado de matrícula
+
+Los emails E01, E02 y E10 utilizan una ruta privada `/preventa/matricula` con:
+
+- token firmado específico;
+- validación server-side;
+- lectura server-side de datos administrativos;
+- referencia de matrícula insuficiente por sí sola para consultar datos;
+- caducidad del enlace;
+- ausencia de secretos en cliente, URL o email.
+
+Validación manual superada.
 
 ## Scheduler de preventa
 
-Se detectó un hueco operativo adicional: E03–E09 ya tenían `scheduled_for`, pero el worker solo se ejecutaba automáticamente inmediatamente después de ciertos webhooks de pago.
+Está implementado el motor de mantenimiento programado:
 
-Se implementó el motor de mantenimiento programado:
-
-- endpoint: `/api/preventa/cron`;
+- endpoint `/api/preventa/cron`;
 - protegido mediante `Authorization: Bearer <CRON_SECRET>`;
-- lógica preparada para ejecutarse una vez por hora;
-- Vercel Cron solo se activa en deployments de Production;
-- el Gate live de preventa permanece cerrado.
+- lógica preparada para frecuencia horaria;
+- marca `partial → overdue` cuando corresponde;
+- ejecuta cierre `overdue → cancelled` a +60 y libera plaza;
+- drena emails vencidos.
 
-El intento de declarar `0 * * * *` en `vercel.json` fue rechazado por la limitación del plan Hobby: ese plan solo permite cron una vez al día y con precisión horaria. Para no degradar la precisión de los recordatorios de pago, el cron horario no queda declarado mientras el proyecto siga en Hobby.
+El plan Vercel Hobby no admite el cron horario requerido. Para no degradar la precisión, el cron no está declarado en `vercel.json` mientras no exista un scheduler adecuado.
 
-**Requisito de lanzamiento:** usar Vercel Pro —o un scheduler externo equivalente— antes de activar la preventa real, y entonces declarar el endpoint `/api/preventa/cron` con frecuencia horaria.
-
-Cada ejecución realiza, en este orden:
-
-1. transición de matrículas fraccionadas `partial → overdue` cuando corresponde a partir de día +1;
-2. cierre `overdue → cancelled` a partir de día +60, liberando la plaza conforme a la lógica existente;
-3. procesamiento de la cola de emails ya vencidos, incluidos los eventos generados por las transiciones anteriores.
-
-Las RPC económicas existentes siguen siendo la fuente de verdad y mantienen locks/idempotencia.
+**Requisito de lanzamiento:** Vercel Pro o scheduler externo equivalente, `CRON_SECRET` exclusivo de Production y frecuencia horaria activa.
 
 ## Gate Preview actual
 
 Validado:
 
-- Persistencia Supabase: activa.
-- SumUp Sandbox: operativo.
-- Webhook: operativo para pago único, primera cuota y segunda cuota.
-- Renderer HTML + texto: operativo.
-- Resend Sandbox: operativo.
-- Worker: `ready=true` con la configuración de Preview validada.
-- `EMAIL_PREVIEW_READY=YES`.
-- E01: validado.
-- E02: validado.
-- E10: validado.
-- CTA privado de estado de matrícula: validado manualmente y protegido con token firmado.
-- CTA de pago de segunda cuota: backend y página segura validados con pago Sandbox real.
-- Cancelación automática E03–E09 al completar el segundo pago: validada.
-- Scheduler: implementado en código y protegido; pendiente únicamente de `CRON_SECRET` y de un entorno con frecuencia horaria admitida cuando se abra el Gate live de preventa.
+- Persistencia Supabase.
+- SumUp Sandbox.
+- Pago único 1.690 €.
+- Pago fraccionado 895 € + 895 €.
+- Webhook y verificación server-to-server contra SumUp.
+- Fallo real `FAILED`.
+- Expiración real `EXPIRED`.
+- Reembolso real de proveedor, incluida matrícula con dos transacciones.
+- Impago, overdue y cierre +60.
+- Reserva, confirmación, liberación y reutilización de plazas Fundador.
+- Idempotencia económica.
+- E01, E02, E10, E12, E13 y E14 E2E.
+- Cadena E03–E09 y cierre E09 por suites/QA transaccional.
+- Resend Sandbox y worker.
+- CTA privado de matrícula.
+- CTA de segunda cuota.
+- CI PostgreSQL.
 
 ## Pendiente antes de abrir preventa live
 
 1. Verificar el dominio/subdominio definitivo de envío en Resend.
-2. Sustituir `onboarding@resend.dev` por el remitente corporativo definitivo.
-3. Configurar el buzón corporativo definitivo de soporte.
-4. Crear `CRON_SECRET` exclusivo para Production, de al menos 32 caracteres.
-5. Configurar variables live de SumUp exclusivamente cuando se autorice pasar de Sandbox a producción.
-6. Pasar el proyecto a Vercel Pro —o definir un scheduler externo equivalente— y activar la frecuencia horaria del mantenimiento de preventa.
-7. Limpiar o identificar explícitamente los datos Sandbox antes de la apertura real.
-8. Realizar revisión final del PR y mergear únicamente con autorización expresa.
+2. Sustituir `onboarding@resend.dev` por remitente corporativo definitivo.
+3. Configurar buzón corporativo definitivo de soporte.
+4. Pasar a Vercel Pro o scheduler equivalente y activar mantenimiento horario.
+5. Crear `CRON_SECRET` exclusivo para Production.
+6. Configurar credenciales live de SumUp únicamente al abrir el Gate live.
+7. Conectar `refund-service` a una acción administrativa segura/autenticada para operar refunds sin rutas temporales.
+8. Reconciliar la rama de preventa con el `main` actual, que ha recibido cambios de Academy en paralelo, y resolver cualquier conflicto antes del merge.
+9. Limpiar o identificar explícitamente datos Sandbox existentes antes de apertura.
+10. Ejecutar QA final de Production con cobro real controlado de importe mínimo o procedimiento equivalente autorizado, una vez estén las credenciales live.
+11. Revisión final del PR y merge únicamente con autorización expresa.
 
 ## Restricciones vigentes
 
 - No mergear la rama de preventa a `main` sin autorización expresa.
-- No activar correo real de preventa en Production.
-- No activar SumUp live.
+- No activar SumUp live sin Gate explícito.
+- No activar email real de preventa sin dominio/remitente definitivo.
 - No reutilizar secretos de Preview en Production.
 - No exponer `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `PREVENTA_CHECKOUT_TOKEN_SECRET`, `PREVENTA_EMAIL_WORKER_SECRET` ni `CRON_SECRET` en logs, commits o URLs.
