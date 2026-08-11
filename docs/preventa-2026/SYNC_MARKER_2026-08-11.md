@@ -1,0 +1,1 @@
+Technical sync marker. This file is intentionally temporary and may be removed after synchronization.
