@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { getAcademyEmailProviderStatus } from '../../../lib/academy/email-provider'
-import { getAcademyEmailWorkerStatus, runAcademyEmailWorker } from '../../../lib/academy/email-worker'
+import { getAcademyEmailProviderStatus } from '../../../../lib/academy/email-provider'
+import { getAcademyEmailWorkerStatus, runAcademyEmailWorker } from '../../../../lib/academy/email-worker'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
