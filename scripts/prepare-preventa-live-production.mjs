@@ -10,14 +10,13 @@ if (!isProduction) {
 
 const clean = (value) => String(value ?? '').trim();
 const apiKey = clean(process.env.SUMUP_API_KEY);
-const merchantCode = clean(process.env.SUMUP_MERCHANT_CODE);
 const supabaseUrl = clean(process.env.NEXT_PUBLIC_SUPABASE_URL).replace(/\/$/, '');
 const serviceRoleKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 const checkoutTokenSecret = clean(process.env.PREVENTA_CHECKOUT_TOKEN_SECRET);
 const persistenceEnabled = clean(process.env.PREVENTA_PERSISTENCE_ENABLED) === 'true';
 
 const infrastructureReady = checkoutTokenSecret.length >= 32 && persistenceEnabled;
-const sumupConfigured = apiKey.length > 0 && merchantCode.length > 0;
+const sumupConfigured = apiKey.length > 0;
 const legalBackendConfigured = /^https:\/\/[a-z0-9.-]+$/i.test(supabaseUrl) && serviceRoleKey.length > 20;
 
 console.log(`[preventa-live] sumupConfigured: ${sumupConfigured ? 'OK' : 'FAIL'}`);
@@ -25,36 +24,63 @@ console.log(`[preventa-live] infrastructureReady: ${infrastructureReady ? 'OK' :
 console.log(`[preventa-live] legalBackendConfigured: ${legalBackendConfigured ? 'OK' : 'FAIL'}`);
 
 let merchantLiveVerified = false;
+let verifiedMerchantCode = '';
 
 if (sumupConfigured) {
   try {
-    const merchantResponse = await fetch(
-      `https://api.sumup.com/v1/merchants/${encodeURIComponent(merchantCode)}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: 'application/json',
-        },
+    // La API key identifica la cuenta que la creó. Detectamos el merchant desde
+    // /v0.1/me para no depender de un merchant_code Sandbox guardado previamente.
+    const meResponse = await fetch('https://api.sumup.com/v0.1/me', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (meResponse.ok) {
+      const me = await meResponse.json().catch(() => null);
+      const detectedMerchantCode = clean(
+        me?.merchant_profile?.merchant_code ??
+        me?.merchantProfile?.merchant_code ??
+        me?.merchant_code
+      );
+
+      console.log(`[preventa-live] merchant.detected: ${detectedMerchantCode ? 'OK' : 'FAIL'}`);
+
+      if (detectedMerchantCode) {
+        const merchantResponse = await fetch(
+          `https://api.sumup.com/v1/merchants/${encodeURIComponent(detectedMerchantCode)}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              Accept: 'application/json',
+            },
+          }
+        );
+
+        if (merchantResponse.ok) {
+          const merchant = await merchantResponse.json().catch(() => null);
+          const merchantChecks = {
+            merchantCode: merchant?.merchant_code === detectedMerchantCode,
+            liveMerchant: merchant?.sandbox === false,
+            country: merchant?.country === 'ES',
+            currency: merchant?.default_currency === 'EUR',
+          };
+
+          for (const [name, ok] of Object.entries(merchantChecks)) {
+            console.log(`[preventa-live] merchant.${name}: ${ok ? 'OK' : 'FAIL'}`);
+          }
+
+          merchantLiveVerified = Object.values(merchantChecks).every(Boolean);
+          if (merchantLiveVerified) verifiedMerchantCode = detectedMerchantCode;
+        } else {
+          console.error(`[preventa-live] merchant.http: FAIL (${merchantResponse.status})`);
+        }
       }
-    );
-
-    if (merchantResponse.ok) {
-      const merchant = await merchantResponse.json().catch(() => null);
-      const merchantChecks = {
-        merchantCode: merchant?.merchant_code === merchantCode,
-        liveMerchant: merchant?.sandbox === false,
-        country: merchant?.country === 'ES',
-        currency: merchant?.default_currency === 'EUR',
-      };
-
-      for (const [name, ok] of Object.entries(merchantChecks)) {
-        console.log(`[preventa-live] merchant.${name}: ${ok ? 'OK' : 'FAIL'}`);
-      }
-
-      merchantLiveVerified = Object.values(merchantChecks).every(Boolean);
     } else {
-      console.error(`[preventa-live] merchant.http: FAIL (${merchantResponse.status})`);
+      console.error(`[preventa-live] me.http: FAIL (${meResponse.status})`);
     }
   } catch (error) {
     console.error('[preventa-live] merchant.network: FAIL');
@@ -116,6 +142,7 @@ const publicConfig = {
   publicBaseUrl: 'https://ghcacademy.net',
   sumupLiveVerified,
   merchantLiveVerified,
+  merchantCode: verifiedMerchantCode || null,
   infrastructureReady,
   legalReady,
   legal,
