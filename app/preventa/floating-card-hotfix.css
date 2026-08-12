@@ -51,4 +51,22 @@
     right: 18px;
     bottom: 150px;
   }
+
+  /* Mobile: el logo ocupa el header completo; el CTA superior se oculta porque ya existe el CTA principal en el hero. */
+  main[data-preventa-root] > header {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    min-height: 92px;
+    padding: 14px 0 !important;
+    overflow: visible;
+  }
+
+  main[data-preventa-root] > header > a:first-child {
+    justify-self: start;
+    max-width: 100%;
+  }
+
+  main[data-preventa-root] > header > a:last-child {
+    display: none !important;
+  }
 }
