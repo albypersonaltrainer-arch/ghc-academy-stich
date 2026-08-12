@@ -10,8 +10,16 @@ export type SumUpIntegrationStatus = {
 };
 
 function getConfig() {
-  const webhookEnabled = process.env.SUMUP_WEBHOOK_ENABLED === 'true';
-  const checkoutEnabled = process.env.SUMUP_CHECKOUT_ENABLED === 'true';
+  // Production payments require a second, explicit launch approval. This keeps
+  // Sandbox/Preview usable while making accidental Production credential copies
+  // insufficient to enable real checkouts or webhook processing.
+  const productionLiveApproved =
+    process.env.VERCEL_ENV !== 'production' || process.env.SUMUP_LIVE_ENABLED === 'true';
+
+  const webhookEnabled =
+    process.env.SUMUP_WEBHOOK_ENABLED === 'true' && productionLiveApproved;
+  const checkoutEnabled =
+    process.env.SUMUP_CHECKOUT_ENABLED === 'true' && productionLiveApproved;
   const apiKey = (process.env.SUMUP_API_KEY || '').trim();
   const merchantCode = (process.env.SUMUP_MERCHANT_CODE || '').trim();
 
