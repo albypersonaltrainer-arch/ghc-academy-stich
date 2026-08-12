@@ -83,9 +83,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    const providerPaymentId = 'providerPaymentId' in verified ? verified.providerPaymentId : ''
+    if (verified.status !== 'PAID' || !providerPaymentId) {
+      throw new AcademySumUpError('VERIFIED_PAYMENT_ID_MISSING', 'SumUp no devolvió un identificador de pago verificable.')
+    }
+
     const transition = await confirmAcademySumUpPayment({
       providerCheckoutId: webhook.id,
-      providerPaymentId: verified.providerPaymentId,
+      providerPaymentId,
       amountCents: verified.amountCents,
       occurredAt: verified.occurredAt,
       providerMetadata: verified.providerMetadata
