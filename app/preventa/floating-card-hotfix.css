@@ -13,16 +13,42 @@
   margin-top: 0;
 }
 
+/* Desktop: baja ligeramente la tarjeta y reserva el área del titular para que nunca quede debajo. */
+.conversion-floating-card-bottom {
+  right: -8px;
+  bottom: 16px;
+}
+
+.conversion-hero-image figcaption {
+  right: 330px;
+}
+
+@media (max-width: 860px) {
+  .conversion-floating-card-bottom {
+    right: 10px;
+    bottom: 12px;
+  }
+
+  .conversion-hero-image figcaption {
+    left: 18px;
+    right: 18px;
+    bottom: 160px;
+  }
+}
+
 @media (max-width: 620px) {
   .conversion-floating-card {
     gap: 8px;
   }
 
   .conversion-floating-card-bottom {
-    bottom: 14px;
+    right: 10px;
+    bottom: 10px;
   }
 
   .conversion-hero-image figcaption {
-    bottom: 126px;
+    left: 18px;
+    right: 18px;
+    bottom: 150px;
   }
 }
