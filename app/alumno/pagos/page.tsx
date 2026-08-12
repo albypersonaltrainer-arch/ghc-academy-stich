@@ -34,12 +34,15 @@ const STATUS: Record<string,string> = {
   refunded: 'Reembolsado', chargeback: 'Contracargo', suspended: 'Suspendido'
 }
 
+const CLOSED_INSTALLMENT_STATES = new Set(['paid','cancelled','refunded','chargeback'])
+
 export default function StudentPaymentsPage() {
   const router = useRouter()
   const [orders, setOrders] = useState<AnyRecord[]>([])
   const [notifications, setNotifications] = useState<AnyRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [paymentBusy, setPaymentBusy] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
@@ -60,11 +63,45 @@ export default function StudentPaymentsPage() {
     load().catch((e) => setError(e?.message || 'No se pudo cargar tu información de pagos.')).finally(() => setLoading(false))
   }, [load])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('sumup') !== 'return') return
+    setMessage('SumUp ha devuelto el control a Academy. Estamos comprobando la confirmación del pago.')
+    const timer = window.setTimeout(() => {
+      load().catch(() => null)
+    }, 1800)
+    return () => window.clearTimeout(timer)
+  }, [load])
+
   const unread = useMemo(() => notifications.filter((n) => !n.read_at).length, [notifications])
 
   const markRead = async (id: string) => {
     await supabase.rpc('ghc_student_mark_academy_notification_read', { p_notification_id: id })
     await load()
+  }
+
+  const payInstallment = async (order: AnyRecord, installment: AnyRecord) => {
+    setPaymentBusy(String(installment.id || '')); setError(''); setMessage('')
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token || ''
+      if (!token) throw new Error('Tu sesión ha caducado. Vuelve a iniciar sesión.')
+
+      const response = await fetch('/api/academy/payments/sumup-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ orderId: order.id, installmentNo: Number(installment.installment_no) })
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.hostedCheckoutUrl) {
+        throw new Error(payload?.error || 'No se pudo abrir el pago seguro con SumUp.')
+      }
+      window.location.assign(payload.hostedCheckoutUrl)
+    } catch (e: any) {
+      setError(e?.message || 'No se pudo abrir el pago seguro con SumUp.')
+      setPaymentBusy('')
+    }
   }
 
   const requestWithdrawal = async (order: AnyRecord) => {
@@ -110,7 +147,7 @@ export default function StudentPaymentsPage() {
 
           {loading ? <section className={styles.emptyCard}><div><strong>Cargando…</strong><p>Consultando tu expediente comercial.</p></div></section> : null}
           {error ? <div className={styles.errorBanner}>{error}</div> : null}
-          {message ? <section className={styles.emptyCard}><div><strong>Solicitud registrada</strong><p>{message}</p></div></section> : null}
+          {message ? <section className={styles.emptyCard}><div><strong>Actualización de pago</strong><p>{message}</p></div></section> : null}
 
           <section className={styles.section}>
             <div className={styles.sectionHead}><div><h2>Mis compras</h2><p>El contenido pagado no desaparece por un retraso ordinario de una cuota.</p></div></div>
@@ -119,6 +156,7 @@ export default function StudentPaymentsPage() {
                 const installments = Array.isArray(order.installments) ? order.installments : []
                 const access = order.access || {}
                 const withdrawal = order.withdrawal || {}
+                const nextPayable = installments.find((item: AnyRecord) => !CLOSED_INSTALLMENT_STATES.has(String(item.status || '')))
                 return (
                   <article className={styles.progressCard} key={order.id}>
                     <div className={`${styles.progressHead} ${paymentStyles.orderHeader}`}>
@@ -136,12 +174,18 @@ export default function StudentPaymentsPage() {
                     </div>
 
                     <div className={paymentStyles.installmentList}>
-                      {installments.map((item: AnyRecord) => (
-                        <div key={item.id} className={paymentStyles.installmentRow}>
-                          <span className={paymentStyles.installmentCopy}>Pago {item.installment_no} · {money(item.amount_cents, order.currency)} · vence {dateTime(item.due_at)}</span>
-                          <strong className={paymentStyles.installmentStatus}>{item.status === 'paid' ? 'Pagado' : item.status === 'overdue' ? 'Pendiente' : item.status}</strong>
-                        </div>
-                      ))}
+                      {installments.map((item: AnyRecord) => {
+                        const isPayable = nextPayable?.id === item.id && !CLOSED_INSTALLMENT_STATES.has(String(item.status || ''))
+                        return (
+                          <div key={item.id} className={paymentStyles.installmentRow}>
+                            <span className={paymentStyles.installmentCopy}>Pago {item.installment_no} · {money(item.amount_cents, order.currency)} · vence {dateTime(item.due_at)}</span>
+                            <div className={paymentStyles.installmentAside}>
+                              <strong className={paymentStyles.installmentStatus}>{item.status === 'paid' ? 'Pagado' : item.status === 'overdue' ? 'Pendiente' : item.status}</strong>
+                              {isPayable ? <button className={`${styles.primaryButton} ${paymentStyles.payButton}`} type="button" disabled={Boolean(paymentBusy)} onClick={() => payInstallment(order, item)}>{paymentBusy === item.id ? 'Abriendo SumUp…' : 'Pagar con SumUp'}</button> : null}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
 
                     <div className={paymentStyles.withdrawalBox}>
