@@ -1,0 +1,28 @@
+.conversion-floating-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.conversion-floating-card span {
+  display: block;
+  line-height: 1.35;
+}
+
+.conversion-floating-card strong {
+  margin-top: 0;
+}
+
+@media (max-width: 620px) {
+  .conversion-floating-card {
+    gap: 8px;
+  }
+
+  .conversion-floating-card-bottom {
+    bottom: 14px;
+  }
+
+  .conversion-hero-image figcaption {
+    bottom: 126px;
+  }
+}
