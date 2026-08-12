@@ -20,6 +20,19 @@ const PUBLIC_PREVENTA_API_PREFIXES = [
   '/api/preventa/cron',
 ];
 
+function legalIdentityComplete() {
+  const values = [
+    process.env.NEXT_PUBLIC_GHC_LEGAL_NAME,
+    process.env.NEXT_PUBLIC_GHC_LEGAL_TAX_ID,
+    process.env.NEXT_PUBLIC_GHC_LEGAL_ADDRESS,
+    process.env.NEXT_PUBLIC_GHC_LEGAL_EMAIL,
+  ].map((value) => (value || '').trim());
+
+  return values.every(
+    (value) => Boolean(value) && value !== 'PENDIENTE' && !value.startsWith('PENDIENTE DE')
+  );
+}
+
 function lockedPage() {
   return new NextResponse(
     `<!doctype html>
@@ -78,6 +91,11 @@ export function middleware(request: NextRequest) {
 
   // Buyer-facing presale pages only. QA/test pages under /preventa stay closed.
   if (PUBLIC_PREVENTA_PAGES.has(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Contractual information becomes public only when the legal identity is complete.
+  if (pathname === '/legal' && legalIdentityComplete()) {
     return NextResponse.next();
   }
 
