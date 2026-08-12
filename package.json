@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-preventa-preview-env.mjs && node scripts/verify-sumup-sandbox.mjs && node scripts/probe-preventa-email-preview-env.mjs && next build",
+    "build": "node scripts/check-preventa-preview-env.mjs && node scripts/verify-sumup-sandbox.mjs && node scripts/probe-preventa-email-preview-env.mjs && node scripts/prepare-preventa-live-production.mjs && next build",
     "test:sumup:sandbox": "node scripts/test-sumup-hosted-checkout.mjs",
     "test:preventa:e2e": "node scripts/test-preventa-sandbox-e2e.mjs",
     "start": "next start",
@@ -18,7 +18,7 @@
     "hls.js": "1.6.16",
     "next": "14.2.5",
     "react": "18.2.0",
-    "react-dom": "18.2.0",
+    "react-dom": "18.2.2",
     "typescript": "^5.4.2"
   },
   "devDependencies": {}
