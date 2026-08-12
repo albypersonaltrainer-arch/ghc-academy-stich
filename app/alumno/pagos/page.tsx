@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../components/GHCLogo'
 import styles from '../StudentDashboardV2.module.css'
+import paymentStyles from './payments.module.css'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -92,7 +93,7 @@ export default function StudentPaymentsPage() {
 
   return (
     <main className={styles.page}>
-      <section className={styles.shell} style={{ marginLeft: 0 }}>
+      <section className={`${styles.shell} ${paymentStyles.shell}`}>
         <header className={styles.topbar}>
           <GHCLogo size="md" showText tagline={false} />
           <div className={styles.topbarActions}>
@@ -120,12 +121,12 @@ export default function StudentPaymentsPage() {
                 const withdrawal = order.withdrawal || {}
                 return (
                   <article className={styles.progressCard} key={order.id}>
-                    <div className={styles.progressHead}>
+                    <div className={`${styles.progressHead} ${paymentStyles.orderHeader}`}>
                       <div>
                         <h3>{order.course_title}</h3>
-                        <p>{order.order_reference} · {STATUS[order.status] || order.status}</p>
+                        <p className={paymentStyles.orderReference}>{order.order_reference} · {STATUS[order.status] || order.status}</p>
                       </div>
-                      <span className={styles.progressPercent}>{money(order.payable_total_cents, order.currency)}</span>
+                      <span className={`${styles.progressPercent} ${paymentStyles.orderAmount}`}>{money(order.payable_total_cents, order.currency)}</span>
                     </div>
 
                     <div className={styles.progressDetails}>
@@ -134,24 +135,24 @@ export default function StudentPaymentsPage() {
                       <div className={styles.progressDetail}><small>Coste fraccionamiento</small><strong>{Number(order.financing_fee_cents || 0) > 0 ? money(order.financing_fee_cents, order.currency) : '0 €'}</strong></div>
                     </div>
 
-                    <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
+                    <div className={paymentStyles.installmentList}>
                       {installments.map((item: AnyRecord) => (
-                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: 12, borderRadius: 11, background: 'rgba(255,255,255,.035)' }}>
-                          <span>Pago {item.installment_no} · {money(item.amount_cents, order.currency)} · vence {dateTime(item.due_at)}</span>
-                          <strong>{item.status === 'paid' ? 'Pagado' : item.status === 'overdue' ? 'Pendiente' : item.status}</strong>
+                        <div key={item.id} className={paymentStyles.installmentRow}>
+                          <span className={paymentStyles.installmentCopy}>Pago {item.installment_no} · {money(item.amount_cents, order.currency)} · vence {dateTime(item.due_at)}</span>
+                          <strong className={paymentStyles.installmentStatus}>{item.status === 'paid' ? 'Pagado' : item.status === 'overdue' ? 'Pendiente' : item.status}</strong>
                         </div>
                       ))}
                     </div>
 
-                    <div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: 'rgba(255,255,255,.035)' }}>
+                    <div className={paymentStyles.withdrawalBox}>
                       <strong>Desistimiento y reembolsos</strong>
-                      <p style={{ margin: '6px 0 0', color: '#98a2a8', lineHeight: 1.55 }}>
+                      <p className={paymentStyles.withdrawalCopy}>
                         {withdrawal.reason || 'La disponibilidad se calcula según la fecha, el tipo de producto y los consentimientos registrados.'}
                       </p>
-                      <p style={{ margin: '6px 0 0', color: '#98a2a8', lineHeight: 1.55 }}>
+                      <p className={paymentStyles.withdrawalCopy}>
                         Los derechos legales por falta de conformidad, cobros indebidos u otras causas obligatorias no quedan limitados por esta indicación.
                       </p>
-                      <button className={styles.secondaryButton} disabled={busy} type="button" style={{ marginTop: 12 }} onClick={() => requestWithdrawal(order)}>
+                      <button className={`${styles.secondaryButton} ${paymentStyles.withdrawalAction}`} disabled={busy} type="button" onClick={() => requestWithdrawal(order)}>
                         Solicitar revisión / reembolso
                       </button>
                     </div>
@@ -166,12 +167,12 @@ export default function StudentPaymentsPage() {
             <div className={styles.sectionHead}><div><h2>Avisos</h2><p>{unread} sin leer · desbloqueos, vencimientos y cambios relevantes.</p></div></div>
             <div className={styles.certificateList}>
               {notifications.map((item) => (
-                <article className={styles.certificateCard} key={item.id} style={{ opacity: item.read_at ? .68 : 1 }}>
-                  <div className={styles.certificateHead}>
+                <article className={`${styles.certificateCard} ${item.read_at ? paymentStyles.notificationRead : ''}`} key={item.id}>
+                  <div className={`${styles.certificateHead} ${paymentStyles.notificationHeader}`}>
                     <div><h3>{item.subject}</h3><p>{dateTime(item.created_at)}</p></div>
                     {!item.read_at ? <button className={styles.secondaryButton} type="button" onClick={() => markRead(item.id)}>Marcar leído</button> : null}
                   </div>
-                  <p style={{ color: '#aeb7bb', lineHeight: 1.6 }}>{item.body}</p>
+                  <p className={paymentStyles.notificationBody}>{item.body}</p>
                 </article>
               ))}
               {!notifications.length ? <section className={styles.emptyCard}><div><strong>Sin avisos</strong><p>No hay novedades comerciales en tu cuenta.</p></div></section> : null}
