@@ -9,23 +9,17 @@ export type SumUpIntegrationStatus = {
   ready: boolean;
 };
 
-// Autorización expresa del propietario recibida el 2026-08-12 para abrir cobros reales.
-// Production queda además protegido por el gate de build que valida que las credenciales
-// pertenecen a un merchant LIVE (no Sandbox) y que la identidad contractual está completa.
-const PRODUCTION_SUMUP_LIVE_AUTHORIZED = true;
-
 function getConfig() {
-  const isProduction = process.env.VERCEL_ENV === 'production';
+  // Production payments require a second, explicit launch approval. This keeps
+  // Sandbox/Preview usable while making accidental Production credential copies
+  // insufficient to enable real checkouts or webhook processing.
+  const productionLiveApproved =
+    process.env.VERCEL_ENV !== 'production' || process.env.SUMUP_LIVE_ENABLED === 'true';
 
-  // Preview/Sandbox conserva sus flags habituales. En Production la autorización se
-  // versiona explícitamente en código para que activar dinero real requiera un cambio
-  // auditable y reversible, no la mera presencia accidental de credenciales.
-  const webhookEnabled = isProduction
-    ? PRODUCTION_SUMUP_LIVE_AUTHORIZED
-    : process.env.SUMUP_WEBHOOK_ENABLED === 'true';
-  const checkoutEnabled = isProduction
-    ? PRODUCTION_SUMUP_LIVE_AUTHORIZED
-    : process.env.SUMUP_CHECKOUT_ENABLED === 'true';
+  const webhookEnabled =
+    process.env.SUMUP_WEBHOOK_ENABLED === 'true' && productionLiveApproved;
+  const checkoutEnabled =
+    process.env.SUMUP_CHECKOUT_ENABLED === 'true' && productionLiveApproved;
   const apiKey = (process.env.SUMUP_API_KEY || '').trim();
   const merchantCode = (process.env.SUMUP_MERCHANT_CODE || '').trim();
 
