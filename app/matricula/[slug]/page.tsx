@@ -24,7 +24,7 @@ export default function AcademyCheckoutPage() {
   const [options,setOptions]=useState<AnyRecord|null>(null); const [user,setUser]=useState<any>(null)
   const [selectedCount,setSelectedCount]=useState(1); const [countryCode,setCountryCode]=useState('ES')
   const [terms,setTerms]=useState(false); const [privacy,setPrivacy]=useState(false); const [startNow,setStartNow]=useState(true); const [lossAck,setLossAck]=useState(false)
-  const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [prepared,setPrepared]=useState<AnyRecord|null>(null)
+  const [busy,setBusy]=useState(false); const [paymentBusy,setPaymentBusy]=useState(false); const [error,setError]=useState(''); const [prepared,setPrepared]=useState<AnyRecord|null>(null)
 
   const load=useCallback(async()=>{ if(!slug)return; const [{data,error:optionsError},{data:userData}]=await Promise.all([supabase.rpc('ghc_public_get_course_payment_options',{p_course_slug:slug}),supabase.auth.getUser()]); if(optionsError)throw new Error(optionsError.message); setOptions(data||null); setUser(userData?.user||null) },[slug])
   useEffect(()=>{load().catch((e)=>setError(e?.message||'No se pudo preparar la matrícula.'))},[load])
@@ -48,6 +48,23 @@ export default function AcademyCheckoutPage() {
     }catch(e:any){setError(e?.message||'No se pudo preparar la matrícula.')}finally{setBusy(false)}
   }
 
+  const beginSumUpPayment=async()=>{
+    if(!prepared?.order_id)return
+    setPaymentBusy(true);setError('')
+    try{
+      const {data:sessionData}=await supabase.auth.getSession()
+      const token=sessionData.session?.access_token||''
+      if(!token)throw new Error('Tu sesión ha caducado. Vuelve a iniciar sesión.')
+      const response=await fetch('/api/academy/payments/sumup-checkout',{
+        method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+        body:JSON.stringify({orderId:prepared.order_id,installmentNo:1})
+      })
+      const payload=await response.json().catch(()=>null)
+      if(!response.ok||!payload?.hostedCheckoutUrl)throw new Error(payload?.error||'No se pudo abrir el pago seguro con SumUp.')
+      window.location.assign(payload.hostedCheckoutUrl)
+    }catch(e:any){setError(e?.message||'No se pudo abrir el pago seguro con SumUp.');setPaymentBusy(false)}
+  }
+
   if(options&&options.available===false)return <main className={styles.page}><section className={styles.stateCard}><GHCLogo size="md" showText tagline={false}/><h1>Esta matrícula no está disponible</h1><p>El curso no está publicado para nuevas matrículas.</p><Link href="/">Volver</Link></section></main>
 
   return <main className={styles.page}>
@@ -57,10 +74,13 @@ export default function AcademyCheckoutPage() {
       {error?<div className={styles.error}>{error}</div>:null}
       {prepared?<section className={styles.successCard}>
         <span className={styles.successPill}>Pedido preparado</span><h2>{prepared.order_reference}</h2>
-        <p>Tu elección, país declarado, importes, cuotas y consentimientos han quedado registrados. El proveedor de pago todavía no está conectado, por lo que <strong>no se ha realizado ningún cobro</strong>.</p>
+        <p>Tu elección, país declarado, importes, cuotas y consentimientos han quedado registrados. <strong>Todavía no se ha realizado ningún cobro.</strong> El siguiente paso abre el Hosted Checkout seguro de SumUp para la primera cuota.</p>
         <div className={styles.summaryGrid}><div><small>Total</small><strong>{money(prepared.total_cents,options?.currency)}</strong></div><div><small>Modalidad</small><strong>{prepared.installment_count} pago{Number(prepared.installment_count)===1?'':'s'}</strong></div><div><small>País / régimen</small><strong>{prepared.country_code} · {prepared.legal_regime_code}</strong></div></div>
         <p className={styles.legalNote}>{prepared.start_now?'Has solicitado comenzar al confirmarse el primer pago. La consecuencia sobre el desistimiento se aplicará únicamente en la medida permitida por la ley territorial registrada.':'El acceso se programará según el periodo de desistimiento/retracto aplicable registrado para tu pedido.'}</p>
-        <Link className={styles.primaryLink} href="/alumno/pagos">Ver mis pagos y avisos</Link>
+        <div className={styles.heroActions}>
+          <button className={styles.primaryButton} type="button" disabled={paymentBusy} onClick={beginSumUpPayment}>{paymentBusy?'Abriendo SumUp…':'Continuar al pago seguro con SumUp'}</button>
+          <Link className={styles.primaryLink} href="/alumno/pagos">Ver mis pagos y avisos</Link>
+        </div>
       </section>:<div className={styles.grid}>
         <section className={styles.card}>
           <div className={styles.cardHead}><div><small>1. Residencia y modalidad</small><h2>¿Dónde resides y cómo quieres pagar?</h2></div><strong>{money(options?.base_price_cents,options?.currency)}</strong></div>
@@ -80,7 +100,7 @@ export default function AcademyCheckoutPage() {
           <label className={styles.checkRow}><input type="checkbox" checked={terms} onChange={(e)=>setTerms(e.target.checked)}/><span>Acepto las <Link href="/legal#contratacion">condiciones de contratación</Link>, la modalidad de pago elegida y las reglas territoriales aplicables.</span></label>
           <label className={styles.checkRow}><input type="checkbox" checked={privacy} onChange={(e)=>setPrivacy(e.target.checked)}/><span>He leído y acepto la <Link href="/legal#privacidad">política de privacidad</Link> para gestionar mi matrícula.</span></label>
           {!user?<div className={styles.loginBox}><strong>Necesitas iniciar sesión para continuar.</strong><p>Las opciones de precio son públicas, pero el pedido y los consentimientos deben quedar ligados a tu cuenta.</p><Link className={styles.primaryLink} href="/acceso">Iniciar sesión</Link></div>:<button className={styles.primaryButton} type="button" disabled={busy||!selectedPlan} onClick={prepareOrder}>{busy?'Registrando…':'Preparar matrícula'}</button>}
-          <p className={styles.providerNote}>Fase actual: preparación y reglas listas. SumUp y Stripe se conectarán y probarán más adelante. Este botón no cobra.</p>
+          <p className={styles.providerNote}>SumUp es el proveedor principal de pago de Academy. El cobro solo se inicia después de preparar y confirmar el pedido; Stripe queda reservado como proveedor adicional posterior.</p>
         </section>
       </div>}
     </div>
