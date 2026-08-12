@@ -1,0 +1,115 @@
+.shell {
+  margin-left: 0;
+}
+
+.orderHeader,
+.notificationHeader {
+  min-width: 0;
+}
+
+.orderHeader > div,
+.notificationHeader > div {
+  min-width: 0;
+}
+
+.orderReference {
+  overflow-wrap: anywhere;
+}
+
+.orderAmount {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.installmentList {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.installmentRow {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.installmentCopy {
+  min-width: 0;
+  color: #dbe1e3;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.installmentStatus {
+  justify-self: end;
+  white-space: nowrap;
+  color: #f4f6f3;
+}
+
+.withdrawalBox {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.withdrawalCopy,
+.notificationBody {
+  margin: 6px 0 0;
+  color: #98a2a8;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.withdrawalAction {
+  margin-top: 12px;
+}
+
+.notificationRead {
+  opacity: 0.68;
+}
+
+@media (max-width: 650px) {
+  .orderHeader,
+  .notificationHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .orderAmount {
+    white-space: normal;
+  }
+
+  .installmentRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .installmentStatus {
+    justify-self: start;
+  }
+
+  .withdrawalAction,
+  .notificationHeader button {
+    width: 100%;
+    min-height: 46px;
+  }
+}
+
+@media (max-width: 420px) {
+  .installmentRow,
+  .withdrawalBox {
+    padding: 11px;
+  }
+
+  .installmentCopy,
+  .withdrawalCopy,
+  .notificationBody {
+    font-size: 12px;
+  }
+}
