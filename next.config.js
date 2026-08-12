@@ -19,6 +19,7 @@ function loadPreventaLivePublicConfig() {
 
 const preventaLive = loadPreventaLivePublicConfig();
 const legal = preventaLive?.legalReady ? preventaLive.legal : null;
+const verifiedMerchantCode = preventaLive?.merchantLiveVerified ? preventaLive.merchantCode : null;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -28,6 +29,11 @@ const nextConfig = {
         PREVENTA_PUBLIC_BASE_URL: preventaLive.publicBaseUrl,
         PREVENTA_SUMUP_LIVE_VERIFIED: preventaLive.sumupLiveVerified ? 'true' : 'false',
         PREVENTA_LEGAL_READY: preventaLive.legalReady ? 'true' : 'false',
+        ...(verifiedMerchantCode
+          ? {
+              SUMUP_MERCHANT_CODE: verifiedMerchantCode,
+            }
+          : {}),
         ...(legal
           ? {
               NEXT_PUBLIC_GHC_LEGAL_NAME: legal.owner,
