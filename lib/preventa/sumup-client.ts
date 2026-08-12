@@ -12,11 +12,13 @@ export type SumUpIntegrationStatus = {
 
 function getConfig() {
   const isProduction = process.env.VERCEL_ENV === 'production';
+  const productionProviderVerified = process.env.PREVENTA_SUMUP_LIVE_VERIFIED === 'true';
 
-  // Production can only be opened by a versioned code authorization. Credentials
-  // by themselves are insufficient. Preview/Sandbox keeps using its own flags.
+  // Production requires two independent gates: explicit owner authorization in
+  // versioned code and a provider verification produced during the Production build.
   const productionLiveApproved =
-    !isProduction || PREVENTA_SUMUP_LIVE_AUTHORIZATION.productionAuthorized;
+    !isProduction ||
+    (PREVENTA_SUMUP_LIVE_AUTHORIZATION.productionAuthorized && productionProviderVerified);
 
   const webhookEnabled = isProduction
     ? productionLiveApproved && PREVENTA_SUMUP_LIVE_AUTHORIZATION.webhookEnabled
