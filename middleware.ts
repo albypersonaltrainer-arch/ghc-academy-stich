@@ -11,6 +11,7 @@ const PUBLIC_PREVENTA_PAGES = new Set([
   '/preventa/confirmacion',
   '/preventa/matricula',
   '/preventa/pago',
+  '/legal',
 ]);
 
 const PUBLIC_PREVENTA_API_PREFIXES = [
@@ -76,7 +77,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // Buyer-facing presale pages only. QA/test pages under /preventa stay closed.
+  // Buyer-facing presale and contractual pages only. QA/test pages stay closed.
   if (PUBLIC_PREVENTA_PAGES.has(pathname)) {
     return NextResponse.next();
   }

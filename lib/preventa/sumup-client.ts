@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SumUpCheckout } from './sumup-adapter';
+import { PREVENTA_SUMUP_LIVE_AUTHORIZATION } from './live-authorization';
 
 export type SumUpIntegrationStatus = {
   webhookEnabled: boolean;
@@ -10,16 +11,19 @@ export type SumUpIntegrationStatus = {
 };
 
 function getConfig() {
-  // Production payments require a second, explicit launch approval. This keeps
-  // Sandbox/Preview usable while making accidental Production credential copies
-  // insufficient to enable real checkouts or webhook processing.
-  const productionLiveApproved =
-    process.env.VERCEL_ENV !== 'production' || process.env.SUMUP_LIVE_ENABLED === 'true';
+  const isProduction = process.env.VERCEL_ENV === 'production';
 
-  const webhookEnabled =
-    process.env.SUMUP_WEBHOOK_ENABLED === 'true' && productionLiveApproved;
-  const checkoutEnabled =
-    process.env.SUMUP_CHECKOUT_ENABLED === 'true' && productionLiveApproved;
+  // Production can only be opened by a versioned code authorization. Credentials
+  // by themselves are insufficient. Preview/Sandbox keeps using its own flags.
+  const productionLiveApproved =
+    !isProduction || PREVENTA_SUMUP_LIVE_AUTHORIZATION.productionAuthorized;
+
+  const webhookEnabled = isProduction
+    ? productionLiveApproved && PREVENTA_SUMUP_LIVE_AUTHORIZATION.webhookEnabled
+    : process.env.SUMUP_WEBHOOK_ENABLED === 'true';
+  const checkoutEnabled = isProduction
+    ? productionLiveApproved && PREVENTA_SUMUP_LIVE_AUTHORIZATION.checkoutEnabled
+    : process.env.SUMUP_CHECKOUT_ENABLED === 'true';
   const apiKey = (process.env.SUMUP_API_KEY || '').trim();
   const merchantCode = (process.env.SUMUP_MERCHANT_CODE || '').trim();
 
