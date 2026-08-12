@@ -10,16 +10,7 @@ function loadPreventaLivePublicConfig() {
   }
 
   const parsed = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  const legal = parsed?.legal || {};
-
-  const valid =
-    parsed?.publicBaseUrl === 'https://ghcacademy.net' &&
-    typeof legal.owner === 'string' && legal.owner.trim().length >= 3 &&
-    typeof legal.taxId === 'string' && legal.taxId.trim().length >= 5 &&
-    typeof legal.address === 'string' && legal.address.trim().length >= 8 &&
-    typeof legal.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(legal.email.trim());
-
-  if (!valid) {
+  if (parsed?.publicBaseUrl !== 'https://ghcacademy.net') {
     throw new Error('PREVENTA_LIVE_PUBLIC_CONFIG_INVALID');
   }
 
@@ -27,6 +18,7 @@ function loadPreventaLivePublicConfig() {
 }
 
 const preventaLive = loadPreventaLivePublicConfig();
+const legal = preventaLive?.legalReady ? preventaLive.legal : null;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -34,10 +26,16 @@ const nextConfig = {
   env: preventaLive
     ? {
         PREVENTA_PUBLIC_BASE_URL: preventaLive.publicBaseUrl,
-        NEXT_PUBLIC_GHC_LEGAL_NAME: preventaLive.legal.owner,
-        NEXT_PUBLIC_GHC_LEGAL_TAX_ID: preventaLive.legal.taxId,
-        NEXT_PUBLIC_GHC_LEGAL_ADDRESS: preventaLive.legal.address,
-        NEXT_PUBLIC_GHC_LEGAL_EMAIL: preventaLive.legal.email,
+        PREVENTA_SUMUP_LIVE_VERIFIED: preventaLive.sumupLiveVerified ? 'true' : 'false',
+        PREVENTA_LEGAL_READY: preventaLive.legalReady ? 'true' : 'false',
+        ...(legal
+          ? {
+              NEXT_PUBLIC_GHC_LEGAL_NAME: legal.owner,
+              NEXT_PUBLIC_GHC_LEGAL_TAX_ID: legal.taxId,
+              NEXT_PUBLIC_GHC_LEGAL_ADDRESS: legal.address,
+              NEXT_PUBLIC_GHC_LEGAL_EMAIL: legal.email,
+            }
+          : {}),
       }
     : {},
 };
