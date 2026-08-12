@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-preventa-preview-env.mjs && node scripts/verify-sumup-sandbox.mjs && node scripts/probe-preventa-email-preview-env.mjs && next build",
+    "build": "node scripts/check-preventa-preview-env.mjs && node scripts/verify-sumup-sandbox.mjs && node scripts/probe-preventa-email-preview-env.mjs && node scripts/verify-sumup-live-production.mjs && next build",
     "test:sumup:sandbox": "node scripts/test-sumup-hosted-checkout.mjs",
     "test:preventa:e2e": "node scripts/test-preventa-sandbox-e2e.mjs",
     "start": "next start",
