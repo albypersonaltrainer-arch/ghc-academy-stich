@@ -1,0 +1,1 @@
+Rama visual-only activa: pagos y webhooks deben permanecer desactivados en este Preview. Production no cambia.
