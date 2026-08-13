@@ -100,6 +100,103 @@ export default function PreventaPage() {
         </div>
       )}
 
+      <style>{`
+        .conversion-tension-section,
+        .conversion-shift-section,
+        .conversion-proof-section {
+          padding-top: 84px;
+          padding-bottom: 84px;
+        }
+        .conversion-shift-grid article {
+          min-height: 285px;
+        }
+        .conversion-price-story {
+          padding: 38px;
+          margin-top: 24px;
+          margin-bottom: 24px;
+        }
+        .conversion-price-levels > div,
+        .conversion-price-path > div {
+          min-width: 0;
+          text-align: center;
+        }
+        .conversion-price-levels strong,
+        .conversion-price-path strong,
+        .conversion-price-path del {
+          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+        }
+        .conversion-price-path strong {
+          font-size: clamp(30px, 3.15vw, 48px);
+          letter-spacing: -0.035em;
+        }
+        .conversion-price-close > a {
+          white-space: nowrap;
+        }
+        .conversion-payment-grid {
+          max-width: 980px;
+          gap: 20px;
+          align-items: stretch;
+        }
+        .conversion-payment-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 34px 32px 32px;
+        }
+        .conversion-payment-card > strong {
+          display: block;
+          margin-top: 4px;
+          color: var(--ghc-text);
+          font-size: clamp(34px, 4vw, 48px);
+          line-height: 1;
+          letter-spacing: -0.035em;
+          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+        }
+        .conversion-payment-card > p {
+          width: min(100%, 370px);
+          margin: 18px auto 0;
+        }
+        .conversion-payment-card > a {
+          width: 100%;
+          margin-top: auto !important;
+          padding-top: 0;
+        }
+        @media (max-width: 1100px) {
+          .conversion-price-path strong {
+            font-size: clamp(34px, 6vw, 50px);
+          }
+        }
+        @media (max-width: 860px) {
+          .conversion-tension-section,
+          .conversion-shift-section,
+          .conversion-proof-section {
+            padding-top: 72px;
+            padding-bottom: 72px;
+          }
+          .conversion-price-story {
+            padding: 30px;
+          }
+          .conversion-payment-card {
+            padding: 28px 24px;
+          }
+        }
+        @media (max-width: 620px) {
+          .conversion-price-story {
+            padding: 24px 18px;
+          }
+          .conversion-payment-card > strong {
+            font-size: clamp(30px, 10vw, 42px);
+          }
+          .conversion-price-close > a {
+            white-space: normal;
+            text-align: center;
+          }
+        }
+      `}</style>
+
       <header className={styles.header}>
         <Link href="/" className={styles.logoLink} aria-label="Ir a GHC Academy">
           <GHCLogo size="md" showText tagline />
@@ -163,7 +260,7 @@ export default function PreventaPage() {
           <p>
             A veces no falta motivación. Faltan conocimientos, profundidad, orden o la capacidad de conectar lo que has aprendido por separado. Y cuando eso ocurre, aparecen dudas que no se resuelven memorizando una respuesta más.
           </p>
-          <strong>La seguridad profesional no se finge. Se construye entendiendo mejor tu profesión y teniendo más recursos para pensar.</strong>
+          <strong>La seguridad profesional no se finge. Se construye cuando sabes qué observar, qué información necesitas y por qué tomas una decisión antes de aplicarla.</strong>
         </div>
         <div className="conversion-question-stack">
           {[
@@ -181,7 +278,7 @@ export default function PreventaPage() {
         <div className={styles.sectionIntroRow}>
           <div>
             <p className={styles.eyebrow}>Dos puntos de partida</p>
-            <h2>Tanto si quieres convertirte en entrenador personal como si ya ejerces, el objetivo es que tu preparación crezca de verdad.</h2>
+            <h2>Tanto si quieres convertirte en entrenador personal como si ya ejerces, el objetivo es que sepas valorar mejor, programar con criterio, adaptar el entrenamiento y trabajar para conseguir mejores resultados con tus clientes.</h2>
           </div>
           <p>
             No partimos de la idea de que todos saben lo mismo. Partimos de una necesidad común: comprender mejor, ampliar recursos y poder trabajar con más seguridad y criterio.
@@ -203,7 +300,7 @@ export default function PreventaPage() {
           <p className={styles.eyebrow}>La transformación que buscamos</p>
           <h2>Saber más es importante. Lo que cambia tu forma de trabajar es saber utilizar lo que sabes cuando tienes que tomar una decisión real.</h2>
           <p>
-            El programa está diseñado para que cada área sume a las demás. Anatomía no va por un lado, fisiología por otro y programación por otro: el valor aparece cuando empiezas a conectarlas y convertirlas en acción.
+            El programa está diseñado para que cada área sume a las demás. Anatomía no va por un lado, fisiología por otro y programación por otro: el valor aparece cuando empiezas a conectarlas y convertir ese conocimiento en decisiones que mejoren tu trabajo y los resultados que buscas con tus clientes.
           </p>
         </div>
         <div className="conversion-shift-grid">
@@ -240,7 +337,7 @@ export default function PreventaPage() {
         </div>
         <div className={styles.legalNote}>
           <strong>Cuando conectas estas ocho áreas, ganas una visión mucho más completa de cada cliente.</strong>
-          <span>Entiendes mejor qué información importa, qué necesita esa persona, qué debes priorizar y cómo adaptar el entrenamiento a su situación. Eso te permite decidir con más precisión, comunicar mejor y trabajar con mucha más seguridad cuando el caso se complica o se sale de lo habitual.</span>
+          <span>Entiendes mejor qué información importa, qué necesita esa persona, qué debes priorizar y cómo adaptar el entrenamiento a su situación. Eso te permite decidir con más precisión, comunicar mejor y trabajar con más seguridad, con el objetivo final de que tu intervención sea más eficaz y tus clientes obtengan mejores resultados.</span>
         </div>
       </section>
 
@@ -251,7 +348,7 @@ export default function PreventaPage() {
             <h2>Tres niveles que construyen una misma forma de trabajar: base, aplicación e integración profesional.</h2>
           </div>
           <p>
-            Primero construyes los fundamentos. Después aprendes a trabajar con objetivos y situaciones más complejas. Finalmente integras la parte humana, profesional y estratégica para convertir todo lo aprendido en una forma de ejercer.
+            Primero construyes los fundamentos. Después aprendes a trabajar con objetivos y situaciones más complejas. Finalmente integras la parte humana, profesional y estratégica para convertir lo aprendido en mejores decisiones, mejores procesos y un servicio orientado a conseguir mejores resultados para tus clientes.
           </p>
         </div>
         <div className={styles.levelGrid}>
@@ -267,7 +364,7 @@ export default function PreventaPage() {
         </div>
         <div className={styles.legalNote}>
           <strong>Lo importante no es completar tres niveles. Es lo que ocurre cuando los unes.</strong>
-          <span>La base te permite entender qué estás viendo; la aplicación te enseña a actuar ante objetivos y situaciones diferentes; y la integración te permite convertir todo eso en un servicio profesional más seguro, adaptable y completo. Por eso el recorrido está diseñado para hacerse como un conjunto.</span>
+          <span>La base te permite entender qué estás viendo; la aplicación te enseña a actuar ante objetivos y situaciones diferentes; y la integración convierte todo eso en un servicio profesional más seguro, adaptable y orientado a conseguir mejores resultados. Por eso el recorrido está diseñado para hacerse como un conjunto.</span>
         </div>
       </section>
 
@@ -293,7 +390,7 @@ export default function PreventaPage() {
       <section className="conversion-mid-cta">
         <div>
           <span>Programa Profesional de Entrenamiento Personal</span>
-          <strong>La meta es que, cuando tengas un cliente delante, sepas qué preguntar, qué observar, cómo decidir, cómo adaptar y cómo explicar lo que haces con mucha más seguridad.</strong>
+          <strong>La meta es que, cuando tengas un cliente delante, sepas qué preguntar, qué observar, cómo decidir, cómo adaptar y cómo explicar lo que haces; y que todo eso se traduzca en un trabajo más preciso, más adaptable y orientado a conseguir mejores resultados para tus clientes.</strong>
         </div>
         <a href="#acompanamiento">Ver el acompañamiento</a>
       </section>
@@ -455,15 +552,15 @@ export default function PreventaPage() {
       <section className="conversion-proof-section">
         <div className="conversion-proof-copy">
           <p className={styles.eyebrow}>Lo que queremos que te lleves</p>
-          <h2>Más capacidad para integrar información. Más seguridad para decidir. Más confianza para explicar y adaptar tu trabajo.</h2>
+          <h2>Más capacidad para integrar información. Más seguridad para decidir. Más precisión para adaptar tu trabajo y buscar mejores resultados.</h2>
           <p>
-            El objetivo no es llenarte la cabeza de conceptos. Es que puedas reconocer qué importa en cada situación, relacionar conocimientos que antes estaban separados y convertirlos en una forma de trabajar más sólida.
+            El objetivo no es llenarte la cabeza de conceptos. Es que puedas reconocer qué importa en cada situación, relacionar conocimientos que antes estaban separados y convertirlos en decisiones útiles para la persona que tienes delante.
           </p>
         </div>
         <aside className="conversion-proof-card">
           <span>El refuerzo de la promesa</span>
-          <strong>Que cuando aparezca un cliente, un objetivo o un problema que no encaje en una receta, tengas un proceso para pensar qué hacer a continuación.</strong>
-          <p>Eso es integración profesional: menos dependencia de respuestas prefabricadas y más criterio propio.</p>
+          <strong>Que cuando aparezca un cliente, un objetivo o un problema que no encaje en una receta, tengas un proceso para decidir qué necesita, qué priorizar y cómo adaptar el plan.</strong>
+          <p>Eso es integración profesional: menos dependencia de respuestas prefabricadas y más capacidad para actuar con criterio.</p>
         </aside>
       </section>
 
@@ -515,22 +612,22 @@ export default function PreventaPage() {
             El pago único mantiene la mejor condición económica. La modalidad fraccionada suma 1.790 € y la segunda cuota vence quince días naturales después del primer pago confirmado.
           </p>
         </div>
-        <div className={styles.paymentGrid}>
-          <article className={styles.paymentCardFeatured}>
+        <div className={`${styles.paymentGrid} conversion-payment-grid`}>
+          <article className={`${styles.paymentCardFeatured} conversion-payment-card`}>
             <span className={styles.paymentLabel}>Mejor condición económica</span>
             <h3>Pago único</h3>
             <strong>1.690 €</strong>
             <p>Programa completo: tres niveles, evaluaciones y acompañamiento grupal.</p>
-            <Link href={singleHref} className={styles.primaryCta} style={{ width: '100%', marginTop: 22 }}>
+            <Link href={singleHref} className={styles.primaryCta}>
               Elegir pago único · 1.690 €
             </Link>
           </article>
-          <article className={styles.paymentCard}>
+          <article className={`${styles.paymentCard} conversion-payment-card`}>
             <span className={styles.paymentLabel}>Modalidad alternativa</span>
-            <h3>895 € + 895 €</h3>
-            <strong>1.790 € total</strong>
-            <p>Primera cuota al matricularte. Segunda cuota de 895 € quince días naturales después del primer pago confirmado.</p>
-            <Link href={splitHref} className={styles.secondaryCta} style={{ width: '100%', marginTop: 22 }}>
+            <h3>Dos pagos</h3>
+            <strong>895 € + 895 €</strong>
+            <p>Total: 1.790 €. Primera cuota al matricularte y segunda cuota quince días naturales después del primer pago confirmado.</p>
+            <Link href={splitHref} className={styles.secondaryCta}>
               Elegir dos pagos · 895 € ahora
             </Link>
           </article>
