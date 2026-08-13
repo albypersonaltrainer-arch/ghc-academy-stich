@@ -2,87 +2,69 @@
 
 import { useEffect, useState } from 'react';
 
-type VoiceId = 'male_warm' | 'male_documentary' | 'female_warm' | 'female_documentary';
 type Result = { ok: boolean; audioUrl?: string; error?: string };
 
-const items: Array<{ id: VoiceId; title: string; subtitle: string; group: 'Hombre' | 'Mujer' }> = [
-  { id: 'male_warm', title: 'H1 · Hombre cálido', subtitle: 'Adulto, seguro, cercano y natural.', group: 'Hombre' },
-  { id: 'male_documentary', title: 'H2 · Hombre documental', subtitle: 'Más grave, pausado y sobrio.', group: 'Hombre' },
-  { id: 'female_warm', title: 'M1 · Mujer cálida', subtitle: 'Clara, cercana y con autoridad tranquila.', group: 'Mujer' },
-  { id: 'female_documentary', title: 'M2 · Mujer documental', subtitle: 'Serena, elegante y más contenida.', group: 'Mujer' },
-];
+const VOICE_ID = 'ghc_male_warm_v1';
 
 export default function VoiceLabClient() {
-  const [results, setResults] = useState<Partial<Record<VoiceId, Result>>>({});
-  const [loading, setLoading] = useState<Partial<Record<VoiceId, boolean>>>({});
+  const [result, setResult] = useState<Result | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  async function loadVoice(id: VoiceId) {
-    setLoading((current) => ({ ...current, [id]: true }));
-    setResults((current) => ({ ...current, [id]: undefined }));
+  async function loadVoice() {
+    setLoading(true);
+    setResult(null);
     try {
-      const response = await fetch(`/api/voice-lab-qwen?voice=${id}`, { cache: 'no-store' });
+      const response = await fetch(`/api/voice-lab-qwen?voice=${VOICE_ID}`, { cache: 'no-store' });
       const data = await response.json();
-      setResults((current) => ({
-        ...current,
-        [id]: {
-          ok: Boolean(data.ok && data.audioUrl),
-          audioUrl: data.audioUrl,
-          error: data.ok ? undefined : 'No se pudo generar esta muestra.',
-        },
-      }));
+      setResult({
+        ok: Boolean(data.ok && data.audioUrl),
+        audioUrl: data.audioUrl,
+        error: data.ok ? undefined : 'No se pudo generar esta muestra.',
+      });
     } catch {
-      setResults((current) => ({ ...current, [id]: { ok: false, error: 'No se pudo generar esta muestra.' } }));
+      setResult({ ok: false, error: 'No se pudo generar esta muestra.' });
     } finally {
-      setLoading((current) => ({ ...current, [id]: false }));
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadVoice('male_warm');
+    loadVoice();
   }, []);
 
   return (
     <main style={{ minHeight: '100vh', background: '#050706', color: '#f2f4f1', padding: '56px 20px', fontFamily: 'Arial, sans-serif' }}>
-      <div style={{ width: 'min(980px, 100%)', margin: '0 auto' }}>
-        <p style={{ color: '#22d65b', fontWeight: 900, letterSpacing: '.14em', textTransform: 'uppercase', fontSize: 12 }}>GHC Academy · prueba interna de voz · ronda 2</p>
-        <h1 style={{ margin: '12px 0 14px', fontSize: 'clamp(34px, 6vw, 62px)', lineHeight: 1 }}>H1 ya es nuestro punto de referencia.</h1>
-        <p style={{ maxWidth: 800, color: 'rgba(242,244,241,.72)', fontSize: 18, lineHeight: 1.6 }}>
-          El hombre cálido queda marcado como favorito actual. He cambiado la carga para que cada voz se genere de forma independiente: así las voces de mujer no se quedan bloqueadas detrás de las anteriores.
+      <div style={{ width: 'min(820px, 100%)', margin: '0 auto' }}>
+        <p style={{ color: '#22d65b', fontWeight: 900, letterSpacing: '.14em', textTransform: 'uppercase', fontSize: 12 }}>GHC Academy · laboratorio interno de voz</p>
+        <h1 style={{ margin: '12px 0 14px', fontSize: 'clamp(34px, 6vw, 62px)', lineHeight: 1 }}>Voz base aprobada.</h1>
+        <p style={{ maxWidth: 760, color: 'rgba(242,244,241,.72)', fontSize: 18, lineHeight: 1.6 }}>
+          Nos quedamos con H1 · Hombre cálido como voz principal. El sistema queda preparado para añadir voces distintas más adelante sin rehacer el flujo de generación.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 18, marginTop: 34 }}>
-          {items.map((item) => {
-            const result = results[item.id];
-            const isLoading = Boolean(loading[item.id]);
-            const favorite = item.id === 'male_warm';
-            return (
-              <section key={item.id} style={{ padding: 24, border: favorite ? '1px solid rgba(34,214,91,.75)' : '1px solid rgba(255,255,255,.12)', borderRadius: 18, background: favorite ? 'rgba(34,214,91,.06)' : 'rgba(255,255,255,.035)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div style={{ color: '#22d65b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', fontWeight: 900 }}>{item.group}</div>
-                  {favorite && <div style={{ color: '#22d65b', fontSize: 11, fontWeight: 900 }}>FAVORITO ACTUAL</div>}
-                </div>
-                <h2 style={{ margin: '8px 0 0', fontSize: 24 }}>{item.title}</h2>
-                <p style={{ margin: '7px 0 20px', minHeight: 42, color: 'rgba(242,244,241,.62)', lineHeight: 1.45 }}>{item.subtitle}</p>
+        <section style={{ marginTop: 34, padding: 28, border: '1px solid rgba(34,214,91,.72)', borderRadius: 20, background: 'rgba(34,214,91,.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ color: '#22d65b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', fontWeight: 900 }}>Voz principal</div>
+            <div style={{ color: '#22d65b', fontSize: 11, fontWeight: 900 }}>APROBADA</div>
+          </div>
+          <h2 style={{ margin: '8px 0 0', fontSize: 28 }}>H1 · Hombre cálido</h2>
+          <p style={{ margin: '7px 0 22px', color: 'rgba(242,244,241,.65)', lineHeight: 1.5 }}>Adulto, seguro, cercano y natural. Tono de formación premium, sin voz publicitaria ni de locutor.</p>
 
-                {result?.ok && result.audioUrl && <audio controls preload="metadata" src={result.audioUrl} style={{ width: '100%', marginBottom: 14 }} />}
-                {result && !result.ok && <p style={{ margin: '0 0 14px', color: '#ff8d8d' }}>{result.error}</p>}
+          {result?.ok && result.audioUrl && <audio controls preload="metadata" src={result.audioUrl} style={{ width: '100%', marginBottom: 16 }} />}
+          {result && !result.ok && <p style={{ margin: '0 0 16px', color: '#ff8d8d' }}>{result.error}</p>}
 
-                <button
-                  type="button"
-                  onClick={() => loadVoice(item.id)}
-                  disabled={isLoading}
-                  style={{ width: '100%', border: '1px solid rgba(255,255,255,.18)', borderRadius: 12, padding: '12px 14px', background: isLoading ? 'rgba(255,255,255,.05)' : '#151a17', color: '#f2f4f1', fontWeight: 800, cursor: isLoading ? 'wait' : 'pointer' }}
-                >
-                  {isLoading ? 'Generando…' : result?.ok ? 'Generar otra toma' : 'Generar esta voz'}
-                </button>
-              </section>
-            );
-          })}
+          <button
+            type="button"
+            onClick={loadVoice}
+            disabled={loading}
+            style={{ width: '100%', border: '1px solid rgba(255,255,255,.18)', borderRadius: 12, padding: '13px 14px', background: loading ? 'rgba(255,255,255,.05)' : '#151a17', color: '#f2f4f1', fontWeight: 800, cursor: loading ? 'wait' : 'pointer' }}
+          >
+            {loading ? 'Generando…' : result?.ok ? 'Generar otra toma' : 'Generar muestra'}
+          </button>
+        </section>
+
+        <div style={{ marginTop: 24, padding: '18px 20px', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, color: 'rgba(242,244,241,.58)', lineHeight: 1.6, fontSize: 14 }}>
+          Arquitectura preparada para varias voces: cuando queramos añadir una voz de mujer, otra voz masculina, una voz para documentales o cualquier otro perfil, se incorpora al catálogo y usa el mismo generador.
         </div>
-
-        <p style={{ marginTop: 28, color: 'rgba(242,244,241,.5)', lineHeight: 1.6, fontSize: 14 }}>
-          Para probar M1 o M2, pulsa “Generar esta voz”. Cada muestra se procesa por separado y puede tardar unos segundos.
-        </p>
       </div>
     </main>
   );
