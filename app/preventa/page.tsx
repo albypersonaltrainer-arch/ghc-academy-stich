@@ -407,9 +407,100 @@ export default function PreventaPage() {
       </section>
 
       <section className={styles.authoritySection}>
-        <div className="conversion-authority-stat" aria-label="Más de treinta años de experiencia">
-          <div><strong>30+</strong><span>años de experiencia</span></div>
-        </div>
+        <style>{`
+          .conversion-founder-portrait {
+            position: relative;
+            min-height: 520px;
+            margin: 0;
+            overflow: hidden;
+            border: 1px solid rgba(34, 214, 91, 0.28);
+            border-radius: 28px;
+            background: #080b0a;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+          }
+          .conversion-founder-portrait::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: linear-gradient(180deg, rgba(3, 4, 3, 0.01) 52%, rgba(3, 4, 3, 0.82) 100%);
+          }
+          .conversion-founder-portrait > img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            object-position: 50% 50%;
+          }
+          .conversion-founder-portrait figcaption {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            z-index: 2;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            padding: 14px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 14px;
+            background: rgba(7, 11, 8, 0.78);
+            backdrop-filter: blur(10px);
+          }
+          .conversion-founder-portrait figcaption strong {
+            color: #22d65b;
+            font-size: 30px;
+            line-height: 1;
+          }
+          .conversion-founder-portrait figcaption span {
+            color: rgba(242, 244, 241, 0.86);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+          @media (max-width: 860px) {
+            .conversion-founder-portrait {
+              min-height: 640px;
+            }
+            .conversion-founder-portrait > img {
+              object-position: 50% 38%;
+            }
+          }
+          @media (max-width: 620px) {
+            .conversion-founder-portrait {
+              min-height: 520px;
+              border-radius: 22px;
+            }
+            .conversion-founder-portrait > img {
+              object-position: 50% 42%;
+            }
+            .conversion-founder-portrait figcaption {
+              left: 12px;
+              right: 12px;
+              bottom: 12px;
+              padding: 12px 13px;
+            }
+            .conversion-founder-portrait figcaption strong {
+              font-size: 27px;
+            }
+            .conversion-founder-portrait figcaption span {
+              font-size: 10px;
+            }
+          }
+        `}</style>
+        <figure className="conversion-founder-portrait" aria-label="Alby Aguiar, fundador y director del programa">
+          <img
+            src="/images/alby-ghc-academy-founder.jpg"
+            alt="Alby Aguiar, fundador de GHC Training y creador de GHC Academy"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption><strong>30+</strong><span>años de experiencia</span></figcaption>
+        </figure>
         <div>
           <p className={styles.eyebrow}>Quién está detrás</p>
           <h2>Una formación construida desde más de treinta años dentro del entrenamiento, el rendimiento y la gestión de personas y servicios.</h2>
