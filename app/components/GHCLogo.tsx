@@ -41,6 +41,49 @@ export default function GHCLogo({
         color: '#F2F4F1',
       }}
     >
+      <style>{`
+        .conversion-authority-stat {
+          position: relative !important;
+          min-height: 440px !important;
+          overflow: hidden !important;
+          border-radius: 26px !important;
+          border: 1px solid rgba(34, 214, 91, 0.28) !important;
+          background-image:
+            linear-gradient(180deg, rgba(3,4,3,0.02) 44%, rgba(3,4,3,0.86) 100%),
+            url('/images/alby-ghc-academy-founder.jpg') !important;
+          background-size: cover !important;
+          background-position: center top !important;
+          background-repeat: no-repeat !important;
+          box-shadow: 0 24px 70px rgba(0,0,0,0.28) !important;
+        }
+        .conversion-authority-stat > div {
+          position: absolute !important;
+          left: 18px !important;
+          right: 18px !important;
+          bottom: 18px !important;
+          z-index: 2 !important;
+          display: flex !important;
+          align-items: baseline !important;
+          gap: 10px !important;
+          padding: 14px 16px !important;
+          border-radius: 14px !important;
+          border: 1px solid rgba(255,255,255,0.12) !important;
+          background: rgba(7,11,8,0.76) !important;
+          backdrop-filter: blur(10px) !important;
+        }
+        .conversion-authority-stat > div strong {
+          font-size: 28px !important;
+          color: #22D65B !important;
+          line-height: 1 !important;
+        }
+        .conversion-authority-stat > div span {
+          color: rgba(242,244,241,0.82) !important;
+          font-size: 12px !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.08em !important;
+        }
+      `}</style>
+
       <div
         style={{
           width: current.mark,
