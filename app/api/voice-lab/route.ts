@@ -33,8 +33,8 @@ function parseSseResult(body: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const requested = request.nextUrl.searchParams.get('variant') || 'warm';
-  const variant = (requested in variants ? requested : 'warm') as VariantName;
+  const requested = request.nextUrl.searchParams.get('variant') || 'documentary';
+  const variant = (requested in variants ? requested : 'documentary') as VariantName;
   const settings = variants[variant];
   try {
     const audioPrompt = {
