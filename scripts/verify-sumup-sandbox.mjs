@@ -1,7 +1,13 @@
 const isPreview = process.env.VERCEL_ENV === 'preview';
+const visualOnlyBranch = process.env.VERCEL_GIT_COMMIT_REF === 'preventa-copy-confianza-2026-08-13';
 
 if (!isPreview) {
   console.log('[sumup-sandbox] verificación omitida fuera de Preview');
+  process.exit(0);
+}
+
+if (visualOnlyBranch) {
+  console.log('[sumup-sandbox] Preview visual-only: verificación Sandbox omitida y no se crea ningún checkout.');
   process.exit(0);
 }
 
