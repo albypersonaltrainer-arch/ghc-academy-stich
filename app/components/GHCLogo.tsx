@@ -46,15 +46,31 @@ export default function GHCLogo({
           position: relative !important;
           min-height: 440px !important;
           overflow: hidden !important;
+          isolation: isolate !important;
           border-radius: 26px !important;
           border: 1px solid rgba(34, 214, 91, 0.28) !important;
-          background-image:
-            linear-gradient(180deg, rgba(3,4,3,0.02) 44%, rgba(3,4,3,0.86) 100%),
-            url('/images/alby-ghc-academy-founder.jpg') !important;
-          background-size: cover !important;
-          background-position: center top !important;
-          background-repeat: no-repeat !important;
+          background: #0a0e0c !important;
           box-shadow: 0 24px 70px rgba(0,0,0,0.28) !important;
+        }
+        .conversion-authority-stat::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          display: block;
+          background-image: url('/images/alby-ghc-academy-founder.jpg');
+          background-size: cover;
+          background-position: 50% 18%;
+          background-repeat: no-repeat;
+          transform: translateZ(0);
+        }
+        .conversion-authority-stat::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          pointer-events: none;
+          background: linear-gradient(180deg, rgba(3,4,3,0.01) 46%, rgba(3,4,3,0.84) 100%);
         }
         .conversion-authority-stat > div {
           position: absolute !important;
@@ -81,6 +97,14 @@ export default function GHCLogo({
           font-size: 12px !important;
           text-transform: uppercase !important;
           letter-spacing: 0.08em !important;
+        }
+        @media (max-width: 760px) {
+          .conversion-authority-stat {
+            min-height: 520px !important;
+          }
+          .conversion-authority-stat::before {
+            background-position: 50% 14%;
+          }
         }
       `}</style>
 
