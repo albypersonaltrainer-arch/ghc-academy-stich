@@ -10,7 +10,6 @@ const expectedPreviewBaseUrl = 'https://ghc-academy-stich-git-preven-ba2fa0-alby
 const expectedMerchantCode = 'MH72DEDY';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const tokenSecret = process.env.PREVENTA_CHECKOUT_TOKEN_SECRET ?? '';
-const sumupApiKey = process.env.SUMUP_API_KEY ?? '';
 const automationBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? '';
 
 const checks = {
@@ -19,8 +18,6 @@ const checks = {
   serviceKeyPresent: serviceKey.length >= 20,
   serviceKeyLooksServerSide: serviceKey.startsWith('sb_secret_') || serviceKey.startsWith('eyJ'),
   checkoutTokenSecretPresent: tokenSecret.length >= 32,
-  sumupApiKeyPresent: sumupApiKey.length >= 20,
-  sumupApiKeyLooksSecret: sumupApiKey.startsWith('sup_sk_'),
   sumupMerchantCode: process.env.SUMUP_MERCHANT_CODE === expectedMerchantCode,
   publicBaseUrl: (process.env.PREVENTA_PUBLIC_BASE_URL ?? '').replace(/\/$/, '') === expectedPreviewBaseUrl,
   sumupCheckoutEnabled: process.env.SUMUP_CHECKOUT_ENABLED === 'true',
@@ -38,4 +35,4 @@ if (failed.length > 0) {
   process.exit(1);
 }
 
-console.log('[preventa-env] Persistencia, Hosted Checkout Sandbox, webhook Sandbox y bypass Vercel: OK');
+console.log('[preventa-env] Preview visual habilitado. La API key de SumUp no se valida en este gate; no usar este Preview para probar pagos.');
