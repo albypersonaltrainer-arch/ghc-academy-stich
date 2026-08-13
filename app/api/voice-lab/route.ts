@@ -22,7 +22,6 @@ function parseSseResult(body: string) {
     .filter((line) => line.startsWith('data: '))
     .map((line) => line.slice(6).trim())
     .filter(Boolean);
-
   for (let i = dataLines.length - 1; i >= 0; i -= 1) {
     try {
       const parsed = JSON.parse(dataLines[i]);
@@ -34,10 +33,9 @@ function parseSseResult(body: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const requested = request.nextUrl.searchParams.get('variant') || 'neutral';
-  const variant = (requested in variants ? requested : 'neutral') as VariantName;
+  const requested = request.nextUrl.searchParams.get('variant') || 'warm';
+  const variant = (requested in variants ? requested : 'warm') as VariantName;
   const settings = variants[variant];
-
   try {
     const audioPrompt = {
       path: SPANISH_REFERENCE,
@@ -46,32 +44,21 @@ export async function GET(request: NextRequest) {
       mime_type: 'audio/flac',
       meta: { _type: 'gradio.FileData' },
     };
-
     const call = await fetch(`${SPACE}/gradio_api/call/${API_NAME}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        data: [TEST_TEXT, audioPrompt, settings.exaggeration, settings.temperature, settings.seed, settings.cfg],
-      }),
+      body: JSON.stringify({ data: [TEST_TEXT, audioPrompt, settings.exaggeration, settings.temperature, settings.seed, settings.cfg] }),
       cache: 'no-store',
     });
-
     const callText = await call.text();
     if (!call.ok) return NextResponse.json({ ok: false, stage: 'submit', status: call.status, detail: callText }, { status: 502 });
-
     const event = JSON.parse(callText) as { event_id?: string };
     if (!event.event_id) return NextResponse.json({ ok: false, stage: 'submit', detail: callText }, { status: 502 });
-
-    const result = await fetch(`${SPACE}/gradio_api/call/${API_NAME}/${event.event_id}`, {
-      cache: 'no-store',
-      headers: { accept: 'text/event-stream' },
-    });
+    const result = await fetch(`${SPACE}/gradio_api/call/${API_NAME}/${event.event_id}`, { cache: 'no-store', headers: { accept: 'text/event-stream' } });
     const resultText = await result.text();
     if (!result.ok) return NextResponse.json({ ok: false, stage: 'result', status: result.status, detail: resultText }, { status: 502 });
-
     const audio = parseSseResult(resultText);
     if (!audio) return NextResponse.json({ ok: false, stage: 'parse', detail: resultText }, { status: 502 });
-
     const audioUrl = audio.url || `${SPACE}/gradio_api/file=${encodeURIComponent(audio.path)}`;
     return NextResponse.json({ ok: true, variant, settings, text: TEST_TEXT, audioUrl });
   } catch (error) {
