@@ -46,72 +46,24 @@ const levels = [
   [
     'Nivel 1',
     'Construir la base profesional',
-    'Módulos 1–10',
+    'Base profesional',
     '690 €',
-    'Construyes los fundamentos del entrenador personal: profesión, anatomía, kinesiología, fisiología, principios del entrenamiento, nutrición, evaluación, movimiento, técnica, seguridad y responsabilidad.',
+    'Construyes los fundamentos que necesitas para dejar de trabajar por intuición: cuerpo, movimiento, fisiología, evaluación, programación, nutrición, técnica, seguridad y responsabilidad profesional.',
   ],
   [
     'Nivel 2',
     'Profundizar, programar y adaptar',
-    'Módulos 11–20',
+    'Aplicación avanzada',
     '890 €',
-    'Llevas esa base a objetivos y situaciones más complejas: hipertrofia, fuerza, resistencia, periodización, nutrición avanzada, patologías, poblaciones especiales, preparación física, recuperación y retorno al entrenamiento.',
+    'Aprendes a llevar esa base a objetivos y situaciones más complejas: fuerza, hipertrofia, resistencia, periodización, recuperación, poblaciones especiales y adaptación del entrenamiento.',
   ],
   [
     'Nivel 3',
     'Convertirte en un profesional completo',
-    'Módulos 21–30',
+    'Integración profesional',
     '1.090 €',
-    'Integras la parte humana y profesional: adherencia, comunicación, experiencia de cliente, marketing ético, precios, procesos, liderazgo, riesgo, evidencia, tecnología, IA y dirección estratégica.',
+    'Integras la parte humana y profesional para prestar un servicio más sólido: adherencia, comunicación, experiencia de cliente, negocio, liderazgo, evidencia, tecnología, IA y dirección estratégica.',
   ],
-];
-
-const moduleGroups = [
-  {
-    label: 'Nivel 1 · Fundamentos profesionales',
-    modules: [
-      ['01', 'La profesión del entrenador personal', 'Qué hace un entrenador, qué decisiones le corresponden, dónde están sus límites y cómo trabajar con ética, tecnología y responsabilidad.'],
-      ['02', 'Anatomía y kinesiología I', 'Entender huesos, articulaciones, dolor y variaciones del movimiento para interpretar mejor a la persona y adaptar el trabajo sin convertir observaciones en diagnósticos.'],
-      ['03', 'Anatomía y kinesiología II', 'Comprender músculo, tejido conjuntivo, control neural y producción de fuerza para saber qué exige una tarea al cuerpo.'],
-      ['04', 'Fisiología I', 'Entender la respuesta cardiovascular y respiratoria al esfuerzo para ajustar intensidad y entrenar con mayor seguridad.'],
-      ['05', 'Fisiología II', 'Comprender cómo responden los sistemas nervioso, endocrino y metabólico y cómo esa respuesta afecta al entrenamiento y la recuperación.'],
-      ['06', 'Principios del entrenamiento', 'Aprender a manejar dosis, adaptación, progresión, fatiga y planificación para que un programa tenga una lógica y pueda evolucionar.'],
-      ['07', 'Nutrición aplicada al entrenamiento', 'Manejar nutrición general, hidratación y suplementos con criterio, sabiendo qué puedes orientar y qué requiere otro profesional.'],
-      ['08', 'Evaluación profesional del cliente', 'Saber qué preguntar, qué comprobar, qué medir y cuándo reevaluar para que la valoración sirva realmente para tomar decisiones.'],
-      ['09', 'Movimiento, patrones y técnica', 'Enseñar y adaptar movimientos, seleccionar tareas y corregir lo que importa sin depender de una técnica única para todo el mundo.'],
-      ['10', 'Seguridad, ética y responsabilidad profesional', 'Prevenir problemas, responder ante emergencias, proteger datos, documentar decisiones y actuar dentro de tu responsabilidad profesional.'],
-    ],
-  },
-  {
-    label: 'Nivel 2 · Metodología de entrenamiento especializado',
-    modules: [
-      ['11', 'Hipertrofia muscular avanzada', 'Diseñar programas para ganar masa muscular controlando dosis, esfuerzo, selección de ejercicios, progresión y seguimiento.'],
-      ['12', 'Fuerza máxima avanzada', 'Evaluar y desarrollar fuerza con progresiones, autorregulación y criterios que permitan ajustar el trabajo a la respuesta real.'],
-      ['13', 'Resistencia y capacidad cardiorrespiratoria avanzada', 'Programar resistencia controlando intensidad, métodos, recuperación y compatibilidad con la fuerza y otros objetivos.'],
-      ['14', 'Periodización avanzada y planificación a largo plazo', 'Ordenar prioridades, bloques, carga y mantenimiento para construir planes que funcionen también con la vida real del cliente.'],
-      ['15', 'Nutrición avanzada, composición corporal y salud metabólica', 'Integrar nutrición general, composición corporal y salud metabólica sin dogmas y sin invadir competencias clínicas.'],
-      ['16', 'Entrenamiento en poblaciones especiales y enfermedades crónicas', 'Adaptar la dosis y la supervisión ante edad, obesidad, diabetes, enfermedad cardiovascular, respiratoria, embarazo, dolor persistente y otras situaciones complejas.'],
-      ['17', 'Preparación física deportiva', 'Analizar lo que exige un deporte y desarrollar velocidad, agilidad y potencia buscando transferencia real, no imitación de gestos.'],
-      ['18', 'Puesta a punto, competición y recuperación avanzada', 'Llegar a competir con la menor fatiga posible, organizar cargas, viajes y recuperación y mantener la forma cuando importa.'],
-      ['19', 'Prevención de lesiones, gestión de carga y retorno al entrenamiento', 'Reducir riesgo, gestionar síntomas y exposición y reconstruir capacidad de forma progresiva sin invadir la rehabilitación clínica.'],
-      ['20', 'Integración avanzada del entrenamiento y Sistema GHC', 'Juntar evaluación, prioridades, programación, respuesta y seguimiento para resolver un caso completo y poder explicar cada decisión.'],
-    ],
-  },
-  {
-    label: 'Nivel 3 · Maestría profesional y dirección del servicio',
-    modules: [
-      ['21', 'Cambio de conducta, adherencia y coaching profesional', 'Entender por qué una persona no sostiene un plan y aprender a mejorar adherencia y autonomía sin manipular ni crear dependencia.'],
-      ['22', 'Diseño del servicio, experiencia del cliente y comunicación profesional', 'Organizar desde el primer contacto hasta el cierre: expectativas, onboarding, comunicación, incidencias, seguimiento y calidad del servicio.'],
-      ['23', 'Posicionamiento, marketing ético y venta consultiva', 'Explicar tu valor, atraer al cliente adecuado y vender desde el encaje y la claridad, sin presión ni promesas que no puedes garantizar.'],
-      ['24', 'Dirección económica, precios y sostenibilidad del servicio', 'Calcular costes, capacidad, precio, margen, punto de equilibrio y tesorería para que trabajar bien también sea sostenible.'],
-      ['25', 'Dirección operativa, procesos, calidad y escalabilidad del servicio', 'Convertir una buena forma de trabajar en procesos repetibles, medibles y capaces de crecer sin perder calidad ni control.'],
-      ['26', 'Dirección de personas, liderazgo, cultura y supervisión profesional', 'Seleccionar, incorporar, formar, delegar y supervisar personas para construir un equipo competente y responsable.'],
-      ['27', 'Gobernanza, cumplimiento, riesgo y responsabilidad profesional', 'Gestionar alcance, contratos, datos, menores, reclamaciones, seguros y riesgos con reglas claras y trazabilidad.'],
-      ['28', 'Investigación aplicada, lectura crítica y decisiones basadas en evidencia', 'Leer estudios con criterio, separar resultados de titulares y decidir cuándo una evidencia es útil para la persona que tienes delante.'],
-      ['29', 'Tecnología, datos, inteligencia artificial e innovación aplicada al entrenamiento', 'Elegir wearables, plataformas e IA por utilidad, validez y riesgo, manteniendo siempre supervisión y responsabilidad humana.'],
-      ['30', 'Dirección estratégica, integración maestra y Proyecto Final GHC', 'Integrar lo aprendido en una estrategia completa, con prioridades, escenarios y reglas de revisión, y defenderlo en un proyecto final.'],
-    ],
-  },
 ];
 
 const decisionShifts = [
@@ -122,16 +74,15 @@ const decisionShifts = [
 ];
 
 const faqs = [
-  ['¿Qué incluye exactamente la Edición Fundadora?', 'El Programa Profesional de Entrenamiento Personal completo: tres niveles, treinta módulos, recorrido secuencial, evaluaciones y acompañamiento grupal propio de esta formación. Durante la preventa no se venden niveles individuales.'],
+  ['¿Qué incluye exactamente la Edición Fundadora?', 'El Programa Profesional de Entrenamiento Personal completo: los tres niveles, recorrido secuencial, evaluaciones y acompañamiento grupal propio de esta formación. Durante la preventa no se venden niveles individuales.'],
   ['¿Me sirve si todavía no trabajo como entrenador personal?', 'Sí. El Nivel 1 empieza construyendo la base profesional y el recorrido avanza de forma progresiva. La formación no presupone que ya tengas clientes, pero sí exige estudio, práctica y responsabilidad.'],
   ['¿Y si ya soy entrenador personal?', 'El objetivo no es hacerte empezar de cero, sino ampliar y ordenar lo que ya sabes, detectar lagunas y conectar conocimientos para que puedas justificar, adaptar y revisar mejor tus decisiones.'],
-  ['¿Qué acompañamiento grupal incluye?', 'El programa incluye dos sesiones grupales al mes: una sesión construida a partir de las dudas y temas más solicitados por los alumnos mediante formulario previo, y una sesión Hot Seat para analizar problemas y casos reales del día a día profesional. No es tutoría individual ni disponibilidad personal permanente.'],
+  ['¿Qué acompañamiento grupal incluye?', 'Dos sesiones grupales al mes: una centrada en las dudas y temas que más necesita resolver el grupo y otra en formato Hot Seat para trabajar problemas y casos reales. El objetivo es que puedas ver cómo se razona una situación y trasladar ese proceso a tus propios clientes.'],
   ['¿Por qué existe un precio fundador?', 'Porque entras antes de la apertura oficial y formas parte de la primera generación. La condición fundadora no recorta el programa: reduce el precio para las primeras cien plazas de preventa.'],
   ['¿Qué ocurre después de matricularme?', 'Cuando el pago queda confirmado, tu matrícula queda registrada como plaza fundadora y recibes las comunicaciones transaccionales del proceso de alta y apertura.'],
   ['¿Puedo pagar en dos veces?', 'Sí. La modalidad alternativa es 895 € al matricularte y 895 € quince días naturales después del primer pago confirmado. El total fraccionado es 1.790 €.'],
   ['¿Cuándo abre la plataforma?', 'La apertura académica está fijada para el 15 de octubre de 2026.'],
   ['¿Es una titulación oficial?', 'No. GHC Academy es una formación privada y no equivale a una titulación oficial ni a una habilitación administrativa automática para ejercer. Los requisitos profesionales dependen de la normativa aplicable en cada territorio.'],
-  ['¿Habrá tutoría individual?', 'No. El programa incluye acompañamiento grupal y soporte técnico, administrativo y académico básico, pero no mentoría privada ni tutoría individual personalizada.'],
   ['¿Cuándo cierra la preventa?', 'El 15 de septiembre de 2026 a las 23:59, hora de Madrid, o antes si se completan las cien plazas fundadoras.'],
 ];
 
@@ -168,7 +119,7 @@ export default function PreventaPage() {
             Una formación completa para entender de verdad la profesión: desde anatomía, fisiología, kinesiología, nutrición y evaluación hasta programación, poblaciones especiales, conducta, evidencia, tecnología y dirección profesional.
           </p>
           <p className={styles.heroSupport}>
-            No vas a estudiar treinta temas aislados. Vas a aprender a comprenderlos, relacionarlos y utilizarlos para trabajar con más criterio, más seguridad y una visión mucho más completa del entrenamiento personal.
+            No vas a estudiar temas aislados. Vas a aprender a relacionarlos y utilizarlos para valorar mejor, tomar decisiones con criterio, adaptar tu trabajo y sentir mucha más seguridad cuando tengas una persona real delante.
           </p>
           <div className={styles.heroActions}>
             <a href="#contenido" className={styles.primaryCta}>Ver todo lo que incluye</a>
@@ -181,7 +132,7 @@ export default function PreventaPage() {
           </div>
           <div className={styles.heroFacts}>
             <div><strong>3</strong><span>Niveles conectados</span></div>
-            <div><strong>30</strong><span>Módulos</span></div>
+            <div><strong>1</strong><span>Recorrido profesional</span></div>
             <div><strong>30+</strong><span>Años de experiencia</span></div>
           </div>
         </div>
@@ -250,9 +201,9 @@ export default function PreventaPage() {
       <section className="conversion-shift-section">
         <div className="conversion-shift-head">
           <p className={styles.eyebrow}>La transformación que buscamos</p>
-          <h2>Saber más es importante. Entender mejor y saber utilizar ese conocimiento es lo que cambia tu forma de trabajar.</h2>
+          <h2>Saber más es importante. Lo que cambia tu forma de trabajar es saber utilizar lo que sabes cuando tienes que tomar una decisión real.</h2>
           <p>
-            El programa está diseñado para que cada área sume a las demás. Anatomía no va por un lado, fisiología por otro y programación por otro: el valor aparece cuando empiezas a ver cómo se relacionan.
+            El programa está diseñado para que cada área sume a las demás. Anatomía no va por un lado, fisiología por otro y programación por otro: el valor aparece cuando empiezas a conectarlas y convertirlas en acción.
           </p>
         </div>
         <div className="conversion-shift-grid">
@@ -262,16 +213,20 @@ export default function PreventaPage() {
             </article>
           ))}
         </div>
+        <div className={styles.legalNote}>
+          <strong>¿En qué se traduce para ti?</strong>
+          <span>En dejar de depender de recetas y respuestas memorizadas. Podrás analizar mejor lo que tienes delante, identificar qué información importa, justificar una decisión y cambiarla cuando la respuesta del cliente te diga que debes hacerlo.</span>
+        </div>
       </section>
 
       <section className={styles.entrySection}>
         <div className={styles.sectionIntroRow}>
           <div>
             <p className={styles.eyebrow}>El mapa de conocimientos</p>
-            <h2>Esto no es un curso centrado en ejercicios. Es una formación amplia para entender la profesión de entrenador personal.</h2>
+            <h2>Esto no es un curso centrado en ejercicios. Es una formación amplia para aprender a ejercer la profesión con criterio.</h2>
           </div>
           <p>
-            Estas son algunas de las grandes áreas que vas a recorrer. Cada una aporta una pieza distinta y el programa está construido para que acabes conectándolas.
+            Estas son algunas de las grandes áreas que vas a recorrer. No basta con reconocerlas por separado: aprenderás a utilizarlas juntas cuando tengas que valorar, programar, adaptar o explicar una decisión.
           </p>
         </div>
         <div className={styles.entryGrid}>
@@ -283,16 +238,20 @@ export default function PreventaPage() {
             </article>
           ))}
         </div>
+        <div className={styles.legalNote}>
+          <strong>Cuando conectas estas ocho áreas, cambia tu manera de trabajar.</strong>
+          <span>Dejas de ver un cliente como una suma de ejercicios y empiezas a verlo como un caso completo: puedes valorar mejor, priorizar, adaptar el entrenamiento, anticipar problemas, comunicar con más claridad y sostener tus decisiones con mucha más seguridad.</span>
+        </div>
       </section>
 
       <section className={styles.levelSection} id="contenido">
         <div className={styles.sectionIntroRow}>
           <div>
             <p className={styles.eyebrow}>El programa completo</p>
-            <h2>Tres niveles. Treinta módulos. De los fundamentos del cuerpo a la dirección de tu servicio profesional.</h2>
+            <h2>Tres niveles que construyen una misma forma de trabajar: base, aplicación e integración profesional.</h2>
           </div>
           <p>
-            La profundidad crece nivel a nivel. Primero construyes la base, después aprendes a trabajar con situaciones más complejas y finalmente integras la parte humana, profesional y estratégica.
+            Primero construyes los fundamentos. Después aprendes a trabajar con objetivos y situaciones más complejas. Finalmente integras la parte humana, profesional y estratégica para convertir todo lo aprendido en una forma de ejercer.
           </p>
         </div>
         <div className={styles.levelGrid}>
@@ -306,41 +265,18 @@ export default function PreventaPage() {
             </article>
           ))}
         </div>
-      </section>
-
-      <section className={styles.faqSection}>
-        <div className={styles.sectionIntroRow}>
-          <div>
-            <p className={styles.eyebrow}>Qué vas a estudiar exactamente</p>
-            <h2>Los 30 módulos, uno por uno y con una explicación clara de para qué sirven.</h2>
-          </div>
-          <p>
-            No queremos que compres por un nombre bonito. Abre cada nivel y mira el contenido real antes de decidir.
-          </p>
-        </div>
-        <div className={styles.faqList}>
-          {moduleGroups.map((group) => (
-            <details key={group.label}>
-              <summary>{group.label}</summary>
-              <div className={styles.proofList}>
-                {group.modules.map(([number, title, description]) => (
-                  <div key={number}>
-                    <span>{number}</span>
-                    <strong>{title} — {description}</strong>
-                  </div>
-                ))}
-              </div>
-            </details>
-          ))}
+        <div className={styles.legalNote}>
+          <strong>Lo importante no es completar tres niveles. Es lo que ocurre cuando los unes.</strong>
+          <span>La base te permite entender qué estás viendo; la aplicación te enseña a actuar ante objetivos y situaciones diferentes; y la integración te permite convertir todo eso en un servicio profesional más seguro, adaptable y completo. Por eso el recorrido está diseñado para hacerse como un conjunto.</span>
         </div>
       </section>
 
       <section className={styles.systemSection}>
         <div className={styles.sectionIntroCenter}>
           <p className={styles.eyebrow}>Cómo está pensado el aprendizaje</p>
-          <h2>No basta con acumular información. Queremos que puedas convertirla en comprensión y después en criterio.</h2>
+          <h2>No basta con entender. Queremos que puedas convertir lo que sabes en decisiones que puedas aplicar, explicar y revisar.</h2>
           <p>
-            El recorrido busca que avances desde el conocimiento hasta la aplicación: aprender, entender, relacionar, evaluar, decidir, aplicar y revisar.
+            El recorrido busca llevarte desde el conocimiento hasta la práctica profesional: aprender, comprender, relacionar, evaluar, decidir, aplicar y revisar.
           </p>
         </div>
         <div className={styles.systemTrack}>
@@ -357,7 +293,7 @@ export default function PreventaPage() {
       <section className="conversion-mid-cta">
         <div>
           <span>Programa Profesional de Entrenamiento Personal</span>
-          <strong>La meta no es que termines diciendo “he visto treinta módulos”. Es que notes que sabes más, entiendes más y tienes más herramientas para ejercer tu profesión.</strong>
+          <strong>La meta es que, cuando tengas un cliente delante, sepas qué preguntar, qué observar, cómo decidir, cómo adaptar y cómo explicar lo que haces con mucha más seguridad.</strong>
         </div>
         <a href="#acompanamiento">Ver el acompañamiento</a>
       </section>
@@ -365,30 +301,23 @@ export default function PreventaPage() {
       <section className={styles.evaluationSection} id="acompanamiento">
         <div>
           <p className={styles.eyebrow}>Acompañamiento incluido</p>
-          <h2>Porque hay dudas que aparecen cuando empiezas a conectar la teoría con situaciones reales.</h2>
+          <h2>Porque el criterio se construye mucho más rápido cuando puedes ver cómo se razonan dudas y casos reales.</h2>
           <p>
-            El programa incorpora dos sesiones grupales al mes. Una se construye a partir de las preguntas que enviáis previamente mediante un formulario: agrupamos las dudas, detectamos el tema que más se repite y dedicamos una sesión a trabajarlo.
+            Cada mes tendrás dos sesiones grupales: una nace de las dudas y temas que más necesita resolver el grupo y la otra trabaja casos reales en formato Hot Seat. El objetivo no es darte otra clase, sino ayudarte a ver qué información importa, cómo se descompone un problema y cómo puedes trasladar ese razonamiento a tus propios clientes.
           </p>
-          <p>
-            La otra es un Hot Seat de casos reales: alumnos plantean situaciones de su día a día y Alby explica cómo las analizaría, qué información pediría, qué opciones valoraría y qué razonamiento seguiría.
-          </p>
-          <div className={styles.legalNote}>
-            <strong>Acompañamiento grupal</strong>
-            <span>No incluye tutoría individual, WhatsApp personal, revisión privada ilimitada ni mentoría uno a uno.</span>
-          </div>
         </div>
         <div className={styles.scoreCard}>
           <span>Acompañamiento del programa</span>
           <strong>2</strong>
           <p>sesiones grupales al mes</p>
-          <small>1 sesión sobre las dudas más solicitadas + 1 Hot Seat de problemas y casos reales.</small>
+          <small>1 sesión para resolver las dudas compartidas que más importan + 1 Hot Seat para aprender a razonar casos reales.</small>
         </div>
       </section>
 
       <section className={styles.evaluationSection}>
         <div>
           <p className={styles.eyebrow}>Aprender también significa demostrarlo</p>
-          <h2>Queremos comprobar que entiendes lo que estudias, no que simplemente hayas pasado por el contenido.</h2>
+          <h2>Aquí no basta con pasar por el contenido: necesitas alcanzar al menos un 80 % en cada módulo para avanzar.</h2>
           <p>
             El modelo contempla avance secuencial, evaluación por módulo y certificados privados verificables. El objetivo es comprobar comprensión y aplicación antes de seguir avanzando.
           </p>
@@ -398,9 +327,9 @@ export default function PreventaPage() {
           </div>
         </div>
         <div className={styles.scoreCard}>
-          <span>Umbral académico diseñado</span>
-          <strong>80 %</strong>
-          <p>por módulo</p>
+          <span>Umbral académico mínimo</span>
+          <strong style={{ fontSize: 'clamp(76px, 10vw, 132px)' }}>80 %</strong>
+          <p>para avanzar</p>
           <div className={styles.scoreTrack}><i /></div>
           <small>Las evaluaciones y controles académicos forman parte del diseño de la plataforma Academy.</small>
         </div>
@@ -503,34 +432,35 @@ export default function PreventaPage() {
         </figure>
         <div>
           <p className={styles.eyebrow}>Quién está detrás</p>
-          <h2>Una formación construida desde más de treinta años dentro del entrenamiento, el rendimiento y la gestión de personas y servicios.</h2>
+          <h2>No quería crear otro curso de entrenamiento personal. Quería condensar tres décadas de oficio para que tú no tengas que aprenderlo todo a base de ensayo y error.</h2>
           <p>
-            Alby Aguiar, fundador de GHC Training, dirige el programa desde una trayectoria vinculada al entrenamiento, el rendimiento, la gestión de servicios y el trabajo con personas con necesidades diferentes.
+            Alby Aguiar lleva más de 30 años vinculado al entrenamiento, el rendimiento y la salud. Su recorrido ha pasado por la competición de alto nivel, la dirección de centros y empresas de fitness, el entrenamiento personal y una formación multidisciplinar que ha incluido Medicina, Ciencias de la Actividad Física y Nutrición.
           </p>
           <p>
-            GHC Academy nace para reunir en un mismo recorrido conocimientos que muchas veces se aprenden separados y convertirlos en una forma de entender la profesión: saber qué estás viendo, por qué importa, qué puedes hacer con esa información y cuándo necesitas cambiar de rumbo o derivar.
+            Pero GHC Academy no nace de acumular títulos ni de repetir teoría. Nace de décadas trabajando con personas reales, tomando decisiones, corrigiendo errores, resolviendo situaciones complejas y aprendiendo a conectar biomecánica, fisiología, programación, nutrición, dolor, comportamiento y contexto.
           </p>
+          <p>
+            Ha trabajado con perfiles muy distintos, desde personas orientadas al rendimiento hasta clientes con fibromialgia, lipedema, linfedema o dolor crónico, situaciones en las que saber ejercicios no basta: hay que saber pensar, adaptar y asumir responsabilidad profesional.
+          </p>
+          <div className={styles.legalNote}>
+            <strong>Eso es lo que quiere transmitirte aquí.</strong>
+            <span>No que entrenes como él ni que copies sus decisiones. Que desarrolles el criterio, la seguridad y los recursos necesarios para tomar las tuyas y recorrer mucho más rápido un camino que normalmente exige años de práctica.</span>
+          </div>
         </div>
       </section>
 
       <section className="conversion-proof-section">
         <div className="conversion-proof-copy">
-          <p className={styles.eyebrow}>Una formación con estructura real</p>
-          <h2>Antes de abrir la preventa, los tres niveles y los treinta módulos ya estaban definidos.</h2>
+          <p className={styles.eyebrow}>Lo que queremos que te lleves</p>
+          <h2>Más capacidad para integrar información. Más seguridad para decidir. Más confianza para explicar y adaptar tu trabajo.</h2>
           <p>
-            No estás comprando una lista de temas por desarrollar. La arquitectura académica del programa está cerrada y la apertura de la plataforma está fijada para el 15 de octubre de 2026.
+            El objetivo no es llenarte la cabeza de conceptos. Es que puedas reconocer qué importa en cada situación, relacionar conocimientos que antes estaban separados y convertirlos en una forma de trabajar más sólida.
           </p>
-          <div className="conversion-proof-list">
-            <div><span>01</span><strong>3 niveles y 30 módulos conectados entre sí.</strong></div>
-            <div><span>02</span><strong>Evaluación por módulo para comprobar comprensión antes de avanzar.</strong></div>
-            <div><span>03</span><strong>Umbral académico del 80 % y certificados privados verificables.</strong></div>
-            <div><span>04</span><strong>Apertura académica: 15 de octubre de 2026.</strong></div>
-          </div>
         </div>
         <aside className="conversion-proof-card">
-          <span>Lo que queremos que te lleves</span>
-          <strong>Más conocimiento. Más comprensión. Más recursos. Más seguridad para ejercer como entrenador personal.</strong>
-          <p>Ese es el hilo que conecta los tres niveles.</p>
+          <span>El refuerzo de la promesa</span>
+          <strong>Que cuando aparezca un cliente, un objetivo o un problema que no encaje en una receta, tengas un proceso para pensar qué hacer a continuación.</strong>
+          <p>Eso es integración profesional: menos dependencia de respuestas prefabricadas y más criterio propio.</p>
         </aside>
       </section>
 
@@ -541,7 +471,7 @@ export default function PreventaPage() {
             <h2>Los tres niveles por separado suman 2.670 €. El pack completo oficial será 2.290 €. La Edición Fundadora son 1.690 €.</h2>
           </div>
           <p>
-            Primero queríamos que vieras qué estás comprando. La condición fundadora incluye el programa completo: los tres niveles, los treinta módulos, las evaluaciones y el acompañamiento grupal.
+            Primero queríamos que vieras qué estás comprando. La condición fundadora incluye el recorrido completo, las evaluaciones y el acompañamiento grupal.
           </p>
         </div>
         <div className="conversion-price-levels">
@@ -587,7 +517,7 @@ export default function PreventaPage() {
             <span className={styles.paymentLabel}>Mejor condición económica</span>
             <h3>Pago único</h3>
             <strong>1.690 €</strong>
-            <p>Programa completo: tres niveles, treinta módulos, evaluaciones y acompañamiento grupal.</p>
+            <p>Programa completo: tres niveles, evaluaciones y acompañamiento grupal.</p>
             <Link href={singleHref} className={styles.primaryCta} style={{ width: '100%', marginTop: 22 }}>
               Elegir pago único · 1.690 €
             </Link>
@@ -630,7 +560,7 @@ export default function PreventaPage() {
       <section className="conversion-final-section">
         <div>
           <p className={styles.eyebrow}>Primera generación · GHC Academy</p>
-          <h2>Si quieres convertirte en entrenador personal con una base sólida, o llevar mucho más lejos la preparación que ya tienes, este es el recorrido que hemos construido para ello.</h2>
+          <h2>Si quieres convertirte en entrenador personal con una base sólida, o ya ejerces y quieres tener más criterio, más recursos y más seguridad para enfrentarte a clientes y situaciones diferentes, este es el recorrido que hemos construido para ti.</h2>
           <p>
             La Edición Fundadora cierra el 15 de septiembre de 2026 o cuando se completen las cien plazas. La plataforma académica abre el 15 de octubre de 2026.
           </p>
@@ -644,7 +574,7 @@ export default function PreventaPage() {
       <footer className={styles.footer}>
         <GHCLogo size="sm" showText tagline />
         <p>GHC Academy · Programa Profesional de Entrenamiento Personal · Formación privada online · Edición Fundadora 2026.</p>
-        <div><span>3 niveles</span><span>30 módulos</span><span>100 plazas fundadoras</span></div>
+        <div><span>3 niveles</span><span>Recorrido completo</span><span>100 plazas fundadoras</span></div>
       </footer>
     </main>
   );
