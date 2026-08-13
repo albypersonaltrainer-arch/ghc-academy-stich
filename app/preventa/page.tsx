@@ -239,8 +239,8 @@ export default function PreventaPage() {
           ))}
         </div>
         <div className={styles.legalNote}>
-          <strong>Cuando conectas estas ocho áreas, cambia tu manera de trabajar.</strong>
-          <span>Dejas de ver un cliente como una suma de ejercicios y empiezas a verlo como un caso completo: puedes valorar mejor, priorizar, adaptar el entrenamiento, anticipar problemas, comunicar con más claridad y sostener tus decisiones con mucha más seguridad.</span>
+          <strong>Cuando conectas estas ocho áreas, ganas una visión mucho más completa de cada cliente.</strong>
+          <span>Entiendes mejor qué información importa, qué necesita esa persona, qué debes priorizar y cómo adaptar el entrenamiento a su situación. Eso te permite decidir con más precisión, comunicar mejor y trabajar con mucha más seguridad cuando el caso se complica o se sale de lo habitual.</span>
         </div>
       </section>
 
@@ -321,10 +321,6 @@ export default function PreventaPage() {
           <p>
             El modelo contempla avance secuencial, evaluación por módulo y certificados privados verificables. El objetivo es comprobar comprensión y aplicación antes de seguir avanzando.
           </p>
-          <div className={styles.legalNote}>
-            <strong>Formación privada</strong>
-            <span>No constituye una titulación oficial ni una habilitación administrativa automática para ejercer.</span>
-          </div>
         </div>
         <div className={styles.scoreCard}>
           <span>Umbral académico mínimo</span>
@@ -335,11 +331,15 @@ export default function PreventaPage() {
         </div>
       </section>
 
-      <section className={styles.authoritySection}>
+      <section className={`${styles.authoritySection} conversion-authority-layout`}>
         <style>{`
+          .conversion-authority-layout {
+            grid-template-columns: 0.7fr 1.3fr;
+            align-items: start;
+          }
           .conversion-founder-portrait {
             position: relative;
-            min-height: 520px;
+            min-height: 600px;
             margin: 0;
             overflow: hidden;
             border: 1px solid rgba(34, 214, 91, 0.28);
@@ -392,6 +392,9 @@ export default function PreventaPage() {
             text-transform: uppercase;
           }
           @media (max-width: 860px) {
+            .conversion-authority-layout {
+              grid-template-columns: 1fr;
+            }
             .conversion-founder-portrait {
               min-height: 640px;
             }
@@ -440,11 +443,11 @@ export default function PreventaPage() {
             Pero GHC Academy no nace de acumular títulos ni de repetir teoría. Nace de décadas trabajando con personas reales, tomando decisiones, corrigiendo errores, resolviendo situaciones complejas y aprendiendo a conectar biomecánica, fisiología, programación, nutrición, dolor, comportamiento y contexto.
           </p>
           <p>
-            Ha trabajado con perfiles muy distintos, desde personas orientadas al rendimiento hasta clientes con fibromialgia, lipedema, linfedema o dolor crónico, situaciones en las que saber ejercicios no basta: hay que saber pensar, adaptar y asumir responsabilidad profesional.
+            Ha trabajado con perfiles muy distintos, desde deportistas de alto rendimiento hasta clientes con fibromialgia, lipedema, linfedema o dolor crónico, situaciones en las que saber ejercicios no basta: hay que saber pensar, adaptar y asumir responsabilidad profesional.
           </p>
           <div className={styles.legalNote}>
             <strong>Eso es lo que quiere transmitirte aquí.</strong>
-            <span>No que entrenes como él ni que copies sus decisiones. Que desarrolles el criterio, la seguridad y los recursos necesarios para tomar las tuyas y recorrer mucho más rápido un camino que normalmente exige años de práctica.</span>
+            <span>No que entrenes como él ni que copies sus decisiones. Que desarrolles el criterio, la seguridad y los recursos necesarios para tomar las tuyas entendiendo qué requiere y qué necesita cada cliente, y recorrer mucho más rápido un camino que normalmente exige años de práctica.</span>
           </div>
         </div>
       </section>
@@ -558,6 +561,41 @@ export default function PreventaPage() {
       </section>
 
       <section className="conversion-final-section">
+        <style>{`
+          .conversion-final-section {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 30px;
+            align-items: center;
+            padding: 84px 72px;
+            margin-top: 44px;
+            margin-bottom: 44px;
+            border: 1px solid rgba(34, 214, 91, 0.24);
+            border-radius: 30px;
+            background:
+              radial-gradient(circle at 50% 0%, rgba(34, 214, 91, 0.12), transparent 36%),
+              linear-gradient(145deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012));
+            text-align: center;
+          }
+          .conversion-final-section > div:first-of-type {
+            width: min(100%, 1040px);
+            margin: 0 auto;
+          }
+          .conversion-final-section > div:first-of-type > p:last-child {
+            max-width: 760px;
+            margin-left: auto;
+            margin-right: auto;
+          }
+          .conversion-final-action {
+            width: min(100%, 650px);
+            margin: 0 auto;
+          }
+          @media (max-width: 620px) {
+            .conversion-final-section {
+              padding: 58px 22px;
+              border-radius: 24px;
+            }
+          }
+        `}</style>
         <div>
           <p className={styles.eyebrow}>Primera generación · GHC Academy</p>
           <h2>Si quieres convertirte en entrenador personal con una base sólida, o ya ejerces y quieres tener más criterio, más recursos y más seguridad para enfrentarte a clientes y situaciones diferentes, este es el recorrido que hemos construido para ti.</h2>
