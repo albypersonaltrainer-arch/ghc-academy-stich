@@ -1,0 +1,34 @@
+import { NextResponse } from 'next/server';
+
+const SPACE='https://qwen-qwen3-tts.hf.space';
+const API='generate_voice_design';
+const VOICE='Native Castilian Spanish male voice from Spain, 40 to 50 years old. Warm, confident, natural, medium-low timbre, calm pace, clear articulation, conversational and credible. Premium educational tone. Avoid theatrical, advertising or radio-announcer delivery.';
+const TEXT='El entrenamiento personal empieza antes del primer ejercicio. El entrenador observa a la persona, evalúa lo necesario y decide qué movimiento y qué carga tienen sentido hoy. Durante la sesión, la técnica, el esfuerzo y la respuesta del cliente aportan información. El plan se ajusta con esa información, no con recetas. En el sistema ge, hache, ce, cada sesión debe mejorar la siguiente decisión.';
+
+export const dynamic='force-dynamic';
+export const maxDuration=60;
+
+function parse(body:string){
+ const lines=body.split('\n').filter(x=>x.startsWith('data: ')).map(x=>x.slice(6).trim()).filter(Boolean);
+ for(let i=lines.length-1;i>=0;i--){try{const p=JSON.parse(lines[i]);if(Array.isArray(p)&&p[0]&&(p[0].url||p[0].path))return p[0]}catch{}}
+ return null;
+}
+
+export async function GET(){
+ try{
+  const submit=await fetch(`${SPACE}/gradio_api/call/${API}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({data:[TEXT,'Spanish',VOICE]}),cache:'no-store'});
+  const st=await submit.text();
+  if(!submit.ok)return NextResponse.json({ok:false,stage:'submit',detail:st},{status:502});
+  const id=JSON.parse(st)?.event_id;
+  if(!id)return NextResponse.json({ok:false,stage:'event',detail:st},{status:502});
+  const result=await fetch(`${SPACE}/gradio_api/call/${API}/${id}`,{headers:{accept:'text/event-stream'},cache:'no-store'});
+  const rt=await result.text();
+  const audio=parse(rt);
+  if(!audio)return NextResponse.json({ok:false,stage:'parse',detail:rt},{status:502});
+  const url=audio.url||`${SPACE}/gradio_api/file=${encodeURIComponent(audio.path)}`;
+  const wav=await fetch(url,{cache:'no-store'});
+  if(!wav.ok)return NextResponse.json({ok:false,stage:'audio',status:wav.status},{status:502});
+  const bytes=await wav.arrayBuffer();
+  return new NextResponse(bytes,{headers:{'content-type':wav.headers.get('content-type')||'audio/wav','cache-control':'no-store','x-gave-voice':'H1','x-gave-cost-eur':'0'}});
+ }catch(e){return NextResponse.json({ok:false,error:e instanceof Error?e.message:String(e)},{status:500})}
+}
