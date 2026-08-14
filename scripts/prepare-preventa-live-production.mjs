@@ -47,6 +47,8 @@ if (sumupConfigured) {
       );
 
       console.log(`[preventa-live] merchant.detected: ${detectedMerchantCode ? 'OK' : 'FAIL'}`);
+      // Diagnóstico temporal y no sensible: no imprime la API key ni ningún secreto.
+      console.log(`[preventa-live][diag] me.merchantCode=${detectedMerchantCode || 'NONE'}`);
 
       if (detectedMerchantCode) {
         const merchantResponse = await fetch(
@@ -62,6 +64,9 @@ if (sumupConfigured) {
 
         if (merchantResponse.ok) {
           const merchant = await merchantResponse.json().catch(() => null);
+          console.log(`[preventa-live][diag] merchant.responseCode=${clean(merchant?.merchant_code) || 'NONE'}`);
+          console.log(`[preventa-live][diag] merchant.sandbox=${String(merchant?.sandbox)} type=${typeof merchant?.sandbox}`);
+
           const merchantChecks = {
             merchantCode: merchant?.merchant_code === detectedMerchantCode,
             liveMerchant: merchant?.sandbox === false,
