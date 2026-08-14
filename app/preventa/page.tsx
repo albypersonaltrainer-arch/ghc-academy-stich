@@ -12,12 +12,12 @@ const entryProfiles = [
   [
     '01',
     'Quieres convertirte en entrenador personal',
-    'Buscas una formación que te dé una base seria antes de trabajar con personas: entender el cuerpo, valorar, programar, adaptar, comunicar y saber dónde están tus límites profesionales.',
+    'Buscas una base sólida antes de trabajar con clientes: entender el cuerpo, valorar, programar, adaptar y saber hasta dónde llega tu responsabilidad profesional.',
   ],
   [
     '02',
     'Ya eres entrenador personal',
-    'Ya tienes experiencia, pero quieres ampliar conocimientos, ordenar lo que has aprendido por separado y sentir más seguridad cuando aparece un caso que no encaja en lo habitual.',
+    'Ya trabajas con clientes y quieres ampliar recursos, conectar mejor lo que sabes y resolver con más seguridad los casos que no encajan en una receta.',
   ],
 ];
 
@@ -47,21 +47,21 @@ const levels = [
     'Nivel 1',
     'Construir la base profesional',
     'Base profesional',
-    '690 €',
+    '690 €',
     'Construyes los fundamentos que necesitas para dejar de trabajar por intuición: cuerpo, movimiento, fisiología, evaluación, programación, nutrición, técnica, seguridad y responsabilidad profesional.',
   ],
   [
     'Nivel 2',
     'Profundizar, programar y adaptar',
     'Aplicación avanzada',
-    '890 €',
+    '890 €',
     'Aprendes a llevar esa base a objetivos y situaciones más complejas: fuerza, hipertrofia, resistencia, periodización, recuperación, poblaciones especiales y adaptación del entrenamiento.',
   ],
   [
     'Nivel 3',
     'Convertirte en un profesional completo',
     'Integración profesional',
-    '1.090 €',
+    '1.090 €',
     'Integras la parte humana y profesional para prestar un servicio más sólido: adherencia, comunicación, experiencia de cliente, negocio, liderazgo, evidencia, tecnología, IA y dirección estratégica.',
   ],
 ];
@@ -110,10 +110,107 @@ export default function PreventaPage() {
         .conversion-shift-grid article {
           min-height: 285px;
         }
+        .conversion-hero-facts {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 18px;
+          width: min(100%, 760px);
+        }
+        .conversion-hero-facts > div {
+          justify-items: center;
+          text-align: center;
+          padding: 6px 8px;
+        }
+        .conversion-entry-intro,
+        .conversion-level-intro {
+          grid-template-columns: minmax(0, 1fr) minmax(360px, 0.82fr);
+          gap: 38px;
+          align-items: center;
+        }
+        .conversion-entry-intro h2 {
+          max-width: 860px;
+          font-size: clamp(40px, 3.9vw, 58px);
+          line-height: 0.99;
+        }
+        .conversion-entry-intro > p,
+        .conversion-level-intro > p {
+          max-width: 560px;
+          margin: 0;
+          padding: 20px 0 20px 26px;
+          border-left: 2px solid rgba(34, 214, 91, 0.72);
+          font-size: 18px;
+          line-height: 1.7;
+        }
+        .conversion-entry-profiles {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 18px;
+          width: min(100%, 1180px);
+          margin: 38px auto 0;
+        }
+        .conversion-entry-profile-card {
+          min-height: 255px;
+          display: grid;
+          grid-template-rows: auto auto 1fr;
+          align-content: start;
+          padding: 28px;
+        }
+        .conversion-entry-profile-card h3 {
+          margin: 28px 0 12px;
+          font-size: 26px;
+        }
+        .conversion-entry-profile-card > strong {
+          margin-top: 4px;
+          font-size: 15px;
+          line-height: 1.65;
+        }
+        .conversion-knowledge-card {
+          min-height: 285px;
+          display: grid;
+          grid-template-rows: auto minmax(72px, auto) 1fr;
+          align-content: start;
+        }
+        .conversion-knowledge-card h3 {
+          margin: 30px 0 10px;
+          align-self: start;
+        }
+        .conversion-knowledge-card > strong {
+          margin-top: 0;
+          align-self: start;
+        }
+        .conversion-level-intro h2 {
+          max-width: 790px;
+          font-size: clamp(42px, 4vw, 60px);
+          line-height: 0.99;
+        }
         .conversion-price-story {
-          padding: 38px;
+          padding: 42px 46px;
           margin-top: 24px;
           margin-bottom: 24px;
+        }
+        .conversion-price-head {
+          grid-template-columns: 1fr !important;
+          gap: 18px !important;
+          align-items: center !important;
+          width: min(100%, 1080px);
+          margin: 0 auto;
+          text-align: center;
+        }
+        .conversion-price-head h2 {
+          max-width: 980px;
+          margin: 0 auto;
+          font-size: clamp(44px, 5vw, 70px);
+          line-height: 0.98;
+        }
+        .conversion-price-head > p {
+          max-width: 800px;
+          margin: 0 auto !important;
+          font-size: 17px;
+          line-height: 1.7;
+        }
+        .conversion-price-highlight {
+          color: var(--ghc-green);
+          white-space: nowrap;
         }
         .conversion-price-levels > div,
         .conversion-price-path > div {
@@ -133,9 +230,22 @@ export default function PreventaPage() {
         .conversion-price-close > a {
           white-space: nowrap;
         }
-        .conversion-payment-grid {
+        .conversion-payment-intro {
+          max-width: 1000px;
+        }
+        .conversion-payment-intro h2 {
           max-width: 980px;
-          gap: 20px;
+          margin: 0 auto;
+          font-size: clamp(44px, 5.2vw, 72px);
+          line-height: 0.98;
+        }
+        .conversion-payment-intro > p {
+          max-width: 760px;
+          margin: 22px auto 0;
+        }
+        .conversion-payment-grid {
+          max-width: 1080px;
+          gap: 24px;
           align-items: stretch;
         }
         .conversion-payment-card {
@@ -145,23 +255,28 @@ export default function PreventaPage() {
           text-align: center;
           padding: 34px 32px 32px;
         }
+        .conversion-payment-card h3 {
+          margin: 22px 0 12px;
+          font-size: 34px;
+        }
         .conversion-payment-card > strong {
           display: block;
-          margin-top: 4px;
+          margin-top: 0;
           color: var(--ghc-text);
-          font-size: clamp(34px, 4vw, 48px);
+          font-size: clamp(36px, 4.1vw, 50px);
           line-height: 1;
           letter-spacing: -0.035em;
           white-space: nowrap;
           font-variant-numeric: tabular-nums;
         }
         .conversion-payment-card > p {
-          width: min(100%, 370px);
+          width: min(100%, 390px);
+          min-height: 72px;
           margin: 18px auto 0;
         }
         .conversion-payment-card > a {
           width: 100%;
-          margin-top: auto !important;
+          margin-top: 26px !important;
           padding-top: 0;
         }
         @media (max-width: 1100px) {
@@ -176,16 +291,41 @@ export default function PreventaPage() {
             padding-top: 72px;
             padding-bottom: 72px;
           }
+          .conversion-entry-intro,
+          .conversion-level-intro {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+          .conversion-entry-intro > p,
+          .conversion-level-intro > p {
+            max-width: none;
+          }
+          .conversion-entry-profiles {
+            grid-template-columns: 1fr;
+          }
           .conversion-price-story {
-            padding: 30px;
+            padding: 32px 28px;
           }
           .conversion-payment-card {
             padding: 28px 24px;
           }
+          .conversion-payment-card > p {
+            min-height: 0;
+          }
         }
         @media (max-width: 620px) {
+          .conversion-hero-facts {
+            gap: 8px;
+          }
+          .conversion-hero-facts > div {
+            padding: 4px 2px;
+          }
+          .conversion-entry-intro > p,
+          .conversion-level-intro > p {
+            padding: 16px 0 16px 18px;
+          }
           .conversion-price-story {
-            padding: 24px 18px;
+            padding: 26px 18px;
           }
           .conversion-payment-card > strong {
             font-size: clamp(30px, 10vw, 42px);
@@ -227,7 +367,7 @@ export default function PreventaPage() {
             <span>30 módulos</span>
             <span>Apertura 15 octubre 2026</span>
           </div>
-          <div className={styles.heroFacts}>
+          <div className={`${styles.heroFacts} conversion-hero-facts`}>
             <div><strong>3</strong><span>Niveles conectados</span></div>
             <div><strong>1</strong><span>Recorrido profesional</span></div>
             <div><strong>30+</strong><span>Años de experiencia</span></div>
@@ -275,18 +415,18 @@ export default function PreventaPage() {
       </section>
 
       <section className={styles.entrySection} id="para-quien">
-        <div className={styles.sectionIntroRow}>
+        <div className={`${styles.sectionIntroRow} conversion-entry-intro`}>
           <div>
             <p className={styles.eyebrow}>Dos puntos de partida</p>
-            <h2>Tanto si quieres convertirte en entrenador personal como si ya ejerces, el objetivo es que sepas valorar mejor, programar con criterio, adaptar el entrenamiento y trabajar para conseguir mejores resultados con tus clientes.</h2>
+            <h2>Tanto si quieres empezar como entrenador personal como si ya ejerces, el objetivo es que puedas valorar mejor, programar con más criterio, adaptar el entrenamiento y trabajar para conseguir mejores resultados con tus clientes.</h2>
           </div>
           <p>
-            No partimos de la idea de que todos saben lo mismo. Partimos de una necesidad común: comprender mejor, ampliar recursos y poder trabajar con más seguridad y criterio.
+            No necesitas llegar con el mismo nivel de experiencia. Lo importante es salir con una base más sólida, más recursos para resolver situaciones reales y mucha más claridad sobre qué hacer, por qué hacerlo y cuándo cambiarlo.
           </p>
         </div>
-        <div className={styles.paymentGrid}>
+        <div className="conversion-entry-profiles">
           {entryProfiles.map(([number, title, result]) => (
-            <article key={number} className={styles.entryCard}>
+            <article key={number} className={`${styles.entryCard} conversion-entry-profile-card`}>
               <span className={styles.cardNumber}>{number}</span>
               <h3>{title}</h3>
               <strong>{result}</strong>
@@ -328,7 +468,7 @@ export default function PreventaPage() {
         </div>
         <div className={styles.entryGrid}>
           {knowledgeAreas.map(([number, title, text]) => (
-            <article key={number} className={styles.entryCard}>
+            <article key={number} className={`${styles.entryCard} conversion-knowledge-card`}>
               <span className={styles.cardNumber}>{number}</span>
               <h3>{title}</h3>
               <strong>{text}</strong>
@@ -342,13 +482,13 @@ export default function PreventaPage() {
       </section>
 
       <section className={styles.levelSection} id="contenido">
-        <div className={styles.sectionIntroRow}>
+        <div className={`${styles.sectionIntroRow} conversion-level-intro`}>
           <div>
             <p className={styles.eyebrow}>El programa completo</p>
-            <h2>Tres niveles que construyen una misma forma de trabajar: base, aplicación e integración profesional.</h2>
+            <h2>Tres niveles. Un recorrido: construir la base, aplicarla y convertirla en criterio profesional.</h2>
           </div>
           <p>
-            Primero construyes los fundamentos. Después aprendes a trabajar con objetivos y situaciones más complejas. Finalmente integras la parte humana, profesional y estratégica para convertir lo aprendido en mejores decisiones, mejores procesos y un servicio orientado a conseguir mejores resultados para tus clientes.
+            Primero construyes los fundamentos. Después los aplicas a objetivos y situaciones más complejas. Al final conectas todo para valorar mejor, adaptar tus decisiones y ofrecer un servicio más completo y eficaz.
           </p>
         </div>
         <div className={styles.levelGrid}>
@@ -568,10 +708,10 @@ export default function PreventaPage() {
         <div className="conversion-price-head">
           <div>
             <p className={styles.eyebrow}>Ahora sí: la condición fundadora</p>
-            <h2>Los tres niveles por separado suman 2.670 €. El pack completo oficial será 2.290 €. La Edición Fundadora son 1.690 €.</h2>
+            <h2>El recorrido completo por <span className="conversion-price-highlight">1.690&nbsp;€</span> durante la Edición Fundadora.</h2>
           </div>
           <p>
-            Primero queríamos que vieras qué estás comprando. La condición fundadora incluye el recorrido completo, las evaluaciones y el acompañamiento grupal.
+            Los tres niveles por separado suman 2.670 €. El pack completo tendrá un precio oficial de 2.290 €. En esta primera edición puedes entrar por 1.690 € con el programa completo, las evaluaciones y el acompañamiento grupal.
           </p>
         </div>
         <div className="conversion-price-levels">
@@ -580,14 +720,14 @@ export default function PreventaPage() {
           ))}
         </div>
         <div className="conversion-price-path" aria-label="Comparación de precios">
-          <div><span>Los 3 niveles por separado</span><strong>2.670 €</strong></div>
+          <div><span>Los 3 niveles por separado</span><strong>2.670&nbsp;€</strong></div>
           <i>→</i>
-          <div><span>Pack completo oficial</span><strong>2.290 €</strong></div>
+          <div><span>Pack completo oficial</span><strong>2.290&nbsp;€</strong></div>
           <i>→</i>
           <div className="featured">
             <span>Edición Fundadora · primeras 100 plazas</span>
-            <strong>1.690 €</strong>
-            <del>2.290 €</del>
+            <strong>1.690&nbsp;€</strong>
+            <del>2.290&nbsp;€</del>
           </div>
         </div>
         <div className="conversion-savings">
@@ -604,29 +744,29 @@ export default function PreventaPage() {
         </div>
       </section>
 
-      <section className={styles.paymentSection}>
-        <div className={styles.sectionIntroCenter}>
+      <section className={`${styles.paymentSection} conversion-payment-section`}>
+        <div className={`${styles.sectionIntroCenter} conversion-payment-intro`}>
           <p className={styles.eyebrow}>Elige cómo entrar</p>
-          <h2>Pago único de 1.690 € o dos pagos de 895 €.</h2>
+          <h2>Pago único de 1.690&nbsp;€ o dos pagos de 895&nbsp;€.</h2>
           <p>
-            El pago único mantiene la mejor condición económica. La modalidad fraccionada suma 1.790 € y la segunda cuota vence quince días naturales después del primer pago confirmado.
+            El pago único mantiene el mejor precio: 1.690 €. Si prefieres fraccionarlo, son 895 € ahora y 895 € quince días naturales después. Total fraccionado: 1.790 €.
           </p>
         </div>
         <div className={`${styles.paymentGrid} conversion-payment-grid`}>
           <article className={`${styles.paymentCardFeatured} conversion-payment-card`}>
-            <span className={styles.paymentLabel}>Mejor condición económica</span>
+            <span className={styles.paymentLabel}>Mejor precio</span>
             <h3>Pago único</h3>
-            <strong>1.690 €</strong>
+            <strong>1.690&nbsp;€</strong>
             <p>Programa completo: tres niveles, evaluaciones y acompañamiento grupal.</p>
             <Link href={singleHref} className={styles.primaryCta}>
               Elegir pago único · 1.690 €
             </Link>
           </article>
           <article className={`${styles.paymentCard} conversion-payment-card`}>
-            <span className={styles.paymentLabel}>Modalidad alternativa</span>
+            <span className={styles.paymentLabel}>Pago fraccionado</span>
             <h3>Dos pagos</h3>
-            <strong>895 € + 895 €</strong>
-            <p>Total: 1.790 €. Primera cuota al matricularte y segunda cuota quince días naturales después del primer pago confirmado.</p>
+            <strong>895&nbsp;€ + 895&nbsp;€</strong>
+            <p>Primera cuota al matricularte y segunda cuota quince días naturales después. Total fraccionado: 1.790 €.</p>
             <Link href={splitHref} className={styles.secondaryCta}>
               Elegir dos pagos · 895 € ahora
             </Link>
@@ -661,11 +801,11 @@ export default function PreventaPage() {
         <style>{`
           .conversion-final-section {
             grid-template-columns: minmax(0, 1fr);
-            gap: 30px;
+            gap: 26px;
             align-items: center;
-            padding: 84px 72px;
-            margin-top: 44px;
-            margin-bottom: 44px;
+            padding: 74px 64px;
+            margin-top: 32px;
+            margin-bottom: 32px;
             border: 1px solid rgba(34, 214, 91, 0.24);
             border-radius: 30px;
             background:
@@ -688,7 +828,7 @@ export default function PreventaPage() {
           }
           @media (max-width: 620px) {
             .conversion-final-section {
-              padding: 58px 22px;
+              padding: 48px 20px;
               border-radius: 24px;
             }
           }
