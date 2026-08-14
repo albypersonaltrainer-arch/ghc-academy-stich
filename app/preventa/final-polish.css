@@ -58,6 +58,16 @@
   white-space: nowrap;
 }
 
+/* La información interna de gates no se muestra al comprador.
+   Recuperamos el texto comercial real del bloque de formas de pago. */
+[data-preventa-root] [class*="paymentSection"] [class*="sectionIntroCenter"] > p:last-child {
+  font-size: 16px !important;
+}
+
+[data-preventa-root] [class*="paymentSection"] [class*="sectionIntroCenter"] > p:last-child::after {
+  content: none !important;
+}
+
 @media (max-width: 860px) {
   [data-preventa-root] .conversion-knowledge-card:nth-child(2) h3,
   [data-preventa-root] .conversion-shift-grid article p {
