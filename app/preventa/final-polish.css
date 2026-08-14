@@ -1,0 +1,66 @@
+/* Ajustes finales de revisión visual de la preventa.
+   Todo queda acotado a [data-preventa-root] para no afectar al resto de la Academy. */
+
+/* Hero: texto de las tres cifras con el mismo peso visual que los números. */
+[data-preventa-root] .conversion-hero-facts span {
+  color: var(--ghc-text) !important;
+  font-weight: 950 !important;
+}
+
+/* Mapa de conocimiento: no tocar los siete bloques que ya estaban bien.
+   Solo reservamos en Fisiología y adaptación la altura equivalente a un título de dos líneas. */
+[data-preventa-root] .conversion-knowledge-card {
+  display: block !important;
+  grid-template-rows: none !important;
+}
+
+[data-preventa-root] .conversion-knowledge-card h3 {
+  min-height: 0 !important;
+  margin-top: 30px !important;
+  margin-bottom: 10px !important;
+  line-height: 1.18;
+}
+
+[data-preventa-root] .conversion-knowledge-card:nth-child(2) h3 {
+  min-height: 58px !important;
+}
+
+[data-preventa-root] .conversion-knowledge-card > strong {
+  display: block;
+  margin-top: 0 !important;
+}
+
+/* Mapa de conocimiento / cambio de criterio: igualar la altura del texto inicial
+   para que la segunda tarjeta ("Memorizar información") no suba el bloque A + resultado. */
+[data-preventa-root] .conversion-shift-grid article p {
+  min-height: 50px;
+}
+
+/* Pago único / dos pagos: centrar de verdad todos los elementos de cada tarjeta. */
+[data-preventa-root] .conversion-payment-card {
+  align-items: center !important;
+  text-align: center !important;
+}
+
+[data-preventa-root] .conversion-payment-card > span,
+[data-preventa-root] .conversion-payment-card > h3,
+[data-preventa-root] .conversion-payment-card > strong,
+[data-preventa-root] .conversion-payment-card > p {
+  display: block !important;
+  width: 100% !important;
+  align-self: stretch !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center !important;
+}
+
+[data-preventa-root] .conversion-payment-card > strong {
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  [data-preventa-root] .conversion-knowledge-card:nth-child(2) h3,
+  [data-preventa-root] .conversion-shift-grid article p {
+    min-height: 0 !important;
+  }
+}
