@@ -15,6 +15,11 @@ const serviceRoleKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 const checkoutTokenSecret = clean(process.env.PREVENTA_CHECKOUT_TOKEN_SECRET);
 const persistenceEnabled = clean(process.env.PREVENTA_PERSISTENCE_ENABLED) === 'true';
 
+// Merchant LIVE confirmado en el dashboard real de Global Health Coach.
+// El merchant_code no es una credencial secreta; se usa aquí como ancla explícita
+// para impedir que una API key de Sandbox pueda abrir cobros en Production.
+const EXPECTED_LIVE_MERCHANT_CODE = 'MEAYY6J3';
+
 const infrastructureReady = checkoutTokenSecret.length >= 32 && persistenceEnabled;
 const sumupConfigured = apiKey.length > 0;
 const legalBackendConfigured = /^https:\/\/[a-z0-9.-]+$/i.test(supabaseUrl) && serviceRoleKey.length > 20;
@@ -47,7 +52,6 @@ if (sumupConfigured) {
       );
 
       console.log(`[preventa-live] merchant.detected: ${detectedMerchantCode ? 'OK' : 'FAIL'}`);
-      // Diagnóstico temporal y no sensible: no imprime la API key ni ningún secreto.
       console.log(`[preventa-live][diag] me.merchantCode=${detectedMerchantCode || 'NONE'}`);
 
       if (detectedMerchantCode) {
@@ -67,9 +71,13 @@ if (sumupConfigured) {
           console.log(`[preventa-live][diag] merchant.responseCode=${clean(merchant?.merchant_code) || 'NONE'}`);
           console.log(`[preventa-live][diag] merchant.sandbox=${String(merchant?.sandbox)} type=${typeof merchant?.sandbox}`);
 
+          // SumUp puede omitir `sandbox` en la respuesta del merchant regular.
+          // Por eso Production exige además coincidencia exacta con el merchant LIVE
+          // conocido y rechaza de forma explícita cualquier `sandbox === true`.
           const merchantChecks = {
             merchantCode: merchant?.merchant_code === detectedMerchantCode,
-            liveMerchant: merchant?.sandbox === false,
+            expectedLiveMerchant: detectedMerchantCode === EXPECTED_LIVE_MERCHANT_CODE,
+            notSandbox: merchant?.sandbox !== true,
             country: merchant?.country === 'ES',
             currency: merchant?.default_currency === 'EUR',
           };
