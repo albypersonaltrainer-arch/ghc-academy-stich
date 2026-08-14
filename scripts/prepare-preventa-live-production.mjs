@@ -52,7 +52,6 @@ if (sumupConfigured) {
       );
 
       console.log(`[preventa-live] merchant.detected: ${detectedMerchantCode ? 'OK' : 'FAIL'}`);
-      console.log(`[preventa-live][diag] me.merchantCode=${detectedMerchantCode || 'NONE'}`);
 
       if (detectedMerchantCode) {
         const merchantResponse = await fetch(
@@ -68,8 +67,6 @@ if (sumupConfigured) {
 
         if (merchantResponse.ok) {
           const merchant = await merchantResponse.json().catch(() => null);
-          console.log(`[preventa-live][diag] merchant.responseCode=${clean(merchant?.merchant_code) || 'NONE'}`);
-          console.log(`[preventa-live][diag] merchant.sandbox=${String(merchant?.sandbox)} type=${typeof merchant?.sandbox}`);
 
           // SumUp puede omitir `sandbox` en la respuesta del merchant regular.
           // Por eso Production exige además coincidencia exacta con el merchant LIVE
