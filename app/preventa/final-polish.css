@@ -1,0 +1,54 @@
+/* Ajustes finales de revisión visual de la preventa.
+   Todo queda acotado a [data-preventa-root] para no afectar al resto de la Academy. */
+
+[data-preventa-root] .conversion-hero-facts span {
+  color: var(--ghc-text) !important;
+  font-weight: 950 !important;
+}
+
+[data-preventa-root] .conversion-knowledge-card {
+  grid-template-rows: auto 78px 1fr !important;
+}
+
+[data-preventa-root] .conversion-knowledge-card h3 {
+  min-height: 78px;
+  display: flex;
+  align-items: flex-start;
+  margin-top: 30px !important;
+  margin-bottom: 10px !important;
+  line-height: 1.18;
+}
+
+[data-preventa-root] .conversion-knowledge-card > strong {
+  align-self: start;
+  margin-top: 0 !important;
+}
+
+[data-preventa-root] .conversion-payment-card {
+  align-items: center !important;
+  text-align: center !important;
+}
+
+[data-preventa-root] .conversion-payment-card > span,
+[data-preventa-root] .conversion-payment-card > h3,
+[data-preventa-root] .conversion-payment-card > strong,
+[data-preventa-root] .conversion-payment-card > p {
+  width: 100%;
+  text-align: center !important;
+}
+
+[data-preventa-root] .conversion-payment-card > strong {
+  align-self: stretch !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+@media (max-width: 860px) {
+  [data-preventa-root] .conversion-knowledge-card {
+    grid-template-rows: auto auto 1fr !important;
+  }
+
+  [data-preventa-root] .conversion-knowledge-card h3 {
+    min-height: 0;
+  }
+}
