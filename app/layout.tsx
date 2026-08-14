@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import './globals.css'
+import './preventa/final-polish.css'
 import AcademyMediaGuard from './components/AcademyMediaGuard'
 
 export const metadata = {
