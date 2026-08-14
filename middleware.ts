@@ -14,6 +14,10 @@ const PUBLIC_PREVENTA_PAGES = new Set([
   '/legal',
 ]);
 
+const PUBLIC_PREVENTA_ASSETS = new Set([
+  '/images/alby-ghc-academy-founder.jpg',
+]);
+
 const PUBLIC_PREVENTA_API_PREFIXES = [
   '/api/preventa/orders',
   '/api/preventa/sumup-checkout',
@@ -79,6 +83,11 @@ export function middleware(request: NextRequest) {
 
   // Buyer-facing presale and contractual pages only. QA/test pages stay closed.
   if (PUBLIC_PREVENTA_PAGES.has(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Only the public assets explicitly used by the presale may bypass the Academy lock.
+  if (PUBLIC_PREVENTA_ASSETS.has(pathname)) {
     return NextResponse.next();
   }
 
