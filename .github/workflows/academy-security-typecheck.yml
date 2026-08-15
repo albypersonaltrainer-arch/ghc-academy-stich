@@ -47,9 +47,10 @@ jobs:
             node <<'NODE'
           const fs = require('node:fs')
           const text = fs.readFileSync('next-build.log', 'utf8')
-          const tail = text.split(/\r?\n/).slice(-70).join('\n').slice(-7000)
+          const lines = text.split(/\r?\n/)
+          const tail = lines.slice(-25).join('\n').slice(-3500)
           const escaped = tail.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
-          console.log(`::error title=Next build failed::${escaped}`)
+          console.log(`::error title=Next build final error::${escaped}`)
           NODE
             exit "$status"
           fi
