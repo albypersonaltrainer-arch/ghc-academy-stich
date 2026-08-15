@@ -22,10 +22,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
 
@@ -36,4 +36,31 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > npm-audit.json || true
+          node <<'NODE'
+          const fs = require('node:fs')
+          const audit = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'))
+          const vulnerabilities = audit.vulnerabilities || {}
+          let blocked = 0
+          for (const [name, item] of Object.entries(vulnerabilities)) {
+            if (!['high', 'critical'].includes(String(item.severity || '').toLowerCase())) continue
+            blocked += 1
+            const titles = (item.via || [])
+              .filter((entry) => entry && typeof entry === 'object' && entry.title)
+              .map((entry) => entry.title)
+              .slice(0, 3)
+              .join(' | ')
+            const message = [
+              `severity=${item.severity}`,
+              `range=${item.range || 'unknown'}`,
+              `fixAvailable=${Boolean(item.fixAvailable)}`,
+              titles ? `advisories=${titles}` : ''
+            ].filter(Boolean).join('; ')
+            console.log(`::error title=Dependency ${name}::${message}`)
+          }
+          const meta = audit.metadata?.vulnerabilities || {}
+          console.log(`npm audit: high=${meta.high || 0}, critical=${meta.critical || 0}`)
+          if (blocked > 0) process.exit(1)
+          NODE
