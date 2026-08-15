@@ -38,6 +38,7 @@ export default function AdminOpsRail() {
     >
       <Link href="/ghc-control-center/accesos" style={linkStyle}>Pagos y accesos</Link>
       <Link href="/ghc-control-center/soporte" style={linkStyle}>Soporte</Link>
+      <Link href="/ghc-control-center/mfa" style={linkStyle}>Seguridad MFA</Link>
     </nav>
   )
 }
