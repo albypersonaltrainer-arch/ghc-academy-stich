@@ -21,5 +21,8 @@
     "react-dom": "18.2.0",
     "typescript": "^5.4.2"
   },
+  "overrides": {
+    "postcss": "8.5.23"
+  },
   "devDependencies": {}
 }
