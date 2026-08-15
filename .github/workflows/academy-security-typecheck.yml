@@ -52,10 +52,13 @@ jobs:
               .map((entry) => entry.title)
               .slice(0, 3)
               .join(' | ')
+            const fix = item.fixAvailable && typeof item.fixAvailable === 'object'
+              ? `${item.fixAvailable.name}@${item.fixAvailable.version}; semverMajor=${Boolean(item.fixAvailable.isSemVerMajor)}`
+              : String(Boolean(item.fixAvailable))
             const message = [
               `severity=${item.severity}`,
               `range=${item.range || 'unknown'}`,
-              `fixAvailable=${Boolean(item.fixAvailable)}`,
+              `fix=${fix}`,
               titles ? `advisories=${titles}` : ''
             ].filter(Boolean).join('; ')
             console.log(`::error title=Dependency ${name}::${message}`)
