@@ -56,6 +56,10 @@ function buildWebhookUrl(baseUrl: string) {
 }
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json({ ok: false, code: 'NOT_FOUND' }, { status: 404 })
+  }
+
   const status = getAcademySumUpStatus()
   return NextResponse.json({
     ok: true,
@@ -68,7 +72,7 @@ export async function GET() {
     previewAutomationBypassConfigured:
       process.env.VERCEL_ENV !== 'preview' || Boolean(process.env.VERCEL_AUTOMATION_BYPASS_SECRET),
     checkoutReady: status.checkoutReady
-  })
+  }, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 export async function POST(request: NextRequest) {

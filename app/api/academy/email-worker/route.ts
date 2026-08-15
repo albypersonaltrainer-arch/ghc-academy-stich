@@ -42,7 +42,11 @@ function isAuthorized(request: NextRequest) {
   )
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ ok: false, code: 'NOT_FOUND' }, { status: 404 })
+  }
+
   const worker = getAcademyEmailWorkerStatus()
   const provider = getAcademyEmailProviderStatus()
   const secret = getWorkerSecret()
@@ -54,7 +58,7 @@ export async function GET() {
     usingPreventaWorkerSecretFallback: secret.fallback,
     worker,
     provider,
-  })
+  }, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 export async function POST(request: NextRequest) {

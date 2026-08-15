@@ -1,0 +1,238 @@
+.page {
+  min-height: 100vh;
+  padding: 48px 20px 80px;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(99, 229, 70, 0.09), transparent 34%),
+    #090c0a;
+  color: #f5f7f5;
+}
+
+.card {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  background: rgba(14, 18, 15, 0.97);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.3);
+}
+
+.head {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.head span,
+.head p,
+.actionBlock p,
+.enrollGrid p,
+.protected p {
+  color: #9eaaa0;
+}
+
+.head span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.head h1 {
+  margin: 5px 0;
+  font-size: clamp(28px, 5vw, 44px);
+  letter-spacing: -0.035em;
+}
+
+.head p,
+.actionBlock p,
+.enrollGrid p,
+.protected p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.statusGrid > div {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.statusGrid span,
+.statusGrid strong {
+  display: block;
+}
+
+.statusGrid span {
+  color: #859188;
+  font-size: 11px;
+}
+
+.statusGrid strong {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.notice,
+.error,
+.success,
+.protected {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 13px;
+  line-height: 1.55;
+}
+
+.notice {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+  color: #c5ccc7;
+}
+
+.error {
+  border: 1px solid rgba(255, 92, 92, 0.32);
+  background: rgba(255, 92, 92, 0.08);
+  color: #ffb3b3;
+}
+
+.success,
+.protected {
+  border: 1px solid rgba(99, 229, 70, 0.28);
+  background: rgba(99, 229, 70, 0.08);
+  color: #c9ffc0;
+}
+
+.actionBlock,
+.enrollGrid {
+  margin-top: 22px;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: #111613;
+}
+
+.actionBlock h2,
+.enrollGrid h2 {
+  margin: 0 0 8px;
+}
+
+.actionBlock button,
+.enrollGrid button,
+.footerActions button {
+  min-height: 42px;
+  margin-top: 16px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #63e546;
+  color: #0a1308;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.actionBlock button:disabled,
+.enrollGrid button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.enrollGrid {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+
+.qrWrap {
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.qrWrap img {
+  display: block;
+  width: 100%;
+  max-width: 230px;
+}
+
+.enrollGrid code {
+  display: block;
+  margin-top: 10px;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  border-radius: 9px;
+  background: #080b09;
+  color: #d8e5da;
+  font-size: 12px;
+}
+
+.actionBlock label,
+.enrollGrid label {
+  display: block;
+  margin-top: 16px;
+}
+
+.actionBlock label span,
+.enrollGrid label span {
+  display: block;
+  margin-bottom: 6px;
+  color: #9eaaa0;
+  font-size: 12px;
+}
+
+.actionBlock input,
+.enrollGrid input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  outline: none;
+  background: #090c0a;
+  color: #fff;
+  font-size: 18px;
+  letter-spacing: 0.12em;
+}
+
+.actionBlock input:focus,
+.enrollGrid input:focus {
+  border-color: rgba(99, 229, 70, 0.55);
+}
+
+.protected strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.footerActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.footerActions .secondary {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: #dce2dd;
+}
+
+@media (max-width: 720px) {
+  .page { padding: 20px 12px 60px; }
+  .card { padding: 18px; }
+  .head { align-items: flex-start; }
+  .statusGrid { grid-template-columns: 1fr; }
+  .enrollGrid { grid-template-columns: 1fr; }
+  .qrWrap { width: min(280px, 100%); margin: 0 auto; }
+}

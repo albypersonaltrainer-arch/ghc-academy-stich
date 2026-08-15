@@ -21,9 +21,34 @@ const preventaLive = loadPreventaLivePublicConfig();
 const legal = preventaLive?.legalReady ? preventaLive.legal : null;
 const verifiedMerchantCode = preventaLive?.merchantLiveVerified ? preventaLive.merchantCode : null;
 
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
+  {
+    key: 'Content-Security-Policy',
+    value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+  }
+];
+
+const privateNoStoreHeaders = [
+  { key: 'Cache-Control', value: 'private, no-store, max-age=0' },
+  { key: 'Pragma', value: 'no-cache' }
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      { source: '/ghc-control-center/:path*', headers: privateNoStoreHeaders },
+      { source: '/alumno/:path*', headers: privateNoStoreHeaders },
+      { source: '/cursos/:path*', headers: privateNoStoreHeaders }
+    ];
+  },
   env: preventaLive
     ? {
         PREVENTA_PUBLIC_BASE_URL: preventaLive.publicBaseUrl,

@@ -1,0 +1,36 @@
+name: Academy Security Typecheck
+
+on:
+  push:
+    branches:
+      - 'academy-security-*'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'supabase/migrations/**'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '.github/workflows/academy-security-typecheck.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript noEmit
+        run: npx tsc --noEmit
