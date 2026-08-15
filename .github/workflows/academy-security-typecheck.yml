@@ -19,7 +19,7 @@ permissions:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -34,6 +34,11 @@ jobs:
 
       - name: TypeScript noEmit
         run: npx tsc --noEmit
+
+      - name: Framework build without commercial gates
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npx next build
 
       - name: Production dependency audit
         shell: bash
