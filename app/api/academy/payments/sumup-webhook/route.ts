@@ -16,6 +16,10 @@ import {
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json({ ok: false, code: 'NOT_FOUND' }, { status: 404 })
+  }
+
   const status = getAcademySumUpStatus()
   return NextResponse.json({
     ok: true,
@@ -26,7 +30,7 @@ export async function GET() {
     sumupApiConfigured: status.shared.apiConfigured,
     sumupMerchantConfigured: status.shared.merchantConfigured,
     webhookReady: status.webhookReady
-  })
+  }, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 export async function POST(request: NextRequest) {
@@ -47,10 +51,14 @@ export async function POST(request: NextRequest) {
   try {
     const webhook = parseSumUpWebhookPayload(body)
 
-    // La notificación solo identifica el checkout. El estado económico se obtiene
-    // siempre de SumUp mediante una consulta autenticada al API del proveedor.
-    const checkout = await retrieveSumUpCheckout(webhook.id)
+    // Rechaza IDs de checkout que no existan en Academy antes de consultar la API
+    // del proveedor. Así un tercero no puede usar el webhook para provocar llamadas
+    // arbitrarias o agotar el rate limit de SumUp con identificadores inventados.
     const context = await getAcademySumUpCheckoutContext(webhook.id)
+
+    // La notificación solo identifica un checkout ya registrado. El estado económico
+    // se obtiene siempre de SumUp mediante una consulta autenticada al API real.
+    const checkout = await retrieveSumUpCheckout(webhook.id)
     const verified = verifyAcademySumUpCheckout({
       checkout,
       webhookCheckoutId: webhook.id,
