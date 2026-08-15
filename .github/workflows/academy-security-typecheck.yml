@@ -47,21 +47,20 @@ jobs:
           for (const [name, item] of Object.entries(vulnerabilities)) {
             if (!['high', 'critical'].includes(String(item.severity || '').toLowerCase())) continue
             blocked += 1
-            const titles = (item.via || [])
-              .filter((entry) => entry && typeof entry === 'object' && entry.title)
-              .map((entry) => entry.title)
-              .slice(0, 3)
-              .join(' | ')
             const fix = item.fixAvailable && typeof item.fixAvailable === 'object'
               ? `${item.fixAvailable.name}@${item.fixAvailable.version}; semverMajor=${Boolean(item.fixAvailable.isSemVerMajor)}`
               : String(Boolean(item.fixAvailable))
-            const message = [
-              `severity=${item.severity}`,
-              `range=${item.range || 'unknown'}`,
-              `fix=${fix}`,
-              titles ? `advisories=${titles}` : ''
-            ].filter(Boolean).join('; ')
-            console.log(`::error title=Dependency ${name}::${message}`)
+            console.log(`::error title=Dependency ${name}::severity=${item.severity}; range=${item.range || 'unknown'}; fix=${fix}`)
+            for (const via of item.via || []) {
+              if (!via || typeof via !== 'object') continue
+              const fields = [
+                via.title ? `title=${via.title}` : '',
+                via.url ? `url=${via.url}` : '',
+                via.range ? `range=${via.range}` : '',
+                via.severity ? `severity=${via.severity}` : ''
+              ].filter(Boolean).join('; ')
+              console.log(`::error title=${name} advisory::${fields}`)
+            }
           }
           const meta = audit.metadata?.vulnerabilities || {}
           console.log(`npm audit: high=${meta.high || 0}, critical=${meta.critical || 0}`)
