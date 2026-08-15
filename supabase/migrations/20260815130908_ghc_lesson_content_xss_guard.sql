@@ -7,7 +7,7 @@ as $$
 declare
   v_content text := coalesce(new.content, '');
 begin
-  if v_content ~* '(<\s*(script|iframe|object|embed|svg|math|form|input|button|textarea)\b|\bon[a-z]+\s*=|javascript\s*:|srcdoc\s*=|data\s*:\s*text/html)' then
+  if v_content ~* '(<[[:space:]]*(script|iframe|object|embed|svg|math|form|input|button|textarea)([[:space:]>\/])|on[a-z]+[[:space:]]*=|javascript[[:space:]]*:|srcdoc[[:space:]]*=|data[[:space:]]*:[[:space:]]*text/html)' then
     raise exception 'Contenido de lección rechazado por política de seguridad HTML.';
   end if;
 
