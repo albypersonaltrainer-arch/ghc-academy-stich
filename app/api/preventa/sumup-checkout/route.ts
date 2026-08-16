@@ -21,6 +21,10 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+};
+
 // SumUp Hosted Checkout is nominally short-lived, but provider expiration/webhook delivery
 // can lag slightly. Keep founder capacity reserved for 45 minutes to avoid accepting a
 // valid provider payment just after our local hold expires.
@@ -56,6 +60,13 @@ function parseBody(input: unknown) {
 }
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json(
+      { ok: false, code: 'NOT_FOUND' },
+      { status: 404, headers: NO_STORE_HEADERS }
+    );
+  }
+
   const persistence = getPreventaPersistenceStatus();
   const sumup = getSumUpIntegrationStatus();
   const publicBaseUrl = getPublicBaseUrl();
@@ -79,7 +90,7 @@ export async function GET() {
       sumup.merchantConfigured &&
       Boolean(publicBaseUrl) &&
       token.configured,
-  });
+  }, { headers: NO_STORE_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
@@ -91,55 +102,58 @@ export async function POST(request: NextRequest) {
   if (!persistence.ready) {
     return NextResponse.json(
       { ok: false, code: 'PERSISTENCE_GATE_CLOSED', error: 'Persistencia de preventa no disponible.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   if (!sumup.checkoutEnabled) {
     return NextResponse.json(
       { ok: false, code: 'SUMUP_CHECKOUT_GATE_CLOSED', error: 'Hosted Checkout permanece desactivado.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   if (!sumup.apiConfigured || !sumup.merchantConfigured) {
     return NextResponse.json(
       { ok: false, code: 'SUMUP_NOT_CONFIGURED', error: 'Faltan credenciales privadas de SumUp.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   if (!publicBaseUrl) {
     return NextResponse.json(
       { ok: false, code: 'PUBLIC_BASE_URL_NOT_CONFIGURED', error: 'Falta la URL pública contractual de preventa.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   if (!token.configured) {
     return NextResponse.json(
       { ok: false, code: 'CHECKOUT_TOKEN_NOT_CONFIGURED', error: 'Falta la clave privada de acceso al checkout.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   if (process.env.VERCEL_ENV === 'preview' && !process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
     return NextResponse.json(
       { ok: false, code: 'VERCEL_AUTOMATION_BYPASS_NOT_CONFIGURED', error: 'Falta el bypass de automatización para el callback de SumUp.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
-    return NextResponse.json({ ok: false, error: 'Content-Type debe ser application/json.' }, { status: 415 });
+    return NextResponse.json(
+      { ok: false, error: 'Content-Type debe ser application/json.' },
+      { status: 415, headers: NO_STORE_HEADERS }
+    );
   }
 
   const body = parseBody(await request.json().catch(() => null));
   if (!body) {
     return NextResponse.json(
       { ok: false, code: 'INVALID_CHECKOUT_REQUEST', error: 'Solicitud de checkout no válida.' },
-      { status: 400 }
+      { status: 400, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -226,7 +240,7 @@ export async function POST(request: NextRequest) {
       hostedCheckoutUrl: checkout.hosted_checkout_url,
       capacityProtected: context.installmentNo === 1,
       persistence: persistenceResult,
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     if (capacityHeld && checkoutReference && /^GHC-[A-Z0-9]{8}$/.test(body.orderReference)) {
       try {
@@ -244,7 +258,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof CheckoutAccessTokenError) {
       return NextResponse.json(
         { ok: false, code: error.code, error: 'Acceso al checkout no autorizado o caducado.' },
-        { status: 403 }
+        { status: 403, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -256,7 +270,7 @@ export async function POST(request: NextRequest) {
         code: 'SUMUP_CHECKOUT_CREATION_FAILED',
         error: 'No se pudo preparar el pago. No se ha acreditado ningún cobro.',
       },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }
