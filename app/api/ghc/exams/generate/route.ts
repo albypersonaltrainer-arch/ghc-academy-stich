@@ -23,8 +23,24 @@ type GeneratePayload = {
   questions: GeneratedQuestion[];
 };
 
+type StableFailure = {
+  code: string;
+  message: string;
+};
+
+class ExamGenerationError extends Error {
+  readonly code: string;
+
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "ExamGenerationError";
+    this.code = code;
+  }
+}
+
 const OPENAI_MODEL = process.env.OPENAI_EXAM_MODEL || "gpt-4.1-mini";
 const MAX_CONTENT_CHARS = 52000;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
@@ -34,16 +50,13 @@ export async function POST(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseAnonKey || !openaiApiKey) {
       return NextResponse.json(
-        { ok: false, error: "Faltan variables NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY." },
-        { status: 500 }
-      );
-    }
-
-    if (!openaiApiKey) {
-      return NextResponse.json(
-        { ok: false, error: "Falta OPENAI_API_KEY en Vercel." },
+        {
+          ok: false,
+          error: "La configuración del generador de exámenes no está disponible.",
+          errorCode: "GENERATOR_CONFIG_MISSING",
+        },
         { status: 500 }
       );
     }
@@ -100,6 +113,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!UUID_RE.test(blueprintId)) {
+      return NextResponse.json(
+        { ok: false, error: "blueprintId no es un UUID válido.", errorCode: "INVALID_BLUEPRINT_ID" },
+        { status: 400 }
+      );
+    }
+
     const { data: blueprint, error: blueprintError } = await supabase
       .from("exam_blueprints")
       .select("*")
@@ -126,7 +146,11 @@ export async function POST(request: NextRequest) {
 
     if (examError || !exam?.id) {
       return NextResponse.json(
-        { ok: false, error: examError?.message || "No se pudo crear el examen borrador desde el blueprint." },
+        {
+          ok: false,
+          error: "No se pudo crear el examen borrador desde el blueprint.",
+          errorCode: "EXAM_CREATE_FAILED",
+        },
         { status: 500 }
       );
     }
@@ -157,7 +181,11 @@ export async function POST(request: NextRequest) {
 
     if (generationError || !generation?.id) {
       return NextResponse.json(
-        { ok: false, error: generationError?.message || "No se pudo registrar la generación IA." },
+        {
+          ok: false,
+          error: "No se pudo registrar la generación IA.",
+          errorCode: "AI_GENERATION_START_FAILED",
+        },
         { status: 500 }
       );
     }
@@ -167,7 +195,10 @@ export async function POST(request: NextRequest) {
       const cleanQuestions = normalizeGeneratedQuestions(generated, Number(blueprint.answer_count || 4));
 
       if (!cleanQuestions.length) {
-        throw new Error("La IA no devolvió preguntas válidas en formato estructurado.");
+        throw new ExamGenerationError(
+          "AI_OUTPUT_INVALID",
+          "La generación no devolvió preguntas válidas en formato estructurado."
+        );
       }
 
       for (let index = 0; index < cleanQuestions.length; index += 1) {
@@ -197,7 +228,10 @@ export async function POST(request: NextRequest) {
         });
 
         if (questionError) {
-          throw new Error(questionError.message || "No se pudo guardar una pregunta generada.");
+          throw new ExamGenerationError(
+            "QUESTION_PERSIST_FAILED",
+            "No se pudo guardar una de las preguntas generadas."
+          );
         }
       }
 
@@ -217,23 +251,29 @@ export async function POST(request: NextRequest) {
         generatedQuestionCount: cleanQuestions.length,
         message: "Preguntas generadas como borrador. Pendientes de revisión humana.",
       });
-    } catch (generationFailure: any) {
+    } catch (generationFailure: unknown) {
+      const failure = getStableGenerationFailure(generationFailure);
+
       await supabase.rpc("ghc_admin_finish_ai_generation", {
         p_generation_id: generation.id,
         p_status: "failed",
         p_generated_question_count: 0,
         p_output_summary: null,
-        p_error_message: getErrorMessage(generationFailure),
+        p_error_message: failure.code,
       });
 
       return NextResponse.json(
-        { ok: false, error: getErrorMessage(generationFailure) },
+        { ok: false, error: failure.message, errorCode: failure.code },
         { status: 500 }
       );
     }
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { ok: false, error: getErrorMessage(error) },
+      {
+        ok: false,
+        error: "Error interno del generador de exámenes.",
+        errorCode: "EXAM_GENERATOR_INTERNAL_ERROR",
+      },
       { status: 500 }
     );
   }
@@ -496,17 +536,39 @@ async function callOpenAIForQuestions(apiKey: string, prompt: string, blueprint:
   const raw = await response.text();
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error ${response.status}: ${raw.slice(0, 900)}`);
+    throw new ExamGenerationError(
+      "OPENAI_REQUEST_FAILED",
+      "No se pudo completar la generación IA."
+    );
   }
 
-  const json = JSON.parse(raw);
+  let json: AnyRecord;
+  try {
+    json = JSON.parse(raw) as AnyRecord;
+  } catch {
+    throw new ExamGenerationError(
+      "OPENAI_RESPONSE_INVALID",
+      "La generación devolvió una respuesta no válida."
+    );
+  }
+
   const outputText = extractOutputText(json);
 
   if (!outputText) {
-    throw new Error("OpenAI no devolvió texto JSON estructurado.");
+    throw new ExamGenerationError(
+      "OPENAI_OUTPUT_MISSING",
+      "La generación no devolvió contenido estructurado."
+    );
   }
 
-  return JSON.parse(outputText) as GeneratePayload;
+  try {
+    return JSON.parse(outputText) as GeneratePayload;
+  } catch {
+    throw new ExamGenerationError(
+      "OPENAI_OUTPUT_INVALID",
+      "La generación devolvió contenido estructurado no válido."
+    );
+  }
 }
 
 function extractOutputText(response: AnyRecord) {
@@ -584,11 +646,13 @@ async function sha256(value: string) {
     .join("");
 }
 
-function getErrorMessage(error: unknown) {
-  if (!error) return "Error desconocido.";
-  if (typeof error === "string") return error;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    return String((error as { message?: unknown }).message || "Error desconocido.");
+function getStableGenerationFailure(error: unknown): StableFailure {
+  if (error instanceof ExamGenerationError) {
+    return { code: error.code, message: error.message };
   }
-  return "Error desconocido.";
+
+  return {
+    code: "EXAM_GENERATION_FAILED",
+    message: "No se pudieron generar las preguntas. Inténtalo de nuevo.",
+  };
 }
