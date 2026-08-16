@@ -8,6 +8,8 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 function bearerToken(request: NextRequest) {
   const authorization = request.headers.get('authorization') || ''
   return authorization.toLowerCase().startsWith('bearer ')
@@ -29,8 +31,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Debes iniciar sesión.' }, { status: 401 })
   }
 
-  if (!lessonId) {
-    return NextResponse.json({ ok: false, error: 'lessonId es obligatorio.' }, { status: 400 })
+  if (!UUID_RE.test(lessonId)) {
+    return NextResponse.json({ ok: false, error: 'lessonId no es válido.' }, { status: 400 })
   }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -48,7 +50,8 @@ export async function GET(request: NextRequest) {
   })
 
   if (mediaError) {
-    return NextResponse.json({ ok: false, error: mediaError.message || 'No se pudo comprobar el acceso al streaming.' }, { status: 403 })
+    console.error('[academy-streaming-playback] MEDIA_ACCESS_FAILED')
+    return NextResponse.json({ ok: false, error: 'No se pudo comprobar el acceso al streaming.' }, { status: 403 })
   }
 
   const assets = Array.isArray(mediaData) ? mediaData as LessonMediaAsset[] : []
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: false,
       code: 'PROVIDER_ADAPTER_NOT_READY',
-      error: playback.reason || 'El proveedor de streaming todavía no está configurado.',
+      error: 'El recurso de streaming todavía no está disponible.',
       asset: {
         id: asset.id,
         provider: asset.provider,
@@ -93,7 +96,8 @@ export async function GET(request: NextRequest) {
   })
 
   if (sessionError || !session?.session_id) {
-    return NextResponse.json({ ok: false, error: sessionError?.message || 'No se pudo abrir la sesión de reproducción.' }, { status: 500 })
+    console.error('[academy-streaming-playback] SESSION_OPEN_FAILED')
+    return NextResponse.json({ ok: false, error: 'No se pudo abrir la sesión de reproducción.' }, { status: 500 })
   }
 
   return NextResponse.json({
