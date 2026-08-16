@@ -32,7 +32,6 @@ const EXPLOIT_SCAN_PREFIXES = [
   '/phpmyadmin',
   '/vendor/phpunit',
   '/cgi-bin/',
-  '/.env',
   '/.git',
   '/.aws',
   '/.ssh',
@@ -89,6 +88,11 @@ function matchesAllowedApi(pathname: string) {
 
 function matchesExploitScan(pathname: string) {
   const normalized = pathname.toLowerCase();
+
+  if (normalized === '/.env' || normalized.startsWith('/.env.')) {
+    return true;
+  }
+
   return EXPLOIT_SCAN_PREFIXES.some(
     (prefix) => normalized === prefix || normalized.startsWith(prefix.endsWith('/') ? prefix : `${prefix}/`)
   );
