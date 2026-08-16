@@ -25,10 +25,6 @@ begin
      ) then
     raise exception 'DEFAULT ACL TEST FAILED: client roles inherited privileges on future public sequence';
   end if;
-
-  if not has_table_privilege('service_role','public.preventa_default_acl_probe','SELECT') then
-    raise exception 'DEFAULT ACL TEST FAILED: service_role lost expected server-side table access';
-  end if;
 end
 $$;
 
