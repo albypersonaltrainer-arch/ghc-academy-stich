@@ -49,7 +49,10 @@ export function getPreventaScheduledMaintenanceStatus() {
     // execution authenticates with a short-lived GitHub Actions OIDC token, so the
     // absence of the legacy shared secret must not close the operational readiness gate.
     cronSecretConfigured,
-    ready: persistence.ready && emailWorker.ready,
+    // Economic state transitions are authoritative and must not be blocked by an
+    // optional outbound-email provider. Email delivery is drained only when its own
+    // worker is ready; otherwise queued events remain untouched for a later run.
+    ready: persistence.ready,
   };
 }
 
@@ -157,22 +160,32 @@ async function drainDueEmailQueue() {
     if (batch.claimed < EMAIL_BATCH_SIZE) break;
   }
 
-  return { claimed, sent, retryOrFailed, batches: batches.length };
+  return { deferred: false as const, claimed, sent, retryOrFailed, batches: batches.length };
 }
 
 export async function runPreventaScheduledMaintenance(now = new Date()) {
   const status = getPreventaScheduledMaintenanceStatus();
-  if (!status.persistenceReady || !status.emailWorkerReady) {
+  if (!status.persistenceReady) {
     throw new Error('PREVENTA_SCHEDULER_GATE_CLOSED');
   }
 
   // Orden deliberado:
   // 1) actualiza estados económicos vencidos;
   // 2) cierra expedientes al día +60;
-  // 3) procesa la cola resultante, incluidos E09 generados por el cierre.
+  // 3) procesa la cola resultante solo cuando el worker de email está operativo.
+  // Si el proveedor de correo todavía no está configurado, la cola no se reclama ni
+  // se marca como fallida: queda pendiente para un run posterior.
   const overdue = await markDueOrdersOverdue(now);
   const day60 = await closeDay60NonpaymentOrders(now);
-  const email = await drainDueEmailQueue();
+  const email = status.emailWorkerReady
+    ? await drainDueEmailQueue()
+    : {
+        deferred: true as const,
+        claimed: 0,
+        sent: 0,
+        retryOrFailed: 0,
+        batches: 0,
+      };
 
   return {
     ranAt: now.toISOString(),
