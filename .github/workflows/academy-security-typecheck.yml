@@ -9,9 +9,14 @@ on:
     paths:
       - 'app/**'
       - 'lib/**'
+      - 'scripts/**'
       - 'supabase/migrations/**'
+      - 'middleware.ts'
+      - 'next.config.js'
+      - 'vercel.json'
       - 'tsconfig.json'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/academy-security-typecheck.yml'
 
 permissions:
