@@ -13,13 +13,17 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.43.4",
     "@types/node": "^20.11.30",
-    "@types/react": "^18.2.67",
-    "@types/react-dom": "^18.2.22",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.4",
     "hls.js": "1.6.16",
-    "next": "14.2.5",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
+    "next": "15.5.21",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "typescript": "^5.4.2"
+  },
+  "overrides": {
+    "postcss": "8.5.23",
+    "sharp": "0.35.3"
   },
   "devDependencies": {}
 }
