@@ -48,7 +48,7 @@ export async function persistPreventaDraft(
 
   const validated = validatePreviewOrderInput(input);
   if (!validated.ok) {
-    throw new Error(`PREVENTA_VALIDATION_FAILED:${validated.errors.join('|')}`);
+    throw new Error('PREVENTA_VALIDATION_FAILED');
   }
 
   const data = validated.data;
@@ -85,7 +85,7 @@ export async function persistPreventaDraft(
   });
 
   if (error) {
-    throw new Error(`PREVENTA_PERSISTENCE_RPC_FAILED:${error.message}`);
+    throw new Error('PREVENTA_PERSISTENCE_RPC_FAILED');
   }
 
   const result = rpcData as {
