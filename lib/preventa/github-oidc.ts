@@ -38,10 +38,13 @@ type JwtPayload = {
   event_name?: unknown;
 };
 
-type GithubJwk = JsonWebKey & {
+type GithubJwk = {
+  kty?: string;
   kid?: string;
   alg?: string;
   use?: string;
+  n?: string;
+  e?: string;
 };
 
 type GithubJwks = {
@@ -125,6 +128,10 @@ async function fetchJwks(forceRefresh = false) {
             key.kty === 'RSA' &&
             typeof key.kid === 'string' &&
             key.kid.length > 0 &&
+            typeof key.n === 'string' &&
+            key.n.length > 0 &&
+            typeof key.e === 'string' &&
+            key.e.length > 0 &&
             (!key.alg || key.alg === 'RS256') &&
             (!key.use || key.use === 'sig')
         )
@@ -171,10 +178,13 @@ export async function verifyGithubActionsCronOidcToken(token: string) {
   if (!validateClaims(payload)) return false;
 
   const jwk = await resolveSigningKey(kid);
-  if (!jwk) return false;
+  if (!jwk || jwk.kty !== 'RSA' || !jwk.n || !jwk.e) return false;
 
   try {
-    const publicKey = createPublicKey({ key: jwk, format: 'jwk' });
+    const publicKey = createPublicKey({
+      key: { kty: 'RSA', n: jwk.n, e: jwk.e },
+      format: 'jwk',
+    });
     const signature = Buffer.from(encodedSignature, 'base64url');
     if (signature.length === 0) return false;
 
