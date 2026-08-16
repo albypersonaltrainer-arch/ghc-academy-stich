@@ -83,10 +83,11 @@ function message(title: string, text: string) {
 export default async function MatriculaPage({
   searchParams,
 }: {
-  searchParams?: { order?: string; token?: string };
+  searchParams?: Promise<{ order?: string; token?: string }>;
 }) {
-  const orderReference = (searchParams?.order || '').trim();
-  const token = (searchParams?.token || '').trim();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const orderReference = (resolvedSearchParams?.order || '').trim();
+  const token = (resolvedSearchParams?.token || '').trim();
 
   if (!orderReference || !token) {
     return message(
