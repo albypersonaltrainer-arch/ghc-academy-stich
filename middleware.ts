@@ -25,6 +25,12 @@ const PUBLIC_PREVENTA_API_PREFIXES = [
   '/api/preventa/cron',
 ];
 
+const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
+  '/api/preventa/orders',
+  '/api/preventa/sumup-checkout',
+  '/api/preventa/sumup-webhook',
+]);
+
 const EXPLOIT_SCAN_PREFIXES = [
   '/wp-admin',
   '/wp-login.php',
@@ -126,6 +132,13 @@ export function middleware(request: NextRequest) {
   // Only the public assets explicitly used by the presale may bypass the Academy lock.
   if (PUBLIC_PREVENTA_ASSETS.has(pathname)) {
     return NextResponse.next();
+  }
+
+  // Production only needs POST on buyer/payment operational endpoints. Their GET
+  // handlers remain available in Preview for QA but must not disclose readiness
+  // or provider configuration to unauthenticated Production visitors.
+  if (PUBLIC_POST_ONLY_PREVENTA_APIS.has(pathname) && request.method !== 'POST') {
+    return notFound();
   }
 
   // Operational presale APIs only. Self-tests, previews and admin APIs stay closed.
