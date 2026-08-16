@@ -4,9 +4,9 @@ import CheckoutInteractive from './CheckoutInteractive';
 import styles from '../flow.module.css';
 
 type CheckoutPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     plan?: string | string[];
-  };
+  }>;
 };
 
 export const metadata = {
@@ -14,9 +14,10 @@ export const metadata = {
   description: 'Matrícula y pago de la Edición Fundadora GHC Academy 2026.',
 };
 
-export default function CheckoutPreventaPage({ searchParams }: CheckoutPageProps) {
+export default async function CheckoutPreventaPage({ searchParams }: CheckoutPageProps) {
   const isPreview = process.env.VERCEL_ENV === 'preview';
-  const requestedPlan = Array.isArray(searchParams?.plan) ? searchParams?.plan[0] : searchParams?.plan;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const requestedPlan = Array.isArray(resolvedSearchParams?.plan) ? resolvedSearchParams?.plan[0] : resolvedSearchParams?.plan;
   const initialPlan = requestedPlan === 'split' ? 'split' : 'single';
 
   return (
