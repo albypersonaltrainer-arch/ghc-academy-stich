@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const MAX_MEDIA_SECONDS = 7 * 24 * 60 * 60
+
 function bearerToken(request: NextRequest) {
   const authorization = request.headers.get('authorization') || ''
   return authorization.toLowerCase().startsWith('bearer ')
@@ -23,18 +26,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Debes iniciar sesión.' }, { status: 401 })
   }
 
-  const body = await request.json().catch(() => ({}))
-  const sessionId = String(body?.sessionId || '').trim()
-  const positionSeconds = Math.max(0, Math.floor(Number(body?.positionSeconds || 0)))
-  const rawDuration = Number(body?.durationSeconds)
-  const durationSeconds = Number.isFinite(rawDuration) && rawDuration >= 0
-    ? Math.floor(rawDuration)
-    : null
-  const ended = body?.ended === true
-
-  if (!sessionId) {
-    return NextResponse.json({ ok: false, error: 'sessionId es obligatorio.' }, { status: 400 })
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ ok: false, error: 'Solicitud JSON no válida.' }, { status: 400 })
   }
+
+  const value = body as Record<string, unknown>
+  const sessionId = typeof value.sessionId === 'string' ? value.sessionId.trim() : ''
+  const rawPosition = Number(value.positionSeconds)
+  const rawDuration = value.durationSeconds === null || value.durationSeconds === undefined
+    ? null
+    : Number(value.durationSeconds)
+  const ended = value.ended === true
+
+  if (!UUID_RE.test(sessionId)) {
+    return NextResponse.json({ ok: false, error: 'sessionId no es válido.' }, { status: 400 })
+  }
+
+  if (!Number.isFinite(rawPosition) || rawPosition < 0 || rawPosition > MAX_MEDIA_SECONDS) {
+    return NextResponse.json({ ok: false, error: 'positionSeconds no es válido.' }, { status: 400 })
+  }
+
+  if (rawDuration !== null && (!Number.isFinite(rawDuration) || rawDuration < 0 || rawDuration > MAX_MEDIA_SECONDS)) {
+    return NextResponse.json({ ok: false, error: 'durationSeconds no es válido.' }, { status: 400 })
+  }
+
+  const positionSeconds = Math.floor(rawPosition)
+  const durationSeconds = rawDuration === null ? null : Math.floor(rawDuration)
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
@@ -54,7 +72,8 @@ export async function POST(request: NextRequest) {
   })
 
   if (error || data !== true) {
-    return NextResponse.json({ ok: false, error: error?.message || 'No se pudo guardar el progreso de reproducción.' }, { status: 400 })
+    console.error('[academy-streaming-progress] SESSION_TOUCH_FAILED')
+    return NextResponse.json({ ok: false, error: 'No se pudo guardar el progreso de reproducción.' }, { status: 400 })
   }
 
   return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'private, no-store' } })
