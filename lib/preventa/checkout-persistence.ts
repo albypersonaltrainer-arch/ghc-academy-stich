@@ -68,7 +68,7 @@ export async function getPreventaCheckoutContext(input: {
     p_installment_no: input.installmentNo,
   });
 
-  if (error) throw new Error(`PREVENTA_CHECKOUT_CONTEXT_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_CHECKOUT_CONTEXT_FAILED');
   return mapContext(data);
 }
 
@@ -88,7 +88,7 @@ export async function reservePreventaCapacity(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_RESERVE_CAPACITY_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_RESERVE_CAPACITY_FAILED');
   return data;
 }
 
@@ -106,7 +106,7 @@ export async function attachPreventaCapacityCheckout(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_ATTACH_CAPACITY_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_ATTACH_CAPACITY_FAILED');
   return data;
 }
 
@@ -124,7 +124,7 @@ export async function releasePreventaCapacity(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_RELEASE_CAPACITY_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_RELEASE_CAPACITY_FAILED');
   return data;
 }
 
@@ -150,6 +150,6 @@ export async function registerPreventaCheckoutAttempt(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_REGISTER_CHECKOUT_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_REGISTER_CHECKOUT_FAILED');
   return data;
 }
