@@ -65,7 +65,7 @@ export async function preparePreventaCheckout(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_PREPARE_CHECKOUT_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_PREPARE_CHECKOUT_FAILED');
   return data;
 }
 
@@ -89,7 +89,7 @@ export async function confirmPreventaPayment(input: {
     p_provider_metadata: input.providerMetadata || {},
   });
 
-  if (error) throw new Error(`PREVENTA_CONFIRM_PAYMENT_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_CONFIRM_PAYMENT_FAILED');
   return data;
 }
 
@@ -113,7 +113,7 @@ export async function markPreventaCheckoutTerminal(input: {
     p_provider_metadata: input.providerMetadata || {},
   });
 
-  if (error) throw new Error(`PREVENTA_MARK_CHECKOUT_TERMINAL_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_MARK_CHECKOUT_TERMINAL_FAILED');
   return data;
 }
 
@@ -129,7 +129,7 @@ export async function markPreventaOverdue(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_MARK_OVERDUE_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_MARK_OVERDUE_FAILED');
   return data;
 }
 
@@ -147,7 +147,7 @@ export async function refundPreventaOrder(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_FULL_REFUND_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_FULL_REFUND_FAILED');
   return data;
 }
 
@@ -163,6 +163,6 @@ export async function closePreventaNonpayment(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_CLOSE_NONPAYMENT_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_CLOSE_NONPAYMENT_FAILED');
   return data;
 }
