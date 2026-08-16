@@ -13,6 +13,10 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+};
+
 function cleanRequestKey(value: string | null) {
   const key = (value || '').trim();
   if (!/^[A-Za-z0-9_-]{16,128}$/.test(key)) return null;
@@ -20,6 +24,13 @@ function cleanRequestKey(value: string | null) {
 }
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json(
+      { ok: false, code: 'NOT_FOUND' },
+      { status: 404, headers: NO_STORE_HEADERS }
+    );
+  }
+
   const persistence = getPreventaPersistenceStatus();
   const checkoutToken = getCheckoutAccessTokenStatus();
 
@@ -31,7 +42,7 @@ export async function GET() {
     checkoutTokenConfigured: checkoutToken.configured,
     writeReady: persistence.ready && checkoutToken.configured,
     paymentsEnabled: false,
-  });
+  }, { headers: NO_STORE_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
@@ -45,7 +56,7 @@ export async function POST(request: NextRequest) {
         code: 'PERSISTENCE_GATE_CLOSED',
         error: 'La persistencia de preventa permanece desactivada por Gate técnico.',
       },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -56,7 +67,7 @@ export async function POST(request: NextRequest) {
         code: 'PERSISTENCE_NOT_CONFIGURED',
         error: 'La persistencia está habilitada pero faltan variables privadas de servidor.',
       },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -67,7 +78,7 @@ export async function POST(request: NextRequest) {
         code: 'CHECKOUT_TOKEN_NOT_CONFIGURED',
         error: 'Falta la clave privada para emitir accesos seguros al checkout.',
       },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -79,7 +90,7 @@ export async function POST(request: NextRequest) {
         code: 'INVALID_IDEMPOTENCY_KEY',
         error: 'Idempotency-Key es obligatorio y debe tener entre 16 y 128 caracteres seguros.',
       },
-      { status: 400 }
+      { status: 400, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -87,7 +98,7 @@ export async function POST(request: NextRequest) {
   if (!contentType.includes('application/json')) {
     return NextResponse.json(
       { ok: false, error: 'Content-Type debe ser application/json.' },
-      { status: 415 }
+      { status: 415, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -95,7 +106,7 @@ export async function POST(request: NextRequest) {
   if (!body || typeof body !== 'object') {
     return NextResponse.json(
       { ok: false, error: 'Solicitud JSON no válida.' },
-      { status: 400 }
+      { status: 400, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -103,7 +114,7 @@ export async function POST(request: NextRequest) {
   if (!validated.ok) {
     return NextResponse.json(
       { ok: false, errors: validated.errors },
-      { status: 400 }
+      { status: 400, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -140,7 +151,7 @@ export async function POST(request: NextRequest) {
         requiresSumUpCheckout: true,
         requiresFinalPaymentGate: true,
       },
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Preventa persistence error', error);
 
@@ -150,7 +161,7 @@ export async function POST(request: NextRequest) {
         code: 'PERSISTENCE_FAILED',
         error: 'No se pudo crear el borrador de matrícula.',
       },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }
