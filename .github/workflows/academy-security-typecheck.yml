@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'academy-security-*'
+      - 'academy-next15-*'
   pull_request:
     paths:
       - 'app/**'
@@ -19,7 +20,7 @@ permissions:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -34,6 +35,13 @@ jobs:
 
       - name: TypeScript noEmit
         run: npx tsc --noEmit
+
+      - name: Next.js production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+        run: npx next build
 
       - name: Production dependency audit
         shell: bash

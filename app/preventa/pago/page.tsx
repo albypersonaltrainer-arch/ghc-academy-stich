@@ -28,14 +28,15 @@ function shell(children: React.ReactNode) {
   );
 }
 
-export default function PreventaPagoPage({
+export default async function PreventaPagoPage({
   searchParams,
 }: {
-  searchParams?: { order?: string; installment?: string; token?: string };
+  searchParams?: Promise<{ order?: string; installment?: string; token?: string }>;
 }) {
-  const orderReference = (searchParams?.order || '').trim();
-  const installmentValue = Number(searchParams?.installment);
-  const token = (searchParams?.token || '').trim();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const orderReference = (resolvedSearchParams?.order || '').trim();
+  const installmentValue = Number(resolvedSearchParams?.installment);
+  const token = (resolvedSearchParams?.token || '').trim();
   const installmentNo = installmentValue === 1 || installmentValue === 2
     ? installmentValue as 1 | 2
     : null;

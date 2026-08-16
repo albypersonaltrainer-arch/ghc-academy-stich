@@ -1,11 +1,12 @@
 import CertificateVerificationV2 from './CertificateVerificationV2'
 
 type PageProps = {
-  params: {
+  params: Promise<{
     certificateId: string
-  }
+  }>
 }
 
-export default function CertificateVerificationPage({ params }: PageProps) {
-  return <CertificateVerificationV2 certificateId={params.certificateId} />
+export default async function CertificateVerificationPage({ params }: PageProps) {
+  const { certificateId } = await params
+  return <CertificateVerificationV2 certificateId={certificateId} />
 }
