@@ -38,14 +38,9 @@ function isAuthorized(request: NextRequest) {
   return bearerSecret.length > 0 && safeEqual(bearerSecret, secret);
 }
 
-export async function POST(request: NextRequest) {
-  if (getCronSecret().length < 32) {
-    return NextResponse.json(
-      { ok: false, code: 'PREVENTA_CRON_UNAVAILABLE' },
-      { status: 503, headers: NO_STORE_HEADERS }
-    );
-  }
-
+async function handleCron(request: NextRequest) {
+  // Fail closed without disclosing whether the secret is absent or merely invalid.
+  // Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` automatically.
   if (!isAuthorized(request)) {
     return NextResponse.json(
       { ok: false, code: 'PREVENTA_CRON_UNAUTHORIZED' },
@@ -75,3 +70,8 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Vercel Cron invokes configured paths with GET. POST is retained for the
+// existing/manual scheduler contract and uses the exact same authorization path.
+export const GET = handleCron;
+export const POST = handleCron;
