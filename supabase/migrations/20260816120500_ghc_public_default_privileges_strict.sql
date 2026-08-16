@@ -1,18 +1,14 @@
--- Fail closed for future application objects created in schema public.
--- Existing objects are handled by explicit ACL/RLS migrations; this prevents a
--- future table, sequence or RPC from inheriting client privileges by accident.
+-- Fail closed for future application RPCs created in schema public by the
+-- application migration owner (postgres).
 --
--- Both roles are covered because Supabase-managed operations can use
--- supabase_admin while application migrations are normally owned by postgres.
+-- Tables/sequences owned by postgres were already covered by
+-- 20260816110100_preventa_public_default_privileges_fail_closed.sql.
+-- This closes PostgreSQL's implicit/default function EXECUTE path too, so every
+-- new client-facing RPC must grant EXECUTE explicitly.
+--
+-- Supabase also maintains default ACLs for its internal supabase_admin role.
+-- The application migration connection is postgres and is not a member of that
+-- platform role, so those defaults cannot be changed safely from application SQL.
 
 alter default privileges for role postgres in schema public
-  revoke execute on functions from public, anon, authenticated;
-
-alter default privileges for role supabase_admin in schema public
-  revoke all on tables from anon, authenticated;
-
-alter default privileges for role supabase_admin in schema public
-  revoke all on sequences from anon, authenticated;
-
-alter default privileges for role supabase_admin in schema public
   revoke execute on functions from public, anon, authenticated;
