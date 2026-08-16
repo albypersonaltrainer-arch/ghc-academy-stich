@@ -72,6 +72,22 @@ export async function getPreventaCheckoutContext(input: {
   return mapContext(data);
 }
 
+export async function isPreventaProviderCheckoutRegistered(providerCheckoutId: string) {
+  const checkoutId = providerCheckoutId.trim();
+  if (!checkoutId || checkoutId.length > 128) return false;
+
+  const supabase = getServerClient();
+  const { data, error } = await supabase
+    .from('preventa_checkout_attempts')
+    .select('id')
+    .eq('provider_checkout_id', checkoutId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error('PREVENTA_CHECKOUT_REGISTRATION_LOOKUP_FAILED');
+  return Boolean(data?.id);
+}
+
 export async function reservePreventaCapacity(input: {
   orderReference: string;
   checkoutReference: string;
