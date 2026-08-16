@@ -15,6 +15,7 @@ import {
   getPaymentPersistenceStatus,
   markPreventaCheckoutTerminal,
 } from '../../../../lib/preventa/payment-persistence';
+import { isPreventaProviderCheckoutRegistered } from '../../../../lib/preventa/checkout-persistence';
 import {
   getPreventaEmailWorkerStatus,
   runPreventaEmailWorker,
@@ -33,9 +34,8 @@ async function flushTransactionalEmailBestEffort() {
       sent: result.sent,
       retryOrFailed: result.retryOrFailed,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'UNKNOWN_EMAIL_WORKER_ERROR';
-    console.error('[preventa-email-after-webhook]', message);
+  } catch {
+    console.error('[preventa-email-after-webhook] WORKER_FAILED');
   }
 }
 
@@ -94,7 +94,19 @@ export async function POST(request: NextRequest) {
   try {
     const webhook = parseSumUpWebhookPayload(body);
 
-    // La notificación nunca acredita estado por sí sola: siempre se reconsulta SumUp.
+    // A buyer cannot pay before the checkout route has registered the provider ID:
+    // the hosted URL is returned only after registration succeeds. Rejecting unknown
+    // IDs here prevents arbitrary callers from spending our authenticated SumUp API
+    // quota as an oracle with provider checkout IDs unrelated to GHC.
+    const registered = await isPreventaProviderCheckoutRegistered(webhook.id);
+    if (!registered) {
+      return NextResponse.json(
+        { ok: true, applied: false },
+        { status: 200, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // The notification never accredits money by itself: status is re-fetched from SumUp.
     const checkout = await retrieveSumUpCheckout(webhook.id);
     const expectedMerchantCode = getConfiguredSumUpMerchantCode();
     const state = verifySumUpCheckoutStateForPreventa({
@@ -167,13 +179,13 @@ export async function POST(request: NextRequest) {
           ok: false,
           applied: false,
           code: error.code,
-          error: error.message,
+          error: 'Evento SumUp no válido o no verificable.',
         },
         { status: 400 }
       );
     }
 
-    console.error('SumUp webhook processing error', error);
+    console.error('[preventa-sumup-webhook] PROCESSING_FAILED');
     return NextResponse.json(
       { ok: false, code: 'SUMUP_WEBHOOK_PROCESSING_FAILED', error: 'No se pudo verificar o aplicar el evento SumUp.' },
       { status: 500 }

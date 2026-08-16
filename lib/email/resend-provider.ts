@@ -123,12 +123,14 @@ export async function sendResendEmail(
   })
 
   const raw = await response.text()
-  let payload: { id?: string; message?: string; name?: string } = {}
+  let payload: { id?: string } = {}
   try { payload = raw ? JSON.parse(raw) : {} } catch { payload = {} }
 
   if (!response.ok || !payload.id) {
-    const providerMessage = payload.message || payload.name || raw || `HTTP_${response.status}`
-    throw new Error(`RESEND_SEND_FAILED:${response.status}:${providerMessage.slice(0, 500)}`)
+    // Never propagate provider response bodies/messages. The HTTP status is enough
+    // for retry classification and prevents provider/account details entering logs
+    // or persisted delivery errors.
+    throw new Error(`RESEND_SEND_FAILED:${response.status}`)
   }
 
   return {

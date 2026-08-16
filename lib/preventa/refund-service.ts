@@ -63,8 +63,9 @@ async function requestFullSumUpRefund(transactionId: string) {
 
   if (response.status === 204) return;
 
-  const body = await response.text().catch(() => '');
-  throw new Error(`SUMUP_FULL_REFUND_FAILED:${response.status}:${body.slice(0, 240)}`);
+  // Provider bodies are intentionally not propagated into exceptions/logs.
+  // The HTTP status is sufficient for retry/diagnostic classification.
+  throw new Error(`SUMUP_FULL_REFUND_FAILED:${response.status}`);
 }
 
 async function transactionAlreadyRefunded(payment: RefundablePayment) {

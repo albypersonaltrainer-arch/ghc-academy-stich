@@ -95,7 +95,12 @@ export async function registerAcademySumUpCheckout(input: {
     p_idempotency_key: input.idempotencyKey,
     p_provider_metadata: input.providerMetadata || {}
   })
-  if (error) throw new AcademySumUpError('ACADEMY_CHECKOUT_REGISTER_FAILED', error.message)
+  if (error) {
+    throw new AcademySumUpError(
+      'ACADEMY_CHECKOUT_REGISTER_FAILED',
+      'No se pudo registrar el checkout Academy.'
+    )
+  }
   return data
 }
 
@@ -104,7 +109,12 @@ export async function getAcademySumUpCheckoutContext(providerCheckoutId: string)
   const { data, error } = await supabase.rpc('ghc_provider_get_academy_sumup_checkout_context', {
     p_provider_checkout_id: providerCheckoutId
   })
-  if (error || !data) throw new AcademySumUpError('ACADEMY_CHECKOUT_CONTEXT_FAILED', error?.message || 'Checkout Academy no registrado.')
+  if (error || !data) {
+    throw new AcademySumUpError(
+      'ACADEMY_CHECKOUT_CONTEXT_FAILED',
+      'No se pudo validar el checkout Academy registrado.'
+    )
+  }
   return data as AcademyCheckoutContext
 }
 
@@ -121,7 +131,12 @@ export async function markAcademySumUpCheckoutTerminal(input: {
     p_occurred_at: input.occurredAt,
     p_provider_metadata: input.providerMetadata
   })
-  if (error) throw new AcademySumUpError('ACADEMY_TERMINAL_STATE_FAILED', error.message)
+  if (error) {
+    throw new AcademySumUpError(
+      'ACADEMY_TERMINAL_STATE_FAILED',
+      'No se pudo registrar el estado terminal del checkout Academy.'
+    )
+  }
   return data
 }
 
@@ -140,7 +155,12 @@ export async function confirmAcademySumUpPayment(input: {
     p_occurred_at: input.occurredAt,
     p_provider_metadata: input.providerMetadata
   })
-  if (error) throw new AcademySumUpError('ACADEMY_PAYMENT_CONFIRM_FAILED', error.message)
+  if (error) {
+    throw new AcademySumUpError(
+      'ACADEMY_PAYMENT_CONFIRM_FAILED',
+      'No se pudo registrar la confirmación del pago Academy.'
+    )
+  }
   return data
 }
 

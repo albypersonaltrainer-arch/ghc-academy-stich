@@ -41,12 +41,12 @@ jobs:
       - name: TypeScript noEmit
         run: npx tsc --noEmit
 
-      - name: Next.js production build
+      - name: Application production build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
-        run: npx next build
+        run: npm run build
 
       - name: Production dependency audit
         shell: bash

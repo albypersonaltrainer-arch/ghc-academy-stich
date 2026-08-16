@@ -68,8 +68,24 @@ export async function getPreventaCheckoutContext(input: {
     p_installment_no: input.installmentNo,
   });
 
-  if (error) throw new Error(`PREVENTA_CHECKOUT_CONTEXT_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_CHECKOUT_CONTEXT_FAILED');
   return mapContext(data);
+}
+
+export async function isPreventaProviderCheckoutRegistered(providerCheckoutId: string) {
+  const checkoutId = providerCheckoutId.trim();
+  if (!checkoutId || checkoutId.length > 128) return false;
+
+  const supabase = getServerClient();
+  const { data, error } = await supabase
+    .from('preventa_checkout_attempts')
+    .select('id')
+    .eq('provider_checkout_id', checkoutId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error('PREVENTA_CHECKOUT_REGISTRATION_LOOKUP_FAILED');
+  return Boolean(data?.id);
 }
 
 export async function reservePreventaCapacity(input: {
@@ -88,7 +104,7 @@ export async function reservePreventaCapacity(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_RESERVE_CAPACITY_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_RESERVE_CAPACITY_FAILED');
   return data;
 }
 
@@ -106,7 +122,7 @@ export async function attachPreventaCapacityCheckout(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_ATTACH_CAPACITY_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_ATTACH_CAPACITY_FAILED');
   return data;
 }
 
@@ -124,7 +140,7 @@ export async function releasePreventaCapacity(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_RELEASE_CAPACITY_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_RELEASE_CAPACITY_FAILED');
   return data;
 }
 
@@ -150,6 +166,6 @@ export async function registerPreventaCheckoutAttempt(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error(`PREVENTA_REGISTER_CHECKOUT_FAILED:${error.message}`);
+  if (error) throw new Error('PREVENTA_REGISTER_CHECKOUT_FAILED');
   return data;
 }

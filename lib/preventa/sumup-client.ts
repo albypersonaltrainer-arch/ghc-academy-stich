@@ -83,8 +83,10 @@ export async function retrieveSumUpCheckout(checkoutId: string): Promise<SumUpCh
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`SUMUP_RETRIEVE_CHECKOUT_FAILED:${response.status}:${body.slice(0, 240)}`);
+    // Never propagate provider response bodies: they can contain operational or
+    // account details and may later be logged by callers. HTTP status is enough
+    // to diagnose the failure class without expanding the sensitive surface.
+    throw new Error(`SUMUP_RETRIEVE_CHECKOUT_FAILED:${response.status}`);
   }
 
   const data = await response.json().catch(() => null) as SumUpCheckout | null;
@@ -131,8 +133,7 @@ export async function createHostedSumUpCheckout(input: {
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`SUMUP_CREATE_CHECKOUT_FAILED:${response.status}:${body.slice(0, 240)}`);
+    throw new Error(`SUMUP_CREATE_CHECKOUT_FAILED:${response.status}`);
   }
 
   const data = await response.json().catch(() => null) as SumUpCheckout | null;
