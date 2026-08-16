@@ -22,6 +22,14 @@ type CheckoutContext = {
   course_slug?: string
 }
 
+type CheckoutRateLimit = {
+  allowed?: boolean
+  current_count?: number
+  limit?: number
+  window_seconds?: number
+  retry_after_seconds?: number
+}
+
 function getBearerToken(request: NextRequest) {
   const header = request.headers.get('authorization') || ''
   return header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : ''
@@ -117,6 +125,37 @@ export async function POST(request: NextRequest) {
   const { data: userData, error: userError } = await supabase.auth.getUser(token)
   if (userError || !userData?.user) {
     return NextResponse.json({ ok: false, error: 'Sesión no válida.' }, { status: 401 })
+  }
+
+  const { data: rateLimitData, error: rateLimitError } = await supabase.rpc(
+    'ghc_student_check_academy_checkout_rate_limit'
+  )
+  if (rateLimitError) {
+    console.error('[academy-sumup-checkout] RATE_LIMIT_CHECK_FAILED', rateLimitError.message)
+    return NextResponse.json(
+      { ok: false, code: 'ACADEMY_RATE_LIMIT_CHECK_FAILED', error: 'No se pudo validar el límite de seguridad del checkout.' },
+      { status: 503 }
+    )
+  }
+
+  const rateLimit = (rateLimitData || {}) as CheckoutRateLimit
+  if (rateLimit.allowed === false) {
+    const retryAfter = Math.max(1, Number(rateLimit.retry_after_seconds || 60))
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'ACADEMY_CHECKOUT_RATE_LIMITED',
+        error: 'Has realizado demasiados intentos de pago. Espera unos minutos antes de volver a intentarlo.',
+        retryAfterSeconds: retryAfter
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(retryAfter),
+          'Cache-Control': 'private, no-store'
+        }
+      }
+    )
   }
 
   const callbackBaseUrl = getCallbackBaseUrl(request)
