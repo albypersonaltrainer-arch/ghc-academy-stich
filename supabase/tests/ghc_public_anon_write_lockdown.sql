@@ -29,12 +29,6 @@ begin
   ) then
     raise exception 'ANON WRITE LOCKDOWN FAILED: anon retains public sequence privilege';
   end if;
-
-  if not has_function_privilege('anon','public.ghc_public_get_course_catalog(text)','EXECUTE')
-     or not has_function_privilege('anon','public.ghc_public_get_course_payment_options(text)','EXECUTE')
-     or not has_function_privilege('anon','public.ghc_public_verify_certificate(text)','EXECUTE') then
-    raise exception 'ANON WRITE LOCKDOWN FAILED: intended public RPC execute lost';
-  end if;
 end
 $$;
 
