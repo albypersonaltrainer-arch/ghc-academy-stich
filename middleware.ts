@@ -25,6 +25,26 @@ const PUBLIC_PREVENTA_API_PREFIXES = [
   '/api/preventa/cron',
 ];
 
+const EXPLOIT_SCAN_PREFIXES = [
+  '/wp-admin',
+  '/wp-login.php',
+  '/xmlrpc.php',
+  '/phpmyadmin',
+  '/vendor/phpunit',
+  '/cgi-bin/',
+  '/.env',
+  '/.git',
+  '/.aws',
+  '/.ssh',
+];
+
+function notFound() {
+  return new NextResponse(null, {
+    status: 404,
+    headers: SECURITY_HEADERS,
+  });
+}
+
 function lockedPage() {
   return new NextResponse(
     `<!doctype html>
@@ -67,12 +87,25 @@ function matchesAllowedApi(pathname: string) {
   );
 }
 
+function matchesExploitScan(pathname: string) {
+  const normalized = pathname.toLowerCase();
+  return EXPLOIT_SCAN_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(prefix.endsWith('/') ? prefix : `${prefix}/`)
+  );
+}
+
 export function middleware(request: NextRequest) {
   if (process.env.VERCEL_ENV !== 'production') {
     return NextResponse.next();
   }
 
   const { pathname } = request.nextUrl;
+
+  // Common automated probes for software that GHC Academy does not run.
+  // Return a plain 404 so they never reach the Academy lock page or application logic.
+  if (matchesExploitScan(pathname)) {
+    return notFound();
+  }
 
   // Public launch surface: the apex domain renders the presale landing.
   if (pathname === '/') {
@@ -98,10 +131,7 @@ export function middleware(request: NextRequest) {
 
   // Every other API remains unavailable in Production.
   if (pathname.startsWith('/api/')) {
-    return new NextResponse(null, {
-      status: 404,
-      headers: SECURITY_HEADERS,
-    });
+    return notFound();
   }
 
   // Every Academy page, QA route, static public artifact and direct route stays locked.
