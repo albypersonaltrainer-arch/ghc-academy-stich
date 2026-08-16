@@ -29,6 +29,7 @@ const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
   '/api/preventa/orders',
   '/api/preventa/sumup-checkout',
   '/api/preventa/sumup-webhook',
+  '/api/preventa/cron',
 ]);
 
 const EXPLOIT_SCAN_PREFIXES = [
@@ -111,47 +112,39 @@ export function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Common automated probes for software that GHC Academy does not run.
-  // Return a plain 404 so they never reach the Academy lock page or application logic.
   if (matchesExploitScan(pathname)) {
     return notFound();
   }
 
-  // Public launch surface: the apex domain renders the presale landing.
   if (pathname === '/') {
     const url = request.nextUrl.clone();
     url.pathname = '/preventa';
     return NextResponse.rewrite(url);
   }
 
-  // Buyer-facing presale and contractual pages only. QA/test pages stay closed.
   if (PUBLIC_PREVENTA_PAGES.has(pathname)) {
     return NextResponse.next();
   }
 
-  // Only the public assets explicitly used by the presale may bypass the Academy lock.
   if (PUBLIC_PREVENTA_ASSETS.has(pathname)) {
     return NextResponse.next();
   }
 
-  // Production only needs POST on buyer/payment operational endpoints. Their GET
-  // handlers remain available in Preview for QA but must not disclose readiness
-  // or provider configuration to unauthenticated Production visitors.
+  // The operational public surface mutates state and therefore accepts POST only.
+  // Preview can keep diagnostic GET handlers for QA because the production guard
+  // is intentionally applied only when VERCEL_ENV=production.
   if (PUBLIC_POST_ONLY_PREVENTA_APIS.has(pathname) && request.method !== 'POST') {
     return notFound();
   }
 
-  // Operational presale APIs only. Self-tests, previews and admin APIs stay closed.
   if (matchesAllowedApi(pathname)) {
     return NextResponse.next();
   }
 
-  // Every other API remains unavailable in Production.
   if (pathname.startsWith('/api/')) {
     return notFound();
   }
 
-  // Every Academy page, QA route, static public artifact and direct route stays locked.
   return lockedPage();
 }
 

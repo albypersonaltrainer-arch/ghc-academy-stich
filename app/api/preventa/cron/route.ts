@@ -8,6 +8,10 @@ import {
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+};
+
 function clean(value: string | null | undefined) {
   return (value || '').trim();
 }
@@ -34,38 +38,40 @@ function isAuthorized(request: NextRequest) {
   return bearerSecret.length > 0 && safeEqual(bearerSecret, secret);
 }
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   if (getCronSecret().length < 32) {
     return NextResponse.json(
-      { ok: false, code: 'PREVENTA_CRON_SECRET_NOT_CONFIGURED' },
-      { status: 503 }
+      { ok: false, code: 'PREVENTA_CRON_UNAVAILABLE' },
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   if (!isAuthorized(request)) {
     return NextResponse.json(
       { ok: false, code: 'PREVENTA_CRON_UNAUTHORIZED' },
-      { status: 401 }
+      { status: 401, headers: NO_STORE_HEADERS }
     );
   }
 
   const status = getPreventaScheduledMaintenanceStatus();
   if (!status.ready) {
     return NextResponse.json(
-      { ok: false, code: 'PREVENTA_CRON_GATE_CLOSED', scheduler: status },
-      { status: 503 }
+      { ok: false, code: 'PREVENTA_CRON_UNAVAILABLE' },
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   try {
     const result = await runPreventaScheduledMaintenance();
-    return NextResponse.json({ ok: true, scheduler: status, ...result });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'UNKNOWN_PREVENTA_CRON_ERROR';
-    console.error('[preventa-cron]', message);
+    return NextResponse.json(
+      { ok: true, ...result },
+      { headers: NO_STORE_HEADERS }
+    );
+  } catch {
+    console.error('[preventa-cron] EXECUTION_FAILED');
     return NextResponse.json(
       { ok: false, code: 'PREVENTA_CRON_EXECUTION_FAILED' },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }
