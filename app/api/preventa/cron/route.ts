@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyGithubActionsCronOidcToken } from '../../../../lib/preventa/github-oidc';
+import { getPreventaEmailWorkerStatus } from '../../../../lib/preventa/email-worker';
 import {
   getPreventaScheduledMaintenanceStatus,
   runPreventaScheduledMaintenance,
@@ -55,6 +56,20 @@ async function handleCron(request: NextRequest) {
 
   const status = getPreventaScheduledMaintenanceStatus();
   if (!status.ready) {
+    // Keep diagnostics server-side: the repository/workflow logs are public, so the
+    // response remains generic while Vercel observability records only non-secret
+    // readiness booleans for operators.
+    const emailWorker = getPreventaEmailWorkerStatus();
+    console.warn('[preventa-cron] GATE_CLOSED', JSON.stringify({
+      persistenceReady: status.persistenceReady,
+      emailWorkerReady: status.emailWorkerReady,
+      emailPersistenceReady: emailWorker.persistenceReady,
+      emailProviderReady: emailWorker.providerReady,
+      checkoutTokenConfigured: emailWorker.checkoutTokenConfigured,
+      publicBaseUrlConfigured: emailWorker.publicBaseUrlConfigured,
+      supportEmailConfigured: emailWorker.supportEmailConfigured,
+    }));
+
     return NextResponse.json(
       { ok: false, code: 'PREVENTA_CRON_UNAVAILABLE' },
       { status: 503, headers: NO_STORE_HEADERS }
