@@ -9,6 +9,7 @@ const EXPECTED_REPOSITORY = 'albypersonaltrainer-arch/ghc-academy-stich';
 const EXPECTED_REPOSITORY_ID = '1224335598';
 const EXPECTED_REPOSITORY_OWNER_ID = '274641381';
 const EXPECTED_REF = 'refs/heads/main';
+const EXPECTED_SUBJECT = `repo:${EXPECTED_REPOSITORY}:ref:${EXPECTED_REF}`;
 const EXPECTED_WORKFLOW_REF = `${EXPECTED_REPOSITORY}/.github/workflows/preventa-scheduled-maintenance.yml@refs/heads/main`;
 const ALLOWED_EVENTS = new Set(['schedule', 'workflow_dispatch']);
 const CLOCK_SKEW_SECONDS = 60;
@@ -32,6 +33,7 @@ type JwtPayload = {
   repository_id?: unknown;
   repository_owner_id?: unknown;
   ref?: unknown;
+  ref_type?: unknown;
   workflow_ref?: unknown;
   event_name?: unknown;
 };
@@ -81,10 +83,12 @@ function validateClaims(payload: JwtPayload) {
 
   if (stringClaim(payload.iss) !== GITHUB_OIDC_ISSUER) return false;
   if (!audienceMatches(payload.aud)) return false;
+  if (stringClaim(payload.sub) !== EXPECTED_SUBJECT) return false;
   if (stringClaim(payload.repository) !== EXPECTED_REPOSITORY) return false;
   if (String(payload.repository_id ?? '') !== EXPECTED_REPOSITORY_ID) return false;
   if (String(payload.repository_owner_id ?? '') !== EXPECTED_REPOSITORY_OWNER_ID) return false;
   if (stringClaim(payload.ref) !== EXPECTED_REF) return false;
+  if (stringClaim(payload.ref_type) !== 'branch') return false;
   if (stringClaim(payload.workflow_ref) !== EXPECTED_WORKFLOW_REF) return false;
   if (!ALLOWED_EVENTS.has(stringClaim(payload.event_name))) return false;
 
