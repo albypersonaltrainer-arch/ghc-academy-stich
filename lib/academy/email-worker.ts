@@ -29,6 +29,12 @@ function createAdminClient() {
   })
 }
 
+function safeWorkerErrorCode(error: unknown) {
+  if (!(error instanceof Error)) return 'ACADEMY_EMAIL_UNKNOWN_ERROR'
+  const match = error.message.match(/^([A-Z0-9_]{3,100})(?::\d{3})?$/)
+  return match?.[1] || 'ACADEMY_EMAIL_DELIVERY_FAILED'
+}
+
 export function getAcademyEmailPublicBaseUrl() {
   const configured = clean(process.env.ACADEMY_PUBLIC_BASE_URL).replace(/\/$/, '')
   if (/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(configured)) return configured
@@ -69,17 +75,17 @@ async function markSent(notificationId: string, provider: string, providerMessag
     p_provider: provider,
     p_provider_message_id: providerMessageId,
   })
-  if (error || data !== true) throw new Error(`ACADEMY_EMAIL_MARK_SENT_FAILED:${error?.message || 'state_not_processing'}`)
+  if (error || data !== true) throw new Error('ACADEMY_EMAIL_MARK_SENT_FAILED')
 }
 
-async function markFailed(notificationId: string, errorMessage: string) {
+async function markFailed(notificationId: string, errorCode: string) {
   const supabase = createAdminClient()
   const { error } = await supabase.rpc('ghc_email_worker_mark_academy_failed', {
     p_notification_id: notificationId,
-    p_error: errorMessage,
+    p_error: errorCode,
     p_retry_after_seconds: null,
   })
-  if (error) throw new Error(`ACADEMY_EMAIL_MARK_FAILED_FAILED:${error.message}`)
+  if (error) throw new Error('ACADEMY_EMAIL_MARK_FAILED_FAILED')
 }
 
 export async function runAcademyEmailWorker(batchSize = 10) {
@@ -94,7 +100,7 @@ export async function runAcademyEmailWorker(batchSize = 10) {
     p_limit: limit,
     p_stale_lock_minutes: 10,
   })
-  if (error) throw new Error(`ACADEMY_EMAIL_CLAIM_FAILED:${error.message}`)
+  if (error) throw new Error('ACADEMY_EMAIL_CLAIM_FAILED')
 
   const claimed = (data || []) as ClaimedNotification[]
   const results: Array<{
@@ -102,7 +108,7 @@ export async function runAcademyEmailWorker(batchSize = 10) {
     templateKey: string
     status: 'sent' | 'retry_or_failed'
     providerMessageId?: string
-    error?: string
+    errorCode?: string
   }> = []
 
   for (const notification of claimed) {
@@ -126,15 +132,17 @@ export async function runAcademyEmailWorker(batchSize = 10) {
         providerMessageId: delivery.messageId,
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'UNKNOWN_ACADEMY_EMAIL_ERROR'
-      try { await markFailed(notification.id, message) } catch (finishError) {
-        console.error('[academy-email-worker-mark-failed]', finishError)
+      const errorCode = safeWorkerErrorCode(error)
+      try {
+        await markFailed(notification.id, errorCode)
+      } catch {
+        console.error('[academy-email-worker-mark-failed] PERSISTENCE_FAILED')
       }
       results.push({
         notificationId: notification.id,
         templateKey: notification.template_key,
         status: 'retry_or_failed',
-        error: message.slice(0, 500),
+        errorCode,
       })
     }
   }
