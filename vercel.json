@@ -1,11 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "cleanUrls": true,
-  "crons": [
-    {
-      "path": "/api/preventa/cron",
-      "schedule": "17 * * * *"
-    }
-  ]
+  "cleanUrls": true
 }
