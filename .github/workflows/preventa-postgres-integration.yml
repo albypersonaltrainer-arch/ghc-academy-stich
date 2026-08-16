@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install PostgreSQL client
         run: |
@@ -96,6 +96,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_email_series_v0_1.sql
           psql -v ON_ERROR_STOP=1 -c "update public.preventa_email_queue set status='cancelled' where status in ('queued','processing');"
           psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_email_worker_v0_1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_default_privileges_fail_closed.sql
 
       - name: Verify expected private tables exist
         run: |
