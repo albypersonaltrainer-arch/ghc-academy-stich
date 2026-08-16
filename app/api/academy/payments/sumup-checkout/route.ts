@@ -63,6 +63,15 @@ function buildWebhookUrl(baseUrl: string) {
   return url.toString()
 }
 
+function safeDiagnosticCode(error: unknown) {
+  if (error instanceof AcademySumUpError) return error.code
+  if (error instanceof Error) {
+    const match = error.message.match(/^([A-Z0-9_]{3,80})(?::\d{3})?$/)
+    if (match) return match[1]
+  }
+  return 'ACADEMY_SUMUP_CHECKOUT_FAILED'
+}
+
 export async function GET() {
   if (process.env.VERCEL_ENV === 'production') {
     return NextResponse.json({ ok: false, code: 'NOT_FOUND' }, { status: 404 })
@@ -131,7 +140,7 @@ export async function POST(request: NextRequest) {
     'ghc_student_check_academy_checkout_rate_limit'
   )
   if (rateLimitError) {
-    console.error('[academy-sumup-checkout] RATE_LIMIT_CHECK_FAILED', rateLimitError.message)
+    console.error('[academy-sumup-checkout] RATE_LIMIT_CHECK_FAILED')
     return NextResponse.json(
       { ok: false, code: 'ACADEMY_RATE_LIMIT_CHECK_FAILED', error: 'No se pudo validar el límite de seguridad del checkout.' },
       { status: 503 }
@@ -168,7 +177,12 @@ export async function POST(request: NextRequest) {
       p_order_id: body.orderId,
       p_installment_no: body.installmentNo
     })
-    if (error || !data) throw new AcademySumUpError('ACADEMY_CHECKOUT_CONTEXT_FAILED', error?.message || 'No se pudo preparar la cuota.')
+    if (error || !data) {
+      throw new AcademySumUpError(
+        'ACADEMY_CHECKOUT_CONTEXT_FAILED',
+        'No se pudo validar la cuota solicitada.'
+      )
+    }
 
     const context = data as CheckoutContext
     if (String(context.currency).toUpperCase() !== 'EUR') {
@@ -227,9 +241,11 @@ export async function POST(request: NextRequest) {
       persistence
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'No se pudo preparar el pago.'
-    const code = error instanceof AcademySumUpError ? error.code : 'ACADEMY_SUMUP_CHECKOUT_FAILED'
-    console.error('[academy-sumup-checkout]', code, message)
-    return NextResponse.json({ ok: false, code, error: message }, { status: 400 })
+    const code = safeDiagnosticCode(error)
+    const publicMessage = error instanceof AcademySumUpError
+      ? error.message
+      : 'No se pudo preparar el pago. No se ha confirmado ningún cobro.'
+    console.error('[academy-sumup-checkout]', code)
+    return NextResponse.json({ ok: false, code, error: publicMessage }, { status: 400 })
   }
 }
