@@ -23,6 +23,10 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+};
+
 async function flushTransactionalEmailBestEffort() {
   const worker = getPreventaEmailWorkerStatus();
   if (!worker.ready) return;
@@ -40,6 +44,13 @@ async function flushTransactionalEmailBestEffort() {
 }
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json(
+      { ok: false, code: 'NOT_FOUND' },
+      { status: 404, headers: NO_STORE_HEADERS }
+    );
+  }
+
   const sumup = getSumUpIntegrationStatus();
   const persistence = getPaymentPersistenceStatus();
   const webhookReady =
@@ -56,7 +67,7 @@ export async function GET() {
     sumupMerchantConfigured: sumup.merchantConfigured,
     persistenceReady: persistence.ready,
     writeReady: webhookReady,
-  });
+  }, { headers: NO_STORE_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
@@ -66,27 +77,30 @@ export async function POST(request: NextRequest) {
   if (!sumup.webhookEnabled) {
     return NextResponse.json(
       { ok: false, code: 'SUMUP_WEBHOOK_GATE_CLOSED', error: 'Webhook SumUp desactivado por Gate técnico.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   if (!sumup.apiConfigured || !sumup.merchantConfigured) {
     return NextResponse.json(
       { ok: false, code: 'SUMUP_NOT_CONFIGURED', error: 'Faltan credenciales privadas de SumUp.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   if (!persistence.ready) {
     return NextResponse.json(
       { ok: false, code: 'PERSISTENCE_NOT_READY', error: 'Persistencia de preventa no habilitada.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
-    return NextResponse.json({ ok: false, error: 'Content-Type debe ser application/json.' }, { status: 415 });
+    return NextResponse.json(
+      { ok: false, error: 'Content-Type debe ser application/json.' },
+      { status: 415, headers: NO_STORE_HEADERS }
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -102,7 +116,7 @@ export async function POST(request: NextRequest) {
     if (!registered) {
       return NextResponse.json(
         { ok: true, applied: false },
-        { status: 200, headers: { 'Cache-Control': 'no-store' } }
+        { status: 200, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -121,7 +135,7 @@ export async function POST(request: NextRequest) {
         applied: false,
         verifiedAgainstSumUpApi: true,
         checkoutStatus: 'PENDING',
-      });
+      }, { headers: NO_STORE_HEADERS });
     }
 
     if (state.status === 'FAILED' || state.status === 'EXPIRED') {
@@ -144,7 +158,7 @@ export async function POST(request: NextRequest) {
         verifiedAgainstSumUpApi: true,
         checkoutStatus: state.status,
         transition,
-      });
+      }, { headers: NO_STORE_HEADERS });
     }
 
     const verified = verifySumUpCheckoutForPreventa({
@@ -171,7 +185,7 @@ export async function POST(request: NextRequest) {
       verifiedAgainstSumUpApi: true,
       checkoutStatus: 'PAID',
       transition,
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     if (error instanceof SumUpAdapterError) {
       return NextResponse.json(
@@ -181,14 +195,14 @@ export async function POST(request: NextRequest) {
           code: error.code,
           error: 'Evento SumUp no válido o no verificable.',
         },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       );
     }
 
     console.error('[preventa-sumup-webhook] PROCESSING_FAILED');
     return NextResponse.json(
       { ok: false, code: 'SUMUP_WEBHOOK_PROCESSING_FAILED', error: 'No se pudo verificar o aplicar el evento SumUp.' },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }
