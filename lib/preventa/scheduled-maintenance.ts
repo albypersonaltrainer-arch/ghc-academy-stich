@@ -45,8 +45,11 @@ export function getPreventaScheduledMaintenanceStatus() {
   return {
     persistenceReady: persistence.ready,
     emailWorkerReady: emailWorker.ready,
+    // CRON_SECRET remains an optional manual/emergency credential. Normal scheduled
+    // execution authenticates with a short-lived GitHub Actions OIDC token, so the
+    // absence of the legacy shared secret must not close the operational readiness gate.
     cronSecretConfigured,
-    ready: persistence.ready && emailWorker.ready && cronSecretConfigured,
+    ready: persistence.ready && emailWorker.ready,
   };
 }
 
