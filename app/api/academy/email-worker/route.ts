@@ -6,6 +6,8 @@ import { getAcademyEmailWorkerStatus, runAcademyEmailWorker } from '../../../../
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
+const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store, max-age=0' }
+
 function clean(value: string | null | undefined) {
   return (value || '').trim()
 }
@@ -42,9 +44,16 @@ function isAuthorized(request: NextRequest) {
   )
 }
 
+function parseBatchSize(input: unknown) {
+  if (input === undefined || input === null || input === '') return 10
+  const value = Number(input)
+  if (!Number.isInteger(value) || value < 1 || value > 50) return null
+  return value
+}
+
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
-    return NextResponse.json({ ok: false, code: 'NOT_FOUND' }, { status: 404 })
+    return NextResponse.json({ ok: false, code: 'NOT_FOUND' }, { status: 404, headers: NO_STORE_HEADERS })
   }
 
   const worker = getAcademyEmailWorkerStatus()
@@ -58,33 +67,39 @@ export async function GET(request: NextRequest) {
     usingPreventaWorkerSecretFallback: secret.fallback,
     worker,
     provider,
-  }, { headers: { 'Cache-Control': 'private, no-store' } })
+  }, { headers: NO_STORE_HEADERS })
 }
 
 export async function POST(request: NextRequest) {
   const secret = getWorkerSecret()
   if (secret.secret.length < 32) {
-    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_SECRET_NOT_CONFIGURED' }, { status: 503 })
+    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_UNAVAILABLE' }, { status: 503, headers: NO_STORE_HEADERS })
   }
   if (!isAuthorized(request)) {
-    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_UNAUTHORIZED' }, { status: 401 })
+    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_UNAUTHORIZED' }, { status: 401, headers: NO_STORE_HEADERS })
   }
 
   const workerStatus = getAcademyEmailWorkerStatus()
   if (!workerStatus.ready) {
-    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_GATE_CLOSED', worker: workerStatus }, { status: 503 })
+    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_GATE_CLOSED' }, { status: 503, headers: NO_STORE_HEADERS })
   }
 
   const contentType = request.headers.get('content-type') || ''
-  const body = contentType.includes('application/json') ? await request.json().catch(() => ({})) : {}
-  const batchSize = Number((body as { batchSize?: unknown }).batchSize || 10)
+  const body = contentType.includes('application/json') ? await request.json().catch(() => null) : {}
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_INVALID_BODY' }, { status: 400, headers: NO_STORE_HEADERS })
+  }
+
+  const batchSize = parseBatchSize((body as { batchSize?: unknown }).batchSize)
+  if (batchSize === null) {
+    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_INVALID_BATCH_SIZE' }, { status: 400, headers: NO_STORE_HEADERS })
+  }
 
   try {
     const result = await runAcademyEmailWorker(batchSize)
-    return NextResponse.json({ ok: true, ...result })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'UNKNOWN_ACADEMY_EMAIL_WORKER_ERROR'
-    console.error('[academy-email-worker]', message)
-    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_EXECUTION_FAILED' }, { status: 500 })
+    return NextResponse.json({ ok: true, ...result }, { headers: NO_STORE_HEADERS })
+  } catch {
+    console.error('[academy-email-worker] EXECUTION_FAILED')
+    return NextResponse.json({ ok: false, code: 'ACADEMY_EMAIL_WORKER_EXECUTION_FAILED' }, { status: 500, headers: NO_STORE_HEADERS })
   }
 }
