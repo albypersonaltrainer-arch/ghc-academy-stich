@@ -45,6 +45,7 @@ jobs:
               --show-error \
               --location \
               --max-time 55 \
+              --request POST \
               --output "${response_file}" \
               --write-out '%{http_code}' \
               --header "Authorization: Bearer ${PREVENTA_CRON_SECRET}" \
