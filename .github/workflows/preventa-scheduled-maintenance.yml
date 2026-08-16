@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: preventa-scheduled-maintenance
@@ -18,20 +19,42 @@ jobs:
     timeout-minutes: 3
     env:
       PREVENTA_CRON_URL: https://ghcacademy.net/api/preventa/cron
-      PREVENTA_CRON_SECRET: ${{ secrets.CRON_SECRET || secrets.PREVENTA_CRON_SECRET }}
+      PREVENTA_CRON_OIDC_AUDIENCE: https://ghcacademy.net/api/preventa/cron
 
     steps:
-      - name: Validate scheduler configuration
+      - name: Request short-lived GitHub OIDC token
+        id: oidc
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${#PREVENTA_CRON_SECRET}" -lt 32 ]; then
-            echo "CRON_SECRET / PREVENTA_CRON_SECRET is not configured correctly"
-            exit 1
-          fi
+
+          response="$(
+            curl \
+              --silent \
+              --show-error \
+              --fail-with-body \
+              --max-time 20 \
+              --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${PREVENTA_CRON_OIDC_AUDIENCE}"
+          )"
+
+          id_token="$(
+            RESPONSE="${response}" node <<'NODE'
+          const response = JSON.parse(process.env.RESPONSE || '{}')
+          if (typeof response.value !== 'string' || response.value.length < 100) {
+            process.exit(1)
+          }
+          process.stdout.write(response.value)
+          NODE
+          )"
+
+          echo "::add-mask::${id_token}"
+          echo "token=${id_token}" >> "${GITHUB_OUTPUT}"
 
       - name: Run GHC Academy preventa maintenance
         shell: bash
+        env:
+          PREVENTA_CRON_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
           response_file="$(mktemp)"
@@ -44,7 +67,7 @@ jobs:
               --request GET \
               --output "${response_file}" \
               --write-out '%{http_code}' \
-              --header "Authorization: Bearer ${PREVENTA_CRON_SECRET}" \
+              --header "Authorization: Bearer ${PREVENTA_CRON_OIDC_TOKEN}" \
               "${PREVENTA_CRON_URL}"
           )"
 
