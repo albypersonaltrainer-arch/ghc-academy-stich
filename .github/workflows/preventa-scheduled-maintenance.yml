@@ -17,20 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:
-      PREVENTA_CRON_URL: ${{ secrets.PREVENTA_CRON_URL }}
-      PREVENTA_CRON_SECRET: ${{ secrets.PREVENTA_CRON_SECRET }}
+      PREVENTA_CRON_URL: https://ghcacademy.net/api/preventa/cron
+      PREVENTA_CRON_SECRET: ${{ secrets.CRON_SECRET || secrets.PREVENTA_CRON_SECRET }}
 
     steps:
       - name: Validate scheduler configuration
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${PREVENTA_CRON_URL}" ]; then
-            echo "PREVENTA_CRON_URL is not configured"
-            exit 1
-          fi
           if [ "${#PREVENTA_CRON_SECRET}" -lt 32 ]; then
-            echo "PREVENTA_CRON_SECRET is not configured correctly"
+            echo "CRON_SECRET / PREVENTA_CRON_SECRET is not configured correctly"
             exit 1
           fi
 
@@ -45,7 +41,7 @@ jobs:
               --show-error \
               --location \
               --max-time 55 \
-              --request POST \
+              --request GET \
               --output "${response_file}" \
               --write-out '%{http_code}' \
               --header "Authorization: Bearer ${PREVENTA_CRON_SECRET}" \

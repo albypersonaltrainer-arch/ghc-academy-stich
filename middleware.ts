@@ -29,8 +29,9 @@ const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
   '/api/preventa/orders',
   '/api/preventa/sumup-checkout',
   '/api/preventa/sumup-webhook',
-  '/api/preventa/cron',
 ]);
+
+const PREVENTA_CRON_PATH = '/api/preventa/cron';
 
 const EXPLOIT_SCAN_PREFIXES = [
   '/wp-admin',
@@ -130,10 +131,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // The operational public surface mutates state and therefore accepts POST only.
-  // Preview can keep diagnostic GET handlers for QA because the production guard
-  // is intentionally applied only when VERCEL_ENV=production.
+  // Buyer-facing mutation endpoints are POST-only in Production.
   if (PUBLIC_POST_ONLY_PREVENTA_APIS.has(pathname) && request.method !== 'POST') {
+    return notFound();
+  }
+
+  // Vercel Cron invokes configured paths with GET. POST is retained only for the
+  // authenticated GitHub/manual fallback. No other method reaches the handler.
+  if (pathname === PREVENTA_CRON_PATH && request.method !== 'GET' && request.method !== 'POST') {
     return notFound();
   }
 

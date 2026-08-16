@@ -30,6 +30,22 @@ function serverClient(key: string) {
   });
 }
 
+function authenticatedClient(anonKey: string, accessToken: string) {
+  const { supabaseUrl } = getConfig();
+  return createClient(supabaseUrl, anonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 export type PreventaAdminIdentity = {
   userId: string;
   email: string | null;
@@ -51,6 +67,18 @@ export async function requirePreventaAdmin(request: Request) {
 
   if (userError || !userData.user) {
     throw new Error('PREVENTA_ADMIN_UNAUTHENTICATED');
+  }
+
+  // Reuse the canonical Academy authorization guard with the caller's verified JWT.
+  // This centralizes UUID-only identity, accepted admin roles and progressive AAL2/MFA
+  // enforcement instead of maintaining a weaker parallel PREVENTA authorization path.
+  const authzClient = authenticatedClient(config.anonKey, token);
+  const { data: centralAdminAllowed, error: centralAdminError } = await authzClient.rpc('ghc_is_admin');
+  if (centralAdminError) {
+    throw new Error('PREVENTA_ADMIN_AUTHORIZATION_CHECK_FAILED');
+  }
+  if (centralAdminAllowed !== true) {
+    throw new Error('PREVENTA_ADMIN_FORBIDDEN');
   }
 
   const serviceClient = serverClient(config.serviceRoleKey);

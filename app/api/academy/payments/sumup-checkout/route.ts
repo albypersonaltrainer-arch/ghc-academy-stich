@@ -49,6 +49,10 @@ function getCallbackBaseUrl(request: NextRequest) {
   const configured = (process.env.ACADEMY_PUBLIC_BASE_URL || '').trim().replace(/\/$/, '')
   if (configured && /^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(configured)) return configured
 
+  // Production payment callbacks must never be derived from the incoming Host/origin.
+  // ACADEMY_PUBLIC_BASE_URL is the contractual server-side anchor for redirects/webhooks.
+  if (process.env.VERCEL_ENV === 'production') return null
+
   const origin = request.nextUrl.origin.replace(/\/$/, '')
   if (/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(origin)) return origin
   return null

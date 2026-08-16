@@ -9,6 +9,10 @@ import { getPreventaEmailProviderStatus } from '../../../../lib/preventa/email-p
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+};
+
 function clean(value: string | null | undefined) {
   return (value || '').trim();
 }
@@ -39,39 +43,41 @@ function isAuthorized(request: NextRequest) {
   );
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Keep infrastructure fingerprints off the public Production surface.
+  // The authenticated diagnostic remains available to operators if needed.
+  if (!isAuthorized(request)) {
+    return NextResponse.json(
+      { ok: false, code: 'NOT_FOUND' },
+      { status: 404, headers: NO_STORE_HEADERS }
+    );
+  }
+
   const worker = getPreventaEmailWorkerStatus();
   const provider = getPreventaEmailProviderStatus();
 
   return NextResponse.json({
     ok: true,
     route: 'preventa-email-worker',
-    workerSecretConfigured: getWorkerSecret().length >= 32,
+    workerSecretConfigured: true,
     worker,
     provider,
-  });
+  }, { headers: NO_STORE_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
-  if (getWorkerSecret().length < 32) {
-    return NextResponse.json(
-      { ok: false, code: 'EMAIL_WORKER_SECRET_NOT_CONFIGURED' },
-      { status: 503 }
-    );
-  }
-
   if (!isAuthorized(request)) {
     return NextResponse.json(
       { ok: false, code: 'EMAIL_WORKER_UNAUTHORIZED' },
-      { status: 401 }
+      { status: 401, headers: NO_STORE_HEADERS }
     );
   }
 
   const workerStatus = getPreventaEmailWorkerStatus();
   if (!workerStatus.ready) {
     return NextResponse.json(
-      { ok: false, code: 'EMAIL_WORKER_GATE_CLOSED', worker: workerStatus },
-      { status: 503 }
+      { ok: false, code: 'EMAIL_WORKER_GATE_CLOSED' },
+      { status: 503, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -83,13 +89,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await runPreventaEmailWorker(batchSize);
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, ...result }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN_EMAIL_WORKER_ERROR';
     console.error('[preventa-email-worker]', message);
     return NextResponse.json(
       { ok: false, code: 'EMAIL_WORKER_EXECUTION_FAILED' },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }

@@ -15,9 +15,11 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store, max-age=0' }
+
 export async function GET() {
   if (process.env.VERCEL_ENV === 'production') {
-    return NextResponse.json({ ok: false, code: 'NOT_FOUND' }, { status: 404 })
+    return NextResponse.json({ ok: false, code: 'NOT_FOUND' }, { status: 404, headers: NO_STORE_HEADERS })
   }
 
   const status = getAcademySumUpStatus()
@@ -30,7 +32,7 @@ export async function GET() {
     sumupApiConfigured: status.shared.apiConfigured,
     sumupMerchantConfigured: status.shared.merchantConfigured,
     webhookReady: status.webhookReady
-  }, { headers: { 'Cache-Control': 'private, no-store' } })
+  }, { headers: NO_STORE_HEADERS })
 }
 
 export async function POST(request: NextRequest) {
@@ -38,12 +40,15 @@ export async function POST(request: NextRequest) {
   if (!status.webhookReady) {
     return NextResponse.json(
       { ok: false, code: 'ACADEMY_SUMUP_WEBHOOK_GATE_CLOSED', error: 'Webhook SumUp Academy no disponible en este entorno.' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE_HEADERS }
     )
   }
 
   if (!(request.headers.get('content-type') || '').includes('application/json')) {
-    return NextResponse.json({ ok: false, error: 'Content-Type debe ser application/json.' }, { status: 415 })
+    return NextResponse.json(
+      { ok: false, error: 'Content-Type debe ser application/json.' },
+      { status: 415, headers: NO_STORE_HEADERS }
+    )
   }
 
   const body = await request.json().catch(() => null)
@@ -72,7 +77,7 @@ export async function POST(request: NextRequest) {
         applied: false,
         verifiedAgainstSumUpApi: true,
         checkoutStatus: 'PENDING'
-      })
+      }, { headers: NO_STORE_HEADERS })
     }
 
     if (verified.status === 'FAILED' || verified.status === 'EXPIRED') {
@@ -88,7 +93,7 @@ export async function POST(request: NextRequest) {
         verifiedAgainstSumUpApi: true,
         checkoutStatus: verified.status,
         transition
-      })
+      }, { headers: NO_STORE_HEADERS })
     }
 
     const providerPaymentId = 'providerPaymentId' in verified ? verified.providerPaymentId : ''
@@ -110,12 +115,12 @@ export async function POST(request: NextRequest) {
       verifiedAgainstSumUpApi: true,
       checkoutStatus: 'PAID',
       transition
-    })
+    }, { headers: NO_STORE_HEADERS })
   } catch (error) {
     if (error instanceof SumUpAdapterError || error instanceof AcademySumUpError) {
       return NextResponse.json(
         { ok: false, applied: false, code: error.code, error: error.message },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       )
     }
 
@@ -123,7 +128,7 @@ export async function POST(request: NextRequest) {
     console.error('[academy-sumup-webhook]', message)
     return NextResponse.json(
       { ok: false, applied: false, code: 'ACADEMY_SUMUP_WEBHOOK_FAILED', error: 'No se pudo verificar o aplicar el evento SumUp.' },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     )
   }
 }

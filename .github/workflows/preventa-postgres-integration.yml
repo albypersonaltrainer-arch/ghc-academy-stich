@@ -91,6 +91,7 @@ jobs:
       - name: Apply standalone public ACL hardening
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260816115500_ghc_public_anon_write_lockdown.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260816120500_ghc_public_default_privileges_strict.sql
 
       - name: Run preventa SQL integration suites
         run: |
@@ -102,6 +103,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_email_worker_v0_1.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/preventa_default_privileges_fail_closed.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/ghc_public_anon_write_lockdown.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/ghc_public_default_function_privileges_strict.sql
 
       - name: Verify expected private tables exist
         run: |

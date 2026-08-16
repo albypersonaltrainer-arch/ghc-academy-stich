@@ -5,7 +5,20 @@ import { PreviewOrderInput, validatePreviewOrderInput } from '../../../../lib/pr
 
 export const dynamic = 'force-dynamic';
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+};
+
+function productionNotFound() {
+  return NextResponse.json(
+    { ok: false, code: 'NOT_FOUND' },
+    { status: 404, headers: NO_STORE_HEADERS }
+  );
+}
+
 export async function GET() {
+  if (process.env.VERCEL_ENV === 'production') return productionNotFound();
+
   return NextResponse.json({
     ok: true,
     mode: 'preview-validation-only',
@@ -27,15 +40,17 @@ export async function GET() {
         secondInstallmentRule: '15 días naturales después de confirmar el primer pago',
       },
     },
-  });
+  }, { headers: NO_STORE_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
+  if (process.env.VERCEL_ENV === 'production') return productionNotFound();
+
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     return NextResponse.json(
       { ok: false, error: 'Content-Type debe ser application/json.' },
-      { status: 415 }
+      { status: 415, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -43,7 +58,7 @@ export async function POST(request: NextRequest) {
   if (!body || typeof body !== 'object') {
     return NextResponse.json(
       { ok: false, error: 'Solicitud JSON no válida.' },
-      { status: 400 }
+      { status: 400, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -51,7 +66,7 @@ export async function POST(request: NextRequest) {
   if (!validated.ok) {
     return NextResponse.json(
       { ok: false, errors: validated.errors },
-      { status: 400 }
+      { status: 400, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -74,5 +89,5 @@ export async function POST(request: NextRequest) {
       requiresSumUpIntegration: true,
       requiresFinalGate: true,
     },
-  });
+  }, { headers: NO_STORE_HEADERS });
 }
