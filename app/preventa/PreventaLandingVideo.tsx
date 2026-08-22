@@ -8,7 +8,7 @@ export default function PreventaLandingVideo() {
   useEffect(() => {
     let active = true;
 
-    fetch('/api/preventa/video-upload-url', { method: 'GET', cache: 'no-store' })
+    fetch('/api/preventa/landing-video', { method: 'GET', cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('video_unavailable');
         return response.json();
