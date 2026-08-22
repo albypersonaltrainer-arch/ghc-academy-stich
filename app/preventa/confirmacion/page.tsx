@@ -2,56 +2,60 @@ import Link from 'next/link';
 import GHCLogo from '../../components/GHCLogo';
 import styles from '../flow.module.css';
 
-export const metadata = {
-  title: 'Confirmación de matrícula · GHC Academy',
-  description: 'Preview de confirmación de matrícula para la Edición Fundadora GHC Academy 2026.',
+type ConfirmacionPageProps = {
+  searchParams?: Promise<{
+    ref?: string | string[];
+  }>;
 };
 
-export default function ConfirmacionPreventaPage() {
+export const metadata = {
+  title: 'Verificación de pago · Edición Fundadora · GHC Academy',
+  description: 'Estado posterior al pago de la Edición Fundadora de GHC Academy.',
+  robots: { index: false, follow: false },
+};
+
+function cleanReference(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw && /^GHC-[A-Z0-9]{8}$/.test(raw) ? raw : null;
+}
+
+export default async function ConfirmacionPreventaPage({ searchParams }: ConfirmacionPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const reference = cleanReference(resolvedSearchParams?.ref);
+
   return (
     <main className={styles.page}>
-      <div className={styles.internalBanner}>
-        <strong>Preview interna</strong>
-        <span>Ejemplo de pantalla posterior al pago. No representa una compra real.</span>
-      </div>
-
       <header className={styles.header}>
-        <Link href="/preventa" className={styles.logoLink} aria-label="Volver a GHC Academy">
+        <Link href="/preventa" className={styles.logoLink} aria-label="Volver a la Edición Fundadora">
           <GHCLogo size="md" showText tagline />
         </Link>
         <div className={styles.headerCenter}>
           <span>●</span>
-          Confirmación · Edición Fundadora 2026
+          Verificación · Edición Fundadora 2026
         </div>
-        <Link href="/preventa/checkout" className={styles.backLink}>← Volver al checkout</Link>
+        <Link href="/preventa" className={styles.backLink}>Volver a la preventa</Link>
       </header>
 
       <div className={styles.confirmShell}>
         <section className={styles.confirmHero}>
           <div className={styles.successMark}>✓</div>
-          <p className={styles.eyebrow}>Confirmación propia de GHC Academy</p>
-          <h1>Tu matrícula fundadora está registrada.</h1>
+          <p className={styles.eyebrow}>Pago enviado a verificación</p>
+          <h1>Estamos comprobando el estado de tu pago.</h1>
           <p>
-            Esta pantalla acompaña al justificante del proveedor de pago. En producción también se enviará
-            una confirmación contractual propia por correo electrónico y se conservará la trazabilidad de la orden.
+            Has vuelto a GHC Academy desde la pasarela de SumUp. La plaza fundadora se confirma únicamente cuando
+            SumUp verifica el pago y nuestro sistema registra esa confirmación.
           </p>
-
-          <div className={styles.variantTabs}>
-            <Link href="/preventa/confirmacion" data-active="true">Pago único · 1.690 €</Link>
-            <Link href="/preventa/confirmacion?modalidad=fraccionado">Fraccionado · 895 € + 895 €</Link>
-          </div>
         </section>
 
         <div className={styles.confirmGrid}>
           <section className={styles.confirmCard}>
-            <h2>Resumen de la matrícula</h2>
+            <h2>Referencia de tu operación</h2>
             <div className={styles.orderLines}>
-              <div className={styles.orderLine}><span>Referencia</span><strong>GHC-FUND-2026-XXXX</strong></div>
-              <div className={styles.orderLine}><span>Producto</span><strong>Pack completo · 3 niveles · 30 módulos</strong></div>
-              <div className={styles.orderLine}><span>Condición</span><strong>Alumno Fundador</strong></div>
-              <div className={styles.orderLine}><span>Modalidad mostrada</span><strong>Pago único</strong></div>
-              <div className={styles.orderLine}><span>Total pago único</span><strong>1.690 €</strong></div>
-              <div className={styles.orderLine}><span>Alternativa fraccionada</span><strong>895 € + 895 € · total 1.790 €</strong></div>
+              <div className={styles.orderLine}>
+                <span>Referencia</span>
+                <strong>{reference || 'No disponible'}</strong>
+              </div>
+              <div className={styles.orderLine}><span>Producto</span><strong>Edición Fundadora · 3 niveles · 30 módulos</strong></div>
               <div className={styles.orderLine}><span>Apertura prevista</span><strong>Durante octubre de 2026</strong></div>
               <div className={styles.orderLine}><span>Naturaleza</span><strong>Formación privada online</strong></div>
             </div>
@@ -63,36 +67,29 @@ export default function ConfirmacionPreventaPage() {
               <div className={styles.nextStep}>
                 <b>01</b>
                 <div>
-                  <strong>Recibirás el correo de confirmación</strong>
-                  <p>Incluirá la orden, modalidad, importe y las condiciones aplicables a la contratación.</p>
+                  <strong>SumUp confirma el resultado</strong>
+                  <p>La vuelta a esta página no se utiliza por sí sola como prueba de pago.</p>
                 </div>
               </div>
               <div className={styles.nextStep}>
                 <b>02</b>
                 <div>
-                  <strong>Tu plaza quedará registrada</strong>
-                  <p>La orden se vinculará a la Hoja Maestra, atribución comercial, estado de pago y condición fundadora.</p>
+                  <strong>GHC registra la confirmación</strong>
+                  <p>Cuando el pago queda verificado, la matrícula y la condición fundadora se actualizan automáticamente.</p>
                 </div>
               </div>
               <div className={styles.nextStep}>
                 <b>03</b>
                 <div>
-                  <strong>Si eliges pago fraccionado</strong>
-                  <p>El segundo pago de 895 € vencerá 15 días naturales después del primero.</p>
+                  <strong>Recibirás la confirmación por correo</strong>
+                  <p>Ese correo recoge la referencia y la información contractual asociada a tu matrícula.</p>
                 </div>
               </div>
               <div className={styles.nextStep}>
                 <b>04</b>
                 <div>
-                  <strong>Te avisaremos antes de la apertura</strong>
-                  <p>GHC comunicará la fecha concreta cuando pueda garantizarla. No se promete todavía un día específico de octubre.</p>
-                </div>
-              </div>
-              <div className={styles.nextStep}>
-                <b>05</b>
-                <div>
-                  <strong>Activación de acceso</strong>
-                  <p>El acceso dependerá del estado de pago y del Gate técnico completo de plataforma, evaluaciones, certificados y alta.</p>
+                  <strong>Si elegiste pago fraccionado</strong>
+                  <p>La segunda cuota de 895 € vence 15 días naturales después de la confirmación de la primera.</p>
                 </div>
               </div>
             </div>
@@ -100,10 +97,14 @@ export default function ConfirmacionPreventaPage() {
         </div>
 
         <section className={styles.confirmFooter}>
-          <strong>Esta Preview no crea una matrícula ni genera derechos contractuales.</strong>
+          <strong>No cierres una incidencia solo por no ver la confirmación inmediatamente.</strong>
           <p>
-            El Gate económico y la base jurídica están aprobados. Antes de producción quedan la integración de pago,
-            datos fiscales definitivos, URLs legales, correos, trazabilidad, alta automática y Gate técnico final.
+            La notificación del proveedor de pago puede tardar unos instantes. Si el pago se ha completado correctamente,
+            recibirás la confirmación de GHC Academy en el correo utilizado durante la matrícula.
+          </p>
+          <p>
+            Puedes consultar las <Link href="/legal#contratacion">condiciones de contratación</Link> y la información de{' '}
+            <Link href="/legal#desistimiento">desistimiento y reembolsos</Link>.
           </p>
         </section>
       </div>
