@@ -38,11 +38,11 @@ export default async function ConfirmacionPreventaPage({ searchParams }: Confirm
 
       <div className={styles.confirmShell}>
         <section className={styles.confirmHero}>
-          <div className={styles.successMark}>✓</div>
-          <p className={styles.eyebrow}>Pago enviado a verificación</p>
-          <h1>Estamos comprobando el estado de tu pago.</h1>
+          <div className={styles.successMark}>…</div>
+          <p className={styles.eyebrow}>Pago pendiente de confirmación</p>
+          <h1>Hemos recibido tu retorno desde SumUp.</h1>
           <p>
-            Has vuelto a GHC Academy desde la pasarela de SumUp. La plaza fundadora se confirma únicamente cuando
+            Volver a esta página no confirma por sí solo el cobro. Tu plaza fundadora queda confirmada únicamente cuando
             SumUp verifica el pago y nuestro sistema registra esa confirmación.
           </p>
         </section>
@@ -67,7 +67,7 @@ export default async function ConfirmacionPreventaPage({ searchParams }: Confirm
               <div className={styles.nextStep}>
                 <b>01</b>
                 <div>
-                  <strong>SumUp confirma el resultado</strong>
+                  <strong>SumUp comunica el resultado</strong>
                   <p>La vuelta a esta página no se utiliza por sí sola como prueba de pago.</p>
                 </div>
               </div>
@@ -97,7 +97,7 @@ export default async function ConfirmacionPreventaPage({ searchParams }: Confirm
         </div>
 
         <section className={styles.confirmFooter}>
-          <strong>No cierres una incidencia solo por no ver la confirmación inmediatamente.</strong>
+          <strong>Si no ves la confirmación inmediatamente, no repitas el pago.</strong>
           <p>
             La notificación del proveedor de pago puede tardar unos instantes. Si el pago se ha completado correctamente,
             recibirás la confirmación de GHC Academy en el correo utilizado durante la matrícula.
