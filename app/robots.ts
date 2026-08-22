@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
         '/preventa/checkout',
         '/preventa/confirmacion',
         '/preventa/correos',
+        '/stitch-pages',
       ],
     },
     sitemap: 'https://ghcacademy.net/sitemap.xml',
