@@ -163,7 +163,7 @@ export default function CheckoutInteractive({
               <span className={styles.choiceLabel}>Mejor condición económica</span>
               <h3>Pago único</h3>
               <strong className={styles.price}>1.690 €</strong>
-              <p>Un solo pago. Ahorras 100 € frente a la modalidad fraccionada y 600 € frente al precio oficial futuro del pack.</p>
+              <p>Un solo pago. Ahorras 100 € frente a la modalidad fraccionada y 600 € frente al precio futuro del pack.</p>
             </label>
 
             <label className={`${styles.paymentChoicePending} ${paymentPlan === 'split' ? ui.selected : ''}`}>
@@ -226,7 +226,7 @@ export default function CheckoutInteractive({
           <div className={styles.precontractGrid}>
             <div className={styles.fact}><span>Naturaleza</span><strong>Formación privada. No es una titulación oficial ni una habilitación automática.</strong></div>
             <div className={styles.fact}><span>Inicio</span><strong>Apertura durante octubre de 2026; el día exacto se comunicará cuando pueda garantizarse.</strong></div>
-            <div className={styles.fact}><span>Contenido</span><strong>Tres niveles y treinta módulos dentro de la plataforma.</strong></div>
+            <div className={styles.fact}><span>Contenido</span><strong>Tres niveles y treinta módulos dentro del entorno formativo de GHC Academy.</strong></div>
             <div className={styles.fact}><span>Evaluación</span><strong>Recorrido secuencial y umbral del 80 % por módulo.</strong></div>
             <div className={styles.fact}><span>Soporte</span><strong>Técnico, administrativo y académico básico. Sin tutoría individual ni mentoría.</strong></div>
             <div className={styles.fact}><span>Pago fraccionado</span><strong>895 € al contratar y 895 € a los 15 días naturales tras confirmar la primera cuota.</strong></div>
@@ -275,7 +275,7 @@ export default function CheckoutInteractive({
         <div className={styles.summaryTop}><span>Resumen antes del pago</span><h2>Edición Fundadora 2026</h2></div>
         <div className={styles.summaryLines}>
           <div className={styles.summaryLine}><span>Producto</span><strong>3 niveles · 30 módulos</strong></div>
-          <div className={styles.summaryLine}><span>Precio oficial futuro</span><strong><s>2.290 €</s></strong></div>
+          <div className={styles.summaryLine}><span>Precio futuro del pack</span><strong><s>2.290 €</s></strong></div>
           <div className={styles.summaryLine}><span>Modalidad elegida</span><strong>{paymentPlan === 'single' ? 'Pago único' : '2 pagos'}</strong></div>
           <div className={styles.summaryLine}><span>Importe</span><strong>{paymentPlan === 'single' ? '1.690 €' : '895 € + 895 €'}</strong></div>
           {paymentPlan === 'split' && <div className={styles.summaryLine}><span>Segundo vencimiento</span><strong>15 días naturales después</strong></div>}
@@ -283,7 +283,7 @@ export default function CheckoutInteractive({
         <div className={styles.total}>
           <span className={styles.totalLabel}>{paymentPlan === 'single' ? 'Total fundador' : 'Total fraccionado'}</span>
           <strong className={styles.totalPrice}>{euro(total)}</strong>
-          <span className={styles.saving}>{paymentPlan === 'single' ? 'Ahorras 600 € frente al pack oficial' : 'Pagas 895 € ahora · total 1.790 €'}</span>
+          <span className={styles.saving}>{paymentPlan === 'single' ? 'Ahorras 600 € frente al precio futuro del pack' : 'Pagas 895 € ahora · total 1.790 €'}</span>
         </div>
         <button className={`${styles.payButton} ${isPreview ? ui.previewButton : ''}`} type="submit" disabled={loading}>
           {loading ? 'Preparando pago…' : buttonLabel}
