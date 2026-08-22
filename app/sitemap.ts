@@ -7,10 +7,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 1,
     },
-    {
-      url: 'https://ghcacademy.net/legal',
-      changeFrequency: 'monthly',
-      priority: 0.2,
-    },
   ];
 }
