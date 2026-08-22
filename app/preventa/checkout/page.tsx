@@ -12,6 +12,7 @@ type CheckoutPageProps = {
 export const metadata = {
   title: 'Checkout · Edición Fundadora · GHC Academy',
   description: 'Matrícula y pago de la Edición Fundadora GHC Academy 2026.',
+  robots: { index: false, follow: false },
 };
 
 export default async function CheckoutPreventaPage({ searchParams }: CheckoutPageProps) {
@@ -50,6 +51,12 @@ export default async function CheckoutPreventaPage({ searchParams }: CheckoutPag
             {isPreview
               ? 'El formulario crea una matrícula de prueba, protege temporalmente una plaza y abre SumUp Sandbox con el mismo recorrido que usará la preventa.'
               : 'Revisa tu modalidad, completa tus datos y continúa al pago seguro. Tu plaza fundadora queda confirmada cuando SumUp verifica el pago.'}
+          </p>
+          <p style={{ fontSize: 14, lineHeight: 1.65, opacity: 0.82 }}>
+            Antes de continuar puedes consultar las{' '}
+            <Link href="/legal#contratacion">condiciones de contratación</Link>, la{' '}
+            <Link href="/legal#desistimiento">información de desistimiento y reembolsos</Link> y la{' '}
+            <Link href="/legal#privacidad">política de privacidad</Link>.
           </p>
         </section>
 
