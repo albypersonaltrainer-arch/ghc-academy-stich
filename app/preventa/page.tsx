@@ -31,16 +31,6 @@ function transformNode(node: ReactNode): ReactNode {
   const props = element.props || {};
   const originalChildren = props.children as ReactNode;
 
-  if (
-    element.type === 'figure' &&
-    typeof props.className === 'string' &&
-    props.className.includes('conversion-hero-image')
-  ) {
-    return React.cloneElement(element, {
-      children: <PreventaLandingVideo />,
-    });
-  }
-
   let nextChildren = transformNode(originalChildren);
   const nextProps: Record<string, unknown> = {};
   let changed = nextChildren !== originalChildren;
@@ -65,12 +55,46 @@ function transformNode(node: ReactNode): ReactNode {
     changed = true;
   }
 
-  if (!changed) return element;
+  const transformedElement = changed
+    ? React.cloneElement(element, {
+        ...nextProps,
+        children: nextChildren,
+      })
+    : element;
 
-  return React.cloneElement(element, {
-    ...nextProps,
-    children: nextChildren,
-  });
+  if (
+    element.type === 'section' &&
+    typeof props.className === 'string' &&
+    props.className.includes('conversion-tension-section')
+  ) {
+    return (
+      <>
+        {transformedElement}
+        <section
+          aria-label="Vídeo de presentación de GHC Academy"
+          style={{
+            padding: '0 24px 96px',
+          }}
+        >
+          <div
+            style={{
+              width: 'min(100%, 1180px)',
+              margin: '0 auto',
+              padding: 8,
+              borderRadius: 26,
+              background: 'rgba(255,255,255,0.035)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 28px 80px rgba(0,0,0,0.28)',
+            }}
+          >
+            <PreventaLandingVideo />
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  return transformedElement;
 }
 
 export default function PreventaPage() {
