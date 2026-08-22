@@ -41,12 +41,16 @@ function transformText(value: string): string {
     .replace(OLD_TENSION, NEW_TENSION)
     .replace('¿Cuándo abre la plataforma?', '¿Cuándo comienza la formación?')
     .replace(
+      'La apertura académica está fijada para el 15 de octubre de 2026.',
+      'La apertura académica está prevista durante octubre de 2026.',
+    )
+    .replace(
       'Las evaluaciones y controles académicos forman parte del diseño de la plataforma Academy.',
       'Las evaluaciones y controles académicos forman parte del recorrido formativo de GHC Academy.',
     )
     .replace(
       'La plataforma académica abre el 15 de octubre de 2026.',
-      'La formación comienza el 15 de octubre de 2026.',
+      'La formación comienza durante octubre de 2026.',
     );
 }
 
