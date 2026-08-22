@@ -52,7 +52,17 @@ function transformText(value: string): string {
     .replace(
       'La plataforma académica abre el 15 de octubre de 2026.',
       'La formación comienza durante octubre de 2026.',
-    );
+    )
+    .replace(
+      'Porque entras antes de la apertura oficial y formas parte de la primera generación.',
+      'Porque entras antes del inicio de la formación y formas parte de la primera generación.',
+    )
+    .replace(
+      'El pack completo tendrá un precio oficial de 2.290 €.',
+      'El precio futuro del pack completo será de 2.290 €.',
+    )
+    .replace('Pack completo oficial', 'Precio futuro del pack completo')
+    .replace('600 € menos que el pack oficial', '600 € menos que el precio futuro del pack');
 }
 
 function textContent(node: ReactNode): string {
