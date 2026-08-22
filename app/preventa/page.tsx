@@ -39,6 +39,7 @@ const NEW_TENSION =
 function transformText(value: string): string {
   return value
     .replace(OLD_TENSION, NEW_TENSION)
+    .replace('Apertura 15 octubre 2026', 'Apertura durante octubre de 2026')
     .replace('¿Cuándo abre la plataforma?', '¿Cuándo comienza la formación?')
     .replace(
       'La apertura académica está fijada para el 15 de octubre de 2026.',
