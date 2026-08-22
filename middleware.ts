@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const SECURITY_HEADERS = {
   'Cache-Control': 'no-store, max-age=0',
-  'X-Robots-Tag': 'noindex, nofollow, noarchive',
+  'X-Robots-Tag': 'noindex, nofollow,noarchive',
 };
 
 const PUBLIC_PREVENTA_PAGES = new Set([
@@ -23,6 +23,7 @@ const PUBLIC_PREVENTA_API_PREFIXES = [
   '/api/preventa/sumup-checkout',
   '/api/preventa/sumup-webhook',
   '/api/preventa/cron',
+  '/api/preventa/video-upload-url',
 ];
 
 const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
@@ -32,6 +33,7 @@ const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
 ]);
 
 const PREVENTA_CRON_PATH = '/api/preventa/cron';
+const PREVENTA_VIDEO_PATH = '/api/preventa/video-upload-url';
 
 const EXPLOIT_SCAN_PREFIXES = [
   '/wp-admin',
@@ -129,6 +131,10 @@ export function middleware(request: NextRequest) {
 
   if (PUBLIC_PREVENTA_ASSETS.has(pathname)) {
     return NextResponse.next();
+  }
+
+  if (pathname === PREVENTA_VIDEO_PATH && request.method !== 'GET') {
+    return notFound();
   }
 
   // Buyer-facing mutation endpoints are POST-only in Production.
