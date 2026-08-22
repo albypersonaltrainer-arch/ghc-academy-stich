@@ -31,7 +31,7 @@ export default function PreventaLandingVideo() {
         aria-label="Cargando vídeo de presentación de GHC Academy"
         style={{
           width: '100%',
-          minHeight: 320,
+          aspectRatio: '16 / 9',
           display: 'grid',
           placeItems: 'center',
           background: '#050706',
@@ -55,9 +55,8 @@ export default function PreventaLandingVideo() {
       style={{
         display: 'block',
         width: '100%',
-        height: '100%',
-        minHeight: 320,
-        objectFit: 'cover',
+        aspectRatio: '16 / 9',
+        objectFit: 'contain',
         background: '#050706',
         borderRadius: 18,
       }}
