@@ -1,13 +1,54 @@
+import type { Metadata } from 'next';
 import React, { type ReactElement, type ReactNode } from 'react';
-import OriginalPreventaPage, { metadata } from './PreventaPageOriginal';
+import OriginalPreventaPage from './PreventaPageOriginal';
 import PreventaLandingVideo from './PreventaLandingVideo';
 
-export { metadata };
+export const metadata: Metadata = {
+  title: 'Preventa Edición Fundadora | Programa Profesional de Entrenamiento Personal | GHC Academy',
+  description:
+    'Preventa de la Edición Fundadora del Programa Profesional de Entrenamiento Personal de GHC Academy. Reserva tu plaza fundadora.',
+  alternates: {
+    canonical: 'https://ghcacademy.net/preventa',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'es_ES',
+    url: 'https://ghcacademy.net/preventa',
+    siteName: 'GHC Academy',
+    title: 'Preventa Edición Fundadora | GHC Academy',
+    description:
+      'Programa Profesional de Entrenamiento Personal. Preventa de la Edición Fundadora de GHC Academy.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Preventa Edición Fundadora | GHC Academy',
+    description:
+      'Reserva tu plaza fundadora en el Programa Profesional de Entrenamiento Personal de GHC Academy.',
+  },
+};
 
 const OLD_TENSION =
   'Querer ser entrenador personal y no sentirte todavía preparado. O llevar años siéndolo y saber que aún tienes piezas por completar.';
 const NEW_TENSION =
   'Quieres ser entrenador personal, pero todavía no te sientes preparado. O llevas años siéndolo y sabes que aún tienes piezas por completar.';
+
+function transformText(value: string): string {
+  return value
+    .replace(OLD_TENSION, NEW_TENSION)
+    .replace('¿Cuándo abre la plataforma?', '¿Cuándo comienza la formación?')
+    .replace(
+      'Las evaluaciones y controles académicos forman parte del diseño de la plataforma Academy.',
+      'Las evaluaciones y controles académicos forman parte del recorrido formativo de GHC Academy.',
+    )
+    .replace(
+      'La plataforma académica abre el 15 de octubre de 2026.',
+      'La formación comienza el 15 de octubre de 2026.',
+    );
+}
 
 function textContent(node: ReactNode): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node);
@@ -22,7 +63,7 @@ function transformNode(node: ReactNode): ReactNode {
   if (Array.isArray(node)) return node.map(transformNode);
 
   if (typeof node === 'string') {
-    return node === OLD_TENSION ? NEW_TENSION : node;
+    return transformText(node);
   }
 
   if (!React.isValidElement(node)) return node;
