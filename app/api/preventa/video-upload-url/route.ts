@@ -11,31 +11,57 @@ function notFound() {
   return new NextResponse(null, { status: 404 });
 }
 
-export async function POST() {
-  // Esta utilidad solo existe para la carga puntual desde un Preview protegido.
-  if (process.env.VERCEL_ENV === 'production') return notFound();
-
+function getStorageClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!supabaseUrl || !serviceRoleKey) return null;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  return {
+    supabaseUrl,
+    client: createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    }),
+  };
+}
+
+export async function GET() {
+  const storage = getStorageClient();
+  if (!storage) {
     return NextResponse.json({ ok: false, error: 'storage_not_configured' }, { status: 503 });
   }
 
-  const projectRef = new URL(supabaseUrl).hostname.split('.')[0] || '';
+  const { data, error } = await storage.client.storage
+    .from(BUCKET)
+    .createSignedUrl(OBJECT_PATH, 60 * 60 * 6);
+
+  if (error || !data?.signedUrl) {
+    return NextResponse.json({ ok: false, error: 'video_not_available' }, { status: 404 });
+  }
+
+  return NextResponse.json(
+    { ok: true, url: data.signedUrl },
+    { headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' } }
+  );
+}
+
+export async function POST() {
+  if (process.env.VERCEL_ENV === 'production') return notFound();
+
+  const storage = getStorageClient();
+  if (!storage) {
+    return NextResponse.json({ ok: false, error: 'storage_not_configured' }, { status: 503 });
+  }
+
+  const projectRef = new URL(storage.supabaseUrl).hostname.split('.')[0] || '';
   if (!projectRef) {
     return NextResponse.json({ ok: false, error: 'invalid_storage_url' }, { status: 500 });
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-
-  const { data, error } = await supabase.storage
+  const { data, error } = await storage.client.storage
     .from(BUCKET)
     .createSignedUploadUrl(OBJECT_PATH, { upsert: true });
 
