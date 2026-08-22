@@ -5,7 +5,7 @@ import AcademySecurityGuard from './components/AcademySecurityGuard'
 
 export const metadata = {
   title: 'GHC Academy',
-  description: 'Sport Through Science'
+  description: 'Formación profesional online para entrenadores basada en conocimiento aplicado, criterio y ciencia.'
 }
 
 export default function RootLayout({
