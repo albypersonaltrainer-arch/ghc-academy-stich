@@ -1,3 +1,4 @@
+// CI validation branch: this comment is intentionally not part of main.
 import type { Metadata } from 'next';
 import React, { type ReactElement, type ReactNode } from 'react';
 import OriginalPreventaPage from './PreventaPageOriginal';
