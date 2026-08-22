@@ -3,6 +3,7 @@
 import { ChangeEvent, useState } from 'react';
 
 const CHUNK_SIZE = 6 * 1024 * 1024;
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_3k-T1XaqGDxMzw6S6HyPFA_k9uefIqv';
 
 type UploadConfig = {
   ok: true;
@@ -17,7 +18,9 @@ function encodeMetadata(value: string) {
 }
 
 async function uploadWithTus(file: File, config: UploadConfig, onProgress: (percent: number) => void) {
-  const endpoint = `https://${config.projectRef}.storage.supabase.co/storage/v1/upload/resumable`;
+  // Supabase uses the /sign TUS endpoint when the upload is authorized with
+  // a token returned by createSignedUploadUrl().
+  const endpoint = `https://${config.projectRef}.storage.supabase.co/storage/v1/upload/resumable/sign`;
   const metadata = [
     `bucketName ${encodeMetadata(config.bucket)}`,
     `objectName ${encodeMetadata(config.objectPath)}`,
@@ -32,12 +35,13 @@ async function uploadWithTus(file: File, config: UploadConfig, onProgress: (perc
       'Upload-Length': String(file.size),
       'Upload-Metadata': metadata,
       'x-signature': config.token,
-      'x-upsert': 'true',
+      apikey: SUPABASE_PUBLISHABLE_KEY,
     },
   });
 
   if (!createResponse.ok) {
-    throw new Error(`No se pudo iniciar la subida (${createResponse.status}).`);
+    const detail = (await createResponse.text()).slice(0, 240);
+    throw new Error(`No se pudo iniciar la subida (${createResponse.status})${detail ? `: ${detail}` : '.'}`);
   }
 
   const location = createResponse.headers.get('Location');
@@ -54,12 +58,14 @@ async function uploadWithTus(file: File, config: UploadConfig, onProgress: (perc
         'Upload-Offset': String(offset),
         'Content-Type': 'application/offset+octet-stream',
         'x-signature': config.token,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
       },
       body: chunk,
     });
 
     if (!response.ok) {
-      throw new Error(`La subida se interrumpió (${response.status}).`);
+      const detail = (await response.text()).slice(0, 240);
+      throw new Error(`La subida se interrumpió (${response.status})${detail ? `: ${detail}` : '.'}`);
     }
 
     const nextOffset = Number(response.headers.get('Upload-Offset'));
@@ -124,7 +130,7 @@ export default function PreventaVideoUploadPage() {
         <div style={{ marginTop: 22, height: 10, background: '#161b17', borderRadius: 999, overflow: 'hidden' }}>
           <div style={{ width: `${progress}%`, height: '100%', background: '#22d65b', transition: 'width .2s ease' }} />
         </div>
-        <p style={{ margin: '10px 0 0', color: '#c7ccc8', fontSize: 14 }}>{progress}% · {status}</p>
+        <p style={{ margin: '10px 0 0', color: '#c7ccc8', fontSize: 14, overflowWrap: 'anywhere' }}>{progress}% · {status}</p>
 
         <button type="button" onClick={handleUpload} disabled={!file || busy} style={{ width: '100%', marginTop: 26, border: 0, borderRadius: 14, padding: '16px 20px', background: file && !busy ? '#22d65b' : '#263027', color: file && !busy ? '#041006' : '#89928b', fontWeight: 900, fontSize: 16, cursor: file && !busy ? 'pointer' : 'default' }}>
           {busy ? 'Subiendo…' : 'Subir vídeo original'}
