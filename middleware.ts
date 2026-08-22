@@ -14,6 +14,11 @@ const PUBLIC_PREVENTA_PAGES = new Set([
   '/legal',
 ]);
 
+const PUBLIC_SEO_FILES = new Set([
+  '/robots.txt',
+  '/sitemap.xml',
+]);
+
 const PUBLIC_PREVENTA_ASSETS = new Set([
   '/images/alby-ghc-academy-founder.jpg',
 ]);
@@ -62,21 +67,23 @@ function lockedPage() {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex,nofollow,noarchive" />
-    <title>GHC Academy</title>
+    <title>GHC Academy · Edición Fundadora</title>
     <style>
       html,body{margin:0;min-height:100%;background:#050706;color:#f2f4f1;font-family:Arial,Helvetica,sans-serif}
       body{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}
       main{max-width:720px;text-align:center}
-      strong{display:block;font-size:clamp(34px,8vw,76px);letter-spacing:.08em}
-      span{display:block;margin-top:14px;color:#22d65b;font-size:12px;font-weight:800;letter-spacing:.22em;text-transform:uppercase}
-      p{margin:24px auto 0;max-width:520px;color:#a9afaa;line-height:1.7}
+      strong{display:block;font-size:clamp(34px,8vw,72px);letter-spacing:.06em}
+      span{display:block;margin-top:14px;color:#22d65b;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
+      p{margin:24px auto 0;max-width:560px;color:#a9afaa;line-height:1.7}
+      a{display:inline-block;margin-top:24px;padding:13px 20px;border:1px solid #22d65b;border-radius:999px;color:#f2f4f1;text-decoration:none;font-weight:700}
     </style>
   </head>
   <body>
     <main>
       <strong>GHC ACADEMY</strong>
-      <span>Sport Through Science</span>
-      <p>Estamos preparando la apertura. La plataforma académica todavía no está disponible públicamente.</p>
+      <span>Edición Fundadora 2026</span>
+      <p>El área académica no está abierta al público. La Edición Fundadora del Programa Profesional de Entrenamiento Personal está actualmente en preventa.</p>
+      <a href="/preventa">Ver la preventa</a>
     </main>
   </body>
 </html>`,
@@ -122,7 +129,11 @@ export function middleware(request: NextRequest) {
   if (pathname === '/') {
     const url = request.nextUrl.clone();
     url.pathname = '/preventa';
-    return NextResponse.rewrite(url);
+    return NextResponse.redirect(url, 308);
+  }
+
+  if (PUBLIC_SEO_FILES.has(pathname)) {
+    return NextResponse.next();
   }
 
   if (PUBLIC_PREVENTA_PAGES.has(pathname)) {
