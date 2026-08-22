@@ -78,6 +78,73 @@ function transformNode(node: ReactNode): ReactNode {
         >
           <div
             style={{
+              width: 'min(100%, 1040px)',
+              margin: '0 auto 34px',
+              textAlign: 'center',
+            }}
+          >
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                marginBottom: 16,
+                color: 'var(--ghc-green)',
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 30,
+                  height: 1,
+                  background: 'currentColor',
+                  opacity: 0.8,
+                }}
+              />
+              Antes de seguir
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 30,
+                  height: 1,
+                  background: 'currentColor',
+                  opacity: 0.8,
+                }}
+              />
+            </div>
+            <h2
+              style={{
+                maxWidth: 930,
+                margin: '0 auto',
+                color: 'var(--ghc-text)',
+                fontSize: 'clamp(34px, 4.4vw, 58px)',
+                lineHeight: 1.02,
+                letterSpacing: '-0.04em',
+                textWrap: 'balance',
+              }}
+            >
+              Si estás pensando en dedicarte profesionalmente al entrenamiento, mira esto primero.
+            </h2>
+            <p
+              style={{
+                maxWidth: 760,
+                margin: '20px auto 0',
+                color: 'var(--ghc-muted)',
+                fontSize: 'clamp(16px, 1.65vw, 19px)',
+                lineHeight: 1.7,
+                textWrap: 'balance',
+              }}
+            >
+              En poco más de 2 minutos te explico por qué nace GHC Academy, qué problema queremos resolver y qué buscamos que cambie en tu forma de trabajar como entrenador.
+            </p>
+          </div>
+
+          <div
+            style={{
               width: 'min(100%, 1180px)',
               margin: '0 auto',
               padding: 8,
