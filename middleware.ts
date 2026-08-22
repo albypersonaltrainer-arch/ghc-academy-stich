@@ -23,6 +23,7 @@ const PUBLIC_PREVENTA_API_PREFIXES = [
   '/api/preventa/sumup-checkout',
   '/api/preventa/sumup-webhook',
   '/api/preventa/cron',
+  '/api/preventa/landing-video',
 ];
 
 const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
@@ -32,6 +33,7 @@ const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
 ]);
 
 const PREVENTA_CRON_PATH = '/api/preventa/cron';
+const PREVENTA_VIDEO_PATH = '/api/preventa/landing-video';
 
 const EXPLOIT_SCAN_PREFIXES = [
   '/wp-admin',
@@ -131,13 +133,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Buyer-facing mutation endpoints are POST-only in Production.
+  if (pathname === PREVENTA_VIDEO_PATH && request.method !== 'GET') {
+    return notFound();
+  }
+
   if (PUBLIC_POST_ONLY_PREVENTA_APIS.has(pathname) && request.method !== 'POST') {
     return notFound();
   }
 
-  // Vercel Cron invokes configured paths with GET. POST is retained only for the
-  // authenticated GitHub/manual fallback. No other method reaches the handler.
   if (pathname === PREVENTA_CRON_PATH && request.method !== 'GET' && request.method !== 'POST') {
     return notFound();
   }

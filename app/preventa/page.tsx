@@ -1,5 +1,6 @@
 import React, { type ReactElement, type ReactNode } from 'react';
 import OriginalPreventaPage, { metadata } from './PreventaPageOriginal';
+import PreventaLandingVideo from './PreventaLandingVideo';
 
 export { metadata };
 
@@ -29,6 +30,17 @@ function transformNode(node: ReactNode): ReactNode {
   const element = node as ReactElement<any>;
   const props = element.props || {};
   const originalChildren = props.children as ReactNode;
+
+  if (
+    element.type === 'figure' &&
+    typeof props.className === 'string' &&
+    props.className.includes('conversion-hero-image')
+  ) {
+    return React.cloneElement(element, {
+      children: <PreventaLandingVideo />,
+    });
+  }
+
   let nextChildren = transformNode(originalChildren);
   const nextProps: Record<string, unknown> = {};
   let changed = nextChildren !== originalChildren;
