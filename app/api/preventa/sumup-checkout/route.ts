@@ -19,6 +19,10 @@ import {
   getCheckoutAccessTokenStatus,
   verifyCheckoutAccessToken,
 } from '../../../../lib/preventa/checkout-access-token';
+import {
+  PREVENTA_OFFER,
+  isFounderPresaleClosed,
+} from '../../../../lib/preventa/offer';
 
 export const dynamic = 'force-dynamic';
 
@@ -171,6 +175,22 @@ export async function POST(request: NextRequest) {
     });
 
     const context = await getPreventaCheckoutContext(body);
+
+    if (
+      process.env.VERCEL_ENV === 'production' &&
+      context.installmentNo === 1 &&
+      isFounderPresaleClosed()
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'FOUNDER_PRESALE_CLOSED',
+          error: `La Edición Fundadora cerró el ${PREVENTA_OFFER.founderPresaleCloseLabel}. Ya no se pueden iniciar nuevos pagos de primera cuota.`,
+        },
+        { status: 410, headers: NO_STORE_HEADERS }
+      );
+    }
+
     const attemptToken = randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase();
     checkoutReference = createSumUpCheckoutReference(
       context.orderReference,
@@ -270,7 +290,7 @@ export async function POST(request: NextRequest) {
         {
           ok: false,
           code: 'FOUNDER_PLACES_FULL',
-          error: 'Las 100 plazas de la Edición Fundadora están ocupadas en este momento. No se ha realizado ningún cobro.',
+          error: `Las ${PREVENTA_OFFER.founderPlaces} plazas de la Edición Fundadora están ocupadas en este momento. No se ha realizado ningún cobro.`,
         },
         { status: 409, headers: NO_STORE_HEADERS }
       );

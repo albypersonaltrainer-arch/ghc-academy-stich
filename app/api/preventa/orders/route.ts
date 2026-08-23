@@ -11,9 +11,9 @@ import {
   issueCheckoutAccessToken,
 } from '../../../../lib/preventa/checkout-access-token';
 import {
-  FOUNDER_PREVENTA_CLOSE_LABEL,
+  PREVENTA_OFFER,
   isFounderPresaleClosed,
-} from '../../../../lib/preventa/founder-offer';
+} from '../../../../lib/preventa/offer';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       {
         ok: false,
         code: 'FOUNDER_PRESALE_CLOSED',
-        error: `La Edición Fundadora cerró el ${FOUNDER_PREVENTA_CLOSE_LABEL}. Ya no se admiten nuevas matrículas de preventa.`,
+        error: `La Edición Fundadora cerró el ${PREVENTA_OFFER.founderPresaleCloseLabel}. Ya no se admiten nuevas matrículas de preventa.`,
       },
       { status: 410, headers: NO_STORE_HEADERS }
     );
