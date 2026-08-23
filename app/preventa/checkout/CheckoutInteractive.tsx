@@ -228,7 +228,7 @@ export default function CheckoutInteractive({
             <div className={styles.fact}><span>Inicio</span><strong>Apertura durante octubre de 2026; el día exacto se comunicará cuando pueda garantizarse.</strong></div>
             <div className={styles.fact}><span>Contenido</span><strong>Tres niveles y treinta módulos dentro del entorno formativo de GHC Academy.</strong></div>
             <div className={styles.fact}><span>Evaluación</span><strong>Recorrido secuencial y umbral del 80 % por módulo.</strong></div>
-            <div className={styles.fact}><span>Soporte</span><strong>Técnico, administrativo y académico básico. Sin tutoría individual ni mentoría.</strong></div>
+            <div className={styles.fact}><span>Acompañamiento</span><strong>Dos sesiones grupales al mes: dudas y temas del grupo + Hot Seat. Incluye además soporte técnico, administrativo y académico básico; no incluye tutoría individual ni mentoring 1:1.</strong></div>
             <div className={styles.fact}><span>Pago fraccionado</span><strong>895 € al contratar y 895 € a los 15 días naturales tras confirmar la primera cuota.</strong></div>
           </div>
 
