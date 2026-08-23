@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import React, { type ReactElement, type ReactNode } from 'react';
+import GHCEcosystemLinks from '../components/GHCEcosystemLinks';
 import OriginalPreventaPage from './PreventaPageOriginal';
 import PreventaLandingVideo from './PreventaLandingVideo';
 
@@ -198,6 +199,7 @@ function transformNode(node: ReactNode): ReactNode {
         >
           <InstagramLink footer />
         </div>
+        <GHCEcosystemLinks />
       </>
     );
     changed = true;
