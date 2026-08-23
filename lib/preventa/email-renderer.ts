@@ -3,6 +3,7 @@ import {
   preventaEmailTemplates,
   type PreventaEmailTemplate,
 } from '../../app/preventa/emailTemplates';
+import { PREVENTA_OFFER } from './offer';
 
 export type PreventaEmailTemplateCode =
   | 'E01' | 'E02' | 'E03' | 'E04' | 'E05' | 'E06' | 'E07'
@@ -44,10 +45,12 @@ function resolveVariables(
 }
 
 function normalizeFounderSchedule(input: string) {
+  const openingDateLabel = PREVENTA_OFFER.openingDateLabel;
+
   return input
     .replace(
       'La apertura de la plataforma está prevista durante octubre de 2026.',
-      'La apertura de GHC Academy está fijada para el 16 de octubre de 2026.'
+      `La apertura de GHC Academy está fijada para el ${openingDateLabel}.`
     )
     .replace(
       'Antes de la apertura recibirás un nuevo correo con la fecha concreta y, cuando la plataforma esté operativa, las instrucciones para activar tu acceso.',
@@ -55,9 +58,9 @@ function normalizeFounderSchedule(input: string) {
     )
     .replaceAll(
       'La plataforma abrirá durante octubre de 2026',
-      'GHC Academy abrirá el 16 de octubre de 2026'
+      `GHC Academy abrirá el ${openingDateLabel}`
     )
-    .replaceAll('Durante octubre de 2026', '16 de octubre de 2026')
+    .replaceAll('Durante octubre de 2026', openingDateLabel)
     .replace(
       'y recibirás un correo específico con la fecha concreta y las instrucciones de acceso',
       'y recibirás un correo específico con las instrucciones de acceso'
