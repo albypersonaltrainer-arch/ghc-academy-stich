@@ -169,6 +169,7 @@ function transformNode(node: ReactNode): ReactNode {
     });
 
     if (editionIndex >= 0) {
+      nextProps['data-preventa-header'] = 'true';
       nextChildren = [
         ...nextChildren.slice(0, editionIndex),
         <InstagramLink key="academy-instagram-header" />,
@@ -182,7 +183,17 @@ function transformNode(node: ReactNode): ReactNode {
     nextChildren = (
       <>
         {nextChildren}
-        <InstagramLink footer />
+        <div
+          style={{
+            gridColumn: '1 / -1',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingTop: 4,
+          }}
+        >
+          <InstagramLink footer />
+        </div>
       </>
     );
     changed = true;
@@ -308,6 +319,24 @@ export default function PreventaPage() {
 
   return (
     <>
+      <style>{`
+        [data-preventa-header='true'] {
+          grid-template-columns: 1fr auto auto auto !important;
+        }
+
+        @media (max-width: 860px) {
+          [data-preventa-header='true'] {
+            grid-template-columns: 1fr auto auto !important;
+            gap: 16px !important;
+          }
+        }
+
+        @media (max-width: 420px) {
+          [data-preventa-header='true'] {
+            gap: 10px !important;
+          }
+        }
+      `}</style>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
