@@ -39,11 +39,12 @@ const NEW_TENSION =
 function transformText(value: string): string {
   return value
     .replace(OLD_TENSION, NEW_TENSION)
-    .replace('Apertura 15 octubre 2026', 'Apertura durante octubre de 2026')
+    .replaceAll('15 de septiembre de 2026', '1 de octubre de 2026')
+    .replace('Apertura 15 octubre 2026', 'Apertura 16 octubre 2026')
     .replace('¿Cuándo abre la plataforma?', '¿Cuándo comienza la formación?')
     .replace(
       'La apertura académica está fijada para el 15 de octubre de 2026.',
-      'La apertura académica está prevista durante octubre de 2026.',
+      'La apertura académica está fijada para el 16 de octubre de 2026.',
     )
     .replace(
       'Las evaluaciones y controles académicos forman parte del diseño de la plataforma Academy.',
@@ -51,7 +52,7 @@ function transformText(value: string): string {
     )
     .replace(
       'La plataforma académica abre el 15 de octubre de 2026.',
-      'La formación comienza durante octubre de 2026.',
+      'La formación comienza el 16 de octubre de 2026.',
     )
     .replace(
       'Porque entras antes de la apertura oficial y formas parte de la primera generación.',
