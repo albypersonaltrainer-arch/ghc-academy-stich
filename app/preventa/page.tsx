@@ -70,7 +70,7 @@ function InstagramLink({ footer = false }: { footer?: boolean }) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: footer ? 8 : 0,
+        gap: footer ? 8 : 7,
         flexShrink: 0,
         color: 'var(--ghc-green)',
         textDecoration: 'none',
@@ -80,7 +80,11 @@ function InstagramLink({ footer = false }: { footer?: boolean }) {
       }}
     >
       <InstagramIcon size={footer ? 21 : 20} />
-      {footer ? <span>@academy.ghc</span> : null}
+      {footer ? (
+        <span>@academy.ghc</span>
+      ) : (
+        <span data-instagram-header-handle="true">@academy.ghc</span>
+      )}
     </a>
   );
 }
@@ -328,6 +332,10 @@ export default function PreventaPage() {
           [data-preventa-header='true'] {
             grid-template-columns: 1fr auto auto !important;
             gap: 16px !important;
+          }
+
+          [data-instagram-header-handle='true'] {
+            display: none !important;
           }
         }
 
