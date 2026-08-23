@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import React, { type ReactElement, type ReactNode } from 'react';
+import { PREVENTA_OFFER } from '../../lib/preventa/offer';
 import GHCEcosystemLinks from '../components/GHCEcosystemLinks';
 import OriginalPreventaPage from './PreventaPageOriginal';
 import PreventaLandingVideo from './PreventaLandingVideo';
 
 const ACADEMY_INSTAGRAM_URL = 'https://www.instagram.com/academy.ghc/';
+const FOUNDER_CLOSE_DATE_LABEL = PREVENTA_OFFER.founderPresaleCloseLabel.split(' a las ')[0];
+const OPENING_DATE_LABEL = PREVENTA_OFFER.openingDateLabel;
+const OPENING_DATE_COMPACT_LABEL = OPENING_DATE_LABEL.replaceAll(' de ', ' ');
 
 export const metadata: Metadata = {
   title: 'Preventa Edición Fundadora | Programa Profesional de Entrenamiento Personal | GHC Academy',
@@ -93,12 +97,12 @@ function InstagramLink({ footer = false }: { footer?: boolean }) {
 function transformText(value: string): string {
   return value
     .replace(OLD_TENSION, NEW_TENSION)
-    .replaceAll('15 de septiembre de 2026', '1 de octubre de 2026')
-    .replace('Apertura 15 octubre 2026', 'Apertura 16 octubre 2026')
+    .replaceAll('15 de septiembre de 2026', FOUNDER_CLOSE_DATE_LABEL)
+    .replace('Apertura 15 octubre 2026', `Apertura ${OPENING_DATE_COMPACT_LABEL}`)
     .replace('¿Cuándo abre la plataforma?', '¿Cuándo comienza la formación?')
     .replace(
       'La apertura académica está fijada para el 15 de octubre de 2026.',
-      'La apertura académica está fijada para el 16 de octubre de 2026.',
+      `La apertura académica está fijada para el ${OPENING_DATE_LABEL}.`,
     )
     .replace(
       'Las evaluaciones y controles académicos forman parte del diseño de la plataforma Academy.',
@@ -106,7 +110,7 @@ function transformText(value: string): string {
     )
     .replace(
       'La plataforma académica abre el 15 de octubre de 2026.',
-      'La formación comienza el 16 de octubre de 2026.',
+      `La formación comienza el ${OPENING_DATE_LABEL}.`,
     )
     .replace(
       'Porque entras antes de la apertura oficial y formas parte de la primera generación.',
