@@ -50,6 +50,12 @@ type IncidentContext = {
   refundReference?: string;
 };
 
+type CurrentOrderState = {
+  status: string;
+  payment_plan: 'single' | 'split';
+  founder_status: string;
+};
+
 function clean(value: string | undefined) {
   return (value || '').trim();
 }
@@ -246,6 +252,83 @@ function buildVariables(claimed: ClaimedEmail, incident: IncidentContext) {
   };
 }
 
+function isEmailApplicable(
+  code: PreventaEmailTemplateCode,
+  order: CurrentOrderState,
+  incident: IncidentContext
+) {
+  const splitOpen =
+    order.payment_plan === 'split' &&
+    (order.status === 'partial' || order.status === 'overdue') &&
+    order.founder_status === 'reserved';
+
+  switch (code) {
+    case 'E01':
+      return order.payment_plan === 'single' && order.status === 'paid' && order.founder_status === 'confirmed';
+    case 'E02':
+    case 'E03':
+    case 'E04':
+    case 'E05':
+    case 'E06':
+    case 'E07':
+    case 'E08':
+      return splitOpen;
+    case 'E09':
+      return order.status === 'cancelled' && order.founder_status === 'released';
+    case 'E10':
+      return order.payment_plan === 'split' && order.status === 'paid' && order.founder_status === 'confirmed';
+    case 'E11':
+      return order.status === 'paid' && order.founder_status === 'confirmed';
+    case 'E12':
+    case 'E13':
+      if (incident.installmentNo === 1) {
+        return (
+          (order.status === 'draft' || order.status === 'awaiting_payment') &&
+          order.founder_status === 'pending'
+        );
+      }
+      if (incident.installmentNo === 2) return splitOpen;
+      return false;
+    case 'E14':
+      return order.status === 'refunded' && order.founder_status === 'released';
+    default:
+      return false;
+  }
+}
+
+async function suppressIfStale(
+  supabase: SupabaseClient,
+  claimed: ClaimedEmail,
+  incident: IncidentContext
+) {
+  const { data: order, error: orderError } = await supabase
+    .from('preventa_orders')
+    .select('status, payment_plan, founder_status')
+    .eq('id', claimed.order_id)
+    .maybeSingle();
+
+  if (orderError) throw new Error(`PREVENTA_EMAIL_STATE_LOOKUP_FAILED:${orderError.message}`);
+  if (!order) throw new Error('PREVENTA_EMAIL_ORDER_NOT_FOUND');
+
+  if (isEmailApplicable(claimed.template_code, order as CurrentOrderState, incident)) {
+    return false;
+  }
+
+  const occurredAt = new Date().toISOString();
+  const { error: cancelError } = await supabase
+    .from('preventa_email_queue')
+    .update({
+      status: 'cancelled',
+      last_error: 'STALE_EMAIL_SUPPRESSED',
+      updated_at: occurredAt,
+    })
+    .eq('id', claimed.queue_id)
+    .eq('status', 'processing');
+
+  if (cancelError) throw new Error(`PREVENTA_EMAIL_STALE_CANCEL_FAILED:${cancelError.message}`);
+  return true;
+}
+
 async function finishEmail(
   supabase: SupabaseClient,
   input: {
@@ -313,7 +396,7 @@ export async function runPreventaEmailWorker(batchSize = 10) {
     queueId: string;
     templateCode: PreventaEmailTemplateCode;
     orderReference: string;
-    status: 'sent' | 'retry_or_failed';
+    status: 'sent' | 'cancelled' | 'retry_or_failed';
     providerMessageId?: string;
     error?: string;
   }> = [];
@@ -326,6 +409,16 @@ export async function runPreventaEmailWorker(batchSize = 10) {
         variables: buildVariables(item, incident),
         ctaUrl,
       });
+
+      if (await suppressIfStale(supabase, item, incident)) {
+        results.push({
+          queueId: item.queue_id,
+          templateCode: item.template_code,
+          orderReference: item.order_reference,
+          status: 'cancelled',
+        });
+        continue;
+      }
 
       const delivery = await sendPreventaEmail({
         queueId: item.queue_id,
@@ -385,7 +478,8 @@ export async function runPreventaEmailWorker(batchSize = 10) {
   return {
     claimed: claimed.length,
     sent: results.filter((item) => item.status === 'sent').length,
-    retryOrFailed: results.filter((item) => item.status !== 'sent').length,
+    cancelled: results.filter((item) => item.status === 'cancelled').length,
+    retryOrFailed: results.filter((item) => item.status === 'retry_or_failed').length,
     results,
   };
 }
