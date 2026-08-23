@@ -3,6 +3,8 @@ import React, { type ReactElement, type ReactNode } from 'react';
 import OriginalPreventaPage from './PreventaPageOriginal';
 import PreventaLandingVideo from './PreventaLandingVideo';
 
+const ACADEMY_INSTAGRAM_URL = 'https://www.instagram.com/academy.ghc/';
+
 export const metadata: Metadata = {
   title: 'Preventa Edición Fundadora | Programa Profesional de Entrenamiento Personal | GHC Academy',
   description:
@@ -109,6 +111,29 @@ function transformNode(node: ReactNode): ReactNode {
 
   if (element.type === 'section' && textContent(originalChildren).includes('El mapa de conocimientos')) {
     nextProps.id = 'mapa-conocimientos';
+    changed = true;
+  }
+
+  if (element.type === 'footer') {
+    nextChildren = (
+      <>
+        {nextChildren}
+        <a
+          href={ACADEMY_INSTAGRAM_URL}
+          target="_blank"
+          rel="me noopener noreferrer"
+          aria-label="Instagram oficial de GHC Academy: @academy.ghc"
+          style={{
+            color: 'var(--ghc-green)',
+            textDecoration: 'none',
+            fontWeight: 800,
+            letterSpacing: '0.02em',
+          }}
+        >
+          Instagram · @academy.ghc
+        </a>
+      </>
+    );
     changed = true;
   }
 
@@ -222,5 +247,21 @@ function transformNode(node: ReactNode): ReactNode {
 }
 
 export default function PreventaPage() {
-  return transformNode(OriginalPreventaPage());
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'EducationalOrganization',
+    name: 'GHC Academy',
+    url: 'https://ghcacademy.net',
+    sameAs: [ACADEMY_INSTAGRAM_URL],
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      {transformNode(OriginalPreventaPage())}
+    </>
+  );
 }
