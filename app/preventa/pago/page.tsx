@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Continuar pago · GHC Academy',
   description: 'Acceso seguro para continuar un pago pendiente de la Edición Fundadora 2026.',
+  robots: { index: false, follow: false },
 };
 
 function shell(children: React.ReactNode) {
