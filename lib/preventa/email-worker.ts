@@ -209,7 +209,7 @@ function buildCtaUrl(
   const checkoutToken = issueCheckoutAccessToken({
     orderReference: claimed.order_reference,
     installmentNo,
-    ttlSeconds: 7 * 24 * 60 * 60,
+    ttlSeconds: 30 * 24 * 60 * 60,
   });
 
   const url = new URL('/preventa/pago', publicBaseUrl);
