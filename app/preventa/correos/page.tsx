@@ -6,6 +6,7 @@ import styles from './correos.module.css';
 export const metadata = {
   title: 'Correos transaccionales · Preventa GHC Academy',
   description: 'Preview interna de los correos transaccionales E01–E14 de la Edición Fundadora 2026.',
+  robots: { index: false, follow: false },
 };
 
 const toneLabel = {
@@ -15,12 +16,44 @@ const toneLabel = {
   critical: 'Aviso importante',
 };
 
+function normalizeFounderSchedule(input: string) {
+  return input
+    .replace(
+      'La apertura de la plataforma está prevista durante octubre de 2026.',
+      'La apertura de GHC Academy está fijada para el 16 de octubre de 2026.'
+    )
+    .replace(
+      'Antes de la apertura recibirás un nuevo correo con la fecha concreta y, cuando la plataforma esté operativa, las instrucciones para activar tu acceso.',
+      'Antes de la apertura recibirás un nuevo correo recordatorio y, cuando GHC Academy esté operativa, las instrucciones para activar tu acceso.'
+    )
+    .replaceAll(
+      'La plataforma abrirá durante octubre de 2026',
+      'GHC Academy abrirá el 16 de octubre de 2026'
+    )
+    .replaceAll('Durante octubre de 2026', '16 de octubre de 2026')
+    .replace(
+      'y recibirás un correo específico con la fecha concreta y las instrucciones de acceso',
+      'y recibirás un correo específico con las instrucciones de acceso'
+    );
+}
+
+const previewTemplates = preventaEmailTemplates.map((email) => ({
+  ...email,
+  subject: normalizeFounderSchedule(email.subject),
+  preheader: normalizeFounderSchedule(email.preheader),
+  body: email.body.map(normalizeFounderSchedule),
+  facts: email.facts?.map((fact) => ({
+    label: normalizeFounderSchedule(fact.label),
+    value: normalizeFounderSchedule(fact.value),
+  })),
+}));
+
 export default function PreventaCorreosPage() {
   return (
     <main className={styles.page}>
       <div className={styles.banner}>
         <strong>Preview interna</strong>
-        <span>Serie E01–E14 cerrada. Proveedor de envío todavía no conectado.</span>
+        <span>Serie E01–E14 activa. Sistema transaccional conectado y protegido contra duplicados.</span>
       </div>
 
       <header className={styles.header}>
@@ -42,7 +75,7 @@ export default function PreventaCorreosPage() {
       </section>
 
       <nav className={styles.index} aria-label="Índice de correos">
-        {preventaEmailTemplates.map((email) => (
+        {previewTemplates.map((email) => (
           <a key={email.code} href={`#${email.code}`}>
             <strong>{email.code}</strong>
             <span>{email.name}</span>
@@ -51,7 +84,7 @@ export default function PreventaCorreosPage() {
       </nav>
 
       <section className={styles.emailList}>
-        {preventaEmailTemplates.map((email) => (
+        {previewTemplates.map((email) => (
           <article id={email.code} key={email.code} className={styles.emailBlock}>
             <div className={styles.meta}>
               <div>
