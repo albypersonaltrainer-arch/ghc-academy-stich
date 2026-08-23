@@ -9,6 +9,8 @@ const PUBLIC_PREVENTA_PAGES = new Set([
   '/preventa',
   '/preventa/checkout',
   '/preventa/confirmacion',
+  '/preventa/pago',
+  '/preventa/matricula',
   '/legal',
 ]);
 
