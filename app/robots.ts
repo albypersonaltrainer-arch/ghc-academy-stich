@@ -19,6 +19,8 @@ export default function robots(): MetadataRoute.Robots {
         '/preventa/checkout',
         '/preventa/confirmacion',
         '/preventa/correos',
+        '/preventa/matricula',
+        '/preventa/pago',
         '/stitch-pages',
       ],
     },
