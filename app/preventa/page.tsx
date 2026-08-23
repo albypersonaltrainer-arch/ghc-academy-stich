@@ -38,6 +38,53 @@ const OLD_TENSION =
 const NEW_TENSION =
   'Quieres ser entrenador personal, pero todavía no te sientes preparado. O llevas años siéndolo y sabes que aún tienes piezas por completar.';
 
+function InstagramIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4.1" />
+      <circle cx="17.45" cy="6.55" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function InstagramLink({ footer = false }: { footer?: boolean }) {
+  return (
+    <a
+      href={ACADEMY_INSTAGRAM_URL}
+      target="_blank"
+      rel="me noopener noreferrer"
+      aria-label="Instagram oficial de GHC Academy: @academy.ghc"
+      title="@academy.ghc"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: footer ? 8 : 0,
+        flexShrink: 0,
+        color: 'var(--ghc-green)',
+        textDecoration: 'none',
+        fontWeight: 800,
+        letterSpacing: '0.02em',
+        lineHeight: 1,
+      }}
+    >
+      <InstagramIcon size={footer ? 21 : 20} />
+      {footer ? <span>@academy.ghc</span> : null}
+    </a>
+  );
+}
+
 function transformText(value: string): string {
   return value
     .replace(OLD_TENSION, NEW_TENSION)
@@ -114,24 +161,28 @@ function transformNode(node: ReactNode): ReactNode {
     changed = true;
   }
 
+  if (element.type === 'header' && Array.isArray(nextChildren)) {
+    const editionIndex = nextChildren.findIndex((child) => {
+      if (!React.isValidElement(child)) return false;
+      const childProps = (child as ReactElement<any>).props || {};
+      return typeof childProps.className === 'string' && childProps.className.includes('editionTag');
+    });
+
+    if (editionIndex >= 0) {
+      nextChildren = [
+        ...nextChildren.slice(0, editionIndex),
+        <InstagramLink key="academy-instagram-header" />,
+        ...nextChildren.slice(editionIndex),
+      ];
+      changed = true;
+    }
+  }
+
   if (element.type === 'footer') {
     nextChildren = (
       <>
         {nextChildren}
-        <a
-          href={ACADEMY_INSTAGRAM_URL}
-          target="_blank"
-          rel="me noopener noreferrer"
-          aria-label="Instagram oficial de GHC Academy: @academy.ghc"
-          style={{
-            color: 'var(--ghc-green)',
-            textDecoration: 'none',
-            fontWeight: 800,
-            letterSpacing: '0.02em',
-          }}
-        >
-          Instagram · @academy.ghc
-        </a>
+        <InstagramLink footer />
       </>
     );
     changed = true;
