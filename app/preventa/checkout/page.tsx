@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import GHCLogo from '../../components/GHCLogo';
 import CheckoutInteractive from './CheckoutInteractive';
+import {
+  FOUNDER_PREVENTA_CLOSE_LABEL,
+  isFounderPresaleClosed,
+} from '../../../lib/preventa/founder-offer';
 import styles from '../flow.module.css';
 
 type CheckoutPageProps = {
@@ -17,6 +21,7 @@ export const metadata = {
 
 export default async function CheckoutPreventaPage({ searchParams }: CheckoutPageProps) {
   const isPreview = process.env.VERCEL_ENV === 'preview';
+  const presaleClosed = process.env.VERCEL_ENV === 'production' && isFounderPresaleClosed();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedPlan = Array.isArray(resolvedSearchParams?.plan)
     ? resolvedSearchParams.plan[0]
@@ -45,12 +50,20 @@ export default async function CheckoutPreventaPage({ searchParams }: CheckoutPag
 
       <div className={styles.shell}>
         <section className={styles.hero}>
-          <p className={styles.eyebrow}>Tu plaza fundadora</p>
-          <h1>{isPreview ? 'Prueba el recorrido real de matrícula en Sandbox.' : 'Estás a un paso de reservar tu plaza en la primera generación.'}</h1>
+          <p className={styles.eyebrow}>{presaleClosed ? 'Preventa cerrada' : 'Tu plaza fundadora'}</p>
+          <h1>
+            {isPreview
+              ? 'Prueba el recorrido real de matrícula en Sandbox.'
+              : presaleClosed
+                ? 'La Edición Fundadora ya no admite nuevas matrículas de preventa.'
+                : 'Estás a un paso de reservar tu plaza en la primera generación.'}
+          </h1>
           <p>
             {isPreview
               ? 'El formulario crea una matrícula de prueba, protege temporalmente una plaza y abre SumUp Sandbox con el mismo recorrido que usará la preventa.'
-              : 'Revisa tu modalidad, completa tus datos y continúa al pago seguro. Tu plaza fundadora queda confirmada cuando SumUp verifica el pago.'}
+              : presaleClosed
+                ? `La preventa cerró el ${FOUNDER_PREVENTA_CLOSE_LABEL}, tal como estaba previsto en la oferta.`
+                : 'Revisa tu modalidad, completa tus datos y continúa al pago seguro. Tu plaza fundadora queda confirmada cuando SumUp verifica el pago.'}
           </p>
           <p style={{ fontSize: 14, lineHeight: 1.65, opacity: 0.82 }}>
             Antes de continuar puedes consultar las{' '}
@@ -60,7 +73,17 @@ export default async function CheckoutPreventaPage({ searchParams }: CheckoutPag
           </p>
         </section>
 
-        <CheckoutInteractive key={initialPlan} isPreview={isPreview} initialPlan={initialPlan} />
+        {presaleClosed ? (
+          <section className={styles.card} style={{ textAlign: 'center' }}>
+            <h2 style={{ marginTop: 0 }}>La contratación de la Edición Fundadora está cerrada.</h2>
+            <p style={{ marginBottom: 20, lineHeight: 1.7 }}>
+              Las matrículas ya contratadas mantienen sus condiciones, pagos pendientes y comunicaciones. Este cierre solo impide iniciar nuevas matrículas de preventa.
+            </p>
+            <Link href="/preventa" className={styles.backLink}>Volver a GHC Academy</Link>
+          </section>
+        ) : (
+          <CheckoutInteractive key={initialPlan} isPreview={isPreview} initialPlan={initialPlan} />
+        )}
       </div>
     </main>
   );

@@ -10,6 +10,10 @@ import {
   getCheckoutAccessTokenStatus,
   issueCheckoutAccessToken,
 } from '../../../../lib/preventa/checkout-access-token';
+import {
+  FOUNDER_PREVENTA_CLOSE_LABEL,
+  isFounderPresaleClosed,
+} from '../../../../lib/preventa/founder-offer';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +83,17 @@ export async function POST(request: NextRequest) {
         error: 'Falta la clave privada para emitir accesos seguros al checkout.',
       },
       { status: 503, headers: NO_STORE_HEADERS }
+    );
+  }
+
+  if (process.env.VERCEL_ENV === 'production' && isFounderPresaleClosed()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'FOUNDER_PRESALE_CLOSED',
+        error: `La Edición Fundadora cerró el ${FOUNDER_PREVENTA_CLOSE_LABEL}. Ya no se admiten nuevas matrículas de preventa.`,
+      },
+      { status: 410, headers: NO_STORE_HEADERS }
     );
   }
 
