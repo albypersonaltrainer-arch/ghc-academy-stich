@@ -11,6 +11,13 @@ export type PreventaCheckoutContext = {
   currency: 'EUR';
 };
 
+export class PreventaCapacityError extends Error {
+  constructor(public readonly code: 'FOUNDER_PLACES_FULL' | 'PREVENTA_RESERVE_CAPACITY_FAILED') {
+    super(code);
+    this.name = 'PreventaCapacityError';
+  }
+}
+
 function getServerClient() {
   const enabled = process.env.PREVENTA_PERSISTENCE_ENABLED === 'true';
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -56,6 +63,14 @@ function mapContext(data: unknown): PreventaCheckoutContext {
     expectedAmountCents: amount,
     currency: 'EUR',
   };
+}
+
+function supabaseErrorContains(error: unknown, token: string) {
+  if (!error || typeof error !== 'object') return false;
+  const value = error as Record<string, unknown>;
+  return [value.message, value.details, value.hint, value.code]
+    .filter((part) => typeof part === 'string')
+    .some((part) => String(part).includes(token));
 }
 
 export async function getPreventaCheckoutContext(input: {
@@ -104,7 +119,12 @@ export async function reservePreventaCapacity(input: {
     p_occurred_at: input.occurredAt,
   });
 
-  if (error) throw new Error('PREVENTA_RESERVE_CAPACITY_FAILED');
+  if (error) {
+    if (supabaseErrorContains(error, 'FOUNDER_PLACES_FULL')) {
+      throw new PreventaCapacityError('FOUNDER_PLACES_FULL');
+    }
+    throw new PreventaCapacityError('PREVENTA_RESERVE_CAPACITY_FAILED');
+  }
   return data;
 }
 

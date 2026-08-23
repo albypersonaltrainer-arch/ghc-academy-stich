@@ -4,6 +4,7 @@ import { getPreventaPersistenceStatus } from '../../../../lib/preventa/persisten
 import {
   attachPreventaCapacityCheckout,
   getPreventaCheckoutContext,
+  PreventaCapacityError,
   registerPreventaCheckoutAttempt,
   releasePreventaCapacity,
   reservePreventaCapacity,
@@ -261,6 +262,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { ok: false, code: error.code, error: 'Acceso al checkout no autorizado o caducado.' },
         { status: 403, headers: NO_STORE_HEADERS }
+      );
+    }
+
+    if (error instanceof PreventaCapacityError && error.code === 'FOUNDER_PLACES_FULL') {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'FOUNDER_PLACES_FULL',
+          error: 'Las 100 plazas de la Edición Fundadora están ocupadas en este momento. No se ha realizado ningún cobro.',
+        },
+        { status: 409, headers: NO_STORE_HEADERS }
       );
     }
 
