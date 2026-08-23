@@ -25,10 +25,12 @@ const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',
 };
 
-// SumUp Hosted Checkout is nominally short-lived, but provider expiration/webhook delivery
-// can lag slightly. Keep founder capacity reserved for 45 minutes to avoid accepting a
-// valid provider payment just after our local hold expires.
-const FIRST_INSTALLMENT_HOLD_MINUTES = 45;
+// SumUp Hosted Checkout is nominally short-lived, but webhook delivery or the scheduled
+// reconciliation job can be delayed. Keep founder capacity protected for three hours so
+// a legitimate payment made within the provider session cannot lose its place before
+// provider truth is reconciled. Failed/expired checkouts release the hold as soon as they
+// are observed, so this is a safety ceiling rather than the normal reservation duration.
+const FIRST_INSTALLMENT_HOLD_MINUTES = 180;
 
 function getPublicBaseUrl() {
   const value = (process.env.PREVENTA_PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');
