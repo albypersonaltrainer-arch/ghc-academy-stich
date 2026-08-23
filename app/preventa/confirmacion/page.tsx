@@ -56,7 +56,7 @@ export default async function ConfirmacionPreventaPage({ searchParams }: Confirm
                 <strong>{reference || 'No disponible'}</strong>
               </div>
               <div className={styles.orderLine}><span>Producto</span><strong>Edición Fundadora · 3 niveles · 30 módulos</strong></div>
-              <div className={styles.orderLine}><span>Apertura prevista</span><strong>Durante octubre de 2026</strong></div>
+              <div className={styles.orderLine}><span>Apertura</span><strong>16 de octubre de 2026</strong></div>
               <div className={styles.orderLine}><span>Naturaleza</span><strong>Formación privada online</strong></div>
             </div>
           </section>

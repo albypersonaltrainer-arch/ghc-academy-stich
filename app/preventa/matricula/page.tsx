@@ -168,7 +168,7 @@ export default async function MatriculaPage({
     ['Saldo pendiente', formatEuro(balanceCents)],
     ['Plaza Fundador', founderNumber],
     ...(order.payment_plan === 'split' && secondDue ? [['Segundo vencimiento', secondDue]] : []),
-    ['Apertura prevista', 'Durante octubre de 2026'],
+    ['Apertura', '16 de octubre de 2026'],
   ];
 
   return shell(

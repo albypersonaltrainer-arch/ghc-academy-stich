@@ -142,7 +142,7 @@ export default function CheckoutInteractive({
             <div><span>Producto</span><strong>Pack completo GHC Academy</strong></div>
             <div><span>Contenido</span><strong>3 niveles · 30 módulos</strong></div>
             <div><span>Edición</span><strong>Fundadora · máximo 100 plazas</strong></div>
-            <div><span>Apertura</span><strong>Durante octubre de 2026</strong></div>
+            <div><span>Apertura</span><strong>16 de octubre de 2026</strong></div>
             <div><span>Formato</span><strong>Formación privada online</strong></div>
             <div><span>Confirmación</span><strong>La plaza se confirma tras verificar el pago</strong></div>
           </div>
@@ -225,7 +225,7 @@ export default function CheckoutInteractive({
 
           <div className={styles.precontractGrid}>
             <div className={styles.fact}><span>Naturaleza</span><strong>Formación privada. No es una titulación oficial ni una habilitación automática.</strong></div>
-            <div className={styles.fact}><span>Inicio</span><strong>Apertura durante octubre de 2026; el día exacto se comunicará cuando pueda garantizarse.</strong></div>
+            <div className={styles.fact}><span>Inicio</span><strong>GHC Academy abre el 16 de octubre de 2026.</strong></div>
             <div className={styles.fact}><span>Contenido</span><strong>Tres niveles y treinta módulos dentro del entorno formativo de GHC Academy.</strong></div>
             <div className={styles.fact}><span>Evaluación</span><strong>Recorrido secuencial y umbral del 80 % por módulo.</strong></div>
             <div className={styles.fact}><span>Acompañamiento</span><strong>Dos sesiones grupales al mes: dudas y temas del grupo + Hot Seat. Incluye además soporte técnico, administrativo y académico básico; no incluye tutoría individual ni mentoring 1:1.</strong></div>

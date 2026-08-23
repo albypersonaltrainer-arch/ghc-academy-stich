@@ -43,6 +43,27 @@ function resolveVariables(
   });
 }
 
+function normalizeFounderSchedule(input: string) {
+  return input
+    .replace(
+      'La apertura de la plataforma está prevista durante octubre de 2026.',
+      'La apertura de GHC Academy está fijada para el 16 de octubre de 2026.'
+    )
+    .replace(
+      'Antes de la apertura recibirás un nuevo correo con la fecha concreta y, cuando la plataforma esté operativa, las instrucciones para activar tu acceso.',
+      'Antes de la apertura recibirás un nuevo correo recordatorio y, cuando GHC Academy esté operativa, las instrucciones para activar tu acceso.'
+    )
+    .replaceAll(
+      'La plataforma abrirá durante octubre de 2026',
+      'GHC Academy abrirá el 16 de octubre de 2026'
+    )
+    .replaceAll('Durante octubre de 2026', '16 de octubre de 2026')
+    .replace(
+      'y recibirás un correo específico con la fecha concreta y las instrucciones de acceso',
+      'y recibirás un correo específico con las instrucciones de acceso'
+    );
+}
+
 function getTemplate(code: PreventaEmailTemplateCode): PreventaEmailTemplate {
   const template = preventaEmailTemplates.find((item) => item.code === code);
   if (!template) throw new Error(`PREVENTA_EMAIL_TEMPLATE_NOT_FOUND:${code}`);
@@ -64,12 +85,14 @@ export function renderPreventaEmail(
   context: PreventaEmailRenderContext
 ): RenderedPreventaEmail {
   const template = getTemplate(code);
-  const subject = resolveVariables(template.subject, context.variables);
-  const preheader = resolveVariables(template.preheader, context.variables);
-  const body = template.body.map((paragraph) => resolveVariables(paragraph, context.variables));
+  const subject = normalizeFounderSchedule(resolveVariables(template.subject, context.variables));
+  const preheader = normalizeFounderSchedule(resolveVariables(template.preheader, context.variables));
+  const body = template.body.map((paragraph) =>
+    normalizeFounderSchedule(resolveVariables(paragraph, context.variables))
+  );
   const facts = (template.facts || []).map((fact) => ({
-    label: resolveVariables(fact.label, context.variables),
-    value: resolveVariables(fact.value, context.variables),
+    label: normalizeFounderSchedule(resolveVariables(fact.label, context.variables)),
+    value: normalizeFounderSchedule(resolveVariables(fact.value, context.variables)),
   }));
   const ctaUrl = template.cta ? validateCtaUrl(context.ctaUrl) : null;
 
