@@ -21,10 +21,38 @@ const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',
 };
 
+const ALLOWED_ECOSYSTEM_SOURCES = new Set(['ghctraining', 'ghcnutrition']);
+
 function cleanRequestKey(value: string | null) {
   const key = (value || '').trim();
   if (!/^[A-Za-z0-9_-]{16,128}$/.test(key)) return null;
   return key;
+}
+
+function getEcosystemAttribution(request: NextRequest) {
+  const referer = request.headers.get('referer');
+  if (!referer) return null;
+
+  try {
+    const url = new URL(referer);
+    if (url.origin !== request.nextUrl.origin) return null;
+    if (url.pathname !== '/preventa/checkout') return null;
+
+    const source = url.searchParams.get('utm_source') || '';
+    const medium = url.searchParams.get('utm_medium') || '';
+    const campaign = url.searchParams.get('utm_campaign') || '';
+
+    if (!ALLOWED_ECOSYSTEM_SOURCES.has(source)) return null;
+    if (medium !== 'ecosystem' || campaign !== 'ghc_ecosystem') return null;
+
+    return {
+      sourceChannel: 'ghc-ecosystem',
+      sourceDetail: source,
+      campaignCode: 'FOUNDERS_2026',
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function GET() {
@@ -125,7 +153,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const validated = validatePreviewOrderInput(body);
+  const ecosystemAttribution = getEcosystemAttribution(request);
+  const normalizedBody: PreviewOrderInput = ecosystemAttribution
+    ? {
+        ...body,
+        attribution: {
+          ...(body.attribution || {}),
+          ...ecosystemAttribution,
+        },
+      }
+    : body;
+
+  const validated = validatePreviewOrderInput(normalizedBody);
   if (!validated.ok) {
     return NextResponse.json(
       { ok: false, errors: validated.errors },
@@ -136,7 +175,7 @@ export async function POST(request: NextRequest) {
   const orderReference = `GHC-${randomUUID().slice(0, 8).toUpperCase()}`;
 
   try {
-    const persisted = await persistPreventaDraft(body, requestKey, orderReference);
+    const persisted = await persistPreventaDraft(normalizedBody, requestKey, orderReference);
     const checkoutAccessToken = issueCheckoutAccessToken({
       orderReference: persisted.orderReference,
       installmentNo: 1,
