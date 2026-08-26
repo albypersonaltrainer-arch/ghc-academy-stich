@@ -5,7 +5,6 @@ import GHCEcosystemLinks from '../components/GHCEcosystemLinks';
 import OriginalPreventaPage from './PreventaPageOriginal';
 import PreventaLandingVideo from './PreventaLandingVideo';
 
-const ACADEMY_INSTAGRAM_URL = 'https://www.instagram.com/academy.ghc/';
 const FOUNDER_CLOSE_DATE_LABEL = PREVENTA_OFFER.founderPresaleCloseLabel.split(' a las ')[0];
 const OPENING_DATE_LABEL = PREVENTA_OFFER.openingDateLabel;
 const OPENING_DATE_COMPACT_LABEL = OPENING_DATE_LABEL.replaceAll(' de ', ' ');
@@ -42,57 +41,6 @@ const OLD_TENSION =
   'Querer ser entrenador personal y no sentirte todavía preparado. O llevar años siéndolo y saber que aún tienes piezas por completar.';
 const NEW_TENSION =
   'Quieres ser entrenador personal, pero todavía no te sientes preparado. O llevas años siéndolo y sabes que aún tienes piezas por completar.';
-
-function InstagramIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4.1" />
-      <circle cx="17.45" cy="6.55" r="0.9" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function InstagramLink({ footer = false }: { footer?: boolean }) {
-  return (
-    <a
-      href={ACADEMY_INSTAGRAM_URL}
-      target="_blank"
-      rel="me noopener noreferrer"
-      aria-label="Instagram oficial de GHC Academy: @academy.ghc"
-      title="@academy.ghc"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: footer ? 8 : 7,
-        flexShrink: 0,
-        color: 'var(--ghc-green)',
-        textDecoration: 'none',
-        fontWeight: 800,
-        letterSpacing: '0.02em',
-        lineHeight: 1,
-      }}
-    >
-      <InstagramIcon size={footer ? 21 : 20} />
-      {footer ? (
-        <span>@academy.ghc</span>
-      ) : (
-        <span data-instagram-header-handle="true">@academy.ghc</span>
-      )}
-    </a>
-  );
-}
 
 function transformText(value: string): string {
   return value
@@ -170,39 +118,10 @@ function transformNode(node: ReactNode): ReactNode {
     changed = true;
   }
 
-  if (element.type === 'header' && Array.isArray(nextChildren)) {
-    const editionIndex = nextChildren.findIndex((child) => {
-      if (!React.isValidElement(child)) return false;
-      const childProps = (child as ReactElement<any>).props || {};
-      return typeof childProps.className === 'string' && childProps.className.includes('editionTag');
-    });
-
-    if (editionIndex >= 0) {
-      nextProps['data-preventa-header'] = 'true';
-      nextChildren = [
-        ...nextChildren.slice(0, editionIndex),
-        <InstagramLink key="academy-instagram-header" />,
-        ...nextChildren.slice(editionIndex),
-      ];
-      changed = true;
-    }
-  }
-
   if (element.type === 'footer') {
     nextChildren = (
       <>
         {nextChildren}
-        <div
-          style={{
-            gridColumn: '1 / -1',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            paddingTop: 4,
-          }}
-        >
-          <InstagramLink footer />
-        </div>
         <GHCEcosystemLinks />
       </>
     );
@@ -324,33 +243,10 @@ export default function PreventaPage() {
     '@type': 'EducationalOrganization',
     name: 'GHC Academy',
     url: 'https://ghcacademy.net',
-    sameAs: [ACADEMY_INSTAGRAM_URL],
   };
 
   return (
     <>
-      <style>{`
-        [data-preventa-header='true'] {
-          grid-template-columns: 1fr auto auto auto !important;
-        }
-
-        @media (max-width: 860px) {
-          [data-preventa-header='true'] {
-            grid-template-columns: 1fr auto auto !important;
-            gap: 16px !important;
-          }
-
-          [data-instagram-header-handle='true'] {
-            display: none !important;
-          }
-        }
-
-        @media (max-width: 420px) {
-          [data-preventa-header='true'] {
-            gap: 10px !important;
-          }
-        }
-      `}</style>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
