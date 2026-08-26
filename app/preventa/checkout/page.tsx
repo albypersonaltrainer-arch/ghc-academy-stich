@@ -38,14 +38,13 @@ export default async function CheckoutPreventaPage({ searchParams }: CheckoutPag
       )}
 
       <header className={styles.header}>
-        <Link href="/preventa" className={styles.logoLink} aria-label="Volver a la Edición Fundadora">
+        <div className={styles.logoLink} aria-label="GHC Academy">
           <GHCLogo size="md" showText tagline />
-        </Link>
+        </div>
         <div className={styles.headerCenter}>
           <span>●</span>
           Matrícula · Edición Fundadora 2026
         </div>
-        <Link href="/preventa" className={styles.backLink}>← Volver a la oferta</Link>
       </header>
 
       <div className={styles.shell}>
