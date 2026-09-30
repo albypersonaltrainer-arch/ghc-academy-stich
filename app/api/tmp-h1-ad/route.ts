@@ -99,6 +99,25 @@ export async function GET(request: NextRequest) {
       audio.url ||
       `${SPACE}/gradio_api/file=${encodeURIComponent(audio.path || '')}`;
 
+    if (request.nextUrl.searchParams.get('mode') === 'audio') {
+      const audioResponse = await fetch(audioUrl, { cache: 'no-store' });
+      if (!audioResponse.ok) {
+        return NextResponse.json(
+          { ok: false, stage: 'audio_proxy', status: audioResponse.status },
+          { status: 502 },
+        );
+      }
+      const bytes = await audioResponse.arrayBuffer();
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          'content-type': audioResponse.headers.get('content-type') || 'audio/wav',
+          'cache-control': 'no-store',
+          'content-disposition': 'inline; filename="ghc_h1_ad.wav"',
+        },
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       voice: 'ghc_male_warm_v1',
