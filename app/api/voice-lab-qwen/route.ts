@@ -2,16 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const SPACE = 'https://qwen-qwen3-tts.hf.space';
 const API_NAME = 'generate_voice_design';
-const FALLBACK_TEXT = 'Un buen entrenador no se limita a elegir ejercicios. Observa, pregunta, interpreta la respuesta del cliente y adapta el proceso.';
+const FALLBACK_TEXT =
+  'Un buen entrenador no se limita a elegir ejercicios. Observa, pregunta, interpreta la respuesta del cliente y adapta el proceso.';
 
 const VOICE_CATALOG = {
   ghc_male_warm_v1: {
     label: 'H1 · Hombre cálido',
-    prompt: 'Native Castilian Spanish male voice from Spain, 40 to 50 years old. Warm, confident, natural, medium-low timbre, calm pace, clear articulation, conversational and credible. Premium educational tone. Avoid theatrical, advertising or radio-announcer delivery.',
+    prompt:
+      'Native Castilian Spanish male voice from Spain, 40 to 50 years old. Warm, confident, natural, medium-low timbre, calm pace, clear articulation, conversational and credible. Premium educational tone. Avoid theatrical, advertising or radio-announcer delivery.',
   },
 } as const;
 
 type VoiceId = keyof typeof VOICE_CATALOG;
+
 const DEFAULT_VOICE_ID: VoiceId = 'ghc_male_warm_v1';
 const LEGACY_VOICE_ALIASES: Record<string, VoiceId> = {
   male_warm: DEFAULT_VOICE_ID,
@@ -27,7 +30,7 @@ function resolveVoiceId(requested?: string | null): VoiceId {
   return DEFAULT_VOICE_ID;
 }
 
-function parseSseResult(body: string) {
+function parseSseResult(body: string): { url?: string; path?: string } | null {
   const lines = body
     .split('\n')
     .filter((line) => line.startsWith('data: '))
@@ -36,7 +39,7 @@ function parseSseResult(body: string) {
 
   for (let i = lines.length - 1; i >= 0; i -= 1) {
     try {
-      const parsed = JSON.parse(lines[i]);
+      const parsed = JSON.parse(lines[i]) as Array<{ url?: string; path?: string }>;
       if (Array.isArray(parsed)) {
         const first = parsed[0];
         if (first?.url || first?.path) return first;
@@ -44,6 +47,17 @@ function parseSseResult(body: string) {
     } catch {}
   }
   return null;
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = '';
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  return btoa(binary);
 }
 
 export async function GET(request: NextRequest) {
@@ -65,6 +79,7 @@ export async function GET(request: NextRequest) {
     });
 
     const callText = await call.text();
+
     if (!call.ok) {
       return NextResponse.json(
         { ok: false, stage: 'submit', status: call.status, detail: callText },
@@ -73,6 +88,7 @@ export async function GET(request: NextRequest) {
     }
 
     const event = JSON.parse(callText) as { event_id?: string };
+
     if (!event.event_id) {
       return NextResponse.json(
         { ok: false, stage: 'submit', detail: callText },
@@ -82,10 +98,14 @@ export async function GET(request: NextRequest) {
 
     const result = await fetch(
       `${SPACE}/gradio_api/call/${API_NAME}/${event.event_id}`,
-      { cache: 'no-store', headers: { accept: 'text/event-stream' } },
+      {
+        cache: 'no-store',
+        headers: { accept: 'text/event-stream' },
+      },
     );
 
     const resultText = await result.text();
+
     if (!result.ok) {
       return NextResponse.json(
         { ok: false, stage: 'result', status: result.status, detail: resultText },
@@ -94,6 +114,7 @@ export async function GET(request: NextRequest) {
     }
 
     const audio = parseSseResult(resultText);
+
     if (!audio) {
       return NextResponse.json(
         { ok: false, stage: 'parse', detail: resultText },
@@ -101,7 +122,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const audioUrl = audio.url || `${SPACE}/gradio_api/file=${encodeURIComponent(audio.path)}`;
+    const audioUrl =
+      audio.url ||
+      `${SPACE}/gradio_api/file=${encodeURIComponent(audio.path || '')}`;
+
     const audioResponse = await fetch(audioUrl, { cache: 'no-store' });
 
     if (!audioResponse.ok) {
@@ -111,7 +135,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const buffer = Buffer.from(await audioResponse.arrayBuffer());
+    const bytes = new Uint8Array(await audioResponse.arrayBuffer());
     const mimeType = audioResponse.headers.get('content-type') || 'audio/wav';
 
     return NextResponse.json({
@@ -120,7 +144,7 @@ export async function GET(request: NextRequest) {
       label: voice.label,
       text,
       mimeType,
-      audioBase64: buffer.toString('base64'),
+      audioBase64: bytesToBase64(bytes),
     });
   } catch (error) {
     return NextResponse.json(
