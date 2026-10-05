@@ -5,7 +5,6 @@ import GHCEcosystemLinks from '../components/GHCEcosystemLinks';
 import OriginalPreventaPage from './PreventaPageOriginal';
 import PreventaLandingVideo from './PreventaLandingVideo';
 
-const FOUNDER_CLOSE_DATE_LABEL = PREVENTA_OFFER.founderPresaleCloseLabel.split(' a las ')[0];
 const OPENING_DATE_LABEL = PREVENTA_OFFER.openingDateLabel;
 const OPENING_DATE_COMPACT_LABEL = OPENING_DATE_LABEL.replaceAll(' de ', ' ');
 
@@ -45,7 +44,23 @@ const NEW_TENSION =
 function transformText(value: string): string {
   return value
     .replace(OLD_TENSION, NEW_TENSION)
-    .replaceAll('15 de septiembre de 2026', FOUNDER_CLOSE_DATE_LABEL)
+    .replace('¿Cuándo cierra la preventa?', '¿Hasta cuándo estará disponible la Edición Fundadora?')
+    .replace(
+      'El 15 de septiembre de 2026 a las 23:59, hora de Madrid, o antes si se completan las cien plazas fundadoras.',
+      'La Edición Fundadora permanecerá disponible mientras queden plazas fundadoras.',
+    )
+    .replace(
+      'La preventa termina el 15 de septiembre de 2026 a las 23:59, hora de Madrid, o antes si se completan las 100 plazas.',
+      'La Edición Fundadora está limitada a 100 plazas.',
+    )
+    .replace(
+      'La condición fundadora termina cuando se cumple una de esas dos cosas: se alcanza el máximo de plazas o llega la fecha de cierre.',
+      'La condición fundadora permanecerá disponible mientras queden plazas fundadoras.',
+    )
+    .replace(
+      'La Edición Fundadora cierra el 15 de septiembre de 2026 o cuando se completen las cien plazas. La plataforma académica abre el 15 de octubre de 2026.',
+      `La Edición Fundadora está limitada a cien plazas. La formación comienza el ${OPENING_DATE_LABEL}.`,
+    )
     .replace('Apertura 15 octubre 2026', `Apertura ${OPENING_DATE_COMPACT_LABEL}`)
     .replace('¿Cuándo abre la plataforma?', '¿Cuándo comienza la formación?')
     .replace(
