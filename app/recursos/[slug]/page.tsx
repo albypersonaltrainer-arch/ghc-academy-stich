@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ResourceViewTracker from '../ResourceViewTracker';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { academyGroupLabels, academyTopics } from '../../../lib/seo/academy-topics';
@@ -46,6 +47,8 @@ export default async function ResourceArticle({ params }: PageProps) {
     ],
   };
   return (
+    <>
+      <ResourceViewTracker />
     <main style={{ background: '#050905', minHeight: '100vh', color: '#f5faf5', padding: '42px 22px 100px' }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([structuredData, breadcrumbData]) }} />
       <div style={{ maxWidth: 840, margin: 'auto' }}>
@@ -105,5 +108,6 @@ export default async function ResourceArticle({ params }: PageProps) {
         </section>
       </div>
     </main>
+    </>
   );
 }
