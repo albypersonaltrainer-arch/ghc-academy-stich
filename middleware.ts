@@ -29,12 +29,16 @@ const PUBLIC_PREVENTA_API_PREFIXES = [
   '/api/preventa/sumup-webhook',
   '/api/preventa/cron',
   '/api/preventa/landing-video',
+  '/api/preventa/interesados',
+  '/api/preventa/medicion',
 ];
 
 const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
   '/api/preventa/orders',
   '/api/preventa/sumup-checkout',
   '/api/preventa/sumup-webhook',
+  '/api/preventa/interesados',
+  '/api/preventa/medicion',
 ]);
 
 const PREVENTA_CRON_PATH = '/api/preventa/cron';
@@ -136,7 +140,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_PREVENTA_PAGES.has(pathname)) {
+  if (PUBLIC_PREVENTA_PAGES.has(pathname) || pathname === '/recursos' || pathname.startsWith('/recursos/')) {
     return NextResponse.next();
   }
 
