@@ -4,6 +4,8 @@ import { PREVENTA_OFFER } from '../../lib/preventa/offer';
 import GHCEcosystemLinks from '../components/GHCEcosystemLinks';
 import OriginalPreventaPage from './PreventaPageOriginal';
 import PreventaLandingVideo from './PreventaLandingVideo';
+import InterestLeadCard from './InterestLeadCard';
+import Link from 'next/link';
 
 const OPENING_DATE_LABEL = PREVENTA_OFFER.openingDateLabel;
 const OPENING_DATE_COMPACT_LABEL = OPENING_DATE_LABEL.replaceAll(' de ', ' ');
@@ -244,6 +246,11 @@ function transformNode(node: ReactNode): ReactNode {
           >
             <PreventaLandingVideo />
           </div>
+        </section>
+        <InterestLeadCard />
+        <section style={{ textAlign: 'center', padding: '0 22px 60px' }}>
+          <p style={{ color: 'var(--ghc-muted)' }}>¿Quieres profundizar antes de matricularte?</p>
+          <Link href="/recursos" style={{ color: 'var(--ghc-green)', fontWeight: 700 }}>Explora nuestras guías gratuitas para entrenadores →</Link>
         </section>
       </>
     );
