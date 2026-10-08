@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   const sourceChannel = text(body.utmSource, 80) || 'direct';
   const sourceMedium = text(body.utmMedium, 80);
   const campaignCode = text(body.utmCampaign, 100);
-  const { error } = await supabase.from('preventa_interest_leads').upsert({
+  const { data: lead, error } = await supabase.from('preventa_interest_leads').upsert({
     first_name: firstName,
     email_normalized: email,
     audience,
@@ -62,12 +62,24 @@ export async function POST(req: NextRequest) {
     campaign_code: campaignCode,
     source_page: '/preventa',
     updated_at: now,
-  }, { onConflict: 'email_normalized', ignoreDuplicates: false });
+  }, { onConflict: 'email_normalized', ignoreDuplicates: false }).select('id').single();
   if (error) {
     console.error('preventa_interest_lead_write_failed', error.code);
     return NextResponse.json({ ok: false, error: 'No hemos podido guardar tu solicitud. Inténtalo de nuevo.' }, { status: 500 });
   }
-  // No order is generated, no payment is initiated, no marketing email is sent here.
+  if (marketing && lead?.id) {
+    const delayHours = [24, 96, 240];
+    const { error: enqueueError } = await supabase.from('preventa_interest_email_queue').upsert(
+      delayHours.map((hours, index) => ({
+        lead_id: lead.id,
+        template_code: `L0${index + 1}`,
+        scheduled_at: new Date(Date.now() + hours * 3600_000).toISOString(),
+      })),
+      { onConflict: 'lead_id,template_code', ignoreDuplicates: true },
+    );
+    if (enqueueError) console.error('preventa_interest_followup_enqueue_failed', enqueueError.code);
+  }
+  // No order is generated, no payment is initiated; promotional follow-up is only queued after opt-in.
   await supabase.from('preventa_funnel_events').insert({
     event_name: 'lead_saved', page_path: '/preventa',
     source_channel: sourceChannel, campaign_code: campaignCode,
