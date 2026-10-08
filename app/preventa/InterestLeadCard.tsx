@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 
 type State = 'idle' | 'saving' | 'saved' | 'error';
@@ -33,6 +33,7 @@ export function trackAcademyEvent(event: 'landing_view' | 'lead_cta' | 'checkout
 export default function InterestLeadCard() {
   const [status, setStatus] = useState<State>('idle');
   const [message, setMessage] = useState('');
+  const leadCtaTracked = useRef(false);
   useEffect(() => {
     trackAcademyEvent('landing_view');
     const handleClick = (event: MouseEvent) => {
@@ -101,7 +102,11 @@ export default function InterestLeadCard() {
             <strong>Solicitud recibida.</strong> {message}
           </div>
         ) : (
-          <form onSubmit={submit} style={{ display: 'grid', gap: 16, maxWidth: 650 }}>
+          <form onSubmit={submit} onFocusCapture={() => {
+            if (leadCtaTracked.current) return;
+            leadCtaTracked.current = true;
+            trackAcademyEvent('lead_cta');
+          }} style={{ display: 'grid', gap: 16, maxWidth: 650 }}>
             <label style={{ display: 'grid', gap: 7, fontWeight: 650 }}>
               Nombre
               <input name="firstName" type="text" autoComplete="given-name" minLength={2} maxLength={80}
