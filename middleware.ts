@@ -11,6 +11,7 @@ const PUBLIC_PREVENTA_PAGES = new Set([
   '/preventa/confirmacion',
   '/preventa/pago',
   '/preventa/matricula',
+  '/preventa/baja',
   '/legal',
 ]);
 
@@ -31,6 +32,7 @@ const PUBLIC_PREVENTA_API_PREFIXES = [
   '/api/preventa/landing-video',
   '/api/preventa/interesados',
   '/api/preventa/medicion',
+  '/api/preventa/baja',
 ];
 
 const PUBLIC_POST_ONLY_PREVENTA_APIS = new Set([
