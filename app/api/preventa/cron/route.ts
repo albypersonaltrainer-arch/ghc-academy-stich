@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyGithubActionsCronOidcToken } from '../../../../lib/preventa/github-oidc';
 import { getPreventaEmailWorkerStatus } from '../../../../lib/preventa/email-worker';
 import { getPreventaEmailProviderStatus } from '../../../../lib/preventa/email-provider';
+import { runPreventaLeadFollowup } from '../../../../lib/preventa/lead-followup';
 import {
   getPreventaScheduledMaintenanceStatus,
   runPreventaScheduledMaintenance,
@@ -88,8 +89,15 @@ async function handleCron(request: NextRequest) {
 
   try {
     const result = await runPreventaScheduledMaintenance();
+    // Separate consent-only nurture flow: never make payment maintenance fail if promotional email is unavailable.
+    let leadFollowup: Record<string, unknown> = { status: 'skipped' };
+    try {
+      leadFollowup = await runPreventaLeadFollowup();
+    } catch {
+      console.error('[preventa-cron] LEAD_FOLLOWUP_FAILED');
+    }
     return NextResponse.json(
-      { ok: true, ...result },
+      { ok: true, ...result, leadFollowup },
       { headers: NO_STORE_HEADERS }
     );
   } catch {
