@@ -125,7 +125,7 @@ export default function LegalPage() {
 
           <h3>Finalidades y bases</h3>
           <p>Los datos se utilizan para celebrar y ejecutar el contrato; autenticar y proteger cuentas; gestionar pagos, acceso, progreso, exámenes y certificados; atender soporte y reclamaciones; cumplir obligaciones legales, fiscales y de defensa de derechos; prevenir fraude y abuso; y, únicamente con la base jurídica adecuada, enviar comunicaciones comerciales.</p>
-          <p>Las comunicaciones promocionales que requieran consentimiento se gestionarán separadamente de la aceptación necesaria para contratar y podrán darse de baja por un medio sencillo.</p>
+          <p>Las comunicaciones promocionales que requieran consentimiento se gestionarán separadamente de la aceptación necesaria para contratar y podrán darse de baja mediante el enlace de confirmación incluido en los correos o a través del contacto legal indicado.</p>
 
           <h3>Solicitudes voluntarias de información</h3>
           <p>Si solicitas información del programa a través del formulario de GHC Academy, guardamos nombre, correo electrónico, perfil de interés, fecha de solicitud y procedencia declarada del enlace de acceso. La finalidad es gestionar y responder a tu consulta, sobre la base de la solicitud realizada por ti. La aceptación de la política de privacidad no equivale a consentimiento para recibir publicidad.</p>
