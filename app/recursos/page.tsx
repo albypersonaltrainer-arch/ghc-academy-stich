@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ResourceViewTracker from './ResourceViewTracker';
 import type { Metadata } from 'next';
 import { academyGroupLabels, academyTopics } from '../../lib/seo/academy-topics';
 
@@ -18,6 +19,8 @@ const groups = Object.entries(academyGroupLabels) as Array<[keyof typeof academy
 
 export default function RecursosPage() {
   return (
+    <>
+      <ResourceViewTracker />
     <main style={{ background: '#050905', color: '#f6faf6', minHeight: '100vh', padding: '44px 22px 100px' }}>
       <div style={{ maxWidth: 1160, margin: 'auto' }}>
         <nav aria-label="Ruta" style={{ marginBottom: 40, fontSize: 14, color: '#b4c4b7' }}>
@@ -57,5 +60,6 @@ export default function RecursosPage() {
         ))}
       </div>
     </main>
+    </>
   );
 }
