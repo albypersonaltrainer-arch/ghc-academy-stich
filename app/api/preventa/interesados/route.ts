@@ -71,6 +71,6 @@ export async function POST(req: NextRequest) {
   await supabase.from('preventa_funnel_events').insert({
     event_name: 'lead_saved', page_path: '/preventa',
     source_channel: sourceChannel, campaign_code: campaignCode,
-  }).catch(() => {});
+  });
   return NextResponse.json({ ok: true, message: 'Solicitud guardada. Gracias por tu interés.' });
 }
