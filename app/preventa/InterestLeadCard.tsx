@@ -147,7 +147,7 @@ export default function InterestLeadCard() {
           </form>
         )}
         <p style={{ margin: '24px 0 0', fontSize: 14, color: '#b0c0b4' }}>
-          ¿Ya lo tienes decidido? <Link href="/preventa/checkout?plan=single" onClick={() => trackAcademyEvent('checkout_click')}
+          ¿Ya lo tienes decidido? <Link href="/preventa/checkout?plan=single"
             style={{ color: '#73ec93', fontWeight: 750 }}>Matricúlate directamente por 1.690 € →</Link>
         </p>
       </div>
