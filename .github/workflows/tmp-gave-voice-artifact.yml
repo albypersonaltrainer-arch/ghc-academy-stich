@@ -1,0 +1,105 @@
+name: Temporary GAVE voice artifact
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/tmp-gave-voice-artifact.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  render-voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Generate approved GAVE D voice
+        shell: python
+        run: |
+          import json
+          import time
+          import urllib.request
+          from pathlib import Path
+
+          SPACE = "https://qwen-qwen3-tts.hf.space"
+          API_NAME = "generate_voice_design"
+          TEXT = (
+              "Lipedema no significa fragilidad. "
+              "Entrenar puede ayudarte a construir fuerza, resistencia y autonomía. "
+              "Aprende a elegir cargas, combinar cardio y progresar con criterio. "
+              "Lipedema: que no decida por ti."
+          )
+          CORE = (
+              "Keep the same speaker identity: native Spanish man from Spain, 45 to 52 years old, "
+              "warm natural baritone, intelligent, credible, slightly textured mature timbre, "
+              "neutral peninsular Spanish accent. "
+              "Do not make him younger, older, brighter, deeper, raspier or theatrical. "
+          )
+          INSTRUCT = CORE + (
+              "Charismatic expert explaining history to an intelligent audience. "
+              "Speak with the spontaneity of a great teacher rather than reading a script. "
+              "Medium-high energy, quick transitions, selective emphasis, natural volume changes "
+              "and occasional deliberate pauses. Never academic, robotic, preachy or monotonous."
+          )
+
+          payload = json.dumps({"data": [TEXT, "Spanish", INSTRUCT]}).encode("utf-8")
+          req = urllib.request.Request(
+              f"{SPACE}/gradio_api/call/{API_NAME}",
+              data=payload,
+              headers={"content-type": "application/json"},
+              method="POST",
+          )
+          with urllib.request.urlopen(req, timeout=60) as resp:
+              event = json.loads(resp.read().decode("utf-8"))
+          event_id = event["event_id"]
+
+          result_url = f"{SPACE}/gradio_api/call/{API_NAME}/{event_id}"
+          deadline = time.time() + 420
+          body = ""
+          while time.time() < deadline:
+              with urllib.request.urlopen(
+                  urllib.request.Request(
+                      result_url,
+                      headers={"accept": "text/event-stream"},
+                  ),
+                  timeout=90,
+              ) as resp:
+                  body = resp.read().decode("utf-8", errors="replace")
+              lines = [
+                  line[6:].strip()
+                  for line in body.splitlines()
+                  if line.startswith("data: ") and line[6:].strip()
+              ]
+              audio = None
+              for line in reversed(lines):
+                  try:
+                      parsed = json.loads(line)
+                  except Exception:
+                      continue
+                  if isinstance(parsed, list) and parsed:
+                      first = parsed[0]
+                      if isinstance(first, dict) and (first.get("url") or first.get("path")):
+                          audio = first
+                          break
+              if audio:
+                  audio_url = audio.get("url") or (
+                      SPACE + "/gradio_api/file=" + urllib.parse.quote(audio["path"], safe="")
+                  )
+                  break
+              time.sleep(2)
+          else:
+              raise RuntimeError("Qwen3-TTS did not return audio in time")
+
+          out = Path("GAVE_VOICE_MASTER_V1_LIPEDEMA_AD.wav")
+          with urllib.request.urlopen(audio_url, timeout=90) as resp:
+              out.write_bytes(resp.read())
+          print(out, out.stat().st_size)
+
+      - name: Upload voice artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GAVE_VOICE_MASTER_V1_LIPEDEMA_AD
+          path: GAVE_VOICE_MASTER_V1_LIPEDEMA_AD.wav
+          if-no-files-found: error
+          retention-days: 1
