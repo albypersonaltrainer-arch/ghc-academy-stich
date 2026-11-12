@@ -140,7 +140,12 @@ export function middleware(request: NextRequest) {
     }
     return NextResponse.next();
   }
-  if (process.env.VERCEL_ENV !== 'production') {
+  // Fail closed when an unknown hosting environment runs a production build.
+  // Vercel Preview (protected by deployment auth) and local development remain usable.
+  if (
+    process.env.VERCEL_ENV === 'preview' ||
+    (process.env.VERCEL_ENV !== 'production' && process.env.NODE_ENV === 'development')
+  ) {
     return NextResponse.next();
   }
 
