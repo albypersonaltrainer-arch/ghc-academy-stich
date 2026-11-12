@@ -200,7 +200,7 @@ export default function AdminMfaPage() {
         </div>
 
         <div className={styles.notice}>
-          En GHC Academy el MFA es progresivo: mientras no exista un factor verificado no te bloquea. En cuanto lo actives, las operaciones administrativas protegidas exigirán AAL2 automáticamente.
+          En GHC Academy la doble autenticación es obligatoria para administrar. Configura tu factor TOTP y verifica el código hasta alcanzar AAL2. Sin un factor verificado y una sesión AAL2 no se permiten operaciones administrativas.
         </div>
 
         {error && <div className={styles.error}>{error}</div>}
