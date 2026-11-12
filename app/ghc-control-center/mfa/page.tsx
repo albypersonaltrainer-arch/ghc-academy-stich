@@ -56,7 +56,7 @@ export default function AdminMfaPage() {
         const { data: userData, error: userError } = await supabase.auth.getUser()
         const user = userData?.user
         if (userError || !user) {
-          router.replace('/acceso')
+          router.replace('/acceso?next=%2Fghc-control-center%2Fmfa')
           return
         }
 

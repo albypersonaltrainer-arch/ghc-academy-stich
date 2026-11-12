@@ -12,6 +12,15 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
+// Only this exact internal route is permitted as a post-login destination.
+const ADMIN_MFA_PATH = '/ghc-control-center/mfa';
+function safePostLoginPath() {
+  if (typeof window === 'undefined') return '/alumno';
+  return new URLSearchParams(window.location.search).get('next') === ADMIN_MFA_PATH
+    ? ADMIN_MFA_PATH
+    : '/alumno';
+}
+
 export default function AccesoPage() {
   const router = useRouter();
 
@@ -36,6 +45,11 @@ export default function AccesoPage() {
 
         if (data.user) {
           setSessionEmail(data.user.email || '');
+          // Returning administrators stay on this hostname and continue to MFA.
+          if (safePostLoginPath() === ADMIN_MFA_PATH) {
+            router.replace(ADMIN_MFA_PATH);
+            return;
+          }
         }
 
         if (typeof window !== 'undefined') {
@@ -53,7 +67,7 @@ export default function AccesoPage() {
     }
 
     checkSession();
-  }, []);
+  }, [router]);
 
   const getRedirectUrl = () => {
     if (typeof window === 'undefined') {
@@ -146,11 +160,11 @@ export default function AccesoPage() {
     }
 
     setSessionEmail(data.user?.email || cleanEmail);
-    setMessage('Acceso correcto. Entrando al portal...');
+    setMessage('Acceso correcto. Continuando de forma segura...');
     setLoading(false);
 
     setTimeout(() => {
-      router.push('/alumno');
+      router.replace(safePostLoginPath());
     }, 700);
   };
 
