@@ -54,6 +54,13 @@ GRANT EXECUTE ON FUNCTION public.pitti_rotate_agent_token(uuid, text, text) TO a
 COMMIT;
 ```
 
+## Actualización de decisión — 12/11/2026 18:35 (Madrid)
+**El usuario autoriza la revocación SOLO si no perjudica a los proyectos. Se decide NO REVOCAR todavía.**
+
+Se ha demostrado actividad efectiva del PITTI Bridge contra la API de Supabase hasta las **10:37:48 UTC del 12/11/2026**, con **18.542 solicitudes** a `pitti_claim_next_command` y **935** a `pitti_report_runtime` en la ventana de aproximadamente 23 horas consultada. El agente de versión 0.5.0 continúa marcado como `enabled=true`; no hay comandos pendientes ni en ejecución. No hay garantía de que no vuelva a arrancar, por lo que revocar sus permisos `anon` podría interrumpirlo. Las diez funciones siguen con ACL `anon`, `authenticated` no tiene permiso y validan token de agente mediante hash SHA-256 y estado `enabled` en `pitti_agent_token_valid` (no demuestra ausencia de otras vulnerabilidades).
+
+No se han cambiado permisos de PITTI, usuarios, tokens, configuración de pagos, ni producción. **Próximo paso condicionado:** confirmar migración/desuso del Bridge y origen de las llamadas antes de revocar o de mover PITTI a infraestructura independiente. La activación en GitHub de este informe no constituye ejecución SQL.
+
 ## Gate
 - No fusionar cambios a `main` / producción sin aprobación.
 - No modificar credenciales, tablas de pagos ni contratos en este paso.
