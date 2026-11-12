@@ -13,6 +13,30 @@ const tokenSecret = process.env.PREVENTA_CHECKOUT_TOKEN_SECRET ?? '';
 const sumupApiKey = process.env.SUMUP_API_KEY ?? '';
 const automationBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? '';
 
+ 
+// Security-only Preview is an isolated branch for admin TOTP verification.
+// Fail closed unless all financial and email side effects are switched off.
+if (process.env.GHC_SECURITY_PREVIEW_ONLY === 'true') {
+  const safeChecks = {
+    isolatedBranch: process.env.VERCEL_GIT_COMMIT_REF === 'test/ghc-v1-security-mfa-20261112',
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL === expectedSupabaseUrl,
+    anonKeyPresent: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').length >= 20,
+    checkoutDisabled: process.env.SUMUP_CHECKOUT_ENABLED === 'false',
+    webhookDisabled: process.env.SUMUP_WEBHOOK_ENABLED === 'false',
+    emailDisabled: process.env.PREVENTA_EMAIL_DELIVERY_ENABLED === 'false',
+    noSumupKey: !(process.env.SUMUP_API_KEY ?? '').trim(),
+  };
+  for (const [name, ok] of Object.entries(safeChecks)) {
+    console.log(`[security-preview] ${name}: ${ok ? 'OK' : 'FAIL'}`);
+  }
+  if (Object.values(safeChecks).some((ok) => !ok)) {
+    console.error('[security-preview] bloqueo: aislamiento o efectos secundarios no garantizados');
+    process.exit(1);
+  }
+  console.log('[security-preview] SAFE: MFA Preview; cobros, webhook y correos desactivados');
+  process.exit(0);
+}
+
 const checks = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL === expectedSupabaseUrl,
   persistenceEnabled: process.env.PREVENTA_PERSISTENCE_ENABLED === 'true',

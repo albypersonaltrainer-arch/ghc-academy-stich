@@ -5,6 +5,22 @@ if (!isPreview) {
   process.exit(0);
 }
 
+ 
+// The isolated MFA Preview must never invoke the SumUp API.
+if (process.env.GHC_SECURITY_PREVIEW_ONLY === 'true') {
+  const safe = process.env.VERCEL_GIT_COMMIT_REF === 'test/ghc-v1-security-mfa-20261112'
+    && process.env.SUMUP_CHECKOUT_ENABLED === 'false'
+    && process.env.SUMUP_WEBHOOK_ENABLED === 'false'
+    && process.env.PREVENTA_EMAIL_DELIVERY_ENABLED === 'false'
+    && !(process.env.SUMUP_API_KEY ?? '').trim();
+  if (!safe) {
+    console.error('[sumup-sandbox] security-only Preview no cumple condiciones de aislamiento');
+    process.exit(1);
+  }
+  console.log('[sumup-sandbox] omitido: Preview MFA aislada sin cobros');
+  process.exit(0);
+}
+
 const apiKey = (process.env.SUMUP_API_KEY ?? '').trim();
 const merchantCode = (process.env.SUMUP_MERCHANT_CODE ?? '').trim();
 

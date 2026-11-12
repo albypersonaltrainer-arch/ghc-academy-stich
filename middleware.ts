@@ -122,6 +122,24 @@ function matchesExploitScan(pathname: string) {
 }
 
 export function middleware(request: NextRequest) {
+
+  // Do not expose any preventa pages or API in the protected, no-payment MFA Preview.
+  if (process.env.VERCEL_ENV === 'preview' && process.env.GHC_SECURITY_PREVIEW_ONLY === 'true') {
+    if (process.env.VERCEL_GIT_COMMIT_REF !== 'test/ghc-v1-security-mfa-20261112') {
+      return notFound();
+    }
+    const { pathname } = request.nextUrl;
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/acceso';
+      return NextResponse.redirect(url, 307);
+    }
+    if (pathname === '/preventa' || pathname.startsWith('/preventa/') ||
+        pathname === '/api/preventa' || pathname.startsWith('/api/preventa/')) {
+      return notFound();
+    }
+    return NextResponse.next();
+  }
   if (process.env.VERCEL_ENV !== 'production') {
     return NextResponse.next();
   }
