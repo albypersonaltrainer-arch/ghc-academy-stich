@@ -61,6 +61,53 @@ Se ha demostrado actividad efectiva del PITTI Bridge contra la API de Supabase h
 
 No se han cambiado permisos de PITTI, usuarios, tokens, configuración de pagos, ni producción. **Próximo paso condicionado:** confirmar migración/desuso del Bridge y origen de las llamadas antes de revocar o de mover PITTI a infraestructura independiente. La activación en GitHub de este informe no constituye ejecución SQL.
 
+## Refuerzo aplicado en la base de datos activa — MFA obligatorio para administración
+
+Tras autorización general para mejorar la seguridad sin afectar a PITTI, se aplicó en el proyecto Supabase `oqlxvesnjdkxlxwxkikq` una actualización transaccional mediante `CREATE OR REPLACE FUNCTION` a las funciones `public.ghc_is_admin()` y `public.is_ghc_admin()`:
+
+- En lugar del modelo progresivo anterior (sin TOTP verificado se admitía AAL1), ahora **siempre** exigen rol de administración, **al menos un factor MFA verificado** y `auth.jwt()->>'aal' = 'aal2'`.
+- Las funciones conservan `SECURITY DEFINER`, `STABLE`, la misma firma, el `search_path` y los privilegios: `authenticated` puede ejecutar, `anon` no.
+- Precondiciones comprobadas: exactamente un administrador y MFA verificado.
+- Dentro de la misma transacción, se validaron cuatro casos: administrador AAL1 denegado, administrador AAL2 permitido, usuario no administrador AAL2 denegado y administrador sin claim AAL denegado; si fallaban, toda la transacción revertía.
+- Verificación posterior independiente: 1 administrador, 1 factor verificado, ambas funciones requieren MFA/AAL2, **57/57 RPC de administrador** siguen referenciando guardia, **10 RPC de PITTI accesibles a `anon` permanecen SIN CAMBIOS** y 1 agente PITTI continúa habilitado.
+- No se ha fusionado `main` ni modificado el código de producción en Vercel. La modificación SQL sí está aplicada directamente en Supabase y rige para todo entorno conectado al mismo proyecto.
+
+### Condición actual para el acceso al panel
+
+Para operar, el administrador debe entrar y verificar TOTP hasta que su sesión indique `AAL2 · PROTEGIDA`. La pantalla de MFA de la rama Preview permite hacer la verificación aun antes de que el rol obtenga permisos administrativos, ya que la entrada al asistente se basa en el perfil. No desinstalar ni perder el dispositivo TOTP sin asegurar recuperación de la cuenta; la recuperación de acceso administrativo requeriría reconfiguración autorizada.
+
+### Definición efectiva (ambas funciones tienen el mismo cuerpo)
+
+```sql
+SELECT EXISTS (
+  SELECT 1
+  FROM public.profiles p
+  WHERE p.id = auth.uid()
+    AND lower(coalesce(p.role,'')) IN ('admin','superadmin','owner')
+    AND coalesce(auth.jwt() ->> 'aal','aal1')='aal2'
+    AND EXISTS (
+      SELECT 1 FROM auth.mfa_factors f
+      WHERE f.user_id=p.id AND f.status::text='verified'
+    )
+);
+```
+
+### Reversión solo para emergencia, con autorización
+
+Restaurar la definición anterior con `CREATE OR REPLACE FUNCTION` en cada función, reemplazando los dos requisitos finales por esta condición progresiva:
+
+```sql
+AND (
+  NOT EXISTS (
+    SELECT 1 FROM auth.mfa_factors f
+    WHERE f.user_id=p.id AND f.status::text='verified'
+  )
+  OR coalesce(auth.jwt() ->> 'aal','aal1')='aal2'
+)
+```
+
+No ejecutar la reversión salvo necesidad real, ya que debilita el requisito para futuros administradores que no hayan activado MFA.
+
 ## Gate
 - No fusionar cambios a `main` / producción sin aprobación.
 - No modificar credenciales, tablas de pagos ni contratos en este paso.
