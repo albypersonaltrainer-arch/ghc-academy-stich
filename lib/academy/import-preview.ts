@@ -184,8 +184,10 @@ function parseDocx(data: Buffer) {
   const rels = new Map<string, string>()
   if (relsRaw) {
     const xmlRels = relsRaw.toString('utf8')
-    for (const match of xmlRels.matchAll(/<Relationship\b[^>]*\/>/g)) {
-      const tag = match[0]
+    const relationshipRe = /<Relationship\b[^>]*\/>/g
+    let relation: RegExpExecArray | null
+    while ((relation = relationshipRe.exec(xmlRels)) !== null) {
+      const tag = relation[0]
       if (!/\/image["']/.test(tag) || /TargetMode\s*=\s*["']External["']/.test(tag)) continue
       const id = xmlAttribute(tag, 'Id')
       const target = xmlAttribute(tag, 'Target')
@@ -250,7 +252,9 @@ function parseDocx(data: Buffer) {
 
     // Record actual placements, in document order, even when a paragraph has no text.
     // Images in table cells are associated after that table block.
-    for (const picture of source.matchAll(/<a:blip\b[^>]*\/?>/g)) {
+    const pictureRe = /<a:blip\b[^>]*\/?>/g
+    let picture: RegExpExecArray | null
+    while ((picture = pictureRe.exec(source)) !== null) {
       if (blocks.length >= MAX_BLOCKS) { truncated = true; break }
       const relId = xmlAttribute(picture[0], 'r:embed')
       const path = rels.get(relId)
@@ -293,7 +297,7 @@ function parseDocx(data: Buffer) {
   }
   if (!blocks.length) throw new Error('DOCX_SIN_TEXTO')
 
-  const mediaFilesInPackage = [...parts.keys()].filter(x => /^word\/media\//.test(x)).length
+  const mediaFilesInPackage = Array.from(parts.keys()).filter(x => /^word\/media\//.test(x)).length
   if (mediaFilesInPackage > used.size) {
     warnings.push(
       'Este Word contiene ' + mediaFilesInPackage + ' archivos multimedia internos y ' +
