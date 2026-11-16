@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../components/GHCLogo'
 import { DEMO_QUIZ } from '../../../lib/academy/aula-model-types'
 import type { AulaBlock, AulaModel, AulaSection } from '../../../lib/academy/aula-model-types'
+import { buildAulaUnits } from '../../../lib/academy/aula-units'
 import styles from './aula.module.css'
 
 const DEMO_BATCH = '5be17000-d662-472f-a115-e90dca626ac6'
@@ -61,6 +62,9 @@ export default function AcademicAulaModel() {
   const [tab, setTab] = useState<Tab>('learn')
   const [focus, setFocus] = useState(false)
   const [completed, setCompleted] = useState<string[]>([])
+  const [progressState, setProgressState] = useState<'loading' | 'saved' | 'unavailable'>('loading')
+  const [progressError, setProgressError] = useState('')
+  const [savingProgress, setSavingProgress] = useState(false)
   const [caseChoice, setCaseChoice] = useState<number | null>(null)
   const [caseShown, setCaseShown] = useState(false)
   const [answers, setAnswers] = useState<Record<number, number>>({})
@@ -106,6 +110,28 @@ export default function AcademicAulaModel() {
         }
         if (!active) return
         setModel(data.model as AulaModel)
+        // The private demo progress is tied to the authenticated admin and
+        // to this imported batch, never to a student or official grade.
+        try {
+          const progressResponse = await fetch('/api/academy/import/staging/progress?id=' + encodeURIComponent(id), {
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + token },
+            cache: 'no-store'
+          })
+          const progressData = await progressResponse.json().catch(() => ({}))
+          if (!progressResponse.ok || !progressData.ok ||
+              !Array.isArray(progressData.completed) || progressData.persisted !== true) {
+            throw new Error('No se pudo recuperar el avance de prueba.')
+          }
+          if (!active) return
+          setCompleted(progressData.completed)
+          setProgressState('saved')
+          setProgressError('')
+        } catch {
+          if (!active) return
+          setProgressState('unavailable')
+          setProgressError('El contenido puede leerse, pero el guardado del avance no está disponible.')
+        }
         setScreen('ready')
       } catch (cause) {
         if (!active) return
@@ -117,17 +143,45 @@ export default function AcademicAulaModel() {
     return () => { active = false }
   }, [router])
 
-  const sections = model?.sections || []
+  const sections = useMemo(() => model ? buildAulaUnits(model.sections) : [], [model])
   const section = sections[selected]
   const progress = sections.length ? Math.round(completed.length / sections.length * 100) : 0
   const score = useMemo(() => DEMO_QUIZ.reduce((sum, q, i) =>
     sum + (answers[i] === q.answer ? 1 : 0), 0), [answers])
   const answered = Object.keys(answers).length === DEMO_QUIZ.length
 
-  function markCompleted() {
-    if (!section) return
-    setCompleted(prev => prev.includes(section.id) ? prev : [...prev, section.id])
-    if (selected < sections.length - 1) setSelected(v => v + 1)
+  async function markCompleted() {
+    if (!section || !model || savingProgress || progressState !== 'saved') return
+    if (completed.includes(section.id)) {
+      if (selected < sections.length - 1) setSelected(v => v + 1)
+      return
+    }
+    setSavingProgress(true)
+    setProgressError('')
+    try {
+      const { data: session } = await supabase.auth.getSession()
+      const token = session?.session?.access_token
+      if (!token) throw new Error('La sesión del administrador ha caducado.')
+      const response = await fetch('/api/academy/import/staging/progress', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: model.id, unit_key: section.id }),
+        cache: 'no-store'
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result.ok || result.persisted !== true) {
+        throw new Error('No se ha guardado la unidad. Vuelve a intentarlo.')
+      }
+      setCompleted(prev => prev.includes(section.id) ? prev : [...prev, section.id])
+      if (selected < sections.length - 1) setSelected(v => v + 1)
+    } catch (cause) {
+      setProgressError(cause instanceof Error ? cause.message : 'No se ha guardado el avance.')
+    } finally {
+      setSavingProgress(false)
+    }
   }
 
   function chooseSection(index: number) {
@@ -169,10 +223,10 @@ export default function AcademicAulaModel() {
           <p>Una demostración de cómo se estudiará dentro de GHC Academy: lectura guiada, actividades prácticas, comprobación de conocimientos y progreso.</p>
         </div>
         <div className={styles.heroMetric}>
-          <span>Avance en esta visita</span>
+          <span>Avance de prueba guardado</span>
           <strong>{progress}%</strong>
           <div className={styles.progressTrack}><span style={{ width: progress + '%' }} /></div>
-          <small>Este progreso no se guarda en tu cuenta.</small>
+          <small>Solo en el laboratorio privado. No es una calificación académica.</small>
         </div>
       </section>
 
@@ -180,7 +234,7 @@ export default function AcademicAulaModel() {
         <aside className={styles.sidebar} aria-label="Unidades de aprendizaje">
           <div className={styles.sidebarTitle}>
             <strong>Itinerario del módulo</strong>
-            <small>{completed.length} de {sections.length} unidades vistas</small>
+            <small>{completed.length} de {sections.length} unidades completadas</small>
           </div>
           <nav className={styles.navigation} aria-label="Apartados">
             {sections.map((item, i) => (
@@ -220,7 +274,7 @@ export default function AcademicAulaModel() {
               <div className={styles.lessonHeader}>
                 <div className={styles.chapterMark}>{sectionLabel(section)} {selected + 1} / {sections.length}</div>
                 <h2>{section.title}</h2>
-                <p>Contenido del Word de prueba, organizado en bloques de lectura dentro del campus. Sin archivos PDF descargables.</p>
+                <p>Unidad de lectura del Word original, dividida por sus encabezados. No se muestra ningún PDF al alumno.</p>
               </div>
               <div className={styles.reading}>
                 {section.blocks.map((block, index) => <StudyBlock key={index} block={block} index={index} />)}
@@ -233,12 +287,16 @@ export default function AcademicAulaModel() {
                   <span>PENDIENTE</span>
                 </div>
               )}
+              {progressError && <p role="alert" className={styles.progressError}>{progressError}</p>}
+              {progressState === 'loading' && <p className={styles.progressHint}>Recuperando avance de prueba…</p>}
               <div className={styles.lessonBottom}>
                 <button type="button" className={styles.secondaryButton} disabled={selected === 0}
                   onClick={() => setSelected(v => Math.max(0, v - 1))}>Anterior</button>
                 <button type="button" className={styles.primaryButton}
-                  onClick={markCompleted}>
-                  {completed.includes(section.id) ? 'Continuar' : 'Marcar leído y continuar'}
+                  disabled={savingProgress || progressState !== 'saved'}
+                  onClick={() => void markCompleted()}>
+                  {savingProgress ? 'Guardando…' :
+                    completed.includes(section.id) ? 'Continuar' : 'Marcar leído y continuar'}
                 </button>
               </div>
             </article>
@@ -324,7 +382,7 @@ export default function AcademicAulaModel() {
 
       <footer className={styles.footer}>
         <span>GHC ACADEMY · SPORT THROUGH SCIENCE</span>
-        <p>Prototipo de aula privada. Sin matrículas, pagos, notas oficiales, archivos publicados ni seguimiento persistente del alumno.</p>
+        <p>Prototipo de aula privada. El progreso de lectura se guarda solo en la cuenta administradora de pruebas; no hay matrículas, pagos, notas oficiales ni publicaciones.</p>
         <span>Origen en revisión: {model.source_name}</span>
       </footer>
     </main>
