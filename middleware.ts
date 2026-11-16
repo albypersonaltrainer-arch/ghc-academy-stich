@@ -145,6 +145,7 @@ export function middleware(request: NextRequest) {
       pathname === '/api/academy/import/staging/init' ||
       pathname === '/api/academy/import/staging/commit' ||
       pathname === '/api/academy/import/staging/list' ||
+      pathname === '/api/academy/import/staging/review' ||
       pathname === '/logo-limpio.svg';
 
     if (!allowed) return notFound();
@@ -152,7 +153,9 @@ export function middleware(request: NextRequest) {
          pathname === '/api/academy/import/staging/init' ||
          pathname === '/api/academy/import/staging/commit') &&
         request.method !== 'POST') return notFound();
-    if (pathname === '/api/academy/import/staging/list' && request.method !== 'GET') {
+    if ((pathname === '/api/academy/import/staging/list' ||
+         pathname === '/api/academy/import/staging/review') &&
+        request.method !== 'GET') {
       return notFound();
     }
     return NextResponse.next();
