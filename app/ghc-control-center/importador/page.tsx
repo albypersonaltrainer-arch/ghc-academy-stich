@@ -27,7 +27,22 @@ const STATUS_MESSAGES: Record<string, string> = {
   PDF_REQUIRES_ORIGINAL_WORD_OR_OCR: 'No se ha podido extraer texto fiable del PDF. Utiliza el Word original o un documento con texto seleccionable.',
   DOCUMENT_CANNOT_BE_READ_SAFELY: 'El documento no pudo analizarse con seguridad. Comprueba que no esté cifrado ni dañado.',
   PREVIEW_PARSE_FAILED: 'No ha sido posible analizar el documento. Prueba con el Word original.',
-  PREVIEW_UNAVAILABLE: 'El importador no está disponible en este entorno.'
+  PREVIEW_UNAVAILABLE: 'El importador no está disponible en este entorno.',
+  INVALID_ORIGIN: 'La petición debe originarse desde esta página del laboratorio.',
+  STAGING_UNAVAILABLE: 'El depósito privado todavía no está disponible.',
+  ADMIN_AAL2_REQUIRED: 'Necesitas una sesión administradora con doble factor verificado.',
+  INVALID_SOURCE_METADATA: 'Comprueba el nombre, formato y tamaño del Word o PDF.',
+  SIGNED_UPLOAD_UNAVAILABLE: 'No se pudo reservar el espacio de subida.',
+  SIGNED_UPLOAD_INIT_FAILED: 'No se pudo iniciar la subida privada.',
+  ORIGINAL_NOT_UPLOADED: 'El archivo todavía no está disponible en el depósito privado.',
+  SOURCE_SIZE_MISMATCH: 'El tamaño almacenado no coincide con el documento elegido.',
+  SOURCE_HASH_MISMATCH: 'El archivo almacenado no coincide con el original. No se ha registrado.',
+  SOURCE_ALREADY_STAGED: 'Ese documento ya se guardó previamente como borrador.',
+  EXTRACTION_TRUNCATED: 'Documento demasiado complejo: la extracción quedó incompleta. No se ha guardado.',
+  NO_SECTIONS_DETECTED: 'No hay secciones que guardar. Revisa el documento original.',
+  STAGING_DATABASE_REJECTED: 'El depósito ha rechazado el borrador por una comprobación de seguridad.',
+  STAGING_FINALIZATION_FAILED: 'No se ha podido registrar el borrador privado.',
+  STAGING_LIST_FAILED: 'No se ha podido consultar el inventario privado.'
 }
 
 function blockTitle(block: Block, index: number) {
@@ -45,6 +60,15 @@ export default function AcademicImporterPage() {
   const [error, setError] = useState('')
   const [visible, setVisible] = useState(35)
   const [copied, setCopied] = useState(false)
+  const [stagingBusy, setStagingBusy] = useState(false)
+  const [stagingError, setStagingError] = useState('')
+  const [saved, setSaved] = useState<{ id: string; status: string; moduleNumber: number | null } | null>(null)
+  const [batches, setBatches] = useState<Array<{
+    id: string; original_file_name: string; status: string;
+    level_number: number | null; module_number: number | null;
+    sections: number; media: number; created_at: string
+  }>>([])
+  const [inventoryState, setInventoryState] = useState<'loading' | 'loaded' | 'error'>('loading')
 
   useEffect(() => {
     let live = true
@@ -76,6 +100,99 @@ export default function AcademicImporterPage() {
   }, [router])
 
   const documentSize = useMemo(() => file ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : '', [file])
+
+  async function getStagingToken() {
+    const { data } = await supabase.auth.getSession()
+    const value = data.session?.access_token
+    if (!value) throw new Error(STATUS_MESSAGES.SESSION_REQUIRED)
+    return value
+  }
+
+  async function refreshInventory() {
+    setInventoryState('loading')
+    try {
+      const token = await getStagingToken()
+      const response = await fetch('/api/academy/import/staging/list', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store'
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.ok || !Array.isArray(data.batches)) {
+        throw new Error(STATUS_MESSAGES[String(data.code || '')] || 'Inventario no disponible')
+      }
+      setBatches(data.batches)
+      setInventoryState('loaded')
+    } catch {
+      setInventoryState('error')
+    }
+  }
+
+  useEffect(() => {
+    if (state === 'allowed') void refreshInventory()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
+
+  async function savePrivateDraft() {
+    if (!file || stagingBusy || busy) return
+    if (file.size < 30 || file.size > 12 * 1024 * 1024 || !/\.(docx|pdf)$/i.test(file.name)) {
+      setStagingError('Selecciona un Word o PDF de hasta 12 MB.')
+      return
+    }
+    setStagingBusy(true)
+    setStagingError('')
+    setSaved(null)
+    try {
+      const token = await getStagingToken()
+      const hashBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))
+      const sha256 = Array.from(hashBytes).map(x => x.toString(16).padStart(2, '0')).join('')
+      const meta = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        size: file.size,
+        sha256
+      }
+      const post = async (path: string) => {
+        const resp = await fetch(path, {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(meta),
+          cache: 'no-store'
+        })
+        const payload = await resp.json().catch(() => ({}))
+        if (!resp.ok || !payload.ok) {
+          throw new Error(STATUS_MESSAGES[String(payload.code || '')] || 'No se pudo completar la subida privada.')
+        }
+        return payload
+      }
+      const signed = await post('/api/academy/import/staging/init')
+      const type = /\.docx$/i.test(file.name)
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : 'application/pdf'
+      const { error: uploadError } = await supabase.storage
+        .from('ghc-academic-staging')
+        .uploadToSignedUrl(signed.path, signed.token, file, {
+          contentType: type,
+          upsert: false
+        })
+      if (uploadError) throw new Error('Supabase no ha podido completar la subida al depósito privado.')
+      const committed = await post('/api/academy/import/staging/commit')
+      setSaved({
+        id: committed.result.id,
+        status: committed.status,
+        moduleNumber: committed.moduleNumber
+      })
+      await refreshInventory()
+    } catch (reason) {
+      setStagingError(reason instanceof Error ? reason.message : 'Error en la subida privada.')
+    } finally {
+      setStagingBusy(false)
+    }
+  }
+
 
   async function inspectFile() {
     if (!file || busy) return
@@ -148,26 +265,56 @@ export default function AcademicImporterPage() {
           <h1>Importador Word / PDF</h1>
           <p>Analiza la estructura del documento antes de incorporar contenido a los cursos.</p>
         </div>
-        <span className={styles.tag}>PREVIEW · SOLO LECTURA</span>
+        <span className={styles.tag}>PREVIEW · BORRADORES PRIVADOS</span>
       </header>
 
       <section className={styles.panel}>
         <h2>1. Selecciona el documento fuente</h2>
-        <p>Admite DOCX y PDF con texto seleccionable, hasta 12 MB. Se analiza temporalmente; no se guarda en Supabase, ni se publica, ni se envía a un modelo de IA.</p>
+        <p>Admite DOCX y PDF hasta 12 MB. Puedes analizar sin guardar o guardar voluntariamente una copia en el depósito privado. Ninguna de las opciones publica lecciones ni utiliza IA.</p>
         <label className={styles.fileField}>
           <span>Documento original</span>
           <input
             type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            disabled={busy}
-            onChange={(e) => { setFile(e.target.files?.[0] || null); setPreview(null); setError(''); setCopied(false) }}
+            disabled={busy || stagingBusy}
+            onChange={(e) => { setFile(e.target.files?.[0] || null); setPreview(null); setError(''); setStagingError(''); setSaved(null); setCopied(false) }}
           />
           {file && <strong>{file.name} · {documentSize}</strong>}
         </label>
         <div className={styles.actions}>
-          <button type="button" disabled={!file || busy} onClick={inspectFile}>{busy ? 'Analizando…' : 'Analizar sin importar'}</button>
-          <span>Sin creación de cursos, módulos, lecciones ni archivos.</span>
+          <button type="button" disabled={!file || busy || stagingBusy} onClick={inspectFile}>{busy ? 'Analizando…' : 'Analizar sin importar'}</button>
+          <button type="button" className={styles.secondary} disabled={!file || busy || stagingBusy}
+            onClick={savePrivateDraft}>{stagingBusy ? 'Guardando borrador privado…' : 'Guardar original y borrador privado'}</button>
+          <span>El segundo botón guarda únicamente una copia en staging. No añade nada al campus.</span>
         </div>
         {error && <p role="alert" className={styles.error}>{error}</p>}
+        {stagingError && <p role="alert" className={styles.error}>{stagingError}</p>}
+        {saved && <p role="status" className={styles.savedNotice}>
+          Guardado correctamente en el depósito privado. Identificador: <code>{saved.id}</code>.
+          Estado: {saved.status === 'needs_correction' ? 'necesita revisión de incidencias' : 'pendiente de revisión editorial'}.
+          Ningún curso se ha modificado.
+        </p>}
+      </section>
+
+      <section className={styles.panel}>
+        <div className={styles.sectionHead}>
+          <div><h2>Inventario de borradores privados</h2>
+            <p>Documentos guardados en el depósito seguro. No están disponibles para alumnos.</p>
+          </div>
+          <button type="button" className={styles.secondary} onClick={() => void refreshInventory()}>
+            Actualizar inventario
+          </button>
+        </div>
+        {inventoryState === 'loading' ? <p>Consultando el área privada…</p> :
+          inventoryState === 'error' ? <p role="alert">No se ha podido verificar el inventario privado.</p> :
+          batches.length === 0 ? <p>No hay documentos guardados todavía.</p> :
+          <div className={styles.sectionList}>
+            {batches.map(batch => <article className={styles.sectionDraft} key={batch.id}>
+              <strong>{batch.original_file_name}</strong>
+              <small>Nivel {batch.level_number ?? 'pendiente'} · módulo {batch.module_number ?? 'pendiente'} ·
+                {batch.sections} secciones · {batch.media} figuras inventariadas</small>
+              <small>Estado: {batch.status} · ID: {batch.id}</small>
+            </article>)}
+          </div>}
       </section>
 
       {preview && (
