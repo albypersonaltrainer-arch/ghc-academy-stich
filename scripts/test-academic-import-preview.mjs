@@ -36,9 +36,11 @@ const xml = [
   '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>',
   '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Módulo 1</w:t></w:r></w:p>',
   '<w:p><w:r><w:t>Fundamentos del entrenamiento científico.</w:t></w:r></w:p>',
+  '<w:p><w:pPr><w:pStyle w:val="ListNumber"/></w:pPr><w:r><w:t>Primera fase</w:t></w:r></w:p>',
+  '<w:p><w:pPr><w:pStyle w:val="ListBullet"/></w:pPr><w:r><w:t>Objetivo GHC</w:t></w:r></w:p>',
   '<w:tbl><w:tr>',
   '<w:tc><w:p><w:r><w:t>Variable</w:t></w:r></w:p></w:tc>',
-  '<w:tc><w:p><w:r><w:t>Valor</w:t></w:r></w:p></w:tc>',
+  '<w:tc><w:p><w:r><w:t>Valor</w:t></w:r></w:p><w:p><w:r><w:t>Segunda línea</w:t></w:r></w:p></w:tc>',
   '</w:tr></w:tbl></w:body></w:document>'
 ].join('')
 
@@ -46,9 +48,14 @@ const parsedWord = previewAcademicFile('ejemplo.docx', exampleDocx(xml))
 assert.equal(parsedWord.format, 'DOCX')
 assert.equal(parsedWord.stats.headings, 1)
 assert.equal(parsedWord.stats.paragraphs, 1)
+assert.equal(parsedWord.stats.lists, 2)
 assert.equal(parsedWord.stats.tables, 1)
 assert.equal(parsedWord.blocks[0].text, 'Módulo 1')
-assert.deepEqual(parsedWord.blocks[2].cells, [['Variable', 'Valor']])
+assert.equal(parsedWord.blocks[2].kind, 'list_item')
+assert.equal(parsedWord.blocks[2].listType, 'numbered')
+assert.equal(parsedWord.blocks[3].kind, 'list_item')
+assert.equal(parsedWord.blocks[3].listType, 'bulleted')
+assert.deepEqual(parsedWord.blocks[4].cells, [['Variable', 'Valor\nSegunda línea']])
 
 const compressedText = deflateSync(Buffer.from('BT /F1 12 Tf (Fundamentos de fuerza) Tj ET'))
 const examplePdf = Buffer.concat([
@@ -63,4 +70,4 @@ assert.ok(parsedPdf.warnings.some(w => w.includes('preliminar')))
 
 assert.throws(() => previewAcademicFile('archivo.exe', exampleDocx(xml)), /FORMATO_NO_ADMITIDO/)
 assert.throws(() => previewAcademicFile('escaneado.pdf', Buffer.from('%PDF-1.4\n%%EOF\n' + '0'.repeat(40))), /PDF_SIN_TEXTO_EXTRAIBLE/)
-console.log('[import-preview-test] OK: DOCX headings/paragraphs/tables, simple PDF text, invalid and unextractable files')
+console.log('[import-preview-test] OK: DOCX headings/paragraphs/list styles/multiline tables, simple PDF text, invalid and unextractable files')
