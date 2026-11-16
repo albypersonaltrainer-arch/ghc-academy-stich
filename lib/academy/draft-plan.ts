@@ -67,10 +67,10 @@ function classify(title: string, isPreamble: boolean): {
   if (/(respuestas?\s+(orientativas?|correctas?)|solucionario|clave de respuestas|answer key)/i.test(t)) {
     return { kind: 'private_answer_key', visibility: 'staff_only', reason: 'Puede contener soluciones. No debe mostrarse al alumnado ni incorporarse a una lección pública.' }
   }
-  if (/^(?:evaluaci[oó]n\s+(?:te[oó]rica|final|pr[aá]ctica|del\s+(?:m[oó]dulo|curso))|ex[aá]menes?\b|examen\b|r[uú]brica\b|criterios?\s+de\s+calificaci[oó]n|cuestionario\s+(?:final|evaluador))/i.test(t)) {
+  if (/^(?:auto\s*evaluaci[oó]n\b|test\s+(?:de\s+)?autoevaluaci[oó]n\b|evaluaci[oó]n\s+(?:te[oó]rica|final|pr[aá]ctica|del\s+(?:m[oó]dulo|curso))|ex[aá]menes?\b|examen\b|r[uú]brica\b|criterios?\s+de\s+calificaci[oó]n|cuestionario\s+(?:final|evaluador))/i.test(t)) {
     return { kind: 'assessment', visibility: 'staff_only', reason: 'Fuente para diseñar y revisar un examen; no crea ni publica preguntas automáticamente.' }
   }
-  if (/(guion.*(?:v[ií]deo|documental)|v[ií]deo.*resumen|storyboard)/i.test(t)) {
+  if (/((?:guion|gui[oó]n|script).*(?:v[ií]deo|documental)|v[ií]deo.*resumen|storyboard)/i.test(t)) {
     return { kind: 'video_script', visibility: 'needs_decision', reason: 'Guion para un recurso audiovisual futuro; no equivale a un vídeo terminado.' }
   }
   if (/(bibliograf[ií]a|referencias|fuentes|autor[ií]a|propiedad intelectual|registro de tablas|citas?)/i.test(t)) {
@@ -118,6 +118,62 @@ function finishSection(
   }
 }
 
+// A section may contain both exam questions and their solutions under a
+// paragraph marker instead of separate Word headings. Split these ranges
+// before anybody can mark the original section as student-facing.
+const ANSWER_HEADING = /^(?:respuestas?(?:\s+(?:correctas?|orientativas?))?|soluciones|solucionario|clave de respuestas|answer key)\s*[:：–.\-]?$/i
+
+function isolateAnswerKeys(
+  original: AcademicDraftSection[],
+  blocks: AcademicBlock[]
+): AcademicDraftSection[] {
+  const result: AcademicDraftSection[] = []
+  for (const section of original) {
+    const index = blocks.findIndex((block, i) =>
+      i > section.blockStart && i < section.blockEnd &&
+      (block.kind === 'paragraph' || block.kind === 'heading') &&
+      ANSWER_HEADING.test(block.text.trim())
+    )
+    if (index < 0) {
+      result.push(section)
+      continue
+    }
+    const first = blocks.slice(section.blockStart, index)
+    const answer = blocks.slice(index, section.blockEnd)
+    const safeFirstKind: DraftKind = section.kind === 'private_answer_key'
+      ? 'private_answer_key' : section.kind === 'assessment' ? 'assessment' : section.kind
+    result.push({
+      ...section,
+      kind: safeFirstKind,
+      kindLabel: KIND_LABELS[safeFirstKind],
+      visibility: safeFirstKind === 'assessment' || safeFirstKind === 'private_answer_key'
+        ? 'staff_only' : section.visibility,
+      blockEnd: index,
+      blockCount: first.length,
+      textCharacters: first.reduce((sum, b) => sum + (b.kind === 'image' ? 0 : b.text.length), 0),
+      mediaIds: Array.from(new Set(first.filter(b => b.kind === 'image')
+        .map(b => b.mediaId).filter((id): id is string => Boolean(id))))
+    })
+    result.push({
+      ...section,
+      title: 'Respuestas reservadas · ' + section.title,
+      kind: 'private_answer_key',
+      kindLabel: KIND_LABELS.private_answer_key,
+      visibility: 'staff_only',
+      blockStart: index,
+      blockCount: answer.length,
+      textCharacters: answer.reduce((sum, b) => sum + (b.kind === 'image' ? 0 : b.text.length), 0),
+      mediaIds: Array.from(new Set(answer.filter(b => b.kind === 'image')
+        .map(b => b.mediaId).filter((id): id is string => Boolean(id)))),
+      suggestedReason: 'El original incluye un marcador de respuestas dentro de otra sección. Se separan de forma preventiva para no revelar el solucionario.'
+    })
+  }
+  return result.map((s, index) => ({
+    ...s,
+    id: 'section-' + String(index + 1).padStart(3, '0')
+  }))
+}
+
 export function buildAcademicDraft(preview: AcademicPreview): AcademicModuleDraft {
   const blocks = preview.blocks
   const sections: AcademicDraftSection[] = []
@@ -153,8 +209,11 @@ export function buildAcademicDraft(preview: AcademicPreview): AcademicModuleDraf
   const last = finishSection(sections.length + 1, title, start, blocks.length, blocks, isPreamble)
   if (last) sections.push(last)
 
-  const assignedMedia = new Set(sections.flatMap(s => s.mediaIds))
+  const protectedSections = isolateAnswerKeys(sections, blocks)
+  const isolatedKeys = protectedSections.length - sections.length
   const warnings = [
+    ...(isolatedKeys ? ['PROTECCIÓN DOCENTE: se han separado ' + isolatedKeys +
+      ' bloques de respuestas insertados dentro de secciones; no son lecciones del alumnado.'] : []),
     ...(metadataTitleMismatch ? ['AVISO DE IDENTIDAD: el cuerpo del Word indica Módulo ' + moduleNumber + ', pero sus metadatos internos indican Módulo ' + metadataModuleNumber + '. Revisa el archivo antes de vincularlo a un curso.'] : []),
     'Propuesta automática de estructura, no currículo aprobado. Compara el orden y las divisiones con el documento maestro.',
     'Los contenidos de evaluación y las respuestas permanecen marcados para uso docente y no se publicarán automáticamente.',
@@ -174,12 +233,12 @@ export function buildAcademicDraft(preview: AcademicPreview): AcademicModuleDraf
     moduleTitle,
     sourceMetadataTitle: metadataTitle || undefined,
     metadataTitleMismatch,
-    sections,
+    sections: protectedSections,
     warnings,
     metrics: {
-      lessonCandidates: sections.filter(s => s.kind === 'lesson_candidate').length,
-      staffOnly: sections.filter(s => s.visibility === 'staff_only').length,
-      reviewSections: sections.filter(s => s.visibility === 'needs_decision').length,
+      lessonCandidates: protectedSections.filter(s => s.kind === 'lesson_candidate').length,
+      staffOnly: protectedSections.filter(s => s.visibility === 'staff_only').length,
+      reviewSections: protectedSections.filter(s => s.visibility === 'needs_decision').length,
       mediaPlaced: preview.media.reduce((sum, m) => sum + m.blockIndexes.length, 0),
       mediaUnassigned: Math.max(0, preview.mediaFilesInPackage - preview.media.length)
     }
