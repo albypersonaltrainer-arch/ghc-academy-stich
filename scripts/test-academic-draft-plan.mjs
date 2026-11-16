@@ -143,4 +143,53 @@ assert.ok(simulated.blockers.some(t => t.includes('metadatos')))
 const unknownSnapshot = simulateAcademicImport(preview, null)
 assert.ok(unknownSnapshot.blockers.some(t => t.includes('No se ha verificado completamente')))
 
-console.log('[academic-draft-test] OK: section drafts, answer-key separation, media location and stale metadata detection')
+
+// Regression: a real GHC Module 1 format has no separate Word heading for
+// its solutions. "Autoevaluación" and "RESPUESTAS:" must never be lessons.
+const realShapeBlocks = [
+  { kind: 'paragraph', text: 'NIVEL 1: Fundamentos' },
+  { kind: 'paragraph', text: 'MÓDULO 1' },
+  { kind: 'heading', level: 1, text: 'Introducción' },
+  { kind: 'paragraph', text: 'Fundamentos del PT.' },
+  { kind: 'heading', level: 1, text: 'Script para Video (4-5 minutos)' },
+  { kind: 'paragraph', text: 'INICIO DEL SCRIPT:' },
+  { kind: 'heading', level: 1, text: 'Autoevaluación' },
+  { kind: 'paragraph', text: '1. ¿Cuál es la función del entrenador personal?' },
+  { kind: 'paragraph', text: 'RESPUESTAS:' },
+  { kind: 'paragraph', text: '1. Evaluación y personalización.' },
+  { kind: 'heading', level: 1, text: 'Bibliografía y Referencias' },
+  { kind: 'paragraph', text: 'Bibliografía de ejemplo' }
+]
+const realShapePreview = {
+  fileName: 'MODULO_1_NIVEL_1_COMPLETO.docx',
+  format: 'DOCX',
+  sourceSha256: 'c'.repeat(64),
+  sourceMetadataTitle: undefined,
+  blocks: realShapeBlocks,
+  media: [],
+  mediaFilesInPackage: 0,
+  stats: { headings: 4, paragraphs: 8, lists: 0, tables: 0, characters: 180 },
+  warnings: [],
+  truncated: false
+}
+const sensitive = buildAcademicDraft(realShapePreview)
+assert.equal(sensitive.levelNumber, 1)
+assert.equal(sensitive.moduleNumber, 1)
+assert.equal(sensitive.sections.filter(s => s.kind === 'video_script').length, 1)
+assert.equal(sensitive.sections.filter(s => s.kind === 'assessment').length, 1)
+assert.equal(sensitive.sections.filter(s => s.kind === 'private_answer_key').length, 1)
+assert.equal(sensitive.sections.filter(s => s.visibility === 'staff_only').length, 2)
+assert.equal(sensitive.sections.reduce((n,s) => n+s.blockCount,0), realShapeBlocks.length)
+const exam = sensitive.sections.find(s => s.kind === 'assessment')
+const key = sensitive.sections.find(s => s.kind === 'private_answer_key')
+assert.equal(exam.blockEnd, key.blockStart)
+assert.equal(realShapeBlocks[key.blockStart].text, 'RESPUESTAS:')
+const protectedExport = academicReviewPackage(realShapePreview, {
+  [exam.id]: { title: 'Intento de lección', kind: 'lesson_candidate', reviewed: true, note: '' },
+  [key.id]: { title: 'Intento de publicar respuestas', kind: 'lesson_candidate', reviewed: true, note: '' }
+}, '2026-11-16T16:00:00.000Z')
+assert.equal(protectedExport.sections.find(s => s.id === exam.id).editorial.visibility, 'staff_only')
+assert.equal(protectedExport.sections.find(s => s.id === key.id).editorial.visibility, 'staff_only')
+assert.equal(protectedExport.sections.find(s => s.id === key.id).editorial.kind, 'private_answer_key')
+
+console.log('[academic-draft-test] OK: section drafts, protected inline assessment keys, video scripts, media placement and metadata warnings')
