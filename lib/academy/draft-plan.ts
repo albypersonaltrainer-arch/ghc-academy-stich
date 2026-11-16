@@ -32,6 +32,8 @@ export type AcademicModuleDraft = {
   levelNumber: number | null
   moduleNumber: number | null
   moduleTitle: string
+  sourceMetadataTitle?: string
+  metadataTitleMismatch: boolean
   sections: AcademicDraftSection[]
   warnings: string[]
   metrics: {
@@ -122,11 +124,19 @@ export function buildAcademicDraft(preview: AcademicPreview): AcademicModuleDraf
   const cover = blocks.slice(0, 45).map(b => b.text).join('\n')
   const levelNumber = inspectNumber(cover, 'NIVEL')
   const moduleNumber = inspectNumber(cover, 'M[ÓO]DULO')
-  const firstModuleHeading = blocks.find(b =>
-    b.kind === 'heading' && /^\s*(?:m[oó]dulo\s*)?\d+\s*[.:-]/i.test(b.text)
+  const metadataTitle = preview.sourceMetadataTitle || ''
+  const metadataModuleNumber = inspectNumber(metadataTitle, 'M[ÓO]DULO')
+  const metadataTitleMismatch = Boolean(
+    metadataTitle && moduleNumber !== null &&
+    metadataModuleNumber !== null && moduleNumber !== metadataModuleNumber
   )
-  const moduleTitle = firstModuleHeading?.text ||
-    blocks.find(b => b.kind === 'heading')?.text || preview.fileName.replace(/\.(docx|pdf)$/i, '')
+  // DOCX core properties can be stale after cloning a previous module.
+  // Use the metadata title ONLY if it identifies the same module number as the visible cover.
+  const titleMatch = metadataModuleNumber === moduleNumber && moduleNumber !== null
+    ? /m[oó]dulo\s*\d+\s*[-·:—]\s*(.+)$/i.exec(metadataTitle)
+    : null
+  const moduleTitle = titleMatch?.[1]?.trim()
+    || (moduleNumber ? 'Módulo ' + moduleNumber + ' · título pendiente de revisión' : 'Título pendiente de revisión')
 
   let start = 0
   let title = 'Portada y contexto previo'
@@ -145,6 +155,7 @@ export function buildAcademicDraft(preview: AcademicPreview): AcademicModuleDraf
 
   const assignedMedia = new Set(sections.flatMap(s => s.mediaIds))
   const warnings = [
+    ...(metadataTitleMismatch ? ['AVISO DE IDENTIDAD: el cuerpo del Word indica Módulo ' + moduleNumber + ', pero sus metadatos internos indican Módulo ' + metadataModuleNumber + '. Revisa el archivo antes de vincularlo a un curso.'] : []),
     'Propuesta automática de estructura, no currículo aprobado. Compara el orden y las divisiones con el documento maestro.',
     'Los contenidos de evaluación y las respuestas permanecen marcados para uso docente y no se publicarán automáticamente.',
     ...preview.warnings
@@ -161,6 +172,8 @@ export function buildAcademicDraft(preview: AcademicPreview): AcademicModuleDraf
     levelNumber,
     moduleNumber,
     moduleTitle,
+    sourceMetadataTitle: metadataTitle || undefined,
+    metadataTitleMismatch,
     sections,
     warnings,
     metrics: {
