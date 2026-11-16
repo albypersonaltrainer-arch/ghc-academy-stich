@@ -44,7 +44,9 @@ function splitAtLevelTwo(section: AulaSection): AulaUnit[] {
       parentId: section.id,
       parentTitle: section.title,
       unitIndex: i + 1,
-      blocks: blocks.slice(start, end)
+      blocks: i === 0 && !hasActualIntro
+        ? [...intro, ...blocks.slice(start, end)]
+        : blocks.slice(start, end)
     })
   }
   return parts
