@@ -6,6 +6,23 @@ if (!isPreview) {
 }
 
  
+
+  if (process.env.GHC_ACADEMIC_IMPORT_PREVIEW_ONLY === 'true') {
+    const safe = process.env.VERCEL_GIT_COMMIT_REF === 'feature/ghc-importador-academico-20261116'
+      && process.env.SUMUP_CHECKOUT_ENABLED === 'false'
+      && process.env.SUMUP_WEBHOOK_ENABLED === 'false'
+      && process.env.PREVENTA_EMAIL_DELIVERY_ENABLED === 'false'
+      && process.env.ACADEMY_CHECKOUT_ENABLED === 'false'
+      && process.env.ACADEMY_EMAIL_DELIVERY_ENABLED === 'false'
+      && !(process.env.SUMUP_API_KEY ?? '').trim();
+    if (!safe) {
+      console.error('[sumup-sandbox] importer preview isolation failed');
+      process.exit(1);
+    }
+    console.log('[sumup-sandbox] skipped: academic importer Preview has no payment functions');
+    process.exit(0);
+  }
+
 // The isolated MFA Preview must never invoke the SumUp API.
 if (process.env.GHC_SECURITY_PREVIEW_ONLY === 'true') {
   const safe = process.env.VERCEL_GIT_COMMIT_REF === 'test/ghc-v1-security-mfa-20261112'
