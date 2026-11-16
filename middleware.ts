@@ -123,6 +123,35 @@ function matchesExploitScan(pathname: string) {
 
 export function middleware(request: NextRequest) {
 
+  // Importer Preview is isolated from storefront, enrollment, payment and all other APIs.
+  // Fail closed if branch variables are mistakenly applied to another deployment.
+  if (process.env.VERCEL_ENV === 'preview' && process.env.GHC_ACADEMIC_IMPORT_PREVIEW_ONLY === 'true') {
+    if (process.env.VERCEL_GIT_COMMIT_REF !== 'feature/ghc-importador-academico-20261116') {
+      return notFound();
+    }
+
+    const { pathname } = request.nextUrl;
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/ghc-control-center/importador';
+      return NextResponse.redirect(url, 307);
+    }
+
+    const allowed =
+      pathname === '/acceso' ||
+      pathname === '/ghc-control-center/importador' ||
+      pathname === '/ghc-control-center/mfa' ||
+      pathname === '/api/academy/import/preview' ||
+      pathname === '/logo-limpio.svg';
+
+    if (!allowed) return notFound();
+    if (pathname === '/api/academy/import/preview' && request.method !== 'POST') {
+      return notFound();
+    }
+    return NextResponse.next();
+  }
+
+
   // Do not expose any preventa pages or API in the protected, no-payment MFA Preview.
   if (process.env.VERCEL_ENV === 'preview' && process.env.GHC_SECURITY_PREVIEW_ONLY === 'true') {
     if (process.env.VERCEL_GIT_COMMIT_REF !== 'test/ghc-v1-security-mfa-20261112') {
