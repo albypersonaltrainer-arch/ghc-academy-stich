@@ -6,12 +6,12 @@ import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../components/GHCLogo'
 import styles from './importador.module.css'
 
-type Block = { kind: 'heading' | 'paragraph' | 'table'; text: string; level?: number; cells?: string[][] }
+type Block = { kind: 'heading' | 'paragraph' | 'list_item' | 'table'; text: string; level?: number; listType?: 'numbered' | 'bulleted' | 'unknown'; cells?: string[][] }
 type Preview = {
   fileName: string
   format: 'DOCX' | 'PDF'
   blocks: Block[]
-  stats: { headings: number; paragraphs: number; tables: number; characters: number; pages?: number }
+  stats: { headings: number; paragraphs: number; lists: number; tables: number; characters: number; pages?: number }
   warnings: string[]
   truncated: boolean
 }
@@ -37,6 +37,7 @@ const STATUS_MESSAGES: Record<string, string> = {
 
 function blockTitle(block: Block, index: number) {
   return block.kind === 'heading' ? 'Encabezado · nivel ' + (block.level || 1)
+    : block.kind === 'list_item' ? (block.listType === 'numbered' ? 'Lista numerada' : block.listType === 'bulleted' ? 'Lista con viñetas' : 'Elemento de lista')
     : block.kind === 'table' ? 'Tabla' : 'Párrafo ' + (index + 1)
 }
 
@@ -184,6 +185,7 @@ export default function AcademicImporterPage() {
             <div className={styles.metrics}>
               <div><strong>{preview.stats.headings}</strong><span>Encabezados</span></div>
               <div><strong>{preview.stats.paragraphs}</strong><span>Párrafos</span></div>
+              <div><strong>{preview.stats.lists}</strong><span>Listas</span></div>
               <div><strong>{preview.stats.tables}</strong><span>Tablas</span></div>
               <div><strong>{preview.stats.characters.toLocaleString('es-ES')}</strong><span>Caracteres</span></div>
             </div>
