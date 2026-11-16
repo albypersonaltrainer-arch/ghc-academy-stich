@@ -74,3 +74,6 @@
 .sectionDraft .privateNote,.sectionPrivate .privateNote{font-size:12px;color:#f2cc85!important}
 .sectionDraft code,.panel code{overflow-wrap:anywhere;word-break:break-all}
 @media(max-width:760px){.editorGrid{grid-template-columns:1fr}.sectionTop{flex-direction:column}.sectionFooter{align-items:flex-start}}
+
+.savedNotice{color:#baf2c0!important;background:#0e2816;border:1px solid #396d43;border-radius:10px;padding:14px;overflow-wrap:anywhere}
+.savedNotice code{overflow-wrap:anywhere;word-break:break-all;font-size:12px}
