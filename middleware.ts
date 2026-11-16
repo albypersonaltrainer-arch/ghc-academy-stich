@@ -142,10 +142,17 @@ export function middleware(request: NextRequest) {
       pathname === '/ghc-control-center/importador' ||
       pathname === '/ghc-control-center/mfa' ||
       pathname === '/api/academy/import/preview' ||
+      pathname === '/api/academy/import/staging/init' ||
+      pathname === '/api/academy/import/staging/commit' ||
+      pathname === '/api/academy/import/staging/list' ||
       pathname === '/logo-limpio.svg';
 
     if (!allowed) return notFound();
-    if (pathname === '/api/academy/import/preview' && request.method !== 'POST') {
+    if ((pathname === '/api/academy/import/preview' ||
+         pathname === '/api/academy/import/staging/init' ||
+         pathname === '/api/academy/import/staging/commit') &&
+        request.method !== 'POST') return notFound();
+    if (pathname === '/api/academy/import/staging/list' && request.method !== 'GET') {
       return notFound();
     }
     return NextResponse.next();
