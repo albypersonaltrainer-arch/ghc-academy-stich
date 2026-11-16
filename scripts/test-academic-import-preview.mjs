@@ -37,6 +37,7 @@ const xml = [
   '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Módulo 1</w:t></w:r></w:p>',
   '<w:p><w:r><w:t>Fundamentos del entrenamiento científico.</w:t></w:r></w:p>',
   '<w:p><w:pPr><w:pStyle w:val="ListNumber"/></w:pPr><w:r><w:t>Primera fase</w:t></w:r></w:p>',
+  '<w:p><w:pPr><w:pStyle w:val="GHCCompactNumber"/></w:pPr><w:r><w:t>Segunda fase GHC</w:t></w:r></w:p>',
   '<w:p><w:pPr><w:pStyle w:val="ListBullet"/></w:pPr><w:r><w:t>Objetivo GHC</w:t></w:r></w:p>',
   '<w:tbl><w:tr>',
   '<w:tc><w:p><w:r><w:t>Variable</w:t></w:r></w:p></w:tc>',
@@ -48,14 +49,16 @@ const parsedWord = previewAcademicFile('ejemplo.docx', exampleDocx(xml))
 assert.equal(parsedWord.format, 'DOCX')
 assert.equal(parsedWord.stats.headings, 1)
 assert.equal(parsedWord.stats.paragraphs, 1)
-assert.equal(parsedWord.stats.lists, 2)
+assert.equal(parsedWord.stats.lists, 3)
 assert.equal(parsedWord.stats.tables, 1)
 assert.equal(parsedWord.blocks[0].text, 'Módulo 1')
 assert.equal(parsedWord.blocks[2].kind, 'list_item')
 assert.equal(parsedWord.blocks[2].listType, 'numbered')
 assert.equal(parsedWord.blocks[3].kind, 'list_item')
-assert.equal(parsedWord.blocks[3].listType, 'bulleted')
-assert.deepEqual(parsedWord.blocks[4].cells, [['Variable', 'Valor\nSegunda línea']])
+assert.equal(parsedWord.blocks[3].listType, 'numbered')
+assert.equal(parsedWord.blocks[4].kind, 'list_item')
+assert.equal(parsedWord.blocks[4].listType, 'bulleted')
+assert.deepEqual(parsedWord.blocks[5].cells, [['Variable', 'Valor\nSegunda línea']])
 
 const compressedText = deflateSync(Buffer.from('BT /F1 12 Tf (Fundamentos de fuerza) Tj ET'))
 const examplePdf = Buffer.concat([
