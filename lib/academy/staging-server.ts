@@ -164,3 +164,25 @@ export async function findPrivateSource(
   }
   return typed.rpc('ghc_academic_stage_source_info', { p_id: id })
 }
+
+
+export type StageHealth = {
+  registered_batches: number
+  registered_sections: number
+  registered_figures: number
+  stored_objects: number
+  unregistered_sources: number
+  unregistered_older_than_two_hours: number
+  registered_missing_source: number
+  unregistered_sample: Array<{ source_path: string; created_at: string }>
+}
+
+export async function getPrivateStagingHealth(
+  service: StageIdentity['service']
+): Promise<{ data: StageHealth | null; error: { code?: string; message: string } | null }> {
+  const typed = service as unknown as {
+    rpc(name: 'ghc_academic_stage_health', args: Record<string, never>):
+      Promise<{ data: StageHealth | null; error: { code?: string; message: string } | null }>
+  }
+  return typed.rpc('ghc_academic_stage_health', {})
+}
