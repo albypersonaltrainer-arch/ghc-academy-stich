@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+
 const isPreview = process.env.VERCEL_ENV === 'preview';
 
 if (!isPreview) {
@@ -36,6 +38,10 @@ const automationBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? ''
       process.exit(1);
     }
     console.log('[import-preview] SAFE: document inspection only; payment side effects disabled');
+    execFileSync(process.execPath, ['--experimental-strip-types', 'scripts/test-academic-import-preview.mjs'], {
+      stdio: 'inherit',
+      env: { ...process.env, NODE_NO_WARNINGS: '1' }
+    });
     process.exit(0);
   }
 
