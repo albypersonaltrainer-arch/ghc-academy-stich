@@ -77,3 +77,7 @@
 
 .savedNotice{color:#baf2c0!important;background:#0e2816;border:1px solid #396d43;border-radius:10px;padding:14px;overflow-wrap:anywhere}
 .savedNotice code{overflow-wrap:anywhere;word-break:break-all;font-size:12px}
+
+.demoLink{display:inline-flex;align-items:center;gap:9px;width:fit-content;color:#bdf6c6;border:1px solid #488457;text-decoration:none;padding:11px 15px;border-radius:9px;font-size:12px;font-weight:800;background:#17331f;margin-top:9px}
+.demoLink:hover{background:#244c2e;color:#fff}
+.demoLink:focus-visible{outline:2px solid #8af49c;outline-offset:3px}
