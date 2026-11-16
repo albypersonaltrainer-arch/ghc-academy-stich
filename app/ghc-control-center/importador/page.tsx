@@ -30,7 +30,6 @@ const STATUS_MESSAGES: Record<string, string> = {
   PREVIEW_UNAVAILABLE: 'El importador no está disponible en este entorno.',
   INVALID_ORIGIN: 'La petición debe originarse desde esta página del laboratorio.',
   STAGING_UNAVAILABLE: 'El depósito privado todavía no está disponible.',
-  ADMIN_AAL2_REQUIRED: 'Necesitas una sesión administradora con doble factor verificado.',
   INVALID_SOURCE_METADATA: 'Comprueba el nombre, formato y tamaño del Word o PDF.',
   SIGNED_UPLOAD_UNAVAILABLE: 'No se pudo reservar el espacio de subida.',
   SIGNED_UPLOAD_INIT_FAILED: 'No se pudo iniciar la subida privada.',
