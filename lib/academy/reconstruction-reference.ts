@@ -72,6 +72,8 @@ export function checkReconstructedModuleOne(
   expect(observed.sections >= 31, 'SECCIONES_INCOMPLETAS')
   expect(observed.staffOnly >= 3, 'MATERIALES_DOCENTES_SIN_SEPARAR')
   expect(observed.answerKeys >= 1, 'RESPUESTAS_NO_PROTEGIDAS')
+  expect(draft.sections.filter(s => s.kind === 'assessment' || s.kind === 'private_answer_key')
+    .every(s => s.visibility === 'staff_only'), 'MATERIALES_DOCENTES_SIN_RESERVA')
   expect(observed.assessments >= 2, 'EVALUACIONES_NO_PROTEGIDAS')
   expect(observed.videoScripts >= 1, 'GUION_NO_IDENTIFICADO')
   expect(draft.sections.reduce((sum, s) => sum + s.blockCount, 0) ===
