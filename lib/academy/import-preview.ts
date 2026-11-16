@@ -118,7 +118,7 @@ function parseDocx(data: Buffer) {
       if (!text) continue
       const level = headingLevel(source)
       const style = paragraphStyle(source)
-      const listType = /^(?:ListNumber|ListNum|Numbered|NumList)/i.test(style)
+      const listType = /^(?:ListNumber|ListNum|Numbered|NumList|GHCCompactNumber)/i.test(style)
         ? 'numbered'
         : /^(?:ListBullet|Bullet|Bulleted)/i.test(style)
           ? 'bulleted'
