@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../components/GHCLogo'
 import type { AcademicPreview } from '../../../lib/academy/import-preview'
+import { RECONSTRUCTED_M1_REFERENCE } from '../../../lib/academy/reconstruction-reference'
 import AcademicDraftReview from './DraftReview'
 import styles from './importador.module.css'
 
@@ -40,6 +41,7 @@ const STATUS_MESSAGES: Record<string, string> = {
   EXTRACTION_TRUNCATED: 'Documento demasiado complejo: la extracción quedó incompleta. No se ha guardado.',
   NO_SECTIONS_DETECTED: 'No hay secciones que guardar. Revisa el documento original.',
   STAGING_DATABASE_REJECTED: 'El depósito ha rechazado el borrador por una comprobación de seguridad.',
+  RECONSTRUCTION_INTEGRITY_FAILED: 'El Word reconstruido coincide por huella digital, pero su extracción no supera la revisión de tablas, encabezados o materiales docentes. No se ha registrado.',
   STAGING_FINALIZATION_FAILED: 'No se ha podido registrar el borrador privado.',
   STAGING_LIST_FAILED: 'No se ha podido consultar el inventario privado.',
   STAGING_SOURCE_NOT_FOUND: 'Ese borrador privado no existe.',
@@ -57,6 +59,7 @@ export default function AcademicImporterPage() {
   const router = useRouter()
   const [state, setState] = useState<State>('checking')
   const [file, setFile] = useState<File | null>(null)
+  const [reconstructionMatch, setReconstructionMatch] = useState<'checking' | 'matched' | 'different' | 'unavailable'>('different')
   const [preview, setPreview] = useState<Preview | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -64,7 +67,7 @@ export default function AcademicImporterPage() {
   const [copied, setCopied] = useState(false)
   const [stagingBusy, setStagingBusy] = useState(false)
   const [stagingError, setStagingError] = useState('')
-  const [saved, setSaved] = useState<{ id: string; status: string; moduleNumber: number | null } | null>(null)
+  const [saved, setSaved] = useState<{ id: string; status: string; moduleNumber: number | null; reconstructionVerified: boolean } | null>(null)
   const [batches, setBatches] = useState<Array<{
     id: string; original_file_name: string; status: string;
     level_number: number | null; module_number: number | null;
@@ -107,6 +110,33 @@ export default function AcademicImporterPage() {
   }, [router])
 
   const documentSize = useMemo(() => file ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : '', [file])
+
+  const looksLikeModuleOne = Boolean(file &&
+    /m[oó]dulo[\s_-]*0?1(?!\d)/i.test(file.name))
+
+  useEffect(() => {
+    let active = true
+    if (!file || file.size !== RECONSTRUCTED_M1_REFERENCE.bytes ||
+      !/\.docx$/i.test(file.name)) {
+      setReconstructionMatch('different')
+      return
+    }
+    setReconstructionMatch('checking')
+    void file.arrayBuffer()
+      .then(buffer => crypto.subtle.digest('SHA-256', buffer))
+      .then(bytes => {
+        const sha256 = Array.from(new Uint8Array(bytes))
+          .map(value => value.toString(16).padStart(2, '0')).join('')
+        if (active) {
+          setReconstructionMatch(sha256 === RECONSTRUCTED_M1_REFERENCE.sha256
+            ? 'matched' : 'different')
+        }
+      })
+      .catch(() => { if (active) setReconstructionMatch('unavailable') })
+    return () => { active = false }
+  }, [file])
+
+
 
   async function getStagingToken() {
     const { data } = await supabase.auth.getSession()
@@ -226,7 +256,8 @@ export default function AcademicImporterPage() {
       setSaved({
         id: committed.result.id,
         status: committed.status,
-        moduleNumber: committed.moduleNumber
+        moduleNumber: committed.moduleNumber,
+        reconstructionVerified: committed.reconstructionIntegrityPassed === true
       })
       await refreshInventory()
       await reviewSavedDraft(committed.result.id, token)
@@ -323,6 +354,22 @@ export default function AcademicImporterPage() {
             onChange={(e) => { setFile(e.target.files?.[0] || null); setPreview(null); setError(''); setStagingError(''); setSaved(null); setCopied(false) }}
           />
           {file && <strong>{file.name} · {documentSize}</strong>}
+          {looksLikeModuleOne && reconstructionMatch === 'matched' && (
+            <p role="status" className={styles.referenceConfirmed}>
+              Reconstrucción académica 2026 identificada mediante SHA-256. Es el Word de referencia
+              con 12 tablas. La comprobación no implica aprobación editorial ni publicación.
+            </p>
+          )}
+          {looksLikeModuleOne && reconstructionMatch === 'different' && (
+            <p role="status" className={styles.referenceWarning}>
+              Este archivo del Módulo 1 NO coincide con la reconstrucción académica de referencia.
+              Puede usarse para pruebas, pero no debemos confundirlo con el Word reconstruido.
+            </p>
+          )}
+          {looksLikeModuleOne && reconstructionMatch === 'checking' &&
+            <p className={styles.note}>Verificando la identidad de la reconstrucción…</p>}
+          {looksLikeModuleOne && reconstructionMatch === 'unavailable' &&
+            <p className={styles.referenceWarning}>No ha sido posible comprobar la huella digital de este Word.</p>}
         </label>
         <div className={styles.actions}>
           <button type="button" disabled={!file || busy || stagingBusy || file.size > 4 * 1024 * 1024} onClick={inspectFile}>{busy ? 'Analizando…' : 'Analizar sin importar'}</button>
@@ -336,7 +383,9 @@ export default function AcademicImporterPage() {
           Guardado correctamente en el depósito privado. Identificador: <code>{saved.id}</code>.
           Estado: {saved.status === 'needs_correction' ? 'necesita revisión de incidencias' : 'pendiente de revisión editorial'}.
           Ningún curso se ha modificado.
-        </p>}
+          {saved.reconstructionVerified &&
+            <strong> Reconstrucción 2026 verificada: huella, 12 tablas, encabezados y reserva docente.</strong>}
+        </p>
       </section>
 
       <section className={styles.panel}>
