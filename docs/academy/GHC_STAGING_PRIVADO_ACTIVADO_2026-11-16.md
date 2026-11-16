@@ -1,5 +1,18 @@
 # GHC Academy · Staging académico privado — activación 16/11/2026
 
+## Refuerzo de fiabilidad y recuperación segura — 16/11/2026
+
+Tras revisar la confirmación de la subida, se corrigió un posible escenario de pérdida de datos: si se reenviaba la confirmación de un Word ya registrado, el antiguo bloque `finally` podía borrar su original al tratar el intento como error duplicado. **Se eliminó todo borrado automático de la ruta de confirmación.**
+
+- La confirmación consulta primero `ghc_academic_stage_source_info(uuid)`. Si el identificador ya está registrado, solo confirma de forma idempotente cuando coinciden nombre, formato, tamaño, ruta privada y SHA-256. Si hay discrepancias, devuelve un conflicto sin modificar archivos ni registros.
+- Ante una subida interrumpida o una validación fallida puede quedar un archivo aún no registrado en el bucket. **Se conserva para recuperación o limpieza manual tras revisión**, nunca se borra silenciosamente.
+- Se creó la RPC `ghc_academic_stage_health()` como **`SECURITY INVOKER`**, ejecutable exclusivamente por `service_role`. Proporciona recuentos de registros, objetos, archivos sin registrar, objetos sin registro con más de dos horas y registros cuyo archivo original falte, más una muestra limitada para inspección. No modifica ninguna tabla ni objeto.
+- La ruta `GET /api/academy/import/staging/health` aplica la misma verificación de sesión administrativa + MFA AAL2 y de rama Preview exacta que el resto del importador. La pantalla muestra el resumen junto al inventario y advierte si detecta anomalías.
+- El test `scripts/test-academic-staging-guardrails.mjs` valida los reintentos, rechazo de conflictos y ausencia de llamadas a `storage.remove` en el endpoint de confirmación. Se ejecuta en el build de esta rama.
+- La comprobación SQL de `ghc_academic_stage_health()` con `SET LOCAL ROLE service_role` devolvió **0 lotes, 0 secciones, 0 figuras, 0 objetos, 0 originales faltantes y 0 subidas sin registrar**. `anon` y `authenticated` no tienen `EXECUTE` en esta función.
+
+**Queda pendiente:** prueba de navegador autenticado con MFA, subida completa de un documento definitivo y revisión del contenido restaurado. Hasta completarla, el circuito real de punta a punta no debe presentarse como validado.
+
 ## Estado y alcance
 
 **CREADO y comprobado** en el proyecto Supabase `oqlxvesnjdkxlxwxkikq`, mediante la migración registrada **`20261116144459_ghc_academic_private_staging_20261116`**.
