@@ -47,7 +47,29 @@ La creación del bucket está documentada por Supabase como una operación admit
 
 **Asesor de seguridad de Supabase:** no identificó nuevas advertencias de exposición específicas para el esquema o depósito. Sí muestra `rls_enabled_no_policy` (informativo): aumenta el recuento al crear cuatro tablas deliberadamente cerradas sin políticas. Las advertencias anteriores de PITTI y funciones históricas permanecen.
 
-### Gate: conexión futura del importador
+### Segunda etapa: API privada conectada en Preview (16/11/2026)
+
+Se añadió a Supabase la migración `ghc_staging_service_role_only_write_and_list_20261116` con dos funciones SQL **`SECURITY INVOKER`** en `public`:
+- `ghc_academic_stage_save(jsonb)`: guarda de manera transaccional un lote fuente, sus secciones, el inventario de figuras y un evento técnico; **no modifica `public.courses/modules/lessons`**. Verifica huella, tamaño, formato, identidad de rutas, límites y que examen/solucionario permanezcan reservados.
+- `ghc_academic_stage_list(integer)`: devuelve solo el inventario de cabeceras y recuentos de borradores.
+- `EXECUTE` se **revocó de PUBLIC, anon y authenticated**; únicamente `service_role` puede invocarlas. No se han concedido accesos a alumnos.
+
+Se comprobó la función de guardado bajo `SET LOCAL ROLE service_role` con un ejemplo sintético dentro de una transacción `BEGIN ... ROLLBACK`. El inventario de prueba se leyó desde esa transacción y los recuentos finales de staging permanecieron a cero; se verificó además que `anon` y `authenticated` no pueden ejecutar ninguna de las dos RPC. **No se ha subido material académico real en estas pruebas**.
+
+### Ruta de subida privada (sin superar el límite de cuerpo de Vercel)
+
+1. El administrador abre la rama aislada `feature/ghc-importador-academico-20261116`, iniciando sesión con MFA verificado (AAL2).
+2. `POST /api/academy/import/staging/init` valida la sesión en Auth, el rol+MFA vía `ghc_is_admin`, el origen del navegador, el entorno Preview y la rama. Solo entonces utiliza la clave de servicio **en el servidor** para entregar un permiso de subida firmado asociado a `originals/<UUID>/source.docx` o `source.pdf`. El token firmado **no es la clave de servicio** y está limitado al objeto solicitado.
+3. El navegador transfiere el Word/PDF **directamente a Supabase Storage** con `uploadToSignedUrl`, evitando pasar el binario de hasta 12 MiB por el límite de cuerpo HTTP de una función de Vercel.
+4. `POST /api/academy/import/staging/commit` vuelve a comprobar administrador + MFA AAL2, lee el archivo privado con la clave de servicio exclusivamente en backend, verifica tamaño y SHA-256, reanaliza el documento de forma independiente y llama a la RPC transaccional. Los medios originales permanecen dentro del Word; sus huellas, posiciones y descripciones se inventarían para revisión posterior.
+5. En caso de fallo de la validación o del guardado, el backend **intenta** borrar únicamente el objeto de la ruta recién reservada. Si la sesión se cierra entre los pasos 3 y 4, puede quedar un original provisional sin asociar; requerirá mantenimiento de limpieza seguro basado en el inventario.
+6. `GET /api/academy/import/staging/list` consulta en modo administración el inventario de borradores sin revelar el texto completo ni emitir URLs de descarga.
+
+**No existe ninguna función de publicación** ni un mecanismo automático que copie staging hacia los cursos de alumnos. No se suben originales sin pulsar el botón específico «Guardar original y borrador privado».
+
+> Los nuevos endpoints se limitan a la rama Preview exacta y requieren credencial JWT de administrador con AAL2; la clave `SUPABASE_SERVICE_ROLE_KEY` existe como variable sensible de servidor y no se expone en código, respuesta, correo ni `NEXT_PUBLIC_*`. La sesión protegida y una carga real desde el navegador aún deberán probarse manualmente con el titular; la validación SQL transaccional y la compilación no sustituyen esa prueba.
+
+### Gate de publicación futura; no habilitado
 
 El laboratorio actual sigue **sin escritura**. No se debe conectar todavía el botón «importar» a Supabase sin:
 1. Definir un backend exclusivo para la rama autorizada, con verificación JWT real, MFA AAL2, comprobaciones de sesión y autorización administrativa del servidor.
