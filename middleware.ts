@@ -140,6 +140,7 @@ export function middleware(request: NextRequest) {
     const allowed =
       pathname === '/acceso' ||
       pathname === '/ghc-control-center/importador' ||
+      pathname === '/ghc-control-center/aula-modelo' ||
       pathname === '/ghc-control-center/mfa' ||
       pathname === '/api/academy/import/preview' ||
       pathname === '/api/academy/import/staging/init' ||
@@ -147,6 +148,7 @@ export function middleware(request: NextRequest) {
       pathname === '/api/academy/import/staging/list' ||
       pathname === '/api/academy/import/staging/review' ||
       pathname === '/api/academy/import/staging/health' ||
+      pathname === '/api/academy/import/staging/aula' ||
       pathname === '/logo-limpio.svg';
 
     if (!allowed) return notFound();
@@ -156,7 +158,8 @@ export function middleware(request: NextRequest) {
         request.method !== 'POST') return notFound();
     if ((pathname === '/api/academy/import/staging/list' ||
          pathname === '/api/academy/import/staging/review' ||
-         pathname === '/api/academy/import/staging/health') &&
+         pathname === '/api/academy/import/staging/health' ||
+         pathname === '/api/academy/import/staging/aula') &&
         request.method !== 'GET') {
       return notFound();
     }
