@@ -69,6 +69,20 @@ Se comprobó la función de guardado bajo `SET LOCAL ROLE service_role` con un e
 
 > Los nuevos endpoints se limitan a la rama Preview exacta y requieren credencial JWT de administrador con AAL2; la clave `SUPABASE_SERVICE_ROLE_KEY` existe como variable sensible de servidor y no se expone en código, respuesta, correo ni `NEXT_PUBLIC_*`. La sesión protegida y una carga real desde el navegador aún deberán probarse manualmente con el titular; la validación SQL transaccional y la compilación no sustituyen esa prueba.
 
+### Lectura de originales para revisión posterior
+
+Se ha incorporado la RPC privada `ghc_academic_stage_source_info(uuid)` (**`SECURITY INVOKER` y solo `service_role`**) y la ruta **`GET /api/academy/import/staging/review?id=<uuid>`**, también limitada a la rama Preview exacta y a administrador con MFA AAL2. El backend:
+- Consulta únicamente metadatos del archivo ya registrado.
+- Comprueba la ruta derivada del UUID y el formato; descarga el original desde el depósito privado.
+- Verifica tamaño y SHA-256 frente al registro de staging y reconstruye una vista de revisión desde el Word original.
+- Devuelve el contenido a la sesión administradora con cabeceras `no-store`; **no publica, copia ni edita los cursos**.
+
+La página incorpora el botón `Abrir original y revisar` en cada entrada de staging y abre automáticamente la vista después de un guardado confirmado. Esto evita volver a transferir un Word grande a través del endpoint de análisis directo.
+
+**Limitación consciente:** `POST /api/academy/import/preview` (análisis sin almacenamiento persistente) queda para archivos de hasta aproximadamente **4 MiB** debido al límite de carga de Vercel. Para un Word mayor, como el Módulo 20, utilizar **`Guardar original y borrador privado`** y después abrirlo desde el inventario, sin publicación. Las pruebas con la sesión MFA del titular aún están pendientes.
+
+**Estado de control tras la instalación:** las 3 RPC de staging son `SECURITY INVOKER` y conceden `EXECUTE` exclusivamente a `service_role`; RLS y ausencia de políticas de cliente se mantienen. Las cuatro tablas del staging y el bucket continúan vacíos, sin documentos reales importados.
+
 ### Gate de publicación futura; no habilitado
 
 El laboratorio actual sigue **sin escritura**. No se debe conectar todavía el botón «importar» a Supabase sin:
