@@ -30,6 +30,21 @@ Se prepara una vía segura para importar los 30 módulos académicos cerrados en
 - Rechaza extensiones no soportadas y PDF sin texto extraíble.
 - Next.js build/TypeScript y deploy deben quedar `READY` antes de invitar al administrador a probarlo en navegador.
 
+## QA adicional con originales reales (biblioteca del proyecto, lectura local)
+
+Se localizaron dos Word definitivos existentes en la biblioteca del usuario. Se extrajeron **solo en el entorno de análisis** para una verificación de paridad estructural; **no se han cargado a Vercel ni adjuntado al repositorio y no se ha creado ningún módulo o lección**. La comparación reproduce los criterios de extracción del parser y coteja el texto con una lectura independiente de DOCX; no sustituye todavía al E2E de subida desde navegador.
+
+| Fuente | Párrafos con contenido | Encabezados | Listas numeradas | Viñetas | Tablas | Celdas de tabla | Gráficos incluidos |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Nivel 1, Módulo 1 — «La profesión del entrenador personal» | 813 | 136 | 71 | 390 | 12 | 125 | 0 |
+| Nivel 2, Módulo 20 — «Integración avanzada del entrenamiento y Sistema GHC» | 422 | 64 | 186 | 28 | 20 | 396 | 34 |
+
+- **Paridad textual local:** 813/813 párrafos y 125/125 celdas correctos en Módulo 1; 422/422 párrafos y 396/396 celdas correctos en Módulo 20.
+- Se ha detectado un estilo de numeración propio del programa, `GHCCompactNumber`, con 186 entradas. La Preview se ha adaptado para reconocerlo como lista numerada sin inventar valores de numeración.
+- Se preservan los saltos entre párrafos dentro de una misma celda; el alumno/editor tendrá que cotejar la presentación visual final.
+- **Los 34 gráficos/imágenes del Módulo 20 NO se extraen** en esta fase: antes de publicar contenido deberá añadirse un pipeline de recursos con asociación a la lección, accesibilidad y validación. La interfaz advierte que la extracción es incompleta.
+- El objetivo de la versión es fidelidad de extracción **textual y semántica inicial**, no importación de medios ni producción.
+
 ## Limitaciones antes de la importación académica real
 1. Necesitamos el Word maestro definitivo de un módulo para comparar texto extraído, estructura, tablas y referencias con el original. No convertir sin cotejo. No hay prueba todavía con los Word premium del usuario.
 2. DOCX aún no preserva imágenes, ecuaciones, estilos inline, notas al pie, tablas anidadas complejas ni archivos adjuntos. PDF no garantiza orden o precisión cuando existen fuentes codificadas, escaneos o columnas.
