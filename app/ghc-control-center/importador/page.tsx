@@ -41,7 +41,10 @@ const STATUS_MESSAGES: Record<string, string> = {
   NO_SECTIONS_DETECTED: 'No hay secciones que guardar. Revisa el documento original.',
   STAGING_DATABASE_REJECTED: 'El depósito ha rechazado el borrador por una comprobación de seguridad.',
   STAGING_FINALIZATION_FAILED: 'No se ha podido registrar el borrador privado.',
-  STAGING_LIST_FAILED: 'No se ha podido consultar el inventario privado.'
+  STAGING_LIST_FAILED: 'No se ha podido consultar el inventario privado.',
+  STAGING_SOURCE_NOT_FOUND: 'Ese borrador privado no existe.',
+  STAGING_SOURCE_REVIEW_FAILED: 'El original guardado no pudo abrirse con seguridad.',
+  INVALID_BATCH_ID: 'El identificador del borrador no es válido.'
 }
 
 function blockTitle(block: Block, index: number) {
@@ -132,6 +135,29 @@ export default function AcademicImporterPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state])
 
+  async function reviewSavedDraft(id: string, existingToken?: string) {
+    setError('')
+    setVisible(35)
+    setBusy(true)
+    try {
+      const token = existingToken || await getStagingToken()
+      const response = await fetch('/api/academy/import/staging/review?id=' + encodeURIComponent(id), {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store'
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.ok || !data.preview) {
+        throw new Error(STATUS_MESSAGES[String(data.code || '')] || 'No se pudo abrir el borrador privado.')
+      }
+      setPreview(data.preview as Preview)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo revisar el archivo guardado.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function savePrivateDraft() {
     if (!file || stagingBusy || busy) return
     if (file.size < 30 || file.size > 12 * 1024 * 1024 || !/\.(docx|pdf)$/i.test(file.name)) {
@@ -185,6 +211,7 @@ export default function AcademicImporterPage() {
         moduleNumber: committed.moduleNumber
       })
       await refreshInventory()
+      await reviewSavedDraft(committed.result.id, token)
     } catch (reason) {
       setStagingError(reason instanceof Error ? reason.message : 'Error en la subida privada.')
     } finally {
@@ -195,8 +222,8 @@ export default function AcademicImporterPage() {
 
   async function inspectFile() {
     if (!file || busy) return
-    if (file.size > 12 * 1024 * 1024 || !/\.(pdf|docx)$/i.test(file.name)) {
-      setError('Selecciona un archivo .docx o .pdf de hasta 12 MB.')
+    if (file.size > 4 * 1024 * 1024 || !/\.(pdf|docx)$/i.test(file.name)) {
+      setError('El análisis sin guardar admite hasta 4 MB por el límite de Vercel. Para documentos mayores utiliza «Guardar original y borrador privado»: se analizarán en Supabase sin publicarse.')
       return
     }
     setBusy(true)
@@ -280,10 +307,10 @@ export default function AcademicImporterPage() {
           {file && <strong>{file.name} · {documentSize}</strong>}
         </label>
         <div className={styles.actions}>
-          <button type="button" disabled={!file || busy || stagingBusy} onClick={inspectFile}>{busy ? 'Analizando…' : 'Analizar sin importar'}</button>
+          <button type="button" disabled={!file || busy || stagingBusy || file.size > 4 * 1024 * 1024} onClick={inspectFile}>{busy ? 'Analizando…' : 'Analizar sin importar'}</button>
           <button type="button" className={styles.secondary} disabled={!file || busy || stagingBusy}
             onClick={savePrivateDraft}>{stagingBusy ? 'Guardando borrador privado…' : 'Guardar original y borrador privado'}</button>
-          <span>El segundo botón guarda únicamente una copia en staging. No añade nada al campus.</span>
+          <span>Para documentos mayores de 4 MB utiliza el segundo botón. Los originales se guardan únicamente en staging.</span>
         </div>
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {stagingError && <p role="alert" className={styles.error}>{stagingError}</p>}
@@ -312,6 +339,11 @@ export default function AcademicImporterPage() {
               <small>Nivel {batch.level_number ?? 'pendiente'} · módulo {batch.module_number ?? 'pendiente'} ·
                 {batch.sections} secciones · {batch.media} figuras inventariadas</small>
               <small>Estado: {batch.status} · ID: {batch.id}</small>
+              <button type="button" className={styles.secondary}
+                disabled={busy || stagingBusy}
+                onClick={() => void reviewSavedDraft(batch.id)}>
+                Abrir original y revisar
+              </button>
             </article>)}
           </div>}
       </section>
