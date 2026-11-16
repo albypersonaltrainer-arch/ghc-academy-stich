@@ -14,6 +14,31 @@ const sumupApiKey = process.env.SUMUP_API_KEY ?? '';
 const automationBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? '';
 
  
+
+  // Academic importer Preview is read-only and must never require/use payment credentials.
+  if (process.env.GHC_ACADEMIC_IMPORT_PREVIEW_ONLY === 'true') {
+    const checks = {
+      isolatedBranch: process.env.VERCEL_GIT_COMMIT_REF === 'feature/ghc-importador-academico-20261116',
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL === expectedSupabaseUrl,
+      anonKeyPresent: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').length >= 20,
+      checkoutDisabled: process.env.SUMUP_CHECKOUT_ENABLED === 'false',
+      webhookDisabled: process.env.SUMUP_WEBHOOK_ENABLED === 'false',
+      preventaEmailDisabled: process.env.PREVENTA_EMAIL_DELIVERY_ENABLED === 'false',
+      academyCheckoutDisabled: process.env.ACADEMY_CHECKOUT_ENABLED === 'false',
+      academyEmailDisabled: process.env.ACADEMY_EMAIL_DELIVERY_ENABLED === 'false',
+      noSumupKey: !(process.env.SUMUP_API_KEY ?? '').trim(),
+    };
+    for (const [name, ok] of Object.entries(checks)) {
+      console.log('[import-preview] ' + name + ': ' + (ok ? 'OK' : 'FAIL'));
+    }
+    if (Object.values(checks).some(ok => !ok)) {
+      console.error('[import-preview] Preview is not safely isolated');
+      process.exit(1);
+    }
+    console.log('[import-preview] SAFE: document inspection only; payment side effects disabled');
+    process.exit(0);
+  }
+
 // Security-only Preview is an isolated branch for admin TOTP verification.
 // Fail closed unless all financial and email side effects are switched off.
 if (process.env.GHC_SECURITY_PREVIEW_ONLY === 'true') {
