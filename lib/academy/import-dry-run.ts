@@ -1,6 +1,6 @@
 import type { AcademicPreview } from './import-preview'
-import { buildAcademicDraft } from './draft-plan'
-import { resolveCurriculumModule } from './curriculum-map'
+import { buildAcademicDraft } from './draft-plan.ts'
+import { resolveCurriculumModule } from './curriculum-map.ts'
 
 export type CourseSnapshot = { id: string; slug: string; status: string }
 export type ModuleSnapshot = {
