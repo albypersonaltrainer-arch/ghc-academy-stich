@@ -389,7 +389,7 @@ export default function AcademicImporterPage() {
           Ningún curso se ha modificado.
           {saved.reconstructionVerified &&
             <strong> Reconstrucción 2026 verificada: huella, 12 tablas, encabezados y reserva docente.</strong>}
-        </p>
+        </p>}
       </section>
 
       <section className={styles.panel}>
