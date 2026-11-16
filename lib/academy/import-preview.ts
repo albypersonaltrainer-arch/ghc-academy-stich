@@ -28,6 +28,7 @@ export type AcademicPreview = {
   blocks: AcademicBlock[]
   media: AcademicMedia[]
   mediaFilesInPackage: number
+  sourceMetadataTitle?: string
   stats: { headings: number; paragraphs: number; lists: number; tables: number; characters: number; pages?: number }
   warnings: string[]
   truncated: boolean
@@ -162,6 +163,8 @@ function parseDocx(data: Buffer) {
   const xml = doc.toString('utf8')
   if (!xml.includes('<w:document') || !xml.includes('<w:body')) throw new Error('DOCX_INVALIDO')
   const body = xml.split(/<w:body(?:\s[^>]*)?>/)[1]?.split('</w:body>')[0] || ''
+  const props = readZipPart(data, parts.get('docProps/core.xml'), 128 * 1024)
+  const metadataTitle = props ? decodeXml(/<dc:title[^>]*>([\s\S]*?)<\/dc:title>/.exec(props.toString('utf8'))?.[1] || '').trim() : ''
   const blockRe = /<w:(p|tbl)(?:\s[^>]*)?>[\s\S]*?<\/w:\1>/g
 
   // Relationships reference only local embedded pictures; external images are not fetched.
@@ -288,7 +291,7 @@ function parseDocx(data: Buffer) {
     warnings.push('Se han detectado fórmulas matemáticas que requieren tratamiento independiente.')
   }
   return {
-    blocks, media: [...used.values()], mediaFilesInPackage,
+    blocks, media: [...used.values()], mediaFilesInPackage, sourceMetadataTitle: metadataTitle || undefined,
     warnings, truncated
   }
 }
@@ -374,6 +377,7 @@ export function previewAcademicFile(filename: string, bytes: Uint8Array): Academ
     blocks: result.blocks,
     media: 'media' in result ? result.media as AcademicMedia[] : [],
     mediaFilesInPackage: 'mediaFilesInPackage' in result ? result.mediaFilesInPackage as number : 0,
+    sourceMetadataTitle: 'sourceMetadataTitle' in result ? result.sourceMetadataTitle : undefined,
     stats: {
       headings: result.blocks.filter(b => b.kind === 'heading').length,
       paragraphs: result.blocks.filter(b => b.kind === 'paragraph').length,
