@@ -4,7 +4,7 @@ import { previewAcademicFile } from '../../../../../../lib/academy/import-previe
 import { buildAcademicDraft } from '../../../../../../lib/academy/draft-plan'
 import { resolveCurriculumModule } from '../../../../../../lib/academy/curriculum-map'
 import {
-  BUCKET, SECURITY_HEADERS, exactSourcePath, parseSourceMeta, savePrivateBatch,
+  BUCKET, SECURITY_HEADERS, exactSourcePath, parseSourceMeta, savePrivateBatch, findPrivateSource,
   stageAuthorization, stageError
 } from '../../../../../../lib/academy/staging-server'
 
@@ -22,6 +22,29 @@ export async function POST(request: NextRequest) {
     const meta = parseSourceMeta(JSON.parse(raw))
     if (!meta) return stageError('INVALID_SOURCE_METADATA', 422)
     const path = exactSourcePath(meta.id, meta.format)
+
+    // A repeated confirmation must never touch or remove a previously
+    // accepted original. Reply idempotently only for the SAME file bytes.
+    const { data: existing, error: existingError } =
+      await findPrivateSource(gate.identity.service, meta.id)
+    if (existingError) return stageError('STAGING_DATABASE_UNAVAILABLE', 503)
+    if (existing) {
+      if (existing.source_sha256 !== meta.sha256
+          || existing.original_file_bytes !== meta.size
+          || existing.original_file_name !== meta.name
+          || existing.source_format !== meta.format
+          || existing.source_storage_path !== path) {
+        return stageError('BATCH_ID_CONFLICT', 409)
+      }
+      return NextResponse.json({
+        ok: true,
+        result: { id: existing.id, status: existing.status },
+        sourceName: existing.original_file_name,
+        status: existing.status,
+        publicationAllowed: false,
+        alreadySaved: true
+      }, { headers: SECURITY_HEADERS })
+    }
 
     // Load from the private bucket on the server. Never trust the browser's
     // preview, hash, course assignment or section classifications.
