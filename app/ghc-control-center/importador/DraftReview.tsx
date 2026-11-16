@@ -1,10 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { AcademicPreview } from '../../../lib/academy/import-preview'
 import { buildAcademicDraft } from '../../../lib/academy/draft-plan'
 import type { AcademicDraftSection, DraftKind } from '../../../lib/academy/draft-plan'
 import { academicReviewPackage } from '../../../lib/academy/review-export'
+import { simulateAcademicImport } from '../../../lib/academy/import-dry-run'
+import type { PreviewDatabaseSnapshot } from '../../../lib/academy/import-dry-run'
+import { createClient } from '@supabase/supabase-js'
 import styles from './importador.module.css'
 
 type Props = { preview: AcademicPreview }
@@ -39,6 +42,41 @@ export default function AcademicDraftReview({ preview }: Props) {
   const [adjustments, setAdjustments] = useState<Record<string, Adjustment>>({})
   const [error, setError] = useState('')
   const [downloaded, setDownloaded] = useState(false)
+  const [databaseSnapshot, setDatabaseSnapshot] = useState<PreviewDatabaseSnapshot | null>(null)
+  const [snapshotState, setSnapshotState] = useState<'loading' | 'verified' | 'unavailable'>('loading')
+
+  useEffect(() => {
+    let active = true
+    async function readCatalogue() {
+      try {
+        const client = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+        )
+        const { data: roleAllowed, error: roleError } = await client.rpc('ghc_is_admin')
+        if (roleError || roleAllowed !== true) throw new Error('ADMIN_MFA_REQUIRED')
+        const [courses, modules] = await Promise.all([
+          client.from('courses').select('id,slug,status')
+            .in('slug', ['entrenador-personal-nivel-1', 'entrenador-personal-nivel-2', 'entrenador-personal-nivel-3']),
+          client.from('modules').select('id,course_id,title,position,sort_order')
+        ])
+        if (courses.error || modules.error || !courses.data || !modules.data) throw new Error('CATALOGUE_READ_FAILED')
+        if (!active) return
+        setDatabaseSnapshot({
+          courses: courses.data,
+          modules: modules.data,
+          readComplete: true
+        })
+        setSnapshotState('verified')
+      } catch {
+        if (!active) return
+        setDatabaseSnapshot(null)
+        setSnapshotState('unavailable')
+      }
+    }
+    void readCatalogue()
+    return () => { active = false }
+  }, [preview.sourceSha256])
 
   function current(section: AcademicDraftSection): Adjustment {
     return adjustments[section.id] || {
@@ -59,6 +97,8 @@ export default function AcademicDraftReview({ preview }: Props) {
     setDownloaded(false)
   }
 
+  const simulation = useMemo(() => simulateAcademicImport(preview, databaseSnapshot),
+    [preview, databaseSnapshot])
   const reviewed = draft.sections.filter(section => current(section).reviewed).length
   const coverage = draft.sections.reduce((sum, section) => sum + section.blockCount, 0)
 
@@ -66,9 +106,12 @@ export default function AcademicDraftReview({ preview }: Props) {
     try {
       // No API calls, uploads, persistence or course mutations.
       // The original source hash ties all decisions to the exact Word bytes.
-      const packageData = academicReviewPackage(preview, Object.fromEntries(
-        draft.sections.map(section => [section.id, current(section)])
-      ))
+      const packageData = {
+        ...academicReviewPackage(preview, Object.fromEntries(
+          draft.sections.map(section => [section.id, current(section)])
+        )),
+        importSimulation: simulation
+      }
       const content = JSON.stringify(packageData, null, 2)
       const url = URL.createObjectURL(new Blob([content], { type: 'application/json;charset=utf-8' }))
       const a = document.createElement('a')
@@ -121,6 +164,37 @@ export default function AcademicDraftReview({ preview }: Props) {
         {preview.format === 'PDF' && (
           <p className={styles.warning}>Un PDF no garantiza la reconstrucción de la jerarquía de lecciones. La organización de esta fuente solo puede revisarse como referencia preliminar.</p>
         )}
+        <div className={styles.warning}>
+          <strong>Simulación sin escrituras en Supabase</strong>
+          <p>
+            Destino del programa oficial: {simulation.target
+              ? 'Nivel ' + simulation.target.level + ' · módulo ' + simulation.target.moduleNumber +
+                ' · ' + simulation.target.title + ' · posición ' + simulation.target.position
+              : 'Número de módulo no identificado'}
+          </p>
+          <p>Estado de la comprobación del campus: {
+            snapshotState === 'verified' ? 'consultado en modo lectura' :
+            snapshotState === 'loading' ? 'consultando…' : 'no disponible; no se supone que esté vacío'
+          }</p>
+          <p>
+            Lecciones temáticas candidatas: {simulation.candidateLessonTitles.length} ·
+            Secciones reservadas: {simulation.reservedSections.length} ·
+            Apartados complementarios: {simulation.supplementarySections.length}
+          </p>
+          {simulation.blockers.length > 0
+            ? <div>
+                <strong>Condiciones pendientes de resolver</strong>
+                <ul className={styles.checkList}>
+                  {simulation.blockers.map((reason, index) => <li key={index}>{reason}</li>)}
+                </ul>
+              </div>
+            : <p>Sin conflictos estructurales detectados. Aún se necesita revisión editorial y aprobación del staging.</p>}
+          {simulation.positionConflicts.map(conflict => (
+            <p key={conflict.id}>Módulo ya existente en esa posición: {conflict.title}. No se reemplazará.</p>
+          ))}
+          <p className={styles.note}>La simulación no contiene botones de creación, actualización ni publicación.</p>
+        </div>
+
         <div className={styles.sectionList}>
           {draft.sections.map(section => {
             const a = current(section)
