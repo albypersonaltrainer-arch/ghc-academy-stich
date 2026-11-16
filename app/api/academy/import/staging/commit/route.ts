@@ -16,21 +16,18 @@ export async function POST(request: NextRequest) {
   const gate = await stageAuthorization(request, true)
   if (!gate.ok) return gate.response
 
-  let path: string | null = null
-  let cleanup = false
   try {
     const raw = await request.text()
     if (raw.length > 4096) return stageError('JSON_TOO_LARGE', 413)
     const meta = parseSourceMeta(JSON.parse(raw))
     if (!meta) return stageError('INVALID_SOURCE_METADATA', 422)
-    path = exactSourcePath(meta.id, meta.format)
+    const path = exactSourcePath(meta.id, meta.format)
 
     // Load from the private bucket on the server. Never trust the browser's
     // preview, hash, course assignment or section classifications.
     const { data: original, error: downloadError } =
       await gate.identity.service.storage.from(BUCKET).download(path)
     if (downloadError || !original) return stageError('ORIGINAL_NOT_UPLOADED', 409)
-    cleanup = true
     if (original.size !== meta.size || original.size > 12 * 1024 * 1024) {
       return stageError('SOURCE_SIZE_MISMATCH', 422)
     }
@@ -99,7 +96,6 @@ export async function POST(request: NextRequest) {
       const code = rpcError?.code === '23505' ? 'SOURCE_ALREADY_STAGED' : 'STAGING_DATABASE_REJECTED'
       return stageError(code, code === 'SOURCE_ALREADY_STAGED' ? 409 : 422)
     }
-    cleanup = false
     // No record is written to public.modules, public.lessons or assessments.
     return NextResponse.json({
       ok: true,
@@ -112,14 +108,5 @@ export async function POST(request: NextRequest) {
     }, { headers: SECURITY_HEADERS })
   } catch {
     return stageError('STAGING_FINALIZATION_FAILED', 422)
-  } finally {
-    // A failed finalization must not leave a newly uploaded, untracked original.
-    // This only touches the exact per-request object, never existing course assets.
-    if (cleanup && path) {
-      await gate.identity.service.storage.from(BUCKET).remove([path]).catch(() => {
-        // If the provider is unavailable, preserve the error for later manual
-        // cleanup through the private bucket's administrative console.
-      })
-    }
   }
 }
