@@ -53,7 +53,7 @@ export default function AcademicDraftReview({ preview }: Props) {
     const next = { ...original, ...change }
     // A detected answer key can never be demoted by the editor. This is a review,
     // not an authorization to expose answers to students.
-    if (section.kind === 'private_answer_key') next.kind = 'private_answer_key'
+    if (section.kind === 'private_answer_key' || section.kind === 'assessment') next.kind = section.kind
     setAdjustments(prev => ({ ...prev, [section.id]: next }))
     setDownloaded(false)
   }
@@ -69,7 +69,7 @@ export default function AcademicDraftReview({ preview }: Props) {
       // The original source hash ties all decisions to the exact Word bytes.
       const reviewSections = draft.sections.map(section => {
         const adjustment = current(section)
-        const kind = section.kind === 'private_answer_key' ? 'private_answer_key' : adjustment.kind
+        const kind = section.kind === 'private_answer_key' || section.kind === 'assessment' ? section.kind : adjustment.kind
         const visibility = kind === 'private_answer_key' || kind === 'assessment'
           ? 'staff_only'
           : kind === 'lesson_candidate' ? 'student_candidate' : 'needs_decision'
@@ -169,12 +169,12 @@ export default function AcademicDraftReview({ preview }: Props) {
         <div className={styles.sectionList}>
           {draft.sections.map(section => {
             const a = current(section)
-            const locked = section.kind === 'private_answer_key'
+            const locked = section.kind === 'private_answer_key' || section.kind === 'assessment'
             return (
               <article key={section.id} className={locked || a.kind === 'assessment' || a.kind === 'private_answer_key' ? styles.sectionPrivate : styles.sectionDraft}>
                 <div className={styles.sectionTop}>
                   <strong>{section.id} · {section.title}</strong>
-                  <span>{locked ? 'SOLUCIONARIO · PRIVADO' : section.kindLabel}</span>
+                  <span>{locked ? 'RESERVADO · DOCENTE' : section.kindLabel}</span>
                 </div>
                 <div className={styles.editorGrid}>
                   <label className={styles.editorField}>
@@ -215,7 +215,7 @@ export default function AcademicDraftReview({ preview }: Props) {
                   </label>
                   <small>Bloques {section.blockStart + 1}–{section.blockEnd} · {section.textCharacters.toLocaleString('es-ES')} caracteres · {section.mediaIds.length} figuras asociadas</small>
                 </div>
-                {locked && <p className={styles.privateNote}>Este apartado permanece reservado al equipo docente y no puede reclasificarse como lección desde esta herramienta.</p>}
+                {locked && <p className={styles.privateNote}>Este material permanece reservado al equipo docente y no puede reclasificarse como lección desde esta herramienta.</p>}
               </article>
             )
           })}
