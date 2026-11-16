@@ -147,7 +147,13 @@ function pdfString(raw: string) {
     const hex = raw.slice(1, -1).replace(/\s/g, '')
     if (!hex || hex.length % 2) return ''
     const b = Buffer.from(hex, 'hex')
-    if (b.length >= 2 && b[0] === 0xfe && b[1] === 0xff) return b.subarray(2).toString('utf16le').split('').reverse().join('')
+    if (b.length >= 2 && b[0] === 0xfe && b[1] === 0xff) {
+      const payload = b.subarray(2)
+      if (payload.length % 2) return ''
+      const le = Buffer.alloc(payload.length)
+      for (let i = 0; i < payload.length; i += 2) { le[i] = payload[i + 1]; le[i + 1] = payload[i] }
+      return le.toString('utf16le')
+    }
     return b.toString('latin1')
   }
   const body = raw.slice(1, -1)
@@ -163,6 +169,7 @@ function parsePdf(data: Buffer) {
   if (/\/Encrypt\b/.test(source)) throw new Error('PDF_CIFRADO')
   const pageCount = (source.match(/\/Type\s*\/Page\b/g) || []).length
   const streams: string[] = []
+  let totalExpanded = 0
   const streamRe = /\bstream\r?\n([\s\S]*?)\r?\nendstream/g
   let stream: RegExpExecArray | null
   while ((stream = streamRe.exec(source)) !== null && streams.length < 180) {
@@ -172,6 +179,8 @@ function parsePdf(data: Buffer) {
       const decoded = /\/FlateDecode/.test(dictionary)
         ? inflateSync(raw, { maxOutputLength: MAX_XML_BYTES })
         : raw
+      if (totalExpanded + decoded.length > 16 * 1024 * 1024) break
+      totalExpanded += decoded.length
       if (decoded.length <= MAX_XML_BYTES) streams.push(decoded.toString('latin1'))
     } catch {
       // Unsupported or damaged stream: the Preview will report incomplete extraction.
@@ -184,7 +193,7 @@ function parsePdf(data: Buffer) {
       if (blocks.length >= MAX_BLOCKS) break
       const commands = sequence.match(/\((?:\\[\s\S]|[^\\)])*\)|<[\dA-Fa-f\s]+>/g) || []
       const text = commands.map(pdfString).join(' ').replace(/\s+/g, ' ').trim()
-      if (text && /[\p{L}\p{N}]/u.test(text)) blocks.push({ kind: 'paragraph', text })
+      if (text && /[A-Za-zÀ-ÿ0-9]/.test(text)) blocks.push({ kind: 'paragraph', text })
     }
   }
   if (!blocks.length) throw new Error('PDF_SIN_TEXTO_EXTRAIBLE')
