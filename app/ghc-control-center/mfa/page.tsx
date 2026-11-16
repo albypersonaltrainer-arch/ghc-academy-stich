@@ -250,6 +250,7 @@ export default function AdminMfaPage() {
         )}
 
         <div className={styles.footerActions}>
+          {verifiedTotp && currentLevel === 'aal2' && <button type="button" onClick={() => router.push('/ghc-control-center/importador')}>Abrir importador académico</button>}
           <button type="button" className={styles.secondary} onClick={() => router.push('/ghc-control-center?tab=seguridad')}>Volver a Seguridad</button>
         </div>
       </section>
