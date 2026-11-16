@@ -67,6 +67,36 @@ Se localizaron dos Word definitivos existentes en la biblioteca del usuario. Se 
 ### Regla de publicación
 **No existe en esta fase ninguna acción que genere, inserte, edite o publique cursos, lecciones, preguntas o imágenes en Supabase.** La próxima fase requerirá diseño de staging persistente, revisión de los documentos originales con recursos y una autorización explícita sobre cada operación concreta.
 
+## Fase 3 — revisión editorial editable y simulación de destino (16/11/2026)
+
+**Continúa siendo un laboratorio Preview; ninguna operación de escritura.** Implementado en la rama `feature/ghc-importador-academico-20261116`, nunca fusionado a `main`.
+
+### Revisión editorial local
+- Cada propuesta de sección puede recibir un título editorial, tipo de contenido, observaciones y la marca `revisado`. **Esa marca no aprueba ni publica**.
+- Los apartados clasificados de origen como `private_answer_key` o `assessment` quedan bloqueados como `staff_only`; no pueden transformarse en lecciones públicas a través del editor ni alterando las decisiones de exportación.
+- `lib/academy/review-export.ts` produce un archivo JSON descargable en el navegador. Incluye todas las secciones y sus referencias de bloques, el texto extraído, el inventario técnico de imágenes, la huella **SHA-256 del Word completo**, los avisos y las decisiones editoriales. **No incluye las miniaturas base64**.
+- El archivo JSON mantiene `writeToCampusAllowed=false` y `humanPublicationApproval=false`, incluso cuando todas las secciones se marcan revisadas.
+- Nunca se transmite el JSON de revisión a otro servicio, no se almacena en Supabase y no se añade al repositorio. El documento original sigue siendo necesario para verificar la huella y recuperar las imágenes.
+
+### Mapa académico y detección de conflictos
+- `lib/academy/curriculum-map.ts` contiene el orden canónico aprobado de los **30 módulos**, con sus títulos, niveles y destinos `entrenador-personal-nivel-1/2/3`. Fuente: `PROMPT_MAESTRO_GHC_ACADEMY_PREVENTA_2026(1).txt`, sección «Arquitectura oficial de los treinta módulos».
+- La UI realiza consultas **SELECT solamente**, tras comprobar `ghc_is_admin()`, para obtener el estado de los tres cursos y las posiciones ya ocupadas de `modules`. Si no puede leer los datos, el estado es `inventario no verificado`: nunca asume que un curso esté vacío.
+- `lib/academy/import-dry-run.ts` presenta una **simulación de importación sin escrituras** con el nivel, posición, curso de destino, lecciones candidatas y bloqueos. No produce SQL ni ejecuta las RPC administrativas.
+- Estado contrastado mediante consulta read-only (16/11): Nivel 1 `draft` con 3 módulos/16 lecciones de demostración; Niveles 2 y 3 `draft` y sin módulos. **No se sustituye ni elimina ningún módulo de demostración.**
+- El simulador marca bloqueo si la portada no corresponde al nivel, existen metadatos contradictorios, hay multimedia sin resolver, el documento fue truncado, la fuente es PDF o la posición de destino ya está ocupada.
+
+### Riesgo detectado que condiciona el staging
+- `public.courses` dispone de `status`, pero **`public.modules` y `public.lessons` no tienen un estado de borrador propio**. Es peligroso utilizarlas como staging sin diseñar antes controles de acceso y aislamiento.
+- La futura importación debe prepararse en almacenamiento/entidades privadas con revisión y versionado (por definir y aprobar), **separadas de los cursos visibles a los alumnos**. No se ha creado aún una tabla ni bucket de staging.
+- El campo actual `lessons.content` es `text`; se necesita un formato seguro para conservar encabezados, párrafos, listas, tablas y referencias multimedia sin mezclar recursos del profesorado.
+- Los registros de `lesson_media_assets` están orientados a vídeo/streaming, no sustituyen por sí solos a un inventario de figuras ilustrativas. Su representación y almacenamiento privado requieren diseño y pruebas.
+
+### Pruebas y aprobación pendiente
+- `scripts/test-academic-draft-plan.mjs` cubre el mapa 1–30, la detección de conflictos y que la exportación no revele solucionarios ni habilite publicaciones.
+- Los Word definitivos Módulos 1 y 20 se han inspeccionado **solo localmente** para validar texto, estilos, tablas y relación de imágenes; sus binarios no se han subido al GitHub ni al Preview.
+- Revisión visual autenticada desde navegador, subida real del DOCX y revisión editorial de la estructura seguirán pendientes de la sesión de administrador. No deben declararse validadas solo por el éxito del build.
+- Toda futura inserción en Supabase, publicación, edición de los cursos, modificación de seguridad o aceptación de pagos requiere otra decisión explícita del titular.
+
 ## Limitaciones antes de la importación académica real
 1. Necesitamos el Word maestro definitivo de un módulo para comparar texto extraído, estructura, tablas y referencias con el original. No convertir sin cotejo. No hay prueba todavía con los Word premium del usuario.
 2. DOCX aún no preserva imágenes, ecuaciones, estilos inline, notas al pie, tablas anidadas complejas ni archivos adjuntos. PDF no garantiza orden o precisión cuando existen fuentes codificadas, escaneos o columnas.
