@@ -143,3 +143,24 @@ export async function listPrivateBatches(
   }
   return typed.rpc('ghc_academic_stage_list', { p_limit: 30 })
 }
+
+
+export type StageSourceInfo = {
+  id: string
+  original_file_name: string
+  source_format: 'DOCX' | 'PDF'
+  original_file_bytes: number
+  source_sha256: string
+  source_storage_path: string
+  status: string
+}
+
+export async function findPrivateSource(
+  service: StageIdentity['service'], id: string
+): Promise<{ data: StageSourceInfo | null; error: { code?: string; message: string } | null }> {
+  const typed = service as unknown as {
+    rpc(name: 'ghc_academic_stage_source_info', args: { p_id: string }):
+      Promise<{ data: StageSourceInfo | null; error: { code?: string; message: string } | null }>
+  }
+  return typed.rpc('ghc_academic_stage_source_info', { p_id: id })
+}
