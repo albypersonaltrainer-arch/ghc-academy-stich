@@ -97,6 +97,12 @@ Se localizaron dos Word definitivos existentes en la biblioteca del usuario. Se 
 - Revisión visual autenticada desde navegador, subida real del DOCX y revisión editorial de la estructura seguirán pendientes de la sesión de administrador. No deben declararse validadas solo por el éxito del build.
 - Toda futura inserción en Supabase, publicación, edición de los cursos, modificación de seguridad o aceptación de pagos requiere otra decisión explícita del titular.
 
+## Actualización de infraestructura — staging privado ya creado (16/11/2026)
+
+La aprobación del usuario permitió crear el área privada; se ejecutó y verificó la migración Supabase `20261116144459_ghc_academic_private_staging_20261116`, que instaló el esquema `ghc_academic_staging` (4 tablas con RLS y sin permisos de clientes) y el bucket privado `ghc-academic-staging` (12 MiB por archivo). **No hay contenido cargado y no se ha habilitado una API de escritura**. Las autorizaciones administrativas siguen exigiendo MFA AAL2 y la futura integración deberá validarlas antes de usar credenciales privilegiadas de servidor.
+
+Registro completo de pruebas, riesgos y reversión: [GHC_STAGING_PRIVADO_ACTIVADO_2026-11-16.md](./GHC_STAGING_PRIVADO_ACTIVADO_2026-11-16.md).
+
 ## Limitaciones antes de la importación académica real
 1. Necesitamos el Word maestro definitivo de un módulo para comparar texto extraído, estructura, tablas y referencias con el original. No convertir sin cotejo. No hay prueba todavía con los Word premium del usuario.
 2. DOCX aún no preserva imágenes, ecuaciones, estilos inline, notas al pie, tablas anidadas complejas ni archivos adjuntos. PDF no garantiza orden o precisión cuando existen fuentes codificadas, escaneos o columnas.
