@@ -1,17 +1,33 @@
 import { inflateRawSync, inflateSync } from 'node:zlib'
+import { createHash } from 'node:crypto'
 
 export type AcademicBlock = {
-  kind: 'heading' | 'paragraph' | 'list_item' | 'table'
+  kind: 'heading' | 'paragraph' | 'list_item' | 'table' | 'image'
+  mediaId?: string
   listType?: 'numbered' | 'bulleted' | 'unknown'
   text: string
   level?: number
   cells?: string[][]
 }
 
+export type AcademicMedia = {
+  id: string
+  path: string
+  mimeType: string
+  bytes: number
+  sha256: string
+  altText: string | null
+  altNeedsReview: boolean
+  blockIndexes: number[]
+  previewDataUrl?: string
+}
+
 export type AcademicPreview = {
   fileName: string
   format: 'DOCX' | 'PDF'
   blocks: AcademicBlock[]
+  media: AcademicMedia[]
+  mediaFilesInPackage: number
   stats: { headings: number; paragraphs: number; lists: number; tables: number; characters: number; pages?: number }
   warnings: string[]
   truncated: boolean
@@ -56,8 +72,17 @@ function headingLevel(xml: string) {
   return null
 }
 
-function unzipDocumentXml(data: Buffer) {
-  // Use the ZIP central directory, not an unbounded inflate of attacker-supplied data.
+type ZipPart = {
+  name: string
+  compressed: number
+  expanded: number
+  flags: number
+  method: number
+  offset: number
+}
+
+function listZipParts(data: Buffer): Map<string, ZipPart> {
+  // Central directory limits prevent zip bombs, path traversal and unsupported ZIP64.
   if (data.length < 22 || data.readUInt32LE(0) !== 0x04034b50) throw new Error('DOCX_INVALIDO')
   let eocd = -1
   for (let i = data.length - 22; i >= Math.max(0, data.length - 65557); i--) {
@@ -68,6 +93,8 @@ function unzipDocumentXml(data: Buffer) {
   const start = data.readUInt32LE(eocd + 16)
   if (count > 500 || start >= data.length) throw new Error('DOCX_DEMASIADOS_ARCHIVOS')
   let pos = start
+  let accumulated = 0
+  const parts = new Map<string, ZipPart>()
   for (let i = 0; i < count; i++) {
     if (pos + 46 > data.length || data.readUInt32LE(pos) !== 0x02014b50) throw new Error('DOCX_INVALIDO')
     const method = data.readUInt16LE(pos + 10)
@@ -82,51 +109,107 @@ function unzipDocumentXml(data: Buffer) {
     if (next > data.length) throw new Error('DOCX_INVALIDO')
     const name = data.toString('utf8', pos + 46, pos + 46 + nameLength)
     pos = next
-    if (name !== 'word/document.xml') continue
-    if (flags & 1) throw new Error('DOCX_CIFRADO')
-    if (expanded > MAX_XML_BYTES || compressed > MAX_XML_BYTES || offset + 30 > data.length) {
+    if (name.includes('..') || name.startsWith('/') || name.includes('\\') || parts.has(name)) {
+      throw new Error('DOCX_ENTRADA_NO_SEGURA')
+    }
+    accumulated += expanded
+    if (accumulated > 60 * 1024 * 1024 || expanded > 20 * 1024 * 1024) {
       throw new Error('DOCX_DEMASIADO_GRANDE')
     }
-    if (data.readUInt32LE(offset) !== 0x04034b50) throw new Error('DOCX_INVALIDO')
-    const localName = data.readUInt16LE(offset + 26)
-    const localExtra = data.readUInt16LE(offset + 28)
-    const bodyStart = offset + 30 + localName + localExtra
-    if (bodyStart + compressed > data.length) throw new Error('DOCX_INVALIDO')
-    const raw = data.subarray(bodyStart, bodyStart + compressed)
-    const xml = method === 0 ? raw : method === 8
-      ? inflateRawSync(raw, { maxOutputLength: MAX_XML_BYTES }) : null
-    if (!xml || xml.length > MAX_XML_BYTES) throw new Error('DOCX_COMPRESION_NO_ADMITIDA')
-    return xml.toString('utf8')
+    parts.set(name, { name, compressed, expanded, flags, method, offset })
   }
-  throw new Error('DOCX_SIN_DOCUMENTO')
+  return parts
+}
+
+function readZipPart(data: Buffer, entry: ZipPart | undefined, maxBytes: number): Buffer | null {
+  if (!entry) return null
+  const { offset, compressed, expanded, flags, method } = entry
+  if ((flags & 1) !== 0) throw new Error('DOCX_CIFRADO')
+  if (expanded > maxBytes || compressed > maxBytes || offset + 30 > data.length) {
+    throw new Error('DOCX_DEMASIADO_GRANDE')
+  }
+  if (data.readUInt32LE(offset) !== 0x04034b50) throw new Error('DOCX_INVALIDO')
+  const localName = data.readUInt16LE(offset + 26)
+  const localExtra = data.readUInt16LE(offset + 28)
+  const bodyStart = offset + 30 + localName + localExtra
+  if (bodyStart + compressed > data.length) throw new Error('DOCX_INVALIDO')
+  const raw = data.subarray(bodyStart, bodyStart + compressed)
+  const output = method === 0 ? raw : method === 8
+    ? inflateRawSync(raw, { maxOutputLength: maxBytes }) : null
+  if (!output || output.length !== expanded || output.length > maxBytes) {
+    throw new Error('DOCX_COMPRESION_NO_ADMITIDA')
+  }
+  return output
+}
+
+function xmlAttribute(tag: string, attribute: string) {
+  // Trusted only as a parser token; returned values are never used as HTML.
+  const re = new RegExp('(?:^|\\s)' + attribute.replace(':', '\\:') + '\\s*=\\s*["\\x27]([^"\\x27]*)["\\x27]')
+  return decodeXml(re.exec(tag)?.[1] || '')
+}
+
+function imageMime(path: string): string | null {
+  const ext = path.split('.').pop()?.toLowerCase()
+  return ext === 'png' ? 'image/png'
+    : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+    : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : null
 }
 
 function parseDocx(data: Buffer) {
-  const xml = unzipDocumentXml(data)
+  const parts = listZipParts(data)
+  const doc = readZipPart(data, parts.get('word/document.xml'), MAX_XML_BYTES)
+  if (!doc) throw new Error('DOCX_SIN_DOCUMENTO')
+  const xml = doc.toString('utf8')
   if (!xml.includes('<w:document') || !xml.includes('<w:body')) throw new Error('DOCX_INVALIDO')
   const body = xml.split(/<w:body(?:\s[^>]*)?>/)[1]?.split('</w:body>')[0] || ''
   const blockRe = /<w:(p|tbl)(?:\s[^>]*)?>[\s\S]*?<\/w:\1>/g
+
+  // Relationships reference only local embedded pictures; external images are not fetched.
+  const relsRaw = readZipPart(data, parts.get('word/_rels/document.xml.rels'), 1024 * 1024)
+  const rels = new Map<string, string>()
+  if (relsRaw) {
+    const xmlRels = relsRaw.toString('utf8')
+    for (const match of xmlRels.matchAll(/<Relationship\b[^>]*\/>/g)) {
+      const tag = match[0]
+      if (!/\/image["']/.test(tag) || /TargetMode\s*=\s*["']External["']/.test(tag)) continue
+      const id = xmlAttribute(tag, 'Id')
+      const target = xmlAttribute(tag, 'Target')
+      if (/^media\/[a-z0-9_.-]+$/i.test(target) && id && parts.has('word/' + target)) {
+        rels.set(id, 'word/' + target)
+      }
+    }
+  }
+
   const blocks: AcademicBlock[] = []
+  const used = new Map<string, AcademicMedia>()
+  const warnings = [
+    'Vista previa documental: no se han incorporado automáticamente fórmulas, gráficos editables, notas al pie ni archivos adjuntos.',
+    'Revisa los niveles de encabezado, listas, tablas y el orden del contenido con el Word original.'
+  ]
   let match: RegExpExecArray | null
   let textChars = 0
   let truncated = false
+  let previewImageBytes = 0
+  const MAX_PREVIEW_IMAGE_BYTES = 210 * 1024
+  const MAX_TOTAL_PREVIEW_IMAGE_BYTES = 1250 * 1024
   while ((match = blockRe.exec(body)) !== null) {
     if (blocks.length >= MAX_BLOCKS || textChars >= MAX_TEXT_CHARS) { truncated = true; break }
     const source = match[0]
     if (match[1] === 'p') {
       const text = wordText(source)
-      if (!text) continue
-      const level = headingLevel(source)
-      const style = paragraphStyle(source)
-      const listType = /^(?:ListNumber|ListNum|Numbered|NumList|GHCCompactNumber)/i.test(style)
-        ? 'numbered'
-        : /^(?:ListBullet|Bullet|Bulleted)/i.test(style)
-          ? 'bulleted'
-          : /<w:numPr\b/.test(source) ? 'unknown' : null
-      if (level) blocks.push({ kind: 'heading', text, level })
-      else if (listType) blocks.push({ kind: 'list_item', text, listType })
-      else blocks.push({ kind: 'paragraph', text })
-      textChars += text.length
+      if (text) {
+        const level = headingLevel(source)
+        const style = paragraphStyle(source)
+        const listType = /^(?:ListNumber|ListNum|Numbered|NumList|GHCCompactNumber)/i.test(style)
+          ? 'numbered'
+          : /^(?:ListBullet|Bullet|Bulleted)/i.test(style)
+            ? 'bulleted'
+            : /<w:numPr\b/.test(source) ? 'unknown' : null
+        if (level) blocks.push({ kind: 'heading', text, level })
+        else if (listType) blocks.push({ kind: 'list_item', text, listType })
+        else blocks.push({ kind: 'paragraph', text })
+        textChars += text.length
+      }
     } else {
       const cells: string[][] = []
       const rowRe = /<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g
@@ -136,7 +219,6 @@ function parseDocx(data: Buffer) {
         const cellRe = /<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g
         let cell: RegExpExecArray | null
         while ((cell = cellRe.exec(row[0])) !== null && columns.length < 30) {
-          // Preserve boundaries between paragraphs in the same table cell.
           const paras = cell[0].match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []
           columns.push(paras.length
             ? paras.map(wordText).filter(Boolean).join('\n')
@@ -144,19 +226,71 @@ function parseDocx(data: Buffer) {
         }
         if (columns.length) cells.push(columns)
       }
-      if (!cells.length) continue
-      const text = cells.map(r => r.join(' | ')).join('\n')
-      blocks.push({ kind: 'table', text, cells })
-      textChars += text.length
+      if (cells.length) {
+        const text = cells.map(r => r.join(' | ')).join('\n')
+        blocks.push({ kind: 'table', text, cells })
+        textChars += text.length
+      }
+    }
+
+    // Record actual placements, in document order, even when a paragraph has no text.
+    // Images in table cells are associated after that table block.
+    for (const picture of source.matchAll(/<a:blip\b[^>]*\/?>/g)) {
+      if (blocks.length >= MAX_BLOCKS) { truncated = true; break }
+      const relId = xmlAttribute(picture[0], 'r:embed')
+      const path = rels.get(relId)
+      if (!path) continue
+      const mimeType = imageMime(path)
+      if (!mimeType) continue
+      const item = parts.get(path)
+      if (!item) continue
+      const documentProperty = /<wp:docPr\b[^>]*\/?>/.exec(source)?.[0] || ''
+      const alt = xmlAttribute(documentProperty, 'descr') || xmlAttribute(documentProperty, 'title')
+      const meaningfulAlt = alt && !/^(Image:|Picture\s*\d+|image\d+\.\w+)/i.test(alt)
+      let media = used.get(relId)
+      if (!media) {
+        const raw = readZipPart(data, item, 8 * 1024 * 1024)
+        if (!raw) continue
+        media = {
+          id: relId,
+          path,
+          mimeType,
+          bytes: raw.length,
+          sha256: createHash('sha256').update(raw).digest('hex'),
+          altText: alt || null,
+          altNeedsReview: !meaningfulAlt,
+          blockIndexes: []
+        }
+        if (used.size < 12 && raw.length <= MAX_PREVIEW_IMAGE_BYTES &&
+            previewImageBytes + raw.length <= MAX_TOTAL_PREVIEW_IMAGE_BYTES) {
+          previewImageBytes += raw.length
+          media.previewDataUrl = 'data:' + mimeType + ';base64,' + raw.toString('base64')
+        }
+        used.set(relId, media)
+      }
+      media.blockIndexes.push(blocks.length)
+      blocks.push({ kind: 'image', mediaId: relId, text: alt || path.split('/').pop() || 'Imagen' })
     }
   }
   if (!blocks.length) throw new Error('DOCX_SIN_TEXTO')
-  const warnings = [
-    'Vista previa documental: no se han importado imágenes, fórmulas, gráficos, notas al pie ni archivos adjuntos.',
-    'Comprueba manualmente los niveles de encabezado, la numeración de listas y el formato de tablas con el Word original.'
-  ]
-  if (/<w:drawing\b|<w:pict\b/.test(xml)) warnings.unshift('Este Word contiene elementos gráficos que todavía no se incluyen en la vista previa.')
-  return { blocks, warnings, truncated }
+
+  const mediaFilesInPackage = [...parts.keys()].filter(x => /^word\/media\//.test(x)).length
+  if (mediaFilesInPackage > used.size) {
+    warnings.push(
+      'Este Word contiene ' + mediaFilesInPackage + ' archivos multimedia internos y ' +
+      used.size + ' imágenes vinculadas al cuerpo detectadas. Los demás elementos no se han asignado automáticamente.'
+    )
+  }
+  if (used.size > 0) {
+    warnings.push('Las imágenes mostradas son copias temporales e idénticas al original; antes de publicar hay que revisar su descripción accesible y la sección correcta.')
+  }
+  if (/<m:oMath\b|<m:oMathPara\b/.test(xml)) {
+    warnings.push('Se han detectado fórmulas matemáticas que requieren tratamiento independiente.')
+  }
+  return {
+    blocks, media: [...used.values()], mediaFilesInPackage,
+    warnings, truncated
+  }
 }
 
 function pdfString(raw: string) {
@@ -238,6 +372,8 @@ export function previewAcademicFile(filename: string, bytes: Uint8Array): Academ
     fileName: name,
     format,
     blocks: result.blocks,
+    media: 'media' in result ? result.media as AcademicMedia[] : [],
+    mediaFilesInPackage: 'mediaFilesInPackage' in result ? result.mediaFilesInPackage as number : 0,
     stats: {
       headings: result.blocks.filter(b => b.kind === 'heading').length,
       paragraphs: result.blocks.filter(b => b.kind === 'paragraph').length,
