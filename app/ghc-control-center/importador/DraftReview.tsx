@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import type { AcademicPreview } from '../../../lib/academy/import-preview'
 import { buildAcademicDraft } from '../../../lib/academy/draft-plan'
 import type { AcademicDraftSection, DraftKind } from '../../../lib/academy/draft-plan'
+import { academicReviewPackage } from '../../../lib/academy/review-export'
 import styles from './importador.module.css'
 
 type Props = { preview: AcademicPreview }
@@ -60,60 +61,14 @@ export default function AcademicDraftReview({ preview }: Props) {
 
   const reviewed = draft.sections.filter(section => current(section).reviewed).length
   const coverage = draft.sections.reduce((sum, section) => sum + section.blockCount, 0)
-  const canProduceImportProposal = !preview.truncated && !draft.metadataTitleMismatch
-    && draft.levelNumber !== null && draft.moduleNumber !== null && preview.format === 'DOCX'
 
   function exportReview() {
     try {
       // No API calls, uploads, persistence or course mutations.
       // The original source hash ties all decisions to the exact Word bytes.
-      const reviewSections = draft.sections.map(section => {
-        const adjustment = current(section)
-        const kind = section.kind === 'private_answer_key' || section.kind === 'assessment' ? section.kind : adjustment.kind
-        const visibility = kind === 'private_answer_key' || kind === 'assessment'
-          ? 'staff_only'
-          : kind === 'lesson_candidate' ? 'student_candidate' : 'needs_decision'
-        return {
-          ...section,
-          editorial: {
-            proposedTitle: adjustment.title.trim() || section.title,
-            kind,
-            visibility,
-            reviewedByHuman: adjustment.reviewed,
-            reviewerNote: adjustment.note.trim(),
-            approvalStatus: 'not_approved'
-          }
-        }
-      })
-      const packageData = {
-        schemaVersion: 'GHC_EDITORIAL_REVIEW_V1',
-        status: 'local_unapproved_export',
-        writeToCampusAllowed: false,
-        generatedAt: new Date().toISOString(),
-        source: {
-          fileName: preview.fileName,
-          sourceSha256: preview.sourceSha256,
-          format: preview.format,
-          sourceMetadataTitle: preview.sourceMetadataTitle || null,
-          stats: preview.stats,
-          truncated: preview.truncated
-        },
-        qualityGate: {
-          fullBlockCoverage: coverage === preview.blocks.length,
-          metadataTitleMismatch: draft.metadataTitleMismatch,
-          unresolvedMediaFiles: draft.metrics.mediaUnassigned,
-          suitableForStructuralReview: canProduceImportProposal,
-          allSectionsReviewed: reviewed === draft.sections.length,
-          humanPublicationApproval: false
-        },
-        levelNumber: draft.levelNumber,
-        moduleNumber: draft.moduleNumber,
-        moduleTitleSuggestion: draft.moduleTitle,
-        sections: reviewSections,
-        originalBlocks: preview.blocks,
-        imageManifest: preview.media.map(({ previewDataUrl: _thumbnail, ...image }) => image),
-        warnings: draft.warnings
-      }
+      const packageData = academicReviewPackage(preview, Object.fromEntries(
+        draft.sections.map(section => [section.id, current(section)])
+      ))
       const content = JSON.stringify(packageData, null, 2)
       const url = URL.createObjectURL(new Blob([content], { type: 'application/json;charset=utf-8' }))
       const a = document.createElement('a')
