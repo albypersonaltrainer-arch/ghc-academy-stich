@@ -3,6 +3,8 @@ import { deflateRawSync } from 'node:zlib'
 import { previewAcademicFile } from '../lib/academy/import-preview.ts'
 import { buildAcademicDraft } from '../lib/academy/draft-plan.ts'
 import { academicReviewPackage } from '../lib/academy/review-export.ts'
+import { simulateAcademicImport } from '../lib/academy/import-dry-run.ts'
+import { resolveCurriculumModule, MODULE_TITLES } from '../lib/academy/curriculum-map.ts'
 
 function zipDocument(entries) {
   const locals = []
@@ -114,4 +116,31 @@ assert.equal(exported.sections.find(s => s.id === privateSection.id).editorial.v
 assert.ok(!JSON.stringify(exported.imageManifest).includes('data:image/png;base64'))
 const invalidSource = { ...preview, sourceSha256: 'bad' }
 assert.throws(() => academicReviewPackage(invalidSource, {}), /INVALID_SOURCE_FINGERPRINT/)
+
+assert.equal(MODULE_TITLES.length, 30)
+assert.equal(resolveCurriculumModule(1)?.courseSlug, 'entrenador-personal-nivel-1')
+assert.equal(resolveCurriculumModule(20)?.position, 10)
+assert.equal(resolveCurriculumModule(20)?.level, 2)
+assert.equal(resolveCurriculumModule(30)?.courseSlug, 'entrenador-personal-nivel-3')
+assert.equal(resolveCurriculumModule(0), null)
+assert.equal(resolveCurriculumModule(31), null)
+const snapshot = {
+  readComplete: true,
+  courses: [{ id: 'c2', slug: 'entrenador-personal-nivel-2', status: 'draft' }],
+  modules: [
+    { id: 'demo-collision', course_id: 'c2', title: 'Material antiguo de prueba', position: 10, sort_order: 10 }
+  ]
+}
+const simulated = simulateAcademicImport(preview, snapshot)
+assert.equal(simulated.writesPerformed, false)
+assert.equal(simulated.automaticPublicationAllowed, false)
+assert.equal(simulated.readyToWrite, false)
+assert.equal(simulated.target?.moduleNumber, 20)
+assert.equal(simulated.destination?.courseId, 'c2')
+assert.equal(simulated.positionConflicts.length, 1)
+assert.ok(simulated.blockers.some(t => t.includes('ya está ocupada')))
+assert.ok(simulated.blockers.some(t => t.includes('metadatos')))
+const unknownSnapshot = simulateAcademicImport(preview, null)
+assert.ok(unknownSnapshot.blockers.some(t => t.includes('No se ha verificado completamente')))
+
 console.log('[academic-draft-test] OK: section drafts, answer-key separation, media location and stale metadata detection')
