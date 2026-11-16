@@ -311,7 +311,7 @@ function parseDocx(data: Buffer) {
     warnings.push('Se han detectado fórmulas matemáticas que requieren tratamiento independiente.')
   }
   return {
-    blocks, media: [...used.values()], mediaFilesInPackage, sourceMetadataTitle: metadataTitle || undefined,
+    blocks, media: Array.from(used.values()), mediaFilesInPackage, sourceMetadataTitle: metadataTitle || undefined,
     warnings, truncated
   }
 }
