@@ -25,6 +25,7 @@ export type AcademicMedia = {
 export type AcademicPreview = {
   fileName: string
   format: 'DOCX' | 'PDF'
+  sourceSha256: string
   blocks: AcademicBlock[]
   media: AcademicMedia[]
   mediaFilesInPackage: number
@@ -394,6 +395,7 @@ export function previewAcademicFile(filename: string, bytes: Uint8Array): Academ
   return {
     fileName: name,
     format,
+    sourceSha256: createHash('sha256').update(data).digest('hex'),
     blocks: result.blocks,
     media: 'media' in result ? result.media as AcademicMedia[] : [],
     mediaFilesInPackage: 'mediaFilesInPackage' in result ? result.mediaFilesInPackage as number : 0,
