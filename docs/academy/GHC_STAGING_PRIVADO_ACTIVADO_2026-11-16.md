@@ -1,5 +1,19 @@
 # GHC Academy · Staging académico privado — activación 16/11/2026
 
+## Preparación de la reconstrucción académica íntegra del Módulo 1 — 16/11/2026
+
+**Referencia exacta inspeccionada localmente:** `GHC_ACADEMY_MODULO_1_RECONSTRUCCION_ACADEMICA_2026.docx`, tamaño **73.729 bytes**, SHA-256 `8dc645921abfe0fa3ef756d0e56dd9f60f84ace16a33ea42f7756e2112d0c4cf`. La inspección del Word confirma 824 párrafos de documento (incluyendo listas y encabezados), **31 encabezados de nivel 1**, **82 de nivel 2**, **23 de nivel 3**, **12 tablas** y **0 imágenes embebidas**. Contiene material de evaluación teórica, rúbrica, respuestas orientativas y guion documental diferenciados por encabezados, además de las 12 fases del sistema profesional GHC.
+
+**El contenido íntegro NO se incorporó al repositorio GitHub, que es público, ni a la base de datos en esta fase.** Se conservó el archivo original intacto. En Supabase permanece únicamente el anterior Módulo 1 breve de prueba (`5be17000-d662-472f-a115-e90dca626ac6`). Para convertir la reconstrucción en un borrador privado debe usarse la selección/subida autenticada del propio importador, sin reemplazar el lote breve.
+
+Se creó `lib/academy/reconstruction-reference.ts`, que solo guarda una huella digital y métricas esperadas **sin texto académico**. Cuando el original exacto se seleccione en el navegador, el importador puede confirmar la coincidencia criptográfica. Tras la extracción, `checkReconstructedModuleOne` verifica que se hayan recuperado los 31/82/23 encabezados, las 12 tablas, las secciones, la integridad de bloques y que **todas** las evaluaciones/solucionarios identificados permanezcan `staff_only`. Una discrepancia con el documento exacto provoca `RECONSTRUCTION_INTEGRITY_FAILED` en la confirmación de staging, sin publicar ni convertir automáticamente el material. Las métricas se guardan en `extraction_summary` como metadatos de auditoría, nunca en `public.modules` ni en `public.lessons`.
+
+Se añadió una indicación visual al selector del importador: distingue el Word reconstruido del archivo anterior de prueba; el análisis sin guardar muestra el resultado estructural antes de su subida. La identidad técnica y la integridad estructural **no equivalen a aprobación académica** ni implican publicación.
+
+Prueba añadida: `scripts/test-academic-reconstruction-reference.mjs` con casos de tablas ausentes, pérdida de subtítulos, metadatos incompatibles, respuestas sin protección y archivo no coincidente. Se incluye en el build seguro de Preview.
+
+**Siguiente comprobación real pendiente:** seleccionar el Word reconstruido exacto en el importador privado y ejecutar primero `Analizar sin importar`; confirmar encabezados/tablas/visibilidad. Después, con el consentimiento del usuario de guardar esa copia como otro lote privado, utilizar `Guardar original y borrador privado`. Verificar la vista del aula con MFA y luego obtener la aprobación editorial para su uso. El archivo breve existente no debe eliminarse o sobrescribirse.
+
 ## Primera carga real del Módulo 1 — verificación de fidelidad (16/11/2026)
 
 **Carga del usuario confirmada** mediante comprobación SQL del registro y objeto Storage. El original `MODULO_1_NIVEL_1_COMPLETO.docx` se conservó **sin modificación** en `originals/5be17000-d662-472f-a115-e90dca626ac6/source.docx`, con 43.543 bytes, SHA-256 `6324a0da7894cb3ffad2bf37311219fc9235b565d8bce0a627ec6bf561b361f5`, 104 bloques de contenido, 19 encabezados, 79 párrafos, 6 elementos de lista, 0 tablas y 0 figuras. Se identifican correctamente Nivel 1 y Módulo 1; los cursos en `public` permanecen `draft`, con Nivel 1: 3 módulos de demostración/16 lecciones; Niveles 2/3 vacíos.
