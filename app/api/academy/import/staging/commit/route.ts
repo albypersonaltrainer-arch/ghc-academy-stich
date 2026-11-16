@@ -4,7 +4,7 @@ import { previewAcademicFile } from '../../../../../../lib/academy/import-previe
 import { buildAcademicDraft } from '../../../../../../lib/academy/draft-plan'
 import { resolveCurriculumModule } from '../../../../../../lib/academy/curriculum-map'
 import {
-  BUCKET, SECURITY_HEADERS, exactSourcePath, parseSourceMeta,
+  BUCKET, SECURITY_HEADERS, exactSourcePath, parseSourceMeta, savePrivateBatch,
   stageAuthorization, stageError
 } from '../../../../../../lib/academy/staging-server'
 
@@ -92,8 +92,8 @@ export async function POST(request: NextRequest) {
       }))
     }
 
-    const { data: saved, error: rpcError } = await gate.identity.service.rpc(
-      'ghc_academic_stage_save', { p_payload: payload }
+    const { data: saved, error: rpcError } = await savePrivateBatch(
+      gate.identity.service, payload
     )
     if (rpcError || !saved?.id) {
       const code = rpcError?.code === '23505' ? 'SOURCE_ALREADY_STAGED' : 'STAGING_DATABASE_REJECTED'
