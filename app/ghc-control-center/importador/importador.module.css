@@ -81,3 +81,6 @@
 .demoLink{display:inline-flex;align-items:center;gap:9px;width:fit-content;color:#bdf6c6;border:1px solid #488457;text-decoration:none;padding:11px 15px;border-radius:9px;font-size:12px;font-weight:800;background:#17331f;margin-top:9px}
 .demoLink:hover{background:#244c2e;color:#fff}
 .demoLink:focus-visible{outline:2px solid #8af49c;outline-offset:3px}
+
+.referenceConfirmed{padding:11px 14px;border:1px solid #427d51;border-radius:9px;background:#13281a;color:#d3f6d7!important;font-size:12px;line-height:1.55;margin:0!important}
+.referenceWarning{padding:11px 14px;border:1px solid #947445;border-radius:9px;background:#292219;color:#f8e2b9!important;font-size:12px;line-height:1.55;margin:0!important}
