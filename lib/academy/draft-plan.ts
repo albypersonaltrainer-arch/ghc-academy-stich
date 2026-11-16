@@ -67,7 +67,7 @@ function classify(title: string, isPreamble: boolean): {
   if (/(respuestas?\s+(orientativas?|correctas?)|solucionario|clave de respuestas|answer key)/i.test(t)) {
     return { kind: 'private_answer_key', visibility: 'staff_only', reason: 'Puede contener soluciones. No debe mostrarse al alumnado ni incorporarse a una lección pública.' }
   }
-  if (/(evaluaci[oó]n|examen|r[uú]brica|calificaci[oó]n)/i.test(t)) {
+  if (/^(?:evaluaci[oó]n\s+(?:te[oó]rica|final|pr[aá]ctica|del\s+(?:m[oó]dulo|curso))|ex[aá]menes?\b|examen\b|r[uú]brica\b|criterios?\s+de\s+calificaci[oó]n|cuestionario\s+(?:final|evaluador))/i.test(t)) {
     return { kind: 'assessment', visibility: 'staff_only', reason: 'Fuente para diseñar y revisar un examen; no crea ni publica preguntas automáticamente.' }
   }
   if (/(guion.*(?:v[ií]deo|documental)|v[ií]deo.*resumen|storyboard)/i.test(t)) {
