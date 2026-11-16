@@ -56,7 +56,7 @@ export default function AcademicImporterPage() {
       try {
         const { data: identity, error: idError } = await supabase.auth.getUser()
         if (idError || !identity?.user) {
-          router.replace('/acceso?next=%2Fghc-control-center%2Fmfa')
+          router.replace('/acceso?next=%2Fghc-control-center%2Fimportador')
           return
         }
         const { data: allowed, error: rpcError } = await supabase.rpc('ghc_is_admin')
@@ -96,7 +96,7 @@ export default function AcademicImporterPage() {
       const { data } = await supabase.auth.getSession()
       const token = data?.session?.access_token
       if (!token) {
-        router.replace('/acceso?next=%2Fghc-control-center%2Fmfa')
+        router.replace('/acceso?next=%2Fghc-control-center%2Fimportador')
         return
       }
       const payload = new FormData()
