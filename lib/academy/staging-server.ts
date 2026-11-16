@@ -12,9 +12,15 @@ export const SECURITY_HEADERS = {
   'X-Robots-Tag': 'noindex, nofollow, noarchive',
 }
 
+function createPrivilegedClient(url: string, key: string) {
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  })
+}
+
 export type StageIdentity = {
   userId: string
-  service: ReturnType<typeof createClient>
+  service: ReturnType<typeof createPrivilegedClient>
 }
 
 export function stageError(code: string, status: number) {
@@ -87,9 +93,7 @@ export async function stageAuthorization(request: NextRequest, changing: boolean
     }
     // Construct the privileged client only AFTER verifying identity, admin role
     // and the verified AAL2 claim through the database function.
-    const service = createClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false }
-    })
+    const service = createPrivilegedClient(url, serviceKey)
     return { ok: true, identity: { userId: user.user.id, service } }
   } catch {
     return { ok: false, response: stageError('AUTH_VALIDATION_FAILED', 403) }
