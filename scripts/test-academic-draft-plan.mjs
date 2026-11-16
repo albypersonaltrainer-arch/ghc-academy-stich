@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { deflateRawSync } from 'node:zlib'
 import { previewAcademicFile } from '../lib/academy/import-preview.ts'
 import { buildAcademicDraft } from '../lib/academy/draft-plan.ts'
+import { academicReviewPackage } from '../lib/academy/review-export.ts'
 
 function zipDocument(entries) {
   const locals = []
@@ -87,4 +88,30 @@ assert.equal(draft.sections.find(s => s.kind === 'lesson_candidate')?.mediaIds[0
 assert.equal(draft.sections.find(s => s.kind === 'private_answer_key')?.visibility, 'staff_only')
 assert.equal(draft.status, 'unapproved_local_preview')
 assert.ok(draft.warnings.some(w => w.includes('AVISO DE IDENTIDAD')))
+
+const privateSection = draft.sections.find(s => s.kind === 'private_answer_key')
+assert.ok(privateSection)
+const exported = academicReviewPackage(preview, {
+  [privateSection.id]: {
+    title: 'Intento de revelar las soluciones',
+    kind: 'lesson_candidate',
+    reviewed: true,
+    note: 'Debe permanecer reservado'
+  }
+}, '2026-11-16T12:00:00.000Z')
+assert.equal(exported.schemaVersion, 'GHC_EDITORIAL_REVIEW_V1')
+assert.equal(exported.source.sourceSha256, preview.sourceSha256)
+assert.match(exported.source.sourceSha256, /^[a-f0-9]{64}$/)
+assert.equal(exported.writeToCampusAllowed, false)
+assert.equal(exported.qualityGate.humanPublicationApproval, false)
+assert.equal(exported.qualityGate.metadataTitleMismatch, true)
+assert.equal(exported.qualityGate.suitableForStructuralReview, false)
+assert.equal(exported.qualityGate.fullBlockCoverage, true)
+assert.equal(exported.originalBlocks.length, preview.blocks.length)
+assert.ok(exported.sections.every(s => s.editorial.approvalStatus === 'not_approved'))
+assert.equal(exported.sections.find(s => s.id === privateSection.id).editorial.kind, 'private_answer_key')
+assert.equal(exported.sections.find(s => s.id === privateSection.id).editorial.visibility, 'staff_only')
+assert.ok(!JSON.stringify(exported.imageManifest).includes('data:image/png;base64'))
+const invalidSource = { ...preview, sourceSha256: 'bad' }
+assert.throws(() => academicReviewPackage(invalidSource, {}), /INVALID_SOURCE_FINGERPRINT/)
 console.log('[academic-draft-test] OK: section drafts, answer-key separation, media location and stale metadata detection')
