@@ -1,7 +1,8 @@
 import { inflateRawSync, inflateSync } from 'node:zlib'
 
 export type AcademicBlock = {
-  kind: 'heading' | 'paragraph' | 'table'
+  kind: 'heading' | 'paragraph' | 'list_item' | 'table'
+  listType?: 'numbered' | 'bulleted' | 'unknown'
   text: string
   level?: number
   cells?: string[][]
@@ -11,7 +12,7 @@ export type AcademicPreview = {
   fileName: string
   format: 'DOCX' | 'PDF'
   blocks: AcademicBlock[]
-  stats: { headings: number; paragraphs: number; tables: number; characters: number; pages?: number }
+  stats: { headings: number; paragraphs: number; lists: number; tables: number; characters: number; pages?: number }
   warnings: string[]
   truncated: boolean
 }
@@ -42,8 +43,13 @@ function wordText(xml: string) {
   return result.trim()
 }
 
+function paragraphStyle(xml: string) {
+  const pPr = /<w:pPr(?:\s[^>]*)?>[\s\S]*?<\/w:pPr>/.exec(xml)?.[0] || ''
+  return /<w:pStyle\b[^>]*\bw:val=["']([^"']+)["'][^>]*\/?>/i.exec(pPr)?.[1] || ''
+}
+
 function headingLevel(xml: string) {
-  const style = /<w:pStyle\b[^>]*\bw:val=["']([^"']+)["'][^>]*\/?>/i.exec(xml)?.[1] || ''
+  const style = paragraphStyle(xml)
   const heading = /^(?:heading|titulo|título|berschrift|überschrift)\s*([1-6])$/i.exec(style)
   if (heading) return Number(heading[1])
   if (/^title$/i.test(style)) return 1
@@ -108,11 +114,18 @@ function parseDocx(data: Buffer) {
     if (blocks.length >= MAX_BLOCKS || textChars >= MAX_TEXT_CHARS) { truncated = true; break }
     const source = match[0]
     if (match[1] === 'p') {
-      let text = wordText(source)
+      const text = wordText(source)
       if (!text) continue
-      if (/<w:numPr\b/.test(source)) text = '• ' + text
       const level = headingLevel(source)
-      blocks.push(level ? { kind: 'heading', text, level } : { kind: 'paragraph', text })
+      const style = paragraphStyle(source)
+      const listType = /^(?:ListNumber|ListNum|Numbered|NumList)/i.test(style)
+        ? 'numbered'
+        : /^(?:ListBullet|Bullet|Bulleted)/i.test(style)
+          ? 'bulleted'
+          : /<w:numPr\b/.test(source) ? 'unknown' : null
+      if (level) blocks.push({ kind: 'heading', text, level })
+      else if (listType) blocks.push({ kind: 'list_item', text, listType })
+      else blocks.push({ kind: 'paragraph', text })
       textChars += text.length
     } else {
       const cells: string[][] = []
@@ -123,7 +136,11 @@ function parseDocx(data: Buffer) {
         const cellRe = /<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g
         let cell: RegExpExecArray | null
         while ((cell = cellRe.exec(row[0])) !== null && columns.length < 30) {
-          columns.push(wordText(cell[0]))
+          // Preserve boundaries between paragraphs in the same table cell.
+          const paras = cell[0].match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []
+          columns.push(paras.length
+            ? paras.map(wordText).filter(Boolean).join('\n')
+            : wordText(cell[0]))
         }
         if (columns.length) cells.push(columns)
       }
@@ -136,7 +153,7 @@ function parseDocx(data: Buffer) {
   if (!blocks.length) throw new Error('DOCX_SIN_TEXTO')
   const warnings = [
     'Vista previa documental: no se han importado imágenes, fórmulas, gráficos, notas al pie ni archivos adjuntos.',
-    'Comprueba manualmente encabezados, listas y tablas con el Word original antes de aprobar su estructura.'
+    'Comprueba manualmente los niveles de encabezado, la numeración de listas y el formato de tablas con el Word original.'
   ]
   if (/<w:drawing\b|<w:pict\b/.test(xml)) warnings.unshift('Este Word contiene elementos gráficos que todavía no se incluyen en la vista previa.')
   return { blocks, warnings, truncated }
@@ -224,6 +241,7 @@ export function previewAcademicFile(filename: string, bytes: Uint8Array): Academ
     stats: {
       headings: result.blocks.filter(b => b.kind === 'heading').length,
       paragraphs: result.blocks.filter(b => b.kind === 'paragraph').length,
+      lists: result.blocks.filter(b => b.kind === 'list_item').length,
       tables: result.blocks.filter(b => b.kind === 'table').length,
       characters: totalChars,
       ...('pages' in result && typeof result.pages === 'number' ? { pages: result.pages } : {})
