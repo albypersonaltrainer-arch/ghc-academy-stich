@@ -156,6 +156,18 @@ function imageMime(path: string): string | null {
     : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : null
 }
 
+function matchesImageHeader(bytes: Buffer, mime: string): boolean {
+  if (mime === 'image/png') {
+    return bytes.length > 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  }
+  if (mime === 'image/jpeg') {
+    return bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9
+  }
+  if (mime === 'image/webp') return bytes.length > 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP'
+  if (mime === 'image/gif') return bytes.length > 6 && (bytes.toString('ascii', 0, 6) === 'GIF87a' || bytes.toString('ascii', 0, 6) === 'GIF89a')
+  return false
+}
+
 function parseDocx(data: Buffer) {
   const parts = listZipParts(data)
   const doc = readZipPart(data, parts.get('word/document.xml'), MAX_XML_BYTES)
@@ -254,6 +266,10 @@ function parseDocx(data: Buffer) {
       if (!media) {
         const raw = readZipPart(data, item, 8 * 1024 * 1024)
         if (!raw) continue
+        if (!matchesImageHeader(raw, mimeType)) {
+          warnings.push('Se omitió una imagen con formato inconsistente: ' + path.split('/').pop())
+          continue
+        }
         media = {
           id: relId,
           path,
