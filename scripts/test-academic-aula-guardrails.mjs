@@ -79,6 +79,8 @@ const noIntro = buildAulaUnits([{
 }])
 assert.equal(noIntro.length, 1)
 assert.equal(noIntro[0].id, parent + ':h2:1')
-assert.equal(noIntro[0].blocks[0].text, '1. Primer concepto')
+assert.equal(noIntro[0].blocks[0].text, 'Teoría')
+assert.equal(noIntro[0].blocks[1].text, '1. Primer concepto')
+assert.equal(noIntro[0].blocks.length, 3)
 
-console.log('[academic-aula-test] OK: MFA admin gate, staff-only exclusion, demonstration quiz, ephemeral progress and Preview isolation')
+console.log('[academic-aula-test] OK: lossless H2 split, MFA admin gate, staff-only exclusion, saved demo progress and Preview isolation')
