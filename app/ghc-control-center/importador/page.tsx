@@ -373,6 +373,10 @@ export default function AcademicImporterPage() {
                 onClick={() => void reviewSavedDraft(batch.id)}>
                 Abrir original y revisar
               </button>
+              <a href={'/ghc-control-center/aula-modelo?id=' + encodeURIComponent(batch.id)}
+                className={styles.demoLink}>
+                Ver aula interactiva de demostración
+              </a>
             </article>)}
           </div>}
       </section>
