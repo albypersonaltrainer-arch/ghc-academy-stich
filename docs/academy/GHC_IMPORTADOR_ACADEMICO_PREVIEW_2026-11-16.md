@@ -45,6 +45,28 @@ Se localizaron dos Word definitivos existentes en la biblioteca del usuario. Se 
 - **Los 34 gráficos/imágenes del Módulo 20 NO se extraen** en esta fase: antes de publicar contenido deberá añadirse un pipeline de recursos con asociación a la lección, accesibilidad y validación. La interfaz advierte que la extracción es incompleta.
 - El objetivo de la versión es fidelidad de extracción **textual y semántica inicial**, no importación de medios ni producción.
 
+## Fase 2 — propuesta de lecciones e inventario de imágenes (16-11-2026)
+
+### Trabajo implementado en la misma rama aislada
+- `lib/academy/draft-plan.ts` crea una **propuesta no aprobada** por encabezados de nivel 1 y conserva referencias a los bloques originales; no se hacen escrituras en la academia.
+- Clasificaciones editoriales iniciales: **lección candidata**, **orientación**, **práctica**, **evaluación**, **solucionario reservado**, **guion de vídeo**, **glosario**, **referencias** y **revisión manual**.
+- Las secciones `Respuestas orientativas` quedan marcadas `private_answer_key / staff_only` y no se ofrecen como lecciones publicables.
+- La interfaz `/ghc-control-center/importador` muestra propuesta de secciones, bloques y una copia JSON de la propuesta. Ese JSON es para revisión; no contiene miniaturas ni supone autorización de publicación.
+- Se inspeccionan `word/_rels/document.xml.rels` y los `a:blip` realmente situados en `word/document.xml` para asociar imágenes a la posición y a la sección. La huella SHA-256 identifica cada archivo y se detecta la ausencia de descripción accesible.
+- Se valida la cabecera binaria del recurso antes de mostrar una miniatura. Solo se admiten PNG, JPG, WebP y GIF originales; no se generan ni editan imágenes. Hay un límite de tamaño por miniatura y de datos embebidos en la respuesta.
+- Se distingue entre todos los archivos de `word/media` y las imágenes efectivamente vinculadas al cuerpo: **Módulo 20: 34 archivos internos, 6 figuras colocadas**. Los demás se mantienen como pendientes de asociación: no se descartan ni se publican.
+- Se contrasta la identidad del módulo en la portada con el título de `docProps/core.xml`. En el Word definitivo del **Módulo 20**, la portada indica **20** mientras los metadatos internos siguen indicando **19**. Se muestra aviso destacado y el título del módulo queda pendiente de revisión, en vez de utilizar el título antiguo.
+- El clasificador diferencia **evaluaciones docentes** de secciones pedagógicas sobre evaluación (por ejemplo, «Evaluación mínima útil» es lección candidata, no examen).
+- Contenido original y archivos gráficos no se han añadido al repositorio: las pruebas reales se analizaron en un entorno de lectura aparte.
+
+### Validación automática
+- El build de la rama ejecuta `scripts/test-academic-import-preview.mjs` (DOCX y PDF sintéticos) y `scripts/test-academic-draft-plan.mjs`.
+- La segunda prueba verifica secciones candidatas, claves reservadas a docentes, vinculación de imagen por relación interna y rechazo del título obsoleto.
+- La validación de comportamiento con sesión de administrador y carga del Word real desde el navegador sigue pendiente de revisión interactiva del titular. Un build `READY` no demuestra ese recorrido completo.
+
+### Regla de publicación
+**No existe en esta fase ninguna acción que genere, inserte, edite o publique cursos, lecciones, preguntas o imágenes en Supabase.** La próxima fase requerirá diseño de staging persistente, revisión de los documentos originales con recursos y una autorización explícita sobre cada operación concreta.
+
 ## Limitaciones antes de la importación académica real
 1. Necesitamos el Word maestro definitivo de un módulo para comparar texto extraído, estructura, tablas y referencias con el original. No convertir sin cotejo. No hay prueba todavía con los Word premium del usuario.
 2. DOCX aún no preserva imágenes, ecuaciones, estilos inline, notas al pie, tablas anidadas complejas ni archivos adjuntos. PDF no garantiza orden o precisión cuando existen fuentes codificadas, escaneos o columnas.
