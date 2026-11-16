@@ -1,0 +1,80 @@
+.page{min-height:100vh;color:#eef2ee;background:radial-gradient(ellipse 58% 24% at 68% 0%,rgba(34,214,91,.07),transparent),linear-gradient(180deg,#080b0a,#050706);font-family:Arial,Helvetica,sans-serif}
+.page *{box-sizing:border-box}
+.page button{font-family:inherit;cursor:pointer}
+.page button:disabled{opacity:.45;cursor:not-allowed}
+.page button:focus-visible,.page a:focus-visible,.page input:focus-visible{outline:2px solid #68e98e;outline-offset:3px}
+.loading{min-height:100vh;background:#080b0a;color:#e9efe9;display:flex;flex-direction:column;gap:15px;align-items:center;justify-content:center;text-align:center;padding:24px}
+.loading p{color:#aab7ae}.loading a{color:#71f694}
+.topbar{height:82px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(10,14,12,.88);backdrop-filter:blur(20px);padding:0 clamp(20px,4vw,78px);display:flex;align-items:center;justify-content:space-between;gap:18px}
+.brand{display:flex;align-items:center;min-width:0}.topRight{display:flex;align-items:center;gap:18px}
+.topMeta{color:#809087;font-weight:800;font-size:10px;letter-spacing:.14em}
+.privateTag{font-size:10px;font-weight:800;letter-spacing:.09em;color:#98e7a2;border:1px solid rgba(34,214,91,.28);padding:9px 13px;border-radius:40px;white-space:nowrap;background:#122018}
+.back{font-size:12px;text-decoration:none;color:#edf7ee;border-bottom:1px solid #49604d;padding:7px 0;white-space:nowrap}
+.breadcrumb{padding:25px clamp(20px,4vw,78px) 0;color:#9ca9a0;font-size:12px}
+.breadcrumb span{color:#5cad69;margin:0 10px}
+.hero{margin:26px clamp(20px,4vw,78px) 30px;padding:34px clamp(24px,3vw,42px);border:1px solid rgba(124,168,132,.17);border-radius:24px;display:flex;align-items:flex-end;gap:26px;justify-content:space-between;background:linear-gradient(112deg,rgba(255,255,255,.056),rgba(255,255,255,.02) 64%,rgba(34,214,91,.045));box-shadow:0 14px 50px rgba(0,0,0,.13)}
+.eyebrow{font-size:10px;letter-spacing:.2em;color:#81db8d;font-weight:900}
+.hero h1{font-weight:800;letter-spacing:-.045em;line-height:1.09;font-size:clamp(28px,3vw,47px);margin:15px 0 14px}.hero h1 span{display:block;font-size:.8em;font-weight:600;letter-spacing:-.028em;color:#c5d2c8}
+.hero p{max-width:760px;color:#9eaba1;font-size:14px;line-height:1.75;margin:0}
+.heroMetric{width:210px;flex:none;border-left:1px solid rgba(255,255,255,.13);padding-left:24px;display:flex;flex-direction:column;gap:8px}.heroMetric>span,.heroMetric small{font-size:11px;color:#a5b7a8}.heroMetric strong{font-size:37px;letter-spacing:-.035em;font-variant-numeric:tabular-nums;color:#bdf4c6}
+.progressTrack{height:6px;border-radius:12px;background:#253329;overflow:hidden}.progressTrack span{display:block;height:100%;border-radius:12px;background:#34d765;transition:width .25s ease}
+.layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:25px;margin:0 clamp(20px,4vw,78px);align-items:start}
+.sidebar{border:1px solid rgba(255,255,255,.08);border-radius:18px;background:rgba(255,255,255,.025);overflow:hidden;position:sticky;top:20px}
+.sidebarTitle{padding:23px 21px 20px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:7px}
+.sidebarTitle strong{font-size:15px}.sidebarTitle small{color:#92a997;font-size:11px}
+.navigation{padding:9px 0;display:grid;gap:3px}
+.navButton{padding:14px 17px;border:0;background:transparent;color:#b2c0b5;text-align:left;display:flex;gap:12px;align-items:flex-start;width:100%;border-left:3px solid transparent}
+.navButton:hover{background:rgba(255,255,255,.05)}
+.navButton.activeNav{background:rgba(34,214,91,.095);border-left-color:#29da63;color:#e9f7eb}
+.navNumber{font-size:11px;color:#7aca89;background:#16221a;padding:6px 6px;border-radius:6px;font-weight:800;min-width:27px;text-align:center}
+.navLabel{display:flex;flex-direction:column;gap:6px;min-width:0;line-height:1.45}
+.navLabel small{font-size:10px;text-transform:uppercase;letter-spacing:.11em;color:#84a58a}
+.navLabel strong{font-size:12px;font-weight:600}
+.sideNote{padding:17px 19px;border-top:1px solid rgba(255,255,255,.075);font-size:11px;line-height:1.6;color:#85978a}
+.main{min-width:0;display:grid;gap:19px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}
+.tabs{display:flex;align-items:center;gap:7px;padding:6px;border:1px solid rgba(255,255,255,.1);background:#101712;border-radius:13px;flex-wrap:wrap}
+.tabs button{border:0;background:transparent;color:#abb8af;padding:11px 15px;font-size:12px;font-weight:700;border-radius:9px}
+.tabs button.selectedTab{background:#203c28;color:#c1f9c6;box-shadow:inset 0 0 0 1px rgba(80,200,108,.2)}
+.focusButton{background:transparent;border:1px solid #2d4533;color:#98b69e;font-size:12px;padding:11px 14px;border-radius:10px}
+.focusMode{grid-template-columns:minmax(0,1000px);justify-content:center}.focusMode .sidebar{display:none}
+.lesson{border-radius:22px;border:1px solid rgba(255,255,255,.09);background:#111713;box-shadow:0 22px 56px rgba(0,0,0,.16);padding:clamp(23px,3vw,49px);min-width:0}
+.lessonHeader{border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:25px;margin-bottom:26px}
+.chapterMark{color:#7be58e;font-size:10px;font-weight:900;letter-spacing:.18em}
+.lessonHeader h2{font-size:clamp(25px,2.8vw,40px);line-height:1.15;letter-spacing:-.038em;margin:12px 0}
+.lessonHeader p{margin:0;color:#9ca99e;font-size:13px;line-height:1.75}
+.reading{max-width:850px}
+.prose{font-size:15px;line-height:1.94;color:#d6e0d8;margin:0 0 18px;white-space:pre-wrap;overflow-wrap:anywhere}
+.contentTitle{font-size:24px;line-height:1.28;color:#f0f7f1;letter-spacing:-.02em;margin:36px 0 18px}
+.contentSubtitle{font-size:19px;color:#d5f1d9;margin:31px 0 15px}
+.contentSmallTitle{font-size:16px;color:#c9e7cd;margin:25px 0 12px}
+.listLine{display:flex;gap:12px;color:#d6e0d8;font-size:15px;line-height:1.8;margin:8px 0 13px;padding:11px 16px;background:#151d17;border:1px solid rgba(255,255,255,.05);border-radius:9px}
+.listMarker{color:#63d37a;font-weight:bold;min-width:18px}
+.tableScroller{max-width:100%;overflow:auto;margin:20px 0}.table{border-collapse:collapse;width:100%;min-width:480px;font-size:12px}.table td{border:1px solid #385441;padding:11px;color:#e6eae6;line-height:1.55;vertical-align:top}
+.unavailableAsset{border:1px dashed #4e7356;border-radius:12px;padding:24px;font-size:12px;color:#b6c6bb;margin:22px 0}
+.videoPanel{display:flex;align-items:center;gap:16px;padding:19px;background:#101e13;border:1px solid #2d5637;border-radius:15px;margin:27px 0}
+.videoIcon{width:52px;height:52px;display:grid;place-items:center;border-radius:12px;color:#101a11;background:#81db8d;flex:none;font-size:19px}
+.videoPanel div:nth-child(2){flex:1}.videoPanel strong{font-size:14px}.videoPanel p{font-size:12px;color:#a4b9a8;line-height:1.55;margin:5px 0 0}.videoPanel>span{font-size:10px;color:#96c9a0;font-weight:800}
+.lessonBottom{border-top:1px solid rgba(255,255,255,.09);padding-top:23px;margin-top:38px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.primaryButton{border:0;background:#4fdd77;color:#06120a;font-size:13px;font-weight:800;padding:13px 21px;border-radius:10px;white-space:normal}
+.secondaryButton{border:1px solid #40604a;background:transparent;color:#c1e8c7;font-size:13px;font-weight:800;padding:12px 19px;border-radius:10px}
+.caseStatement{font-size:17px;line-height:1.8;border-left:3px solid #67dc7f;padding:18px 22px;background:#18231a;border-radius:0 13px 13px 0;margin-bottom:24px}
+.caseOptions{display:grid;gap:11px;margin:21px 0}.caseOptions button{text-align:left;background:#131c15;color:#dce8de;border:1px solid #314235;border-radius:12px;padding:16px;display:flex;gap:15px;align-items:flex-start;font-size:13px;line-height:1.6}
+.caseOptions button.caseSelected{border-color:#5cdb78;background:#1b3522}.caseOptions button span{min-width:24px;height:24px;display:grid;place-items:center;color:#b4eebd;border:1px solid #497951;border-radius:6px;font-weight:800}
+.feedback{border:1px solid #47664c;border-radius:12px;margin-top:23px;padding:18px;background:#19281c}
+.feedback strong{color:#bdedc4}.feedback p{color:#c4d3c7;font-size:13px;line-height:1.8;margin:9px 0 0}
+.quizQuestions{display:grid;gap:23px}.question{border:1px solid #2d3d31;border-radius:15px;padding:21px;background:#111b14;min-width:0}
+.question legend{padding:0 7px 9px;color:#f0f6f0;font-weight:700;font-size:15px;line-height:1.55}
+.question legend span{margin-right:14px;color:#6fe689;font-size:13px}
+.quizOption{padding:12px 14px;border:1px solid #304036;border-radius:9px;display:flex;align-items:flex-start;gap:12px;color:#cbd9ce;font-size:13px;line-height:1.55;margin:9px 0;cursor:pointer}
+.quizOption.quizChosen{border-color:#65d180;background:#1c3522}
+.quizOption input{accent-color:#55dd77;margin-top:3px}
+.answerNote{padding:14px 15px;border-radius:10px;border:1px solid #47664c;background:#1b2b1e;margin-top:15px}
+.answerNote strong{font-size:12px;color:#b8eec1}.answerNote p{font-size:12px;line-height:1.7;color:#cbddce;margin:6px 0 0}
+.quizFooter{display:flex;align-items:center;gap:20px;justify-content:space-between;flex-wrap:wrap;margin-top:29px}
+.quizFooter p{margin:0;font-size:13px;color:#a9c8af}.quizFooter strong{font-size:25px;color:#b0eebc;margin-right:7px}
+.footer{padding:42px clamp(20px,4vw,78px) 60px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;color:#768679;font-size:11px}
+.footer span{font-weight:700}.footer p{max-width:480px;text-align:center;line-height:1.6;margin:0}
+@media(max-width:1120px){.layout{grid-template-columns:220px minmax(0,1fr);gap:16px}.topMeta{display:none}.heroMetric{width:190px}.navButton{padding:12px}.lesson{padding:26px}}
+@media(max-width:830px){.topbar{height:auto;min-height:72px;padding:14px 18px}.topRight{gap:10px}.privateTag{display:none}.breadcrumb{padding:20px 18px 0}.hero{margin:20px 18px;padding:23px;align-items:stretch;flex-direction:column}.heroMetric{border-left:0;border-top:1px solid #29402d;padding:15px 0 0;width:100%}.layout{margin:0 18px;display:flex;flex-direction:column}.sidebar{width:100%;position:static}.navigation{grid-template-columns:repeat(2,minmax(0,1fr))}.sidebarTitle{padding:15px}.navButton{padding:12px}.main{width:100%}.lesson{padding:24px}.toolbar{gap:10px}.tabs{width:100%}.tabs button{flex:1}.focusMode .sidebar{display:none}}
+@media(max-width:510px){.navigation{grid-template-columns:1fr}.hero h1{font-size:27px}.lessonHeader h2{font-size:25px}.tabs{display:grid;grid-template-columns:1fr}.tabs button{text-align:left}.topbar .back{font-size:10px}.caseOptions button{padding:12px}.videoPanel{align-items:flex-start}.videoPanel>span{display:none}.footer{padding:25px 18px 48px;display:block}.footer p{margin:12px 0;text-align:left}.lessonBottom button{flex:1}}
