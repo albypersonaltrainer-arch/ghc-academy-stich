@@ -226,7 +226,7 @@ export function previewAcademicFile(filename: string, bytes: Uint8Array): Academ
       paragraphs: result.blocks.filter(b => b.kind === 'paragraph').length,
       tables: result.blocks.filter(b => b.kind === 'table').length,
       characters: totalChars,
-      ...('pages' in result && result.pages ? { pages: result.pages } : {})
+      ...('pages' in result && typeof result.pages === 'number' ? { pages: result.pages } : {})
     },
     warnings: result.warnings,
     truncated: result.truncated || totalChars >= MAX_TEXT_CHARS
