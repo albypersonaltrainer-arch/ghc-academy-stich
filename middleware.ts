@@ -149,6 +149,7 @@ export function middleware(request: NextRequest) {
       pathname === '/api/academy/import/staging/review' ||
       pathname === '/api/academy/import/staging/health' ||
       pathname === '/api/academy/import/staging/aula' ||
+      pathname === '/api/academy/import/staging/progress' ||
       pathname === '/logo-limpio.svg';
 
     if (!allowed) return notFound();
@@ -156,6 +157,10 @@ export function middleware(request: NextRequest) {
          pathname === '/api/academy/import/staging/init' ||
          pathname === '/api/academy/import/staging/commit') &&
         request.method !== 'POST') return notFound();
+    if (pathname === '/api/academy/import/staging/progress' &&
+        request.method !== 'GET' && request.method !== 'POST') {
+      return notFound();
+    }
     if ((pathname === '/api/academy/import/staging/list' ||
          pathname === '/api/academy/import/staging/review' ||
          pathname === '/api/academy/import/staging/health' ||
