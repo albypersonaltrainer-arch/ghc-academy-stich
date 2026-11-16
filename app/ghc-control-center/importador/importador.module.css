@@ -59,3 +59,18 @@
 .mediaVisual{height:170px;display:flex;justify-content:center;align-items:center;border:1px solid #314332;border-radius:9px;background:#f5f6f1;overflow:hidden}
 .mediaVisual img{max-width:100%;max-height:100%;object-fit:contain}
 .mediaVisual span{color:#344537;font-size:12px;text-align:center;padding:20px}
+
+.editorGrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:end}
+.editorField{display:grid;gap:7px;min-width:0;font-size:12px;color:#a8d6af}
+.editorField span{font-weight:700}
+.editorField input,.editorField select,.editorField textarea{display:block;width:100%;min-width:0;min-height:38px;border:1px solid #40674a;background:#08120b;color:#f5f7ef;border-radius:9px;padding:9px 11px;font:inherit;font-size:13px;line-height:1.4}
+.editorField textarea{resize:vertical}
+.editorField input:focus,.editorField select:focus,.editorField textarea:focus{outline:2px solid #a5efaa;outline-offset:2px}
+.editorField input:disabled,.editorField select:disabled{opacity:.7;cursor:not-allowed}
+.sectionFooter{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.reviewCheck{display:flex;align-items:center;gap:8px;cursor:pointer;color:#d7e8d7;font-size:12px}
+.reviewCheck input{width:18px;height:18px;accent-color:#6ae176;cursor:pointer}
+.reviewCheck span{line-height:1.45}
+.sectionDraft .privateNote,.sectionPrivate .privateNote{font-size:12px;color:#f2cc85!important}
+.sectionDraft code,.panel code{overflow-wrap:anywhere;word-break:break-all}
+@media(max-width:760px){.editorGrid{grid-template-columns:1fr}.sectionTop{flex-direction:column}.sectionFooter{align-items:flex-start}}
