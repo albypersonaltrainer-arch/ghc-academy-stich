@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { previewAcademicFile } from '../../../../../../lib/academy/import-preview'
 import { buildAcademicDraft } from '../../../../../../lib/academy/draft-plan'
 import { resolveCurriculumModule } from '../../../../../../lib/academy/curriculum-map'
+import { classifySourceReplay } from '../../../../../../lib/academy/staging-replay'
 import {
   BUCKET, SECURITY_HEADERS, exactSourcePath, parseSourceMeta, savePrivateBatch, findPrivateSource,
   stageAuthorization, stageError
@@ -28,14 +29,9 @@ export async function POST(request: NextRequest) {
     const { data: existing, error: existingError } =
       await findPrivateSource(gate.identity.service, meta.id)
     if (existingError) return stageError('STAGING_DATABASE_UNAVAILABLE', 503)
-    if (existing) {
-      if (existing.source_sha256 !== meta.sha256
-          || existing.original_file_bytes !== meta.size
-          || existing.original_file_name !== meta.name
-          || existing.source_format !== meta.format
-          || existing.source_storage_path !== path) {
-        return stageError('BATCH_ID_CONFLICT', 409)
-      }
+    const replay = classifySourceReplay(meta, existing, path)
+    if (replay === 'conflict') return stageError('BATCH_ID_CONFLICT', 409)
+    if (replay === 'same_source' && existing) {
       return NextResponse.json({
         ok: true,
         result: { id: existing.id, status: existing.status },
