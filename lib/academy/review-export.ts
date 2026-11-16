@@ -1,5 +1,5 @@
 import type { AcademicPreview } from './import-preview'
-import { buildAcademicDraft } from './draft-plan'
+import { buildAcademicDraft } from './draft-plan.ts'
 import type { AcademicDraftSection, DraftKind } from './draft-plan'
 
 export type EditorialDecision = {
