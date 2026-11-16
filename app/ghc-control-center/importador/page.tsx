@@ -4,17 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../components/GHCLogo'
+import type { AcademicPreview } from '../../../lib/academy/import-preview'
+import AcademicDraftReview from './DraftReview'
 import styles from './importador.module.css'
 
-type Block = { kind: 'heading' | 'paragraph' | 'list_item' | 'table'; text: string; level?: number; listType?: 'numbered' | 'bulleted' | 'unknown'; cells?: string[][] }
-type Preview = {
-  fileName: string
-  format: 'DOCX' | 'PDF'
-  blocks: Block[]
-  stats: { headings: number; paragraphs: number; lists: number; tables: number; characters: number; pages?: number }
-  warnings: string[]
-  truncated: boolean
-}
+type Block = AcademicPreview['blocks'][number]
+type Preview = AcademicPreview
 type State = 'checking' | 'allowed' | 'denied'
 
 const supabase = createClient(
@@ -38,7 +33,7 @@ const STATUS_MESSAGES: Record<string, string> = {
 function blockTitle(block: Block, index: number) {
   return block.kind === 'heading' ? 'Encabezado · nivel ' + (block.level || 1)
     : block.kind === 'list_item' ? (block.listType === 'numbered' ? 'Lista numerada' : block.listType === 'bulleted' ? 'Lista con viñetas' : 'Elemento de lista')
-    : block.kind === 'table' ? 'Tabla' : 'Párrafo ' + (index + 1)
+    : block.kind === 'image' ? 'Imagen original' : block.kind === 'table' ? 'Tabla' : 'Párrafo ' + (index + 1)
 }
 
 export default function AcademicImporterPage() {
@@ -196,9 +191,10 @@ export default function AcademicImporterPage() {
             </div>
           </section>
 
+          <AcademicDraftReview preview={preview} />
           <section className={styles.panel}>
             <div className={styles.sectionHead}>
-              <div><h2>3. Vista previa del contenido</h2><p>Bloques detectados: {preview.blocks.length}. Sin interpretar ni reescribir el texto.</p></div>
+              <div><h2>5. Vista previa del contenido</h2><p>Bloques detectados: {preview.blocks.length}. Sin interpretar ni reescribir el texto.</p></div>
               <button type="button" className={styles.secondary} onClick={copyReview}>{copied ? 'Copiado' : 'Copiar JSON de revisión'}</button>
             </div>
             <div className={styles.blocks}>
@@ -206,6 +202,7 @@ export default function AcademicImporterPage() {
                 <article className={styles.block} key={idx}>
                   <span className={styles.blockMeta}>{blockTitle(block, idx)}</span>
                   {block.kind === 'heading' ? <h3>{block.text}</h3> :
+                    block.kind === 'image' ? <p>Imagen del Word · {block.mediaId} · {block.text}</p> :
                     block.kind === 'table' && block.cells ?
                       <div className={styles.tableScroll}><table><tbody>{block.cells.map((row, ri) => (
                         <tr key={ri}>{row.map((cell, ci) => <td key={ci}>{cell}</td>)}</tr>
