@@ -4,6 +4,7 @@ import { previewAcademicFile } from '../../../../../../lib/academy/import-previe
 import { buildAcademicDraft } from '../../../../../../lib/academy/draft-plan'
 import { resolveCurriculumModule } from '../../../../../../lib/academy/curriculum-map'
 import { classifySourceReplay } from '../../../../../../lib/academy/staging-replay'
+import { checkReconstructedModuleOne } from '../../../../../../lib/academy/reconstruction-reference'
 import {
   BUCKET, SECURITY_HEADERS, exactSourcePath, parseSourceMeta, savePrivateBatch, findPrivateSource,
   stageAuthorization, stageError
@@ -59,6 +60,12 @@ export async function POST(request: NextRequest) {
     if (preview.sourceSha256 !== digest) return stageError('SOURCE_HASH_MISMATCH', 422)
     const draft = buildAcademicDraft(preview)
     if (!draft.sections.length) return stageError('NO_SECTIONS_DETECTED', 422)
+    // An exact match to the reconstructed Word fingerprint must also pass
+    // structural quality checks. Never silently lose tables or expose keys.
+    const reconstruction = checkReconstructedModuleOne(preview, draft)
+    if (reconstruction.matchesReference && !reconstruction.complete) {
+      return stageError('RECONSTRUCTION_INTEGRITY_FAILED', 422)
+    }
     const target = resolveCurriculumModule(draft.moduleNumber)
 
     const payload = {
@@ -76,9 +83,14 @@ export async function POST(request: NextRequest) {
         ...preview.stats,
         sourceSha256: digest,
         totalMediaInSource: preview.mediaFilesInPackage,
-        previewTruncated: preview.truncated
+        previewTruncated: preview.truncated,
+        reconstructionReferenceMatched: reconstruction.matchesReference,
+        reconstructionIntegrityPassed: reconstruction.matchesReference && reconstruction.complete,
+        reconstructionObserved: reconstruction.matchesReference ? reconstruction.observed : null
       },
-      warnings: draft.warnings,
+      warnings: reconstruction.matchesReference
+        ? [...draft.warnings, 'Word reconstruido identificado por SHA-256 y estructura. La identidad técnica no constituye aprobación académica o autorización de publicación.']
+        : draft.warnings,
       level_number: draft.levelNumber,
       module_number: draft.moduleNumber,
       course_slug: target && draft.levelNumber === target.level
@@ -123,7 +135,9 @@ export async function POST(request: NextRequest) {
       status: saved.status,
       moduleNumber: draft.moduleNumber,
       levelNumber: draft.levelNumber,
-      publicationAllowed: false
+      publicationAllowed: false,
+      reconstructionReferenceMatched: reconstruction.matchesReference,
+      reconstructionIntegrityPassed: reconstruction.matchesReference && reconstruction.complete
     }, { headers: SECURITY_HEADERS })
   } catch {
     return stageError('STAGING_FINALIZATION_FAILED', 422)
