@@ -203,7 +203,7 @@ export default function AcademicAulaModel() {
           <div className={styles.toolbar}>
             <div className={styles.tabs} role="group" aria-label="Tipo de actividad">
               <button type="button" className={tab === 'learn' ? styles.selectedTab : ''}
-                onClick={() => setTab('learn')} aria-pressed={tab === 'learn}>Estudiar</button>
+                onClick={() => setTab('learn')} aria-pressed={tab === 'learn'}>Estudiar</button>
               <button type="button" className={tab === 'case' ? styles.selectedTab : ''}
                 onClick={() => setTab('case')} aria-pressed={tab === 'case'}>Caso práctico</button>
               <button type="button" className={tab === 'quiz' ? styles.selectedTab : ''}
