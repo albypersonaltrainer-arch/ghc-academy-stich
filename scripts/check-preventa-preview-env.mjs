@@ -54,6 +54,10 @@ const automationBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? ''
       stdio: 'inherit',
       env: { ...process.env, NODE_NO_WARNINGS: '1' }
     });
+    execFileSync(process.execPath, ['--experimental-strip-types', 'scripts/test-academic-reconstruction-reference.mjs'], {
+      stdio: 'inherit',
+      env: { ...process.env, NODE_NO_WARNINGS: '1' }
+    });
     process.exit(0);
   }
 
