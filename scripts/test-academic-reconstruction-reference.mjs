@@ -49,7 +49,7 @@ assert.ok(checkReconstructedModuleOne(
 ).errors.includes('ENCABEZADOS_2_INCOMPLETOS'))
 assert.ok(checkReconstructedModuleOne(
   preview,{...draft,sections:sections.map(s=>s.kind==='private_answer_key'?{...s,visibility:'student_candidate'}:s)}
-).errors.includes('MATERIALES_DOCENTES_SIN_SEPARAR')===false)
+).errors.includes('MATERIALES_DOCENTES_SIN_RESERVA'))
 // A robust regression requires the answer-key category itself, not just a
 // count of staff-only generic sections.
 assert.ok(checkReconstructedModuleOne(
