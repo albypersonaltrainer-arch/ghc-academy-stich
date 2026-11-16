@@ -71,6 +71,11 @@ export default function AcademicImporterPage() {
     sections: number; media: number; created_at: string
   }>>([])
   const [inventoryState, setInventoryState] = useState<'loading' | 'loaded' | 'error'>('loading')
+  const [stagingHealth, setStagingHealth] = useState<{
+    registered_batches: number; stored_objects: number;
+    unregistered_sources: number; unregistered_older_than_two_hours: number;
+    registered_missing_source: number
+  } | null>(null)
 
   useEffect(() => {
     let live = true
@@ -125,8 +130,21 @@ export default function AcademicImporterPage() {
       }
       setBatches(data.batches)
       setInventoryState('loaded')
+      // A failed health check must not hide an otherwise valid inventory.
+      try {
+        const healthResponse = await fetch('/api/academy/import/staging/health', {
+          method: 'GET',
+          headers: { Authorization: 'Bearer ' + token },
+          cache: 'no-store'
+        })
+        const report = await healthResponse.json().catch(() => ({}))
+        setStagingHealth(healthResponse.ok && report.ok ? report.health : null)
+      } catch {
+        setStagingHealth(null)
+      }
     } catch {
       setInventoryState('error')
+      setStagingHealth(null)
     }
   }
 
@@ -330,6 +348,17 @@ export default function AcademicImporterPage() {
             Actualizar inventario
           </button>
         </div>
+        {stagingHealth && (
+          <p role="status" className={stagingHealth.registered_missing_source ||
+            stagingHealth.unregistered_older_than_two_hours ? styles.error : styles.note}>
+            Control de integridad: {stagingHealth.registered_batches} borradores registrados,
+            {' '}{stagingHealth.stored_objects} archivos en el depósito;
+            {' '}{stagingHealth.unregistered_sources} subidas sin finalizar
+            ({stagingHealth.unregistered_older_than_two_hours} de más de dos horas),
+            {' '}{stagingHealth.registered_missing_source} originales faltantes.
+            No se eliminan archivos automáticamente.
+          </p>
+        )}
         {inventoryState === 'loading' ? <p>Consultando el área privada…</p> :
           inventoryState === 'error' ? <p role="alert">No se ha podido verificar el inventario privado.</p> :
           batches.length === 0 ? <p>No hay documentos guardados todavía.</p> :
