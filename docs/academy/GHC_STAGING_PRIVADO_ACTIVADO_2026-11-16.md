@@ -1,5 +1,18 @@
 # GHC Academy · Staging académico privado — activación 16/11/2026
 
+## Primera carga real del Módulo 1 — verificación de fidelidad (16/11/2026)
+
+**Carga del usuario confirmada** mediante comprobación SQL del registro y objeto Storage. El original `MODULO_1_NIVEL_1_COMPLETO.docx` se conservó **sin modificación** en `originals/5be17000-d662-472f-a115-e90dca626ac6/source.docx`, con 43.543 bytes, SHA-256 `6324a0da7894cb3ffad2bf37311219fc9235b565d8bce0a627ec6bf561b361f5`, 104 bloques de contenido, 19 encabezados, 79 párrafos, 6 elementos de lista, 0 tablas y 0 figuras. Se identifican correctamente Nivel 1 y Módulo 1; los cursos en `public` permanecen `draft`, con Nivel 1: 3 módulos de demostración/16 lecciones; Niveles 2/3 vacíos.
+
+**Hallazgo importante de protección docente:** la primera clasificación asignaba `lesson_candidate` tanto a `Autoevaluación` como a `Script para Video (4-5 minutos)`. El Word incluía el solucionario tras un marcador `RESPUESTAS:` dentro de `Autoevaluación`. No hubo publicación ni acceso a alumnos. Se corrigió:
+- El algoritmo `lib/academy/draft-plan.ts` reconoce `Autoevaluación` como `assessment` y `Script para Video` como `video_script`.
+- El marcador interior `RESPUESTAS:` divide automáticamente la sección en preguntas y un solucionario separado `private_answer_key` (obligatoriamente `staff_only`). Se añadió una prueba de regresión en `scripts/test-academic-draft-plan.mjs`.
+- La migración `ghc_module1_staging_protect_inline_answers_20261116` ajustó **solo metadatos de los borradores privados de este lote**, con precondiciones que verifican ID, SHA, número de bloques, títulos y rangos. Añadió evento de auditoría. No se ha modificado ninguna letra del Word original, sus 104 bloques de origen ni ninguna tabla de cursos o alumnos.
+- Auditoría posterior: **8 secciones**, exactamente **104/104** bloques cubiertos; **1 evaluación y 1 solucionario** en `staff_only`, **1 guion de vídeo** diferenciado, 1 objeto original conservado con el mismo SHA, 0 cambios de publicación. Estado `needs_correction` y revisión humana todavía pendiente.
+- **Incoherencia editorial presente en el Word original:** anuncia 12 preguntas de autoevaluación, pero solo aparecen 5 preguntas numeradas y 5 respuestas. Esta diferencia no se ha corregido automáticamente.
+
+**Discrepancia entre versiones:** la copia de reconstrucción académica del Módulo 1 que se había examinado previamente en la QA local tiene **73.729 bytes, 824 párrafos Word y 12 tablas**, y su portada comienza `GHC ACADEMY · CURSO PROFESIONAL DE ENTRENADOR PERSONAL · NIVEL 1 — FUNDAMENTOS PROFESIONALES`. El DOCX recién subido tiene 43.543 bytes, 79 párrafos extraídos y ninguna tabla. Ambos tratan el Módulo 1, pero no son el mismo documento. **No considerar automáticamente «definitivo» el archivo recién subido**; comprobar cuál es la versión aprobada por la reconstrucción académica antes de cargarla al campus. El usuario tiene acceso a la copia exacta de la reconstrucción, sin alterar el original.
+
 ## Refuerzo de fiabilidad y recuperación segura — 16/11/2026
 
 Tras revisar la confirmación de la subida, se corrigió un posible escenario de pérdida de datos: si se reenviaba la confirmación de un Word ya registrado, el antiguo bloque `finally` podía borrar su original al tratar el intento como error duplicado. **Se eliminó todo borrado automático de la ruta de confirmación.**
