@@ -95,3 +95,47 @@ export async function stageAuthorization(request: NextRequest, changing: boolean
     return { ok: false, response: stageError('AUTH_VALIDATION_FAILED', 403) }
   }
 }
+
+
+export type SavedStageResult = {
+  id: string
+  status: 'awaiting_review' | 'needs_correction'
+  sections: number
+  media: number
+  sha256: string
+}
+
+export type StageRow = {
+  id: string
+  original_file_name: string
+  original_sha256: string
+  level_number: number | null
+  module_number: number | null
+  status: string
+  created_at: string
+  sections: number
+  media: number
+}
+
+// The restricted RPCs were created after the project's generated database
+// definitions. Specify their SQL contracts locally; never broaden database
+// grants to work around missing TypeScript types.
+export async function savePrivateBatch(
+  service: StageIdentity['service'], payload: Record<string, unknown>
+): Promise<{ data: SavedStageResult | null; error: { code?: string; message: string } | null }> {
+  const typed = service as unknown as {
+    rpc(name: 'ghc_academic_stage_save', args: { p_payload: Record<string, unknown> }):
+      Promise<{ data: SavedStageResult | null; error: { code?: string; message: string } | null }>
+  }
+  return typed.rpc('ghc_academic_stage_save', { p_payload: payload })
+}
+
+export async function listPrivateBatches(
+  service: StageIdentity['service']
+): Promise<{ data: StageRow[] | null; error: { code?: string; message: string } | null }> {
+  const typed = service as unknown as {
+    rpc(name: 'ghc_academic_stage_list', args: { p_limit: number }):
+      Promise<{ data: StageRow[] | null; error: { code?: string; message: string } | null }>
+  }
+  return typed.rpc('ghc_academic_stage_list', { p_limit: 30 })
+}
