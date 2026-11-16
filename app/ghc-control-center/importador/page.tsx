@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../components/GHCLogo'
 import type { AcademicPreview } from '../../../lib/academy/import-preview'
-import { RECONSTRUCTED_M1_REFERENCE } from '../../../lib/academy/reconstruction-reference'
+import { RECONSTRUCTED_M1_REFERENCE, checkReconstructedModuleOne } from '../../../lib/academy/reconstruction-reference'
+import { buildAcademicDraft } from '../../../lib/academy/draft-plan'
 import AcademicDraftReview from './DraftReview'
 import styles from './importador.module.css'
 
@@ -110,6 +111,9 @@ export default function AcademicImporterPage() {
   }, [router])
 
   const documentSize = useMemo(() => file ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : '', [file])
+  const reconstructionAudit = useMemo(() => preview
+    ? checkReconstructedModuleOne(preview, buildAcademicDraft(preview))
+    : null, [preview])
 
   const looksLikeModuleOne = Boolean(file &&
     /m[oó]dulo[\s_-]*0?1(?!\d)/i.test(file.name))
@@ -445,6 +449,20 @@ export default function AcademicImporterPage() {
               <div><strong>{preview.stats.characters.toLocaleString('es-ES')}</strong><span>Caracteres</span></div>
             </div>
             {preview.truncated && <p className={styles.error}>La vista se ha limitado por seguridad. Este documento no debe convertirse automáticamente a lecciones.</p>}
+            {reconstructionAudit?.matchesReference && (
+              <p role="status" className={reconstructionAudit.complete
+                ? styles.referenceConfirmed : styles.error}>
+                Control de reconstrucción 2026:
+                {' '}{reconstructionAudit.observed.headings1} apartados principales,
+                {' '}{reconstructionAudit.observed.headings2} subapartados,
+                {' '}{reconstructionAudit.observed.tables} tablas,
+                {' '}{reconstructionAudit.observed.staffOnly} secciones docentes protegidas.
+                {reconstructionAudit.complete
+                  ? ' Integridad estructural conforme al Word de referencia. Sigue pendiente la revisión editorial.'
+                  : ' Se ha detectado una extracción incompleta: ' + reconstructionAudit.errors.join(', ') +
+                    '. No debe guardarse como reconstrucción válida.'}
+              </p>
+            )}
             <div className={styles.warning}>
               <strong>Control de fidelidad</strong>
               {preview.warnings.map((w, i) => <p key={i}>{w}</p>)}
