@@ -42,3 +42,15 @@
 - Riesgos pendientes:
 - Siguiente tarea exacta:
 ```
+
+
+### GHC-CONT-20261118-002 · Recuperación documental de catálogo y diagnóstico de respaldos
+- **Fecha:** 18/11/2026; hora verificable por Git commit.
+- **Alcance:** continuar verificaciones de fuentes históricas y respaldo sin modificar GHC Academy, FACTORÍA, V1, código de aplicación, base de datos ni producción.
+- **Fuentes verificadas:** `PROMPT_MAESTRO_GHC_ACADEMY_PREVENTA_2026(1).txt` (índice de 30 módulos y referencias de informes de cierre); documento privado `PROYECTO: GHC CURSOS` (42 cursos candidatos, seis áreas y ubicación histórica en `Escritorio/Alby Negocios/Cursos`); archivos de Biblioteca, Google Drive y Dropbox; organización de Supabase y documentación oficial de backups.
+- **Resultado:** índice de 30 módulos recuperado **documentalmente**, no sus 30 Word completos; catálogo de 42 candidatos recuperado, pero no se ha identificado selección aprobada de 7 cursos de apertura; los resultados de Drive/Dropbox no incluyen el pack completo; Supabase GHC confirmado en plan **Free** sin garantía de backups automáticos; backup recuperable NO acreditado.
+- **Archivos modificados:** únicamente `GHC_ACADEMY_ESTADO_MAESTRO.md` y esta bitácora, en rama `feature/ghc-importador-academico-20261116`; sin publicar material docente privado o precios en GitHub.
+- **Pruebas:** consultas de Drive/Dropbox y Library, lectura de documentos fuente, consultas de organización y proyecto Supabase. Sin generación audiovisual, importaciones, migraciones ni dumps.
+- **Aprobación de este hito por usuario:** **PENDIENTE** (progreso técnico registrado, no una nueva aprobación académica).
+- **Respaldo:** historial Git para documentación; **sin respaldo de base de datos validado** ni restauración de prueba.
+- **Siguiente tarea:** localizar Word 1–30 con SHA-256 en el equipo mediante inventario de solo lectura; verificar y ejecutar respaldo real de Supabase previo a importaciones, con aprobación expresa para operaciones externas necesarias.
