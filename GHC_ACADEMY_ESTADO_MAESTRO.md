@@ -73,6 +73,12 @@ Open Duet 0.8.4 operativo en funciones históricas probadas; Qwen/llama.cpp prob
 ## 8. Siguiente paso exacto
 **Recuperar el catálogo ya decidido de 8–10 cursos y localizar los 30 Word finales de Entrenador Personal, con ruta y SHA; después, confirmar respaldo verificable de Supabase antes de la primera importación masiva privada.** No generar material audiovisual ni alterar la V1. La secuencia posterior: convertir lecciones al aula, validar examen 80 % y desbloqueos/certificado, probar vídeo 4–6 minutos con aprobación específica.
 
+### Confrontación con relevo anterior de Biblioteca
+Existe en Biblioteca el documento histórico `GHC_ACADEMY_MATRIZ_FUENTE_ESTADO_MAESTRO_2026-11-18.md` (relevo e instrucciones; **no** una instalación). Propone cuatro nombres alternativos bajo `docs/`, pero la instrucción definitiva del usuario especifica los dos nombres exactos de raíz usados aquí. **No abrir otra matriz paralela ni duplicar bitácoras.** Para el futuro, usar estos dos archivos versionados como canon; el documento de Biblioteca es antecedente consultable. El objetivo de 8 cursos sigue pendiente de recuperación de nombres aprobados, no de creación arbitraria.
+
+### Localización física/documental verificada
+En los archivos consultables se ha localizado el Word reconstruido del **Módulo 1** y un archivo del **Módulo 20** (`GHC_ACADEMY_MODULO_20_DEFINITIVO_2026.docx`). Esto **no** acredita que los otros 28 originales estén actualmente accesibles ni cuál es su ubicación definitiva. Los informes de cierre siguen siendo la evidencia de desarrollo académico previo.
+
 ## 9. Referencias de continuidad
 - `docs/academy/GHC_STAGING_PRIVADO_ACTIVADO_2026-11-16.md`
 - Rama `feature/ghc-importador-academico-20261116`
