@@ -1,6 +1,6 @@
 # GHC ACADEMY — ESTADO MAESTRO
 **Corte de verificación:** 2026-11-18 (Europa/Madrid)  
-**Estado documental:** activo; primera versión creada en rama V2 aislada.  
+**Estado documental:** activo; auditoría de 34 Word consolidada el 18/11/2026; rama V2 aislada. **Estado más reciente: sección 11.**  
 **Fuente de verdad operativa:** este documento + `GHC_ACADEMY_BITACORA_LOGROS.md` + evidencias en GitHub, Vercel y Supabase. Ante cualquier contradicción, verificar sistema y fuentes, NO sobrescribir los hechos.
 **Seguridad de publicación:** este repositorio es PÚBLICO. No escribir textos académicos de pago, datos personales, direcciones de correo, tokens, secretos, credenciales, evaluaciones con soluciones o contenido privado del alumnado en estos archivos.
 
@@ -71,13 +71,13 @@ Open Duet 0.8.4 operativo en funciones históricas probadas; Qwen/llama.cpp prob
 - En chats nuevos, consultar primero ambos documentos y código/datos actuales. Si discrepan, priman las evidencias comprobadas; registrar discrepancia, no sobrescribir automáticamente.
 
 ## 8. Siguiente paso exacto
-**Recuperar el catálogo ya decidido de 8–10 cursos y localizar los 30 Word finales de Entrenador Personal, con ruta y SHA; después, confirmar respaldo verificable de Supabase antes de la primera importación masiva privada.** No generar material audiovisual ni alterar la V1. La secuencia posterior: convertir lecciones al aula, validar examen 80 % y desbloqueos/certificado, probar vídeo 4–6 minutos con aprobación específica.
+**Localización e integridad de 30 Word + 4 informes maestros comprobadas el 18/11/2026 (sección 11). Siguiente bloqueo operativo: verificar respaldo restaurable de Supabase/Storage antes de cualquier importación, previa autorización específica del usuario.** No generar material audiovisual ni alterar la V1. La secuencia posterior: convertir lecciones al aula, validar examen 80 % y desbloqueos/certificado, probar vídeo 4–6 minutos con aprobación específica.
 
 ### Confrontación con relevo anterior de Biblioteca
 Existe en Biblioteca el documento histórico `GHC_ACADEMY_MATRIZ_FUENTE_ESTADO_MAESTRO_2026-11-18.md` (relevo e instrucciones; **no** una instalación). Propone cuatro nombres alternativos bajo `docs/`, pero la instrucción definitiva del usuario especifica los dos nombres exactos de raíz usados aquí. **No abrir otra matriz paralela ni duplicar bitácoras.** Para el futuro, usar estos dos archivos versionados como canon; el documento de Biblioteca es antecedente consultable. El objetivo de 8 cursos sigue pendiente de recuperación de nombres aprobados, no de creación arbitraria.
 
 ### Localización física/documental verificada
-En los archivos consultables se ha localizado el Word reconstruido del **Módulo 1** y un archivo del **Módulo 20** (`GHC_ACADEMY_MODULO_20_DEFINITIVO_2026.docx`). Esto **no** acredita que los otros 28 originales estén actualmente accesibles ni cuál es su ubicación definitiva. Los informes de cierre siguen siendo la evidencia de desarrollo académico previo.
+**Estado actualizado el 18/11/2026:** inventarios de solo lectura realizados en el equipo del usuario han localizado los 30 Word definitivos y los cuatro informes de cierre; sus SHA-256 han coincidido en la auditoría posterior. Véase sección 11 para evidencias, ruta relativa y límites. Este hallazgo no implica que los archivos se hayan copiado, subido o importado en la plataforma.
 
 ## 9. Referencias de continuidad
 - `docs/academy/GHC_STAGING_PRIVADO_ACTIVADO_2026-11-16.md`
@@ -91,5 +91,66 @@ En los archivos consultables se ha localizado el Word reconstruido del **Módulo
 - **Catálogo histórico independiente recuperado** del documento privado “PROYECTO: GHC CURSOS”: aproximadamente **42 cursos candidatos**, distribuidos en seis áreas (Entrenamiento; Salud, Ejercicio y Readaptación; Nutrición; Valoración; Poblaciones Especiales; Tecnología y Datos). La carpeta histórica de organización era `Escritorio/Alby Negocios/Cursos`; su existencia actual en Windows **NO verificada**. Los 42 son candidatos, no la selección aprobada de 7 adicionales para abrir con Entrenador Personal. No publicar el catálogo ni precios internos en GitHub público.
 - **Búsqueda de ficheros:** dos Word académicos accesibles en el ámbito de Library/archivos de conversación (Módulos 1 y 20); búsquedas actuales en Drive y Dropbox no devolvieron paquete completo de Word GHC. No se ha inspeccionado el ordenador del usuario en esta tarea; el resto de originales requiere inventario local de solo lectura.
 - **Backup — hecho verificado:** proyecto Supabase GHC Academy en organización con plan **Free**, comprobado por consulta de organización; proyecto `ACTIVE_HEALTHY`. La documentación vigente de Supabase indica que las copias diarias automáticas corresponden a Pro/Team/Enterprise y recomienda `supabase db dump` + almacenamiento externo para proyectos Free; los objetos de Storage necesitan copia separada. **No hay backup restaurable acreditado ni prueba de recuperación; no importar datos en masa hasta resolverlo.** Referencia pública de proveedor: `https://supabase.com/docs/guides/platform/backups`.
-- **Siguiente acción controlada:** inspección local, sin modificar archivos, de `Escritorio/Alby Negocios/Cursos` y ubicación real de documentos Word 1–30; devolver nombres, rutas, tamaño, SHA-256 y duplicados, sin leer ni publicar contenidos privados. En paralelo, preparar procedimiento de exportación local y ensayo de restauración en entorno separado; no ejecutar sin aprobación.
+- **Acción controlada de búsqueda anterior (ya concluida el 18/11):** el inventario local encontró los 30 Word y cuatro informes, y después se auditaron por SHA-256 y OOXML (sección 11). El respaldo Supabase/Storage sigue pendiente y necesita permiso específico antes de nuevas acciones.
 
+
+## 11. Inventario completo de 34 Word y resolución de cuatro advertencias — 18/11/2026
+**Hito autorizado por el usuario:** actualizar únicamente este estado maestro y la bitácora con los resultados ya recogidos; NO constituye aprobación para importaciones, modificaciones académicas, publicación, producción ni cambios en Supabase.
+
+### Ubicación local verificada por inventario de solo lectura
+- Ruta relativa respecto del Escritorio: `Alby Negocios/Cursos/CURSO ENTRANDOR PERSONAL PITTI/` (se omite la ruta absoluta y el nombre de usuario porque el repositorio GitHub es público).
+- Subcarpetas: `NIVEL 1` (M01–M10), `NIVEL 2` (M11–M20), `NIVEL 3` (M21–M30). En la colección hay también cuatro informes maestros.
+- Se inventariaron metadatos, nombres y hashes de los documentos en Windows; **los DOCX originales continúan en el ordenador del usuario**, no se adjuntaron a GitHub ni al campus. Algunos nombres tienen sufijos de copia `(1)`; antes de importarlos deberá utilizarse exactamente el fichero cuyo SHA figura abajo.
+- **Fuentes de evidencia recibidas:** `GHC_BUSQUEDA_DEFINITIVOS_20261118_173305.zip` (189 candidatos), `GHC_AUDITORIA_34_WORD_20261118_180433.zip` (auditoría XML/huellas) y `GHC_COMENTARIOS_M11_M14_20261118_182942.zip` (comprobación de comentarios); los archivos ZIP de resultados son locales/privados, no forman parte de GitHub público.
+
+### Resultados contrastados
+- **30/30 módulos** + **4/4 informes**: cada DOCX tiene estructura OOXML legible y SHA-256 coincidente con el inventario anterior; **0 cambios de huella**, **0 fallos de lectura XML**, **0 marcas de control de cambios detectadas**. Los 30 módulos tienen hashes diferentes entre sí.
+- Las cuatro advertencias de `word/comments.xml` corresponden a M11, M12, M13 y M14. Auditoría específica: en cada uno `XML_VACIO_SIN_ANCLAS`, **0 comentarios OOXML detectables, 0 referencias/anclas y SHA-256 coincidente**. No requieren limpieza automática; permanecen los archivos XML vacíos. Los comentarios modernos de Word o accesibilidad visual no quedan cubiertos por estas pruebas.
+- Palabras aproximadas, por recuento automatizado: Nivel 1 **107.703**, Nivel 2 **96.055**, Nivel 3 **83.806**; total **287.564**. Son cifras técnicas aproximadas, no un recuento editorial Word certificado.
+- M01 auditado: **73.729 bytes**, SHA coincidente con reconstrucción previa `8dc645921abfe0fa3ef756d0e56dd9f60f84ace16a33ea42f7756e2112d0c4cf`.
+- **Límites:** NO se ha verificado científicamente el texto completo, ni paginación/maquetación visual, calidad de recursos, accesibilidad completa, compatibilidad de importación o autorización de publicación. NO hay todavía respaldo restaurable de Supabase/Storage verificado.
+
+### Manifiesto criptográfico de módulos (solo metadatos, sin contenidos privados)
+| Módulo | Nivel | SHA-256 del Word verificado |
+|---|---|---|
+| 01 | Nivel 1 | `8dc645921abfe0fa3ef756d0e56dd9f60f84ace16a33ea42f7756e2112d0c4cf` |
+| 02 | Nivel 1 | `0562258a4920dc3368154e1f02fd9ead341305f2f42d4581564454d5d8d1a0de` |
+| 03 | Nivel 1 | `5c48ba56d3c2041a53341af15dbf5b3e68a556aba20d7cd1928bbe847d9d1199` |
+| 04 | Nivel 1 | `28d30a24329885eefe9e93c8ebab76ae3a031bd6ce1091f8b673b5a19c71e6e1` |
+| 05 | Nivel 1 | `74a76d4f99d4401d6ef3431dbcba933f921b7c6a9f7c527d1933c91db9f854dc` |
+| 06 | Nivel 1 | `b412bd167d00dac20d69b73956d174234c82a1213a5ce75889c1f6dc4f351114` |
+| 07 | Nivel 1 | `7c3f8203f40bb2617a6cde4c8394dae662423ebbaf5871a1605b68e0abe36e68` |
+| 08 | Nivel 1 | `f620b02feee85fb6ab24b929e5cbc61f65db867b79286af02251ee84ba72e856` |
+| 09 | Nivel 1 | `0fe90713c95b255d615fef8e4f7d0cfd33e471a8a6fe161a0fa1e1b43cc150da` |
+| 10 | Nivel 1 | `3266fa958b3d24e7dd5e683aa4ac54ee4c2136ec956a17f97348cc7a81233fa7` |
+| 11 | Nivel 2 | `c4214719e6a992210cdf395c4b7f865f28d9e8deb018b6268c87de6191fe5224` |
+| 12 | Nivel 2 | `476752ecc3058616f89120884c15f1f103247774319167069dd8a8b803754c32` |
+| 13 | Nivel 2 | `cca4edf6b4a5e02c537948a408c96e571227b3b0bfe791da9cf6e49b0376acef` |
+| 14 | Nivel 2 | `88c015727c12e5b8cd7b8ce1a9a8e0ef3e2c27deb84fb7a14bc199a256cdecfb` |
+| 15 | Nivel 2 | `95fc497b798d3b29a87fbae5bf9ffa9c2c08c6364e8356eef865ad49d9a986e5` |
+| 16 | Nivel 2 | `8e03f9b856f3128e9cc1a6cbee73cfe8f348604ea83c885b09d068fab146755d` |
+| 17 | Nivel 2 | `ab4a5b6c410949ea1e3a15b6bb4fa2127f6ffb58725a22b26e8dcccb13217fdd` |
+| 18 | Nivel 2 | `aba8ed999fbcefa107d852524defe57c3b714e1f8d552b8f6060a0c71b7677b0` |
+| 19 | Nivel 2 | `04bc995025b4f1b362ca6f83c30dabbed7a6080c4c33e76e80017b8870d8b46c` |
+| 20 | Nivel 2 | `238ae44f7bbd6c179000e84ea8bc2370918db9229feb9a44768955b300a050c9` |
+| 21 | Nivel 3 | `1fbe8034289693378b57d68776f06de4f0c72fa7553bc72813845a1cbb7ba49c` |
+| 22 | Nivel 3 | `d285797d7f075db332db0d2cf1ac11d6012134dfbd1c44fb125b3d6ee8151884` |
+| 23 | Nivel 3 | `84cd413daa870104bdac7829291a02523d264366030ebfed6a9fdb5de96b56ba` |
+| 24 | Nivel 3 | `f085bb8a66a01176570689d1e19771e91ab056dd522e77fac2c8960d1b1203d4` |
+| 25 | Nivel 3 | `d17c8e528bf3bcb90530183b0fc46731099b38d4eef29c6498f5456aa2492c9b` |
+| 26 | Nivel 3 | `d6a4f33047c285507633895d9b528cd2c7180d0cff79ed29f02699991f427d5a` |
+| 27 | Nivel 3 | `236f441e2df716e1fd14bfb19b8af31762da4a6e0fcbb544cae1b58801bec7e1` |
+| 28 | Nivel 3 | `288c964999d3e15434b8d4058b6269d3402c10bbec15c21d9d3e460fea7c0f21` |
+| 29 | Nivel 3 | `619eb583a97ce7319de8e6feee999fe1eb9c17dd7dd1811717593d72d5369540` |
+| 30 | Nivel 3 | `27769bd89b5af710ced3da89b67ee2b7e4d13e83c651223ae8136ae58231e03e` |
+
+### Manifiesto de los informes maestros
+| Informe | SHA-256 verificado |
+|---|---|
+| Cierre global | `2dc86f4211864abebf287f54c0951ac08e18f088e6507517a4e1e4a526afaab8` |
+| Cierre Nivel 1 | `0b709d5cfff431825ce9a0ce45d902d01e78da00562e533e9a855d2f2724e2d8` |
+| Cierre Nivel 2 | `4afd3c91408d9dd1a4be0d200810b75297ae1c8f0ac3b7d460873c2031635530` |
+| Cierre Nivel 3 | `e566145f24274e42902bb0da0c15a99934869423b7f38d133d94a21f5990662d` |
+
+### Siguiente tarea pendiente (requiere permiso separado)
+**Preparar y validar el respaldo de Supabase y Storage, con restauración comprobable, antes de importar material académico.** El sistema de Git solo respalda código/documentación; no respalda base de datos ni objetos de Storage. Mantener intactos V1, producción y archivos Word hasta nueva autorización.
