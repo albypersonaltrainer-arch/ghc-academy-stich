@@ -23,6 +23,12 @@
 - **Dependencias:** verificar mecanismo de backups Supabase/Storage, catalogar Word originales y cursos previstos, validar examen y certificado con usuario de prueba.
 - **Siguiente tarea exacta:** recuperar fuentes exactas de los 30 Word, el catálogo anterior de 8–10 cursos y verificar respaldo restorable antes de migraciones o importaciones masivas.
 
+### Registro de persistencia y antecedentes recuperados
+- Documento maestro inicial creado en commit `17816bcfdda3a25301548cbaba3cf7ebe87da799`; bitácora inicial creada en `18226225de5a0c59a2820398b8fee505147837ba`.
+- Ambos fueron **releídos desde GitHub** en la rama V2 y comprobados como existentes. Git es el almacenamiento persistente del texto y conserva el versionado, pero esto **no valida** backup de datos de Supabase ni prueba la recuperación de la base.
+- Consta un documento previo de matriz/relevo en Biblioteca con nombres alternativos propuestos. La instrucción definitiva especifica los nombres exactos aquí utilizados; no crear segunda matriz paralela. Se han localizado en archivos consultables los Word de Módulos 1 y 20, no los 30 originales completos.
+- Este registro corresponde a establecimiento técnico solicitado, **aún no ratificado por el usuario como hito aprobado**.
+
 ## Plantilla para la siguiente entrada (NO sustituir logros anteriores)
 ```text
 ### GHC-AAAAMMDD-NNN · Título del logro
