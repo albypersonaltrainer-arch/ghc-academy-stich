@@ -81,3 +81,8 @@
 
 .progressError{margin-top:18px;padding:13px 15px;border-radius:10px;border:1px solid #a46b62;background:#2d201e;color:#ffe1d6;font-size:13px;line-height:1.6}
 .progressHint{font-size:12px;color:#abb6ae;margin-top:15px}
+
+/* The image bytes are read privately from the unchanged DOCX, never exported to the public site. */
+.originalFigure{max-width:850px;margin:25px 0;padding:16px;border:1px solid #294d36;background:#101a13;border-radius:14px;text-align:center}
+.originalFigure img{display:block;max-width:100%;max-height:650px;width:auto;height:auto;margin:0 auto;object-fit:contain;border-radius:7px}
+.originalFigure figcaption{font-size:11px;color:#a8c0ad;line-height:1.55;margin-top:13px}

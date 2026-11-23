@@ -27,7 +27,61 @@ function sectionLabel(section: AulaSection) {
   return 'Lección'
 }
 
-function StudyBlock({ block, index }: { block: AulaBlock, index: number }) {
+function OriginalWordFigure({ batchId, block }: { batchId: string; block: AulaBlock }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading')
+  useEffect(() => {
+    let cancelled = false
+    let blobUrl: string | null = null
+    const load = async () => {
+      if (!block.mediaId) { setStatus('unavailable'); return }
+      try {
+        const { data } = await supabase.auth.getSession()
+        const token = data.session?.access_token
+        if (!token) throw new Error('SESSION_REQUIRED')
+        const query = new URLSearchParams({ id: batchId, media: block.mediaId })
+        const response = await fetch('/api/academy/import/staging/media?' + query.toString(), {
+          headers: { Authorization: 'Bearer ' + token },
+          method: 'GET',
+          cache: 'no-store'
+        })
+        const type = response.headers.get('content-type') || ''
+        if (!response.ok || !/^image\/(png|jpeg|webp|gif)$/.test(type)) throw new Error('MEDIA_UNAVAILABLE')
+        const original = await response.blob()
+        if (original.size > 8 * 1024 * 1024) throw new Error('MEDIA_TOO_LARGE')
+        if (cancelled) return
+        blobUrl = URL.createObjectURL(original)
+        setImageUrl(blobUrl)
+        setStatus('ready')
+      } catch {
+        if (!cancelled) setStatus('unavailable')
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
+  }, [batchId, block.mediaId])
+
+  if (status !== 'ready' || !imageUrl) return (
+    <div className={styles.unavailableAsset} role="status">
+      {status === 'loading' ? 'Recuperando figura original de la biblioteca privada…'
+        : 'No se pudo mostrar esta figura. El documento original permanece guardado para revisión editorial.'}
+    </div>
+  )
+  const alt = /^(Picture\s*\d+|image\d+\.\w+|Imagen)$/i.test(block.text.trim())
+    ? 'Figura original del documento; descripción accesible pendiente de revisión'
+    : block.text
+  return (
+    <figure className={styles.originalFigure}>
+      <img src={imageUrl} alt={alt}/>
+      <figcaption>Figura del Word original · vista privada pendiente de aprobación editorial.</figcaption>
+    </figure>
+  )
+}
+
+function StudyBlock({ block, index, batchId }: { block: AulaBlock, index: number, batchId: string }) {
   if (block.kind === 'heading') {
     if (block.level === 1) return <h2 className={styles.contentTitle}>{block.text}</h2>
     if (block.level === 2) return <h3 className={styles.contentSubtitle}>{block.text}</h3>
@@ -48,9 +102,7 @@ function StudyBlock({ block, index }: { block: AulaBlock, index: number }) {
       </tbody></table>
     </div>
   )
-  if (block.kind === 'image') return (
-    <div className={styles.unavailableAsset} role="note">Figura original pendiente de comprobación editorial. No se genera ni sustituye ninguna imagen.</div>
-  )
+  if (block.kind === 'image') return <OriginalWordFigure block={block} batchId={batchId} />
   return <p className={styles.prose}>{block.text}</p>
 }
 
@@ -278,7 +330,7 @@ export default function AcademicAulaModel() {
                 <p>Unidad de lectura del Word original, dividida por sus encabezados. No se muestra ningún PDF al alumno.</p>
               </div>
               <div className={styles.reading}>
-                {section.blocks.map((block, index) => <StudyBlock key={index} block={block} index={index} />)}
+                {section.blocks.map((block, index) => <StudyBlock key={index} block={block} index={index} batchId={model.id} />)}
               </div>
               {model.video_placeholder && selected === 0 && (
                 <div className={styles.videoPanel}>

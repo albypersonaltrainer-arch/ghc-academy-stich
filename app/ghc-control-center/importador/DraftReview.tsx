@@ -267,8 +267,8 @@ export default function AcademicDraftReview({ preview }: Props) {
         </div>
         {draft.metrics.mediaUnassigned > 0 && (
           <div className={styles.warning}>
-            <strong>Archivos pendientes de asociación</strong>
-            <p>{draft.metrics.mediaUnassigned} archivos multimedia internos no tienen una posición de imagen detectada en el cuerpo. No se importarán ni eliminarán automáticamente.</p>
+            <strong>Archivos internos sin vínculo de posición en el cuerpo</strong>
+            <p>{draft.metrics.mediaUnassigned} archivos multimedia internos no aparecen vinculados a una posición del cuerpo del Word. Pueden proceder de recursos no utilizados, cabeceras u otros elementos; no se colocarán ni eliminarán automáticamente. Requieren revisión documental antes de publicar.</p>
           </div>
         )}
         {preview.media.length > 0

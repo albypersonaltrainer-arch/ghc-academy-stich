@@ -412,3 +412,33 @@ export function previewAcademicFile(filename: string, bytes: Uint8Array): Academ
     truncated: result.truncated || totalChars >= MAX_TEXT_CHARS
   }
 }
+
+// Read an actual embedded image from the immutable Word source.
+// This function performs no image generation, changes or network requests.
+// The route calling it must independently verify the batch, SHA-256,
+// admin AAL2, and a placement in an allowed classroom section.
+export function extractOriginalDocxImage(
+  bytes: Uint8Array, relationId: string
+): { bytes: Buffer; mimeType: string; sha256: string } | null {
+  if (!/^rId[0-9]{1,6}$/.test(relationId) || bytes.byteLength > 12 * 1024 * 1024) return null
+  const raw = Buffer.from(bytes)
+  const parts = listZipParts(raw)
+  const relsRaw = readZipPart(raw, parts.get('word/_rels/document.xml.rels'), 1024 * 1024)
+  if (!relsRaw) return null
+  const relationships = relsRaw.toString('utf8')
+  const tags = relationships.match(/<Relationship\b[^>]*\/>/g) || []
+  const rel = tags.find(tag =>
+    xmlAttribute(tag, 'Id') === relationId &&
+    /\/image["']/.test(tag) &&
+    !/TargetMode\s*=\s*["']External["']/.test(tag)
+  )
+  if (!rel) return null
+  const target = xmlAttribute(rel, 'Target')
+  if (!/^media\/[a-z0-9_.-]+$/i.test(target)) return null
+  const path = 'word/' + target
+  const mimeType = imageMime(path)
+  if (!mimeType) return null
+  const image = readZipPart(raw, parts.get(path), 8 * 1024 * 1024)
+  if (!image || !matchesImageHeader(image, mimeType)) return null
+  return { bytes: image, mimeType, sha256: createHash('sha256').update(image).digest('hex') }
+}
