@@ -141,6 +141,7 @@ export function middleware(request: NextRequest) {
       pathname === '/acceso' ||
       pathname === '/ghc-control-center/importador' ||
       pathname === '/ghc-control-center/aula-modelo' ||
+      pathname === '/seguimiento-v2' ||
       pathname === '/ghc-control-center/mfa' ||
       pathname === '/api/academy/import/preview' ||
       pathname === '/api/academy/import/staging/init' ||
@@ -153,6 +154,10 @@ export function middleware(request: NextRequest) {
       pathname === '/logo-limpio.svg';
 
     if (!allowed) return notFound();
+    if (pathname === '/seguimiento-v2') {
+      if (request.method !== 'GET' && request.method !== 'HEAD') return notFound();
+      return NextResponse.next({ headers: SECURITY_HEADERS });
+    }
     if ((pathname === '/api/academy/import/preview' ||
          pathname === '/api/academy/import/staging/init' ||
          pathname === '/api/academy/import/staging/commit') &&
