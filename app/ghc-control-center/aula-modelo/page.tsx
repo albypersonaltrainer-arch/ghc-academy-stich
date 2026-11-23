@@ -10,7 +10,7 @@ import { buildAulaUnits } from '../../../lib/academy/aula-units'
 import { GHC_PASS_PERCENT, scoreSingleChoice } from '../../../lib/academy/assessment-policy'
 import styles from './aula.module.css'
 
-const DEMO_BATCH = '5be17000-d662-472f-a115-e90dca626ac6'
+const DEMO_BATCH = '7de72c9d-27f1-46a0-b739-1a51950c9c28'
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -221,7 +221,7 @@ export default function AcademicAulaModel() {
         <div>
           <span className={styles.eyebrow}>PROGRAMA PROFESIONAL DE ENTRENADOR PERSONAL</span>
           <h1>Módulo {model.module ?? '—'} <span>{model.title?.trim() || 'Contenido académico en revisión'}</span></h1>
-          <p>Una demostración de cómo se estudiará dentro de GHC Academy: lectura guiada, actividades prácticas, comprobación de conocimientos y progreso.</p>
+          <p>Lectura interactiva del Word definitivo en el depósito privado, con las actividades de ejemplo separadas de las evaluaciones oficiales.</p>
         </div>
         <div className={styles.heroMetric}>
           <span>Avance de prueba guardado</span>

@@ -86,7 +86,7 @@ export function inspectCourseZipBytes(bytes: Uint8Array): CourseZipPlan {
     p = end
     const path = name.normalize('NFC')
     if (!path || path.startsWith('/') || path.includes('\\') ||
-        path.split('/').some(part => part === '..' || part === '.' || part === '') ||
+        path.replace(/\/$/, '').split('/').some(part => part === '..' || part === '.' || part === '') ||
         /[\u0000-\u001f]/.test(path)) return error('ZIP_RUTA_INSEGURA')
     const canonical = path.toLowerCase()
     if (seenPaths.has(canonical)) return error('ZIP_RUTA_DUPLICADA')

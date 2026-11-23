@@ -8,6 +8,7 @@ import type { AcademicPreview } from '../../../lib/academy/import-preview'
 import { RECONSTRUCTED_M1_REFERENCE, checkReconstructedModuleOne } from '../../../lib/academy/reconstruction-reference'
 import { buildAcademicDraft } from '../../../lib/academy/draft-plan'
 import AcademicDraftReview from './DraftReview'
+import BulkCourseZip from './BulkCourseZip'
 import styles from './importador.module.css'
 
 type Block = AcademicPreview['blocks'][number]
@@ -391,6 +392,8 @@ export default function AcademicImporterPage() {
             <strong> Reconstrucción 2026 verificada: huella, 12 tablas, encabezados y reserva docente.</strong>}
         </p>}
       </section>
+
+      <BulkCourseZip client={supabase} onCompleted={refreshInventory} />
 
       <section className={styles.panel}>
         <div className={styles.sectionHead}>
