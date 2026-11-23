@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildAulaUnits } from '../lib/academy/aula-units.ts'
+import { buildAulaUnits, groupAulaChapters } from '../lib/academy/aula-units.ts'
 
 const read = p => readFileSync(p, 'utf8')
 const middleware = read('middleware.ts')
@@ -85,4 +85,14 @@ assert.equal(noIntro[0].blocks[0].text, 'Teoría')
 assert.equal(noIntro[0].blocks[1].text, '1. Primer concepto')
 assert.equal(noIntro[0].blocks.length, 3)
 
+const grouped = groupAulaChapters(units)
+assert.equal(grouped.length, 2)
+assert.deepEqual(grouped.map(group => group.units.length), [3, 1])
+assert.deepEqual(grouped.flatMap(group => group.units.map(item => item.unit.id)), units.map(unit => unit.id))
+assert.deepEqual(grouped.flatMap(group => group.units.map(item => item.index)), [0,1,2,3])
+assert.match(page, /scrollIntoView/)
+assert.match(page, /lessonStartRef/)
+assert.match(page, /Temario por capítulos/)
+assert.match(page, /aria-expanded=\{expanded\}/)
+assert.doesNotMatch(page, /sections\.map\(\(item, i\) =>/)
 console.log('[academic-aula-test] OK: lossless H2 split, MFA admin gate, staff-only exclusion, saved demo progress and Preview isolation')

@@ -86,3 +86,15 @@
 .originalFigure{max-width:850px;margin:25px 0;padding:16px;border:1px solid #294d36;background:#101a13;border-radius:14px;text-align:center}
 .originalFigure img{display:block;max-width:100%;max-height:650px;width:auto;height:auto;margin:0 auto;object-fit:contain;border-radius:7px}
 .originalFigure figcaption{font-size:11px;color:#a8c0ad;line-height:1.55;margin-top:13px}
+
+/* Chapter/paragraph hierarchy: the PDF's H2 headings are not 116 new official lessons. */
+.chapterGroup{border-bottom:1px solid rgba(255,255,255,.06)}
+.chapterToggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;border:0;background:rgba(255,255,255,.018);color:#e0ebe2;text-align:left;padding:14px 17px}
+.chapterToggle:hover,.chapterToggle[aria-expanded="true"]{background:rgba(34,214,91,.065)}
+.chapterToggleLabel{display:flex;flex-direction:column;gap:5px;min-width:0}
+.chapterToggleLabel strong{font-size:12px;line-height:1.5;font-weight:750}
+.chapterToggleLabel small{color:#8cae93;font-size:10px}
+.chapterChevron{font-size:16px;color:#75d68b;flex:none}
+.chapterLinks{border-top:1px solid rgba(255,255,255,.045);padding:3px 0 8px}
+.chapterLinks .navButton{padding-left:24px}
+.lesson{scroll-margin-top:16px}

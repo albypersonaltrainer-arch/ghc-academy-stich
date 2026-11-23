@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../components/GHCLogo'
 import { DEMO_QUIZ } from '../../../lib/academy/aula-model-types'
 import type { AulaBlock, AulaModel, AulaSection } from '../../../lib/academy/aula-model-types'
-import { buildAulaUnits } from '../../../lib/academy/aula-units'
+import { buildAulaUnits, groupAulaChapters } from '../../../lib/academy/aula-units'
 import { GHC_PASS_PERCENT, scoreSingleChoice } from '../../../lib/academy/assessment-policy'
 import styles from './aula.module.css'
 
@@ -112,6 +112,8 @@ export default function AcademicAulaModel() {
   const [error, setError] = useState('')
   const [model, setModel] = useState<AulaModel | null>(null)
   const [selected, setSelected] = useState(0)
+  const [expandedChapters, setExpandedChapters] = useState<string[]>([])
+  const lessonStartRef = useRef<HTMLElement | null>(null)
   const [tab, setTab] = useState<Tab>('learn')
   const [focus, setFocus] = useState(false)
   const [completed, setCompleted] = useState<string[]>([])
@@ -197,7 +199,14 @@ export default function AcademicAulaModel() {
   }, [router])
 
   const sections = useMemo(() => model ? buildAulaUnits(model.sections) : [], [model])
+  const chapters = useMemo(() => groupAulaChapters(sections), [sections])
   const section = sections[selected]
+
+  useEffect(() => {
+    if (!section) return
+    setExpandedChapters(previous => previous.includes(section.parentId)
+      ? previous : [...previous, section.parentId])
+  }, [section?.parentId])
   const completedCount = sections.filter(unit => completed.includes(unit.id)).length
   const progress = sections.length ? Math.round(completedCount / sections.length * 100) : 0
   const assessment = useMemo(() => scoreSingleChoice(DEMO_QUIZ, answers), [answers])
@@ -206,7 +215,7 @@ export default function AcademicAulaModel() {
   async function markCompleted() {
     if (!section || !model || savingProgress || progressState !== 'saved') return
     if (completed.includes(section.id)) {
-      if (selected < sections.length - 1) setSelected(v => v + 1)
+      if (selected < sections.length - 1) chooseSection(selected + 1)
       return
     }
     setSavingProgress(true)
@@ -229,7 +238,7 @@ export default function AcademicAulaModel() {
         throw new Error('No se ha guardado la unidad. Vuelve a intentarlo.')
       }
       setCompleted(prev => prev.includes(section.id) ? prev : [...prev, section.id])
-      if (selected < sections.length - 1) setSelected(v => v + 1)
+      if (selected < sections.length - 1) chooseSection(selected + 1)
     } catch (cause) {
       setProgressError(cause instanceof Error ? cause.message : 'No se ha guardado el avance.')
     } finally {
@@ -238,8 +247,19 @@ export default function AcademicAulaModel() {
   }
 
   function chooseSection(index: number) {
+    if (index < 0 || index >= sections.length) return
     setSelected(index)
     setTab('learn')
+    // Scroll the content panel, not the sidebar. Also works when reselecting
+    // the same subsection after reading far down the document.
+    window.requestAnimationFrame(() => {
+      lessonStartRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+    })
+  }
+  function toggleChapter(id: string) {
+    setExpandedChapters(previous => previous.includes(id)
+      ? previous.filter(value => value !== id)
+      : [...previous, id])
   }
 
   if (screen === 'loading') return (
@@ -284,26 +304,47 @@ export default function AcademicAulaModel() {
       </section>
 
       <div className={[styles.layout, focus ? styles.focusMode : ''].join(' ')}>
-        <aside className={styles.sidebar} aria-label="Unidades de aprendizaje">
+        <aside className={styles.sidebar} aria-label="Capítulos y apartados de lectura">
           <div className={styles.sidebarTitle}>
-            <strong>Itinerario del módulo</strong>
-            <small>{completedCount} de {sections.length} unidades completadas</small>
+            <strong>Temario por capítulos</strong>
+            <small>{chapters.length} capítulos · {sections.length} unidades de lectura</small>
+            <small>{completedCount} apartados marcados como leídos</small>
           </div>
-          <nav className={styles.navigation} aria-label="Apartados">
-            {sections.map((item, i) => (
-              <button type="button" key={item.id}
-                className={[styles.navButton, selected === i && tab === 'learn' ? styles.activeNav : ''].filter(Boolean).join(' ')}
-                onClick={() => chooseSection(i)}
-                aria-current={selected === i && tab === 'learn' ? 'step' : undefined}>
-                <span className={styles.navNumber}>{completed.includes(item.id) ? '✓' : String(i + 1).padStart(2, '0')}</span>
-                <span className={styles.navLabel}>
-                  <small>{sectionLabel(item)}</small>
-                  <strong>{item.title}</strong>
-                </span>
-              </button>
-            ))}
+          <nav className={styles.navigation} aria-label="Capítulos y apartados">
+            {chapters.map(chapter => {
+              const expanded = expandedChapters.includes(chapter.id)
+              const chapterCompleted = chapter.units.filter(item => completed.includes(item.unit.id)).length
+              return (
+                <div className={styles.chapterGroup} key={chapter.id}>
+                  <button type="button"
+                    className={styles.chapterToggle}
+                    aria-expanded={expanded}
+                    onClick={() => toggleChapter(chapter.id)}>
+                    <span className={styles.chapterToggleLabel}>
+                      <strong>{chapter.title}</strong>
+                      <small>{chapterCompleted}/{chapter.units.length} apartados leídos</small>
+                    </span>
+                    <span className={styles.chapterChevron} aria-hidden="true">{expanded ? '−' : '+'}</span>
+                  </button>
+                  {expanded && <div className={styles.chapterLinks}>
+                    {chapter.units.map(({unit, index}) => (
+                      <button type="button" key={unit.id}
+                        className={[styles.navButton, selected === index && tab === 'learn' ? styles.activeNav : ''].filter(Boolean).join(' ')}
+                        onClick={() => chooseSection(index)}
+                        aria-current={selected === index && tab === 'learn' ? 'step' : undefined}>
+                        <span className={styles.navNumber}>{completed.includes(unit.id) ? '✓' : String(index + 1).padStart(2,'0')}</span>
+                        <span className={styles.navLabel}>
+                          <small>{sectionLabel(unit)} · apartado</small>
+                          <strong>{unit.title}</strong>
+                        </span>
+                      </button>
+                    ))}
+                  </div>}
+                </div>
+              )
+            })}
           </nav>
-          <div className={styles.sideNote}>Fuente académica en revisión. Solo se muestran secciones que no están clasificadas como reservadas.</div>
+          <div className={styles.sideNote}>Estructura de lectura provisional extraída del Word. Los capítulos y subapartados no equivalen a lecciones oficiales aprobadas.</div>
         </aside>
 
         <section className={styles.main}>
@@ -323,9 +364,9 @@ export default function AcademicAulaModel() {
           </div>
 
           {tab === 'learn' && (
-            <article className={styles.lesson}>
+            <article className={styles.lesson} ref={lessonStartRef}>
               <div className={styles.lessonHeader}>
-                <div className={styles.chapterMark}>{sectionLabel(section)} {selected + 1} / {sections.length}</div>
+                <div className={styles.chapterMark}>Apartado {selected + 1} / {sections.length} · {sectionLabel(section)}</div>
                 <h2>{section.title}</h2>
                 <p>Unidad de lectura del Word original, dividida por sus encabezados. No se muestra ningún PDF al alumno.</p>
               </div>
@@ -344,7 +385,7 @@ export default function AcademicAulaModel() {
               {progressState === 'loading' && <p className={styles.progressHint}>Recuperando avance de prueba…</p>}
               <div className={styles.lessonBottom}>
                 <button type="button" className={styles.secondaryButton} disabled={selected === 0}
-                  onClick={() => setSelected(v => Math.max(0, v - 1))}>Anterior</button>
+                  onClick={() => chooseSection(selected - 1)}>Anterior</button>
                 <button type="button" className={styles.primaryButton}
                   disabled={savingProgress || progressState !== 'saved'}
                   onClick={() => void markCompleted()}>

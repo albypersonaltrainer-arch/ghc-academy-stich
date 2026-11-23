@@ -58,3 +58,27 @@ function splitAtLevelTwo(section: AulaSection): AulaUnit[] {
 export function buildAulaUnits(sections: AulaSection[]): AulaUnit[] {
   return sections.flatMap(splitAtLevelTwo)
 }
+
+// Navigation groups are purely presentational; they keep the same stable unit IDs
+// so progress already saved in the private demo continues to match.
+export type AulaChapter = {
+  id: string
+  title: string
+  units: Array<{ unit: AulaUnit; index: number }>
+}
+export function groupAulaChapters(units: AulaUnit[]): AulaChapter[] {
+  const result: AulaChapter[] = []
+  units.forEach((unit, index) => {
+    const last = result[result.length - 1]
+    if (!last || last.id !== unit.parentId) {
+      result.push({
+        id: unit.parentId,
+        title: unit.parentTitle,
+        units: [{unit, index}]
+      })
+    } else {
+      last.units.push({unit, index})
+    }
+  })
+  return result
+}
