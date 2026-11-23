@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react'
 import GHCLogoBase from '../components/GHCLogoBase'
 import { DEMO_QUIZ } from '../../lib/academy/aula-model-types'
 import { GHC_PASS_PERCENT, scoreSingleChoice } from '../../lib/academy/assessment-policy'
+import { deriveV2AcademicState } from '../../lib/academy/v2-academic-flow'
 import styles from '../ghc-control-center/aula-modelo/aula.module.css'
 
 type Tab = 'learn' | 'case' | 'quiz'
@@ -60,6 +61,28 @@ export default function SeguimientoV2() {
   const assessment = useMemo(() => scoreSingleChoice(DEMO_QUIZ, answers), [answers])
   const progress = Math.round(completed.length * 100 / EXAMPLE_UNITS.length)
   const unit = EXAMPLE_UNITS[selected]
+  const simulatedReady = completed.length === EXAMPLE_UNITS.length
+  const simulatedPassed = simulatedReady && graded && assessment.passed
+  const simulatedAccess = useMemo(() => deriveV2AcademicState({
+    allowed: true,
+    module: { id: 'demo-module-one', title: 'Módulo de ejemplo', completed: simulatedPassed },
+    lesson: { id: 'demo-lesson-one', title: 'Lección ficticia', completed: simulatedReady },
+    modules: [
+      { id: 'demo-module-one', title: 'Módulo de ejemplo', lessons: [
+        { id: 'demo-lesson-one', title: 'Lección ficticia', completed: simulatedReady, accessible: true }
+      ] },
+      { id: 'demo-module-two', title: 'Módulo siguiente (ficticio)', lessons: [
+        { id: 'demo-lesson-two', title: 'Primera lección del módulo siguiente', accessible: simulatedPassed }
+      ] }
+    ],
+    module_exam: {
+      id: 'demo-exam', title: 'Cuestionario de ejemplo', unlocked: simulatedReady,
+      questions: DEMO_QUIZ.map((item, index) => ({
+        id: 'demo-question-' + index, question: item.question,
+        options: item.choices.map((choice, i) => ({ value: String(i), text: choice }))
+      }))
+    }
+  }), [simulatedReady, simulatedPassed])
 
   function complete() {
     setCompleted(prev => prev.includes(selected) ? prev : [...prev, selected])
@@ -253,6 +276,39 @@ export default function SeguimientoV2() {
           )}
         </section>
       </div>
+      <section className={styles.hero} aria-label="Simulación del desbloqueo">
+        <div>
+          <span className={styles.eyebrow}>ITINERARIO ACADÉMICO · SIMULACIÓN LOCAL</span>
+          <h2>{simulatedAccess.nextModuleUnlocked
+            ? 'Módulo 2 desbloqueado en la simulación'
+            : simulatedAccess.moduleExamUnlocked
+              ? 'Lecturas completas: ya puedes superar el cuestionario'
+              : 'Módulo 2 bloqueado hasta superar la evaluación'}</h2>
+          <p>Primero marca las tres unidades como visitadas y después responde las tres preguntas del cuestionario.
+            Solo se muestra el desbloqueo si alcanzas el 80 % y completas las lecturas. No se guarda en Supabase ni concede acceso académico real.</p>
+          <div className={styles.lessonBottom}>
+            <button type="button" className={styles.secondaryButton}
+              onClick={() => {
+                setCompleted([])
+                setSelected(0)
+                setTab('learn')
+                setAnswers({})
+                setGraded(false)
+                setCaseChoice(null)
+                setCaseShown(false)
+              }}>
+              Reiniciar simulación
+            </button>
+          </div>
+        </div>
+        <div className={styles.heroMetric}>
+          <span>Estado de la siguiente etapa</span>
+          <strong style={{ fontSize: 21 }}>
+            {simulatedAccess.nextModuleUnlocked ? 'DISPONIBLE' : 'BLOQUEADO'}
+          </strong>
+          <small>Certificado: pendiente hasta terminar los requisitos del programa completo y aprobar su examen final.</small>
+        </div>
+      </section>
       <footer className={styles.footer}>
         <span>GHC ACADEMY · SPORT THROUGH SCIENCE</span>
         <p>Vista de seguimiento temporal, solo demostración. Sin acceso a Supabase, pagos, matrículas ni documentos privados.</p>
