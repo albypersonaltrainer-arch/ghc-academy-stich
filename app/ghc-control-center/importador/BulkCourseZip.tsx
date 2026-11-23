@@ -16,6 +16,8 @@ const messages: Record<string,string> = {
   ZIP_DOCUMENTO_NO_DOCX:'El archivo no es un documento Word válido.',
   ZIP_EXTENSION_INVALIDA:'Selecciona un archivo ZIP.',
   SOURCE_ALREADY_STAGED:'Ya se había guardado un Word idéntico: no se ha duplicado.',
+  STAGING_LIST_FAILED:'No se pudo comprobar el inventario privado; se detiene la carga para evitar duplicados.',
+  ZIP_SHA_CONFLICT:'Este Word coincide con otro módulo ya registrado: se ha bloqueado para revisión.',
   SESSION_REQUIRED:'La sesión ha caducado: vuelve a entrar con MFA.',
   ADMIN_AAL2_REQUIRED:'Se necesita acceso administrativo con MFA.',
   ZIP_TAMANO_INVALIDO:'El ZIP no es válido o supera los 45 MB.',
@@ -55,6 +57,15 @@ export default function BulkCourseZip({ client, onCompleted }: Props) {
       const {data}=await client.auth.getSession()
       const token=data.session?.access_token
       if (!token) throw Error('SESSION_REQUIRED')
+      const inventoryResponse=await fetch('/api/academy/import/staging/list',{
+        method:'GET',cache:'no-store',headers:{Authorization:'Bearer '+token}
+      })
+      const inventory=await inventoryResponse.json().catch(()=>({}))
+      if (!inventoryResponse.ok || inventory.ok!==true || !Array.isArray(inventory.batches))
+        throw Error('STAGING_LIST_FAILED')
+      const existingBatches: Array<{
+        id:string;original_sha256:string;module_number:number|null
+      }> = inventory.batches
       const post=async(path:string,meta:object)=>{
         const response=await fetch(path,{
           method:'POST',cache:'no-store',
@@ -77,6 +88,13 @@ export default function BulkCourseZip({ client, onCompleted }: Props) {
             id:crypto.randomUUID(),name:original.name,size:original.size,
             sha256:Array.from(hash,v=>v.toString(16).padStart(2,'0')).join('')
           }
+          const previous=existingBatches.find(item=>item.original_sha256===meta.sha256)
+          if (previous) {
+            if (Number(previous.module_number)!==entry.moduleNumber) throw Error('ZIP_SHA_CONFLICT')
+            dupes++
+            update(entry,{batchId:previous.id,detail:'Ya estaba guardado con idéntico SHA-256. Se reutiliza el borrador privado.'})
+            continue
+          }
           const signed=await post('/api/academy/import/staging/init',meta)
           const {error:uploadError}=await client.storage.from('ghc-academic-staging')
             .uploadToSignedUrl(signed.path,signed.token,original,{
@@ -86,6 +104,7 @@ export default function BulkCourseZip({ client, onCompleted }: Props) {
           if (uploadError) throw Error('El servidor no pudo guardar el Word en el depósito privado.')
           const result=await post('/api/academy/import/staging/commit',meta)
           const batchId=String(result.result?.id||'')
+          existingBatches.push({id:batchId,original_sha256:meta.sha256,module_number:Number(result.moduleNumber)})
           if (Number(result.moduleNumber)!==entry.moduleNumber || Number(result.levelNumber)!==plan.level) {
             failed++
             update(entry,{batchId,detail:'Guardado como borrador, pero la numeración interior no coincide: revisión manual obligatoria.'})
