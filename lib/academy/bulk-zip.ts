@@ -113,7 +113,7 @@ export function inspectCourseZipBytes(bytes: Uint8Array): CourseZipPlan {
   }
   if (p !== centralOffset + centralSize) return error('ZIP_DIRECTORIO_INVALIDO')
   if (entries.length !== 10) return error('ZIP_REQUIERE_DIEZ_MODULOS')
-  const first = Math.min(...modules)
+  const first = Math.min(...entries.map(entry => entry.moduleNumber))
   const level = first <= 10 ? 1 : first <= 20 ? 2 : 3
   const start = (level - 1) * 10 + 1
   if (entries.some(entry => entry.moduleNumber < start || entry.moduleNumber > start + 9)) {
