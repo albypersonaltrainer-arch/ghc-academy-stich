@@ -127,8 +127,8 @@ export async function inspectCourseZip(file: File) {
 }
 function crc32(bytes: Uint8Array): number {
   let result = 0xffffffff
-  for (const b of bytes) {
-    result ^= b
+  for (let index = 0; index < bytes.length; index++) {
+    result ^= bytes[index]
     for (let i = 0; i < 8; i++) result = (result >>> 1) ^ ((result & 1) ? 0xedb88320 : 0)
   }
   return (result ^ 0xffffffff) >>> 0

@@ -66,7 +66,8 @@ export default function BulkCourseZip({ client, onCompleted }: Props) {
           throw Error(String(payload.code||'El servidor no confirmó el guardado.'))
         return payload
       }
-      for (const [index,entry] of plan.entries.entries()) {
+      for (let index=0; index<plan.entries.length; index++) {
+        const entry=plan.entries[index]
         setStatus('Procesando '+(index+1)+'/10 · Módulo '+entry.moduleNumber)
         update(entry,{detail:'Verificando DOCX y SHA-256…'})
         try {
