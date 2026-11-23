@@ -98,3 +98,10 @@
 .chapterLinks{border-top:1px solid rgba(255,255,255,.045);padding:3px 0 8px}
 .chapterLinks .navButton{padding-left:24px}
 .lesson{scroll-margin-top:16px}
+
+/* Explicit original-document academic hierarchy: level / module / lesson / subsection */
+.navCategory{padding:15px 17px 8px;color:#74b580;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.14em;background:rgba(34,214,91,.035)}
+.lessonCode{color:#90efa1!important;font-weight:800;text-transform:uppercase;letter-spacing:.085em}
+.lessonPath{display:flex;gap:9px;align-items:center;flex-wrap:wrap;color:#bed2c0;font-size:12px;line-height:1.5;margin-bottom:17px}
+.lessonPath strong{font-weight:800;color:#8ae99c}
+.lessonSourceTitle{font-weight:750;color:#e2f3e5;font-size:17px;line-height:1.5;margin:0 0 15px}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildAulaUnits, groupAulaChapters } from '../lib/academy/aula-units.ts'
+import { buildAulaUnits, groupAulaChapters, chapterNavigationLabel } from '../lib/academy/aula-units.ts'
 
 const read = p => readFileSync(p, 'utf8')
 const middleware = read('middleware.ts')
@@ -92,7 +92,37 @@ assert.deepEqual(grouped.flatMap(group => group.units.map(item => item.unit.id))
 assert.deepEqual(grouped.flatMap(group => group.units.map(item => item.index)), [0,1,2,3])
 assert.match(page, /scrollIntoView/)
 assert.match(page, /lessonStartRef/)
-assert.match(page, /Temario por capítulos/)
+assert.match(page, /Nivel \{model\.level \?\? '—'\}/)
+assert.match(page, /chapterNavigationLabel\(chapter\)/)
+assert.match(page, /Lecciones/)
 assert.match(page, /aria-expanded=\{expanded\}/)
 assert.doesNotMatch(page, /sections\.map\(\(item, i\) =>/)
+// Ensure source numbering becomes legible, without promoting an H2 or an appendix.
+const academicModules = [
+  { id:'intro',kind:'orientation',title:'Mapa del módulo',heading:'Mapa del módulo',
+    blocks:[{kind:'paragraph',text:'Introducción'}],sequence:0 },
+  { id:'lesson-1',kind:'lesson_candidate',title:'1. El músculo esquelético como órgano',
+    heading:'1. El músculo esquelético como órgano',
+    blocks:[{kind:'heading',level:1,text:'1. El músculo esquelético como órgano'},
+      {kind:'heading',level:2,text:'1.1. Definición'},{kind:'paragraph',text:'Contenido'}],sequence:1 },
+  { id:'lesson-2',kind:'lesson_candidate',title:'2. Organización del músculo: del órgano al sarcómero',
+    heading:'2. Organización del músculo: del órgano al sarcómero',
+    blocks:[{kind:'heading',level:1,text:'2. Organización del músculo: del órgano al sarcómero'},
+      {kind:'heading',level:2,text:'2.1. Fibra muscular'},{kind:'paragraph',text:'Contenido'}],sequence:2 },
+  { id:'appendix',kind:'practice',title:'27. Registro de figuras, tablas y herramientas',
+    heading:'27. Registro de figuras, tablas y herramientas',
+    blocks:[{kind:'paragraph',text:'Índice'}],sequence:3 },
+  { id:'references',kind:'references',title:'25. Referencias citadas',
+    heading:'25. Referencias citadas',blocks:[{kind:'paragraph',text:'Fuentes'}],sequence:4 }
+]
+const academicUnits = buildAulaUnits(academicModules)
+const academicChapters = groupAulaChapters(academicUnits)
+assert.deepEqual(academicChapters.map(chapter => chapter.type),
+  ['introduction','lesson','lesson','resources','resources'])
+assert.deepEqual(academicChapters.map(chapter => chapter.lessonNumber),
+  [null,1,2,null,null])
+assert.equal(chapterNavigationLabel(academicChapters[2]),'Lección 2')
+assert.equal(academicChapters[2].displayTitle,'Organización del músculo: del órgano al sarcómero')
+assert.equal(academicChapters[2].units[0].unit.title,'2.1. Fibra muscular')
+assert.deepEqual(academicChapters.flatMap(c=>c.units.map(u=>u.unit.id)),academicUnits.map(u=>u.id))
 console.log('[academic-aula-test] OK: lossless H2 split, MFA admin gate, staff-only exclusion, saved demo progress and Preview isolation')

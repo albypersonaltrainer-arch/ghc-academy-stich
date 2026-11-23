@@ -61,11 +61,40 @@ export function buildAulaUnits(sections: AulaSection[]): AulaUnit[] {
 
 // Navigation groups are purely presentational; they keep the same stable unit IDs
 // so progress already saved in the private demo continues to match.
+export type ChapterType = 'introduction' | 'lesson' | 'resources' | 'other'
 export type AulaChapter = {
   id: string
   title: string
+  displayTitle: string
+  type: ChapterType
+  lessonNumber: number | null
   units: Array<{ unit: AulaUnit; index: number }>
 }
+
+function identifyChapter(unit: AulaUnit): Pick<AulaChapter, 'type'|'lessonNumber'|'displayTitle'> {
+  const title = unit.parentTitle.trim()
+  const sectionType = unit.kind
+  const numbered = /^([1-9][0-9]?)\.\s+(.+)$/.exec(title)
+
+  if (sectionType === 'orientation') {
+    return { type: 'introduction', lessonNumber: null, displayTitle: title }
+  }
+  if (sectionType === 'glossary' || sectionType === 'references' ||
+      /^\d+\.\s+registro de (?:figuras|tablas|imágenes)/i.test(title)) {
+    return { type: 'resources', lessonNumber: null, displayTitle: title }
+  }
+  // Lesson numbering comes from the original Word's principal headings.
+  // A numbered 8.2 subsection is never silently promoted to "Lección 8".
+  // Publication and final curriculum approval remain separate decisions.
+  if (numbered && (sectionType === 'lesson_candidate' || sectionType === 'practice')) {
+    return {
+      type: 'lesson', lessonNumber: Number(numbered[1]),
+      displayTitle: numbered[2].trim()
+    }
+  }
+  return { type: 'other', lessonNumber: null, displayTitle: title }
+}
+
 export function groupAulaChapters(units: AulaUnit[]): AulaChapter[] {
   const result: AulaChapter[] = []
   units.forEach((unit, index) => {
@@ -74,6 +103,7 @@ export function groupAulaChapters(units: AulaUnit[]): AulaChapter[] {
       result.push({
         id: unit.parentId,
         title: unit.parentTitle,
+        ...identifyChapter(unit),
         units: [{unit, index}]
       })
     } else {
@@ -81,4 +111,11 @@ export function groupAulaChapters(units: AulaUnit[]): AulaChapter[] {
     }
   })
   return result
+}
+
+export function chapterNavigationLabel(chapter: AulaChapter): string {
+  if (chapter.type === 'lesson') return 'Lección ' + chapter.lessonNumber
+  if (chapter.type === 'introduction') return 'Introducción'
+  if (chapter.type === 'resources') return 'Material complementario'
+  return 'Apartado adicional'
 }

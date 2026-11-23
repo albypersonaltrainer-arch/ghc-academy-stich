@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import GHCLogo from '../../components/GHCLogo'
 import { DEMO_QUIZ } from '../../../lib/academy/aula-model-types'
 import type { AulaBlock, AulaModel, AulaSection } from '../../../lib/academy/aula-model-types'
-import { buildAulaUnits, groupAulaChapters } from '../../../lib/academy/aula-units'
+import { buildAulaUnits, groupAulaChapters, chapterNavigationLabel } from '../../../lib/academy/aula-units'
 import { GHC_PASS_PERCENT, scoreSingleChoice } from '../../../lib/academy/assessment-policy'
 import styles from './aula.module.css'
 
@@ -200,7 +200,12 @@ export default function AcademicAulaModel() {
 
   const sections = useMemo(() => model ? buildAulaUnits(model.sections) : [], [model])
   const chapters = useMemo(() => groupAulaChapters(sections), [sections])
+  const totalLessons = chapters.filter(chapter => chapter.type === 'lesson').length
   const section = sections[selected]
+  const activeChapter = section ? chapters.find(chapter => chapter.id === section.parentId) : null
+  const activeChapterLabel = activeChapter ? chapterNavigationLabel(activeChapter) : 'Introducción'
+  const activeUnitNumber = section?.unitIndex && section.unitIndex > 0
+    ? ' · Apartado ' + section.unitIndex : ''
 
   useEffect(() => {
     if (!section) return
@@ -286,7 +291,7 @@ export default function AcademicAulaModel() {
       </header>
 
       <div className={styles.breadcrumb}>
-        GHC Academy <span>›</span> Nivel {model.level ?? '—'} <span>›</span> Módulo {model.module ?? '—'} <span>›</span> Aula interactiva
+        GHC Academy <span>›</span> Nivel {model.level ?? '—'} <span>›</span> Módulo {model.module ?? '—'} <span>›</span> {activeChapterLabel}
       </div>
 
       <section className={styles.hero}>
@@ -306,22 +311,29 @@ export default function AcademicAulaModel() {
       <div className={[styles.layout, focus ? styles.focusMode : ''].join(' ')}>
         <aside className={styles.sidebar} aria-label="Capítulos y apartados de lectura">
           <div className={styles.sidebarTitle}>
-            <strong>Temario por capítulos</strong>
-            <small>{chapters.length} capítulos · {sections.length} unidades de lectura</small>
+            <strong>Nivel {model.level ?? '—'} · Módulo {model.module ?? '—'}</strong>
+            <small>{totalLessons} lecciones del Word · {sections.length} apartados de lectura</small>
             <small>{completedCount} apartados marcados como leídos</small>
           </div>
           <nav className={styles.navigation} aria-label="Capítulos y apartados">
-            {chapters.map(chapter => {
+            {chapters.map((chapter, chapterIndex) => {
               const expanded = expandedChapters.includes(chapter.id)
+              const previousType = chapters[chapterIndex - 1]?.type
+              const categoryLabel = chapter.type === 'introduction' ? 'Antes de comenzar'
+                : chapter.type === 'lesson' ? 'Lecciones'
+                : chapter.type === 'resources' ? 'Material complementario'
+                : 'Otros apartados'
               const chapterCompleted = chapter.units.filter(item => completed.includes(item.unit.id)).length
               return (
                 <div className={styles.chapterGroup} key={chapter.id}>
+                  {chapter.type !== previousType && <div className={styles.navCategory}>{categoryLabel}</div>}
                   <button type="button"
                     className={styles.chapterToggle}
                     aria-expanded={expanded}
                     onClick={() => toggleChapter(chapter.id)}>
                     <span className={styles.chapterToggleLabel}>
-                      <strong>{chapter.title}</strong>
+                      <small className={styles.lessonCode}>{chapterNavigationLabel(chapter)}</small>
+                      <strong>{chapter.displayTitle}</strong>
                       <small>{chapterCompleted}/{chapter.units.length} apartados leídos</small>
                     </span>
                     <span className={styles.chapterChevron} aria-hidden="true">{expanded ? '−' : '+'}</span>
@@ -334,7 +346,7 @@ export default function AcademicAulaModel() {
                         aria-current={selected === index && tab === 'learn' ? 'step' : undefined}>
                         <span className={styles.navNumber}>{completed.includes(unit.id) ? '✓' : String(index + 1).padStart(2,'0')}</span>
                         <span className={styles.navLabel}>
-                          <small>{sectionLabel(unit)} · apartado</small>
+                          <small>{chapterNavigationLabel(chapter)} · {unit.unitIndex === 0 ? 'introducción' : 'apartado ' + unit.unitIndex}</small>
                           <strong>{unit.title}</strong>
                         </span>
                       </button>
@@ -344,7 +356,7 @@ export default function AcademicAulaModel() {
               )
             })}
           </nav>
-          <div className={styles.sideNote}>Estructura de lectura provisional extraída del Word. Los capítulos y subapartados no equivalen a lecciones oficiales aprobadas.</div>
+          <div className={styles.sideNote}>Numeración tomada de los epígrafes principales del Word. Organización provisional: las lecciones todavía requieren validación académica y no están publicadas.</div>
         </aside>
 
         <section className={styles.main}>
@@ -366,9 +378,19 @@ export default function AcademicAulaModel() {
           {tab === 'learn' && (
             <article className={styles.lesson} ref={lessonStartRef}>
               <div className={styles.lessonHeader}>
-                <div className={styles.chapterMark}>Apartado {selected + 1} / {sections.length} · {sectionLabel(section)}</div>
+                <div className={styles.lessonPath}>
+                  <span>Nivel {model.level ?? '—'}</span>
+                  <span aria-hidden="true">›</span>
+                  <span>Módulo {model.module ?? '—'}</span>
+                  <span aria-hidden="true">›</span>
+                  <strong>{activeChapterLabel}{activeUnitNumber}</strong>
+                </div>
+                {activeChapter?.type === 'lesson' && (
+                  <p className={styles.lessonSourceTitle}>{activeChapter.displayTitle}</p>
+                )}
+                <div className={styles.chapterMark}>{sectionLabel(section)} · apartado {selected + 1} de {sections.length}</div>
                 <h2>{section.title}</h2>
-                <p>Unidad de lectura del Word original, dividida por sus encabezados. No se muestra ningún PDF al alumno.</p>
+                <p>Contenido procedente del Word original. Cada lección agrupa sus apartados; la división definitiva está pendiente de aprobación académica.</p>
               </div>
               <div className={styles.reading}>
                 {section.blocks.map((block, index) => <StudyBlock key={index} block={block} index={index} batchId={model.id} />)}
