@@ -7,6 +7,7 @@ import GHCLogo from '../../components/GHCLogo'
 import { DEMO_QUIZ } from '../../../lib/academy/aula-model-types'
 import type { AulaBlock, AulaModel, AulaSection } from '../../../lib/academy/aula-model-types'
 import { buildAulaUnits } from '../../../lib/academy/aula-units'
+import { GHC_PASS_PERCENT, scoreSingleChoice } from '../../../lib/academy/assessment-policy'
 import styles from './aula.module.css'
 
 const DEMO_BATCH = '5be17000-d662-472f-a115-e90dca626ac6'
@@ -145,10 +146,10 @@ export default function AcademicAulaModel() {
 
   const sections = useMemo(() => model ? buildAulaUnits(model.sections) : [], [model])
   const section = sections[selected]
-  const progress = sections.length ? Math.round(completed.length / sections.length * 100) : 0
-  const score = useMemo(() => DEMO_QUIZ.reduce((sum, q, i) =>
-    sum + (answers[i] === q.answer ? 1 : 0), 0), [answers])
-  const answered = Object.keys(answers).length === DEMO_QUIZ.length
+  const completedCount = sections.filter(unit => completed.includes(unit.id)).length
+  const progress = sections.length ? Math.round(completedCount / sections.length * 100) : 0
+  const assessment = useMemo(() => scoreSingleChoice(DEMO_QUIZ, answers), [answers])
+  const answered = assessment.completed
 
   async function markCompleted() {
     if (!section || !model || savingProgress || progressState !== 'saved') return
@@ -219,7 +220,7 @@ export default function AcademicAulaModel() {
       <section className={styles.hero}>
         <div>
           <span className={styles.eyebrow}>PROGRAMA PROFESIONAL DE ENTRENADOR PERSONAL</span>
-          <h1>Módulo {model.module ?? '—'} <span>La profesión del entrenador personal</span></h1>
+          <h1>Módulo {model.module ?? '—'} <span>{model.title?.trim() || 'Contenido académico en revisión'}</span></h1>
           <p>Una demostración de cómo se estudiará dentro de GHC Academy: lectura guiada, actividades prácticas, comprobación de conocimientos y progreso.</p>
         </div>
         <div className={styles.heroMetric}>
@@ -234,7 +235,7 @@ export default function AcademicAulaModel() {
         <aside className={styles.sidebar} aria-label="Unidades de aprendizaje">
           <div className={styles.sidebarTitle}>
             <strong>Itinerario del módulo</strong>
-            <small>{completed.length} de {sections.length} unidades completadas</small>
+            <small>{completedCount} de {sections.length} unidades completadas</small>
           </div>
           <nav className={styles.navigation} aria-label="Apartados">
             {sections.map((item, i) => (
@@ -340,7 +341,7 @@ export default function AcademicAulaModel() {
               <div className={styles.lessonHeader}>
                 <div className={styles.chapterMark}>PRUEBA DEMOSTRATIVA · NO ES EL EXAMEN OFICIAL</div>
                 <h2>Comprueba lo que has comprendido</h2>
-                <p>Tres preguntas ilustrativas basadas en conceptos del temario. Las evaluaciones oficiales y sus solucionarios permanecen reservados y no se utilizan aquí.</p>
+                <p>Tres preguntas ilustrativas. Se muestra el criterio de aprobado del 80 % de GHC, pero esta actividad no registra notas ni desbloquea módulos. Los exámenes oficiales y sus respuestas siguen reservados.</p>
               </div>
               <div className={styles.quizQuestions}>
                 {DEMO_QUIZ.map((item, questionIndex) => (
@@ -369,7 +370,13 @@ export default function AcademicAulaModel() {
                     onClick={() => setGraded(true)}>Corregir actividad demostrativa</button>
                 ) : (
                   <>
-                    <p role="status"><strong>{score} / {DEMO_QUIZ.length}</strong> respuestas correctas. Resultado solo de esta sesión, sin nota oficial.</p>
+                    <p role="status">
+                      <strong>{assessment.correct} / {assessment.total} · {assessment.percentage}%</strong>
+                      {assessment.passed
+                        ? ` Simulación superada (mínimo ${GHC_PASS_PERCENT}%).`
+                        : ` Simulación no superada (mínimo ${GHC_PASS_PERCENT}%).`}
+                      {' '}No genera nota oficial ni desbloquea módulos.
+                    </p>
                     <button type="button" className={styles.secondaryButton}
                       onClick={() => { setAnswers({}); setGraded(false) }}>Repetir actividad</button>
                   </>
